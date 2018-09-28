@@ -267,6 +267,21 @@ public class PetriSim implements Cloneable, Serializable {
             }
         };
     }
+    
+    public static Comparator<PetriSim> getComparatorByNum() {
+        return new Comparator<PetriSim>() {
+            @Override
+            public int compare(PetriSim o1, PetriSim o2) {
+                if (o1.getNumObj()< o2.getNumObj()) {
+                    return -1;
+                } else if (o1.getNumObj() == o2.getNumObj()) {
+                    return 0;
+                } else {
+                    return 1;
+                }
+            }
+        };
+    }
 
     /**
      * Do one event

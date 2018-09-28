@@ -260,6 +260,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
                 }
             }
         }
+        getListObj().sort(PetriSim.getComparatorByNum()); // return the initial order in the list for a correct output of the results (in SMO test)
     }
     
     
