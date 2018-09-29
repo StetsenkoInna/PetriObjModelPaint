@@ -45,6 +45,8 @@ import graphnet.GraphPetriTransition;
 import graphnet.GraphPetriNet;
 
 import java.awt.geom.Point2D;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.util.Objects;
 
 import utils.Utils;
@@ -54,11 +56,9 @@ import utils.Utils;
  * @author Olya &  Inna
  */
 public class FileUse {
-
-    // private final String COPY_NAME = "_copy"; // 15.01.13 
+ 
     private final String PATTERN = ".pns";
-    private final String LIBRERY_PATH = "\\src\\libnet\\NetLibrary.java"; // edit by Inna 17.07.2018  "src\\main\\java\\libnet"
-
+   
     public String openFile(PetriNetsPanel panel, JFrame frame) throws ExceptionInvalidNetStructure {
         String pnetName = "";
         FileDialog fdlg;
@@ -71,14 +71,10 @@ public class FileUse {
             // System.out.println("Opening file '" + fdlg.getDirectory() + fdlg.getFile() + "'");
             fis = new FileInputStream(fdlg.getDirectory() + fdlg.getFile());
             ois = new ObjectInputStream(fis);
-            GraphPetriNet net = ((GraphPetriNet) ois.readObject()).clone();  //СЃС‚РІРѕСЂСЋС”РјРѕ РєРѕРїС–СЋ, С‰РѕР± РІС–РґРЅРѕРІРёС‚Рё СЃС‚Р°РЅ СѓСЃС–С… РєР»Р°СЃС–РІ Р· СѓСЃС–РјР° РЅРѕРјРµСЂР°РјРё...
-            panel.addGraphNet(net); //РјРѕР¶Р»РёРІРѕ РїРµСЂРµРЅР°Р·РІР°С‚Рё Р№РѕРіРѕ setGraphNet(net)???
+            GraphPetriNet net = ((GraphPetriNet) ois.readObject()).clone();  
+            panel.addGraphNet(net); 
             pnetName = net.getPetriNet().getName();
             ois.close();
-            // 11.01.13 СЏРєС‰Рѕ Р·Р°РґР°РЅР° РїРѕС‚РѕС‡РЅР° С‚РѕС‡РєР° РЅР° РїР°РЅРµР»С–, С‚Рѕ С†РµРЅС‚СЂ РјРµСЂРµР¶С– Р±СѓРґРµ РІ С†С–Р№ С‚РѕС‡С†С–
-          /*  if (panel.getCurrentPlacementPoint() != null) {
-                panel.getLastGraphNetList().changeLocation(panel.getCurrentPlacementPoint());
-            }*/
             panel.repaint();
 
         } catch (FileNotFoundException e) {
@@ -104,7 +100,6 @@ public class FileUse {
             }
 
         }
-        //  return pnetName.substring(0, pnetName.length() - COPY_NAME.length());
         return pnetName.substring(0, pnetName.length());
     }
 
@@ -120,13 +115,11 @@ public class FileUse {
             //  System.out.println("Opening file '" + fdlg.getDirectory() + fdlg.getFile() + "'");
             fis = new FileInputStream(fdlg.getDirectory() + fdlg.getFile());
             ois = new ObjectInputStream(fis);
-            net = ((GraphPetriNet) ois.readObject()).clone();  //СЃС‚РІРѕСЂСЋС”РјРѕ РєРѕРїС–СЋ, С‰РѕР± РІС–РґРЅРѕРІРёС‚Рё СЃС‚Р°РЅ СѓСЃС–С… РєР»Р°СЃС–РІ Р· СѓСЃС–РјР° РЅРѕРјРµСЂР°РјРё...             
+            net = ((GraphPetriNet) ois.readObject()).clone();              
             ois.close();
         } catch (FileNotFoundException e) {
             // System.out.println("Such file was not found");
-        } catch (ClassNotFoundException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException ex) {
+        } catch (ClassNotFoundException | IOException ex) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
         } catch (CloneNotSupportedException ex) {
             Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, null, ex);
@@ -191,7 +184,7 @@ public class FileUse {
         try {
             fdlg.setFilenameFilter(null);
             //System.out.println("Saving GraphNet as '" + fdlg.getDirectory() + fdlg.getFile() + "'");
-            net.createPetriNet(fdlg.getFile()); // РјРµСЂРµР¶Р° РјР°С” С–Рј"СЏ СЏРє С–Рј"СЏ С„Р°Р№Р»Сѓ   
+            net.createPetriNet(fdlg.getFile());   
             fos = new FileOutputStream(fdlg.getDirectory() + fdlg.getFile() + PATTERN);
             oos = new ObjectOutputStream(fos);
             oos.writeObject(net);
@@ -223,8 +216,7 @@ public class FileUse {
         try {
             fdlg.setFilenameFilter(null);
             // System.out.println("Saving PetriNet as '" + fdlg.getDirectory() + fdlg.getFile() + "'");
-            // РїРµСЂРµРґ Р·Р±РµСЂС–РіР°РЅРЅСЏРј С„РѕСЂРјСѓС”С‚СЊСЃСЏ РјРµСЂРµР¶Р° РџРµС‚СЂС– РѕР±"С”РєС‚Сѓ graphNet
-            panel.getGraphNet().createPetriNet(fdlg.getFile()); // РјРµСЂРµР¶Р° РјР°С” С–Рј"СЏ СЏРє С–Рј"СЏ С„Р°Р№Р»Сѓ
+            panel.getGraphNet().createPetriNet(fdlg.getFile()); 
             fos = new FileOutputStream(fdlg.getDirectory() + fdlg.getFile() + PATTERN);
             oos = new ObjectOutputStream(fos);
             oos.writeObject(panel.getGraphNet().getPetriNet());
@@ -255,11 +247,8 @@ public class FileUse {
         try {
             String pnetName = name;
             //System.out.println("Saving GraphPetriNet with name '" + pnetName + "'");
-          /*  if (pnetName.contains(COPY_NAME)) {
-             pnetName = pnetName.substring(0, pnet.getPetriNet().getName().length() - COPY_NAME.length());
-             //System.out.println("Changing name to '" + pnetName + "'");
-             }*/
-            pnet.createPetriNet(pnetName); // РјРµСЂРµР¶Р° РјР°С” С–Рј"СЏ СЏРє С–Рј"СЏ С„Р°Р№Р»Сѓ      
+         
+            pnet.createPetriNet(pnetName);      
             File file = new File(pnetName + ".pns");
             // System.out.println("Saving path = " + file.getAbsolutePath());
             fos = new FileOutputStream(file);
@@ -293,11 +282,7 @@ public class FileUse {
     	ArrayList<GraphPetriTransition> grTransitions = currentNet.getGraphPetriTransitionList();
     	ArrayList<GraphArcIn> grArcIns = currentNet.getGraphArcInList();
     	ArrayList<GraphArcOut> grArcOuts = currentNet.getGraphArcOutList();
-    	//ArrayList<GraphPetriPlace> grPlaces = new ArrayList<>();
-        //ArrayList<GraphPetriTransition> grTransitions = new ArrayList<>();
-        //ArrayList<GraphArcIn> grArcIns = new ArrayList<>();
-        //ArrayList<GraphArcOut> grArcOuts = new ArrayList<>();
-        
+    	        
         ArrayList<PetriP> availPetriPlaces = new ArrayList<>(Arrays.asList(net.getListP())); // modified by Katya 20.11.2016 (including the "while" and 1st "for" loop)
         ArrayList<PetriT> availPetriTrans = new ArrayList<>(Arrays.asList(net.getListT()));
         ArrayList<VerticalSet> sets = new ArrayList<>();
@@ -797,7 +782,11 @@ public class FileUse {
         FileInputStream fis = null;
         try {
             String libraryText = "";
-            fis = new FileInputStream(new File(".").getCanonicalPath() + LIBRERY_PATH); // modified by Katya 23.10.2016
+            Path path = FileSystems.getDefault().getPath(
+                    System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
+            String pathNetLibrary = path.toString();
+            fis = new FileInputStream(pathNetLibrary); // modified by Katya 23.10.2016, by Inna 29.09.2018
+           
             int content;
             while ((content = fis.read()) != -1) {
 		libraryText += (char) content;
@@ -1040,19 +1029,17 @@ public class FileUse {
                 : Integer.toString(Out.getQuantity());
            s =  s.concat("\t" + "d_Out.add(new ArcOut(" + "d_T.get(" + Out.getNumT() + ")," + "d_P.get(" + Out.getNumP() + ")," + quantityStr + "));\n");
         }
-        
+  
         s = s.concat(
                 "\t" + "PetriNet d_Net = new PetriNet(\"" + net.getName() + "\",d_P,d_T,d_In,d_Out);\n");
         
-      //  area.append("\n\t" + "return d_Net;\n"); // modified by Katya 05.12.2016
         s =  s.concat(
                 "\t" + "PetriP.initNext();\n"
                 + "\t" + "PetriT.initNext();\n"
                 + "\t" + "ArcIn.initNext();\n"
                 + "\t" + "ArcOut.initNext();\n"
                 + "\n\t" + "return d_Net;\n");
-        
-        
+         
        s =  s.concat("}");
         return s;
     }
@@ -1146,13 +1133,18 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
     public void saveMethodInNetLibrary(JTextArea area) {  //added by Inna 20.05.2013
         
         try {
-           String directory = new File(".").getCanonicalPath(); //С‡РёС‚Р°С”РјРѕ РїРѕС‚РѕС‡РЅСѓ РґРёСЂРµРєС‚РѕСЂС–СЋ
-           RandomAccessFile f = new RandomAccessFile(directory + LIBRERY_PATH, "rw");
-           System.out.println("THe path of Library of nets is "+directory + "\n" + directory + LIBRERY_PATH);
+           
+            Path path = FileSystems.getDefault().getPath(
+                    System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
+            String pathNetLibrary = path.toString(); //added by Inna 29.09.2018
+            
+                      
+            RandomAccessFile f = new RandomAccessFile(pathNetLibrary, "rw");
+           System.out.println("The path of Library of nets is\t"+path.toString());
            
             long n = f.length();   
             if (n == 0) {
-                f.writeBytes("package " + directory.substring(directory.lastIndexOf("\\") + 1).toLowerCase() + ";\n"
+                f.writeBytes("package LibNet;\n"
                         +"import PetriObj.ExceptionInvalidNetStructure;\n"
                         + "import PetriObj.PetriNet;\n"
                         + "import PetriObj.PetriP;\n"
@@ -1166,12 +1158,12 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
             }
 
             n -= 1;
-            f.seek(n);  //РІСЃС‚Р°РЅРѕРІР»СЋС”РјРѕ РІРєР°Р·С–РІРЅРёРє С„Р°Р№Р»Сѓ РЅР° РµР»РµРјРµРЅС‚ Р· РЅРѕРјРµСЂРѕРј n           
+            f.seek(n);           
 
             String c = f.readLine();
-            while (c != null && !c.contains("}") && n > 0) {  //С‡РёС‚Р°РµРј, РїРѕРєР° РЅРµ РѕР±РЅР°СЂСѓР¶РёРј СЃС‚СЂРѕРєСѓ, СЃРѕРґРµСЂР¶Р°С‰СѓСЋ СЃРєРѕР±РѕС‡РєСѓ
+            while (c != null && !c.contains("}") && n > 0) {  
                 //   System.out.println("n= "+n+ ",   line= "+c);
-                n -= 1;  //РїРµСЂРµРґРІРёРЅСѓС‚СЊ РЅР° РѕРґРёРЅ СЃРёРјРІРѕР»
+                n -= 1;  
                 f.seek(n);
                 c = f.readLine();
             }

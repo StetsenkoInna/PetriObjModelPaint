@@ -35,6 +35,8 @@ import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.ObjectInputStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -50,50 +52,50 @@ import javax.swing.Timer;
  *
  * @author Ольга
  */
-class MethodNameDialogPanel extends JPanel { // Added by Katya 23.10.2016,
-    // modified by Katya 22.11.2016
-
-    private JComboBox<String> combo;
-    private final JButton okButton = new JButton("OK");
-    private Boolean secondListenerAdded = false; // added by Katya 05.12.2016
-
-    public MethodNameDialogPanel() { // modified by Katya 27.11.2016
-        okButton.addActionListener((ActionEvent e) -> {
-            okButtonAction();
-        });
-        combo = new JComboBox<>(); // modified by Katya 27.11.2016
-        add(combo);
-        add(okButton);
-    }
-
-    public void addOkButtonClickHandler(ActionListener listener) { // added by Katya 05.12.2016
-        if (!secondListenerAdded) {
-            okButton.addActionListener(listener);
-            secondListenerAdded = true;
-        }
-    }
-
-    public void setComboOptions(ArrayList<String> methodNames) { // added by Katya
-        combo.setModel(new DefaultComboBoxModel<>(methodNames.toArray(new String[methodNames.size()])));															// 27.11.2016
-    }
-
-    public String getFieldText() {
-        return combo.getSelectedItem().toString();
-    }
-
-    private void okButtonAction() {
-        Window win = SwingUtilities.getWindowAncestor(this);
-        if (win != null) {
-            win.dispose();
-        }
-    }
-}
 
 public class PetriNetsFrame extends javax.swing.JFrame {
 
     private Timer timer; //timer thats starts repainting while net simulates
     private final MethodNameDialogPanel dialogPanel = new MethodNameDialogPanel();
     private JDialog dialog;
+    class MethodNameDialogPanel extends JPanel { // Added by Katya 23.10.2016,
+        // modified by Katya 22.11.2016
+
+        private JComboBox<String> combo;
+        private final JButton okButton = new JButton("OK");
+        private Boolean secondListenerAdded = false; // added by Katya 05.12.2016
+
+        public MethodNameDialogPanel() { // modified by Katya 27.11.2016
+            okButton.addActionListener((ActionEvent e) -> {
+                okButtonAction();
+            });
+            combo = new JComboBox<>(); // modified by Katya 27.11.2016
+            add(combo);
+            add(okButton);
+        }
+
+        public void addOkButtonClickHandler(ActionListener listener) { // added by Katya 05.12.2016
+            if (!secondListenerAdded) {
+                okButton.addActionListener(listener);
+                secondListenerAdded = true;
+            }
+        }
+
+        public void setComboOptions(ArrayList<String> methodNames) { // added by Katya
+            combo.setModel(new DefaultComboBoxModel<>(methodNames.toArray(new String[methodNames.size()])));															// 27.11.2016
+        }
+
+        public String getFieldText() {
+            return combo.getSelectedItem().toString();
+        }
+
+        private void okButtonAction() {
+            Window win = SwingUtilities.getWindowAncestor(this);
+            if (win != null) {
+                win.dispose();
+            }
+        }
+    }
 
     private void UpdateNetLibraryMethodsCombobox() { // added by Katya
         // 27.11.2016
@@ -101,8 +103,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         FileInputStream fis = null;
         try {
             String libraryText = "";
-            fis = new FileInputStream(new File(".").getCanonicalPath()
-                    + "\\src\\libnet\\NetLibrary.java");  // edit by Inna 17.07.2018 It was "src\\main\\java\\libnet"
+            Path path = FileSystems.getDefault().getPath(
+                    System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
+            String pathNetLibrary = path.toString();
+            fis = new FileInputStream(pathNetLibrary);  // edit by Inna 29.09.2018
             int content;
             while ((content = fis.read()) != -1) {
                 libraryText += (char) content;
