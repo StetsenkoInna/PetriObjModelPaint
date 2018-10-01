@@ -29,8 +29,8 @@ public class GraphReUseFrame extends javax.swing.JFrame {
         initComponents();
         this.setLocationRelativeTo(null);
         
-        fileUse = new FileUse();
-        graphPetriNet = fileUse.openFile(this);
+      //  fileUse = new FileUse();
+       // graphPetriNet = fileUse.openFile(this);
         
         String netName = graphPetriNet.getPetriNet().getName();
         graphNetName = netName.substring(0, netName.length());

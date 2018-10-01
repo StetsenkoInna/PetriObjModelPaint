@@ -18,7 +18,6 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
-import javax.swing.table.TableCellEditor;
 
 /**
  *
