@@ -103,41 +103,6 @@ public class FileUse {
         return pnetName.substring(0, pnetName.length());
     }
 
-    public GraphPetriNet openFile(JFrame frame) throws ExceptionInvalidNetStructure {
-        GraphPetriNet net = null;
-        FileDialog fdlg;
-        fdlg = new FileDialog(frame, "Open a file ",
-                FileDialog.LOAD);
-        fdlg.setVisible(true);
-        FileInputStream fis = null;
-        ObjectInputStream ois = null;
-        try {
-            //  System.out.println("Opening file '" + fdlg.getDirectory() + fdlg.getFile() + "'");
-            fis = new FileInputStream(fdlg.getDirectory() + fdlg.getFile());
-            ois = new ObjectInputStream(fis);
-            net = ((GraphPetriNet) ois.readObject()).clone();              
-            ois.close();
-        } catch (FileNotFoundException e) {
-            // System.out.println("Such file was not found");
-        } catch (ClassNotFoundException | IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (CloneNotSupportedException ex) {
-            Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            try {
-                fis.close();
-            } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            try {
-                ois.close();
-            } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-        return net;
-    }
-
     public void newWorksheet(PetriNetsPanel panel) {
         panel.setNullPanel();
     }

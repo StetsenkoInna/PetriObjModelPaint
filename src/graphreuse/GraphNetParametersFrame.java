@@ -36,10 +36,7 @@ public class GraphNetParametersFrame extends javax.swing.JFrame {
     public GraphNetParametersFrame() throws ExceptionInvalidNetStructure {
         initComponents();
         this.setLocationRelativeTo(null);
-        
-        fileUse = new FileUse();
-        graphPetriNet = fileUse.openFile(this);
-        
+          
         String netName = graphPetriNet.getPetriNet().getName();
         graphNetName = netName.substring(0, netName.length());
         
