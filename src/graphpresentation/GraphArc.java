@@ -67,22 +67,18 @@ public class GraphArc implements Serializable{
     }
     
 
-    public void setBeginElement(GraphElement e){
-        if(e!=null) {   //add by Inna 26.01.2013
-            beginElement=e;
-        }
-        else
+    public void setBeginElement(GraphElement e) {
+        if (e != null) {   //add by Inna 26.01.2013
+            beginElement = e;
+        } else
             ;
     }
-    
-    public void setEndElement(GraphElement e){
-      if(e!=null) {  //add by Inna 26.01.2013
-           {
-              endElement=e;
-          }
-      }
-      else ;
-       
+
+    public void setEndElement(GraphElement e) {
+        if (e != null) {  //add by Inna 26.01.2013
+            endElement = e;
+        } else ;
+
     }
     
 

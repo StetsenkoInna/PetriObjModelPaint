@@ -17,7 +17,6 @@ import java.awt.Cursor;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Stroke;
 import java.awt.event.KeyAdapter;
@@ -55,7 +54,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private static int id; // нумерація графічних елементів
     private GraphPetriNet graphNet;  //added 4.12.2012
-  //  private List<GraphPetriNet> graphNetList = new ArrayList<>();  // для відображення кількох мереж  09.01.13
     private boolean isSettingArc;
     private GraphElement current;
     private GraphElement choosen;
@@ -94,7 +92,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         this.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_DELETE) {
+                if (e.getKeyCode() == KeyEvent.VK_DELETE||e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
                     if (choosenArc != null) {
                         removeArc(choosenArc);
                         choosenArc = null;
@@ -172,15 +170,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (graphNet == null) {
             graphNet = new GraphPetriNet();
         }
-       
+        
         graphNet.paintGraphPetriNet(g2, g);
        
-        // промальовуємо всі мережі
-     /*   for (GraphPetriNet pnet : graphNetList) {
-            if (pnet != graphNet) {
-                pnet.paintGraphPetriNet(g2, g);
-            }
-        }*/
         if (currentArc != null) {
              currentArc.drawGraphElement(g2);
         }
@@ -241,36 +233,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return pt;
             }
         }
-        // 11.01.13
-        // якщо є декілька мереж, то ведеться пошук по всім мережам і встановлюється Поточна мережа та, в якій буде знайдено елемент
-       /* if (graphNetList.size() > 1) {  // added 24.07.2018
-            for (GraphPetriNet pnet : graphNetList) {
-                for (GraphPetriPlace pp : pnet.getGraphPetriPlaceList()) {
-                    if (pp.isGraphElement(p)) {
-                        graphNet = pnet;
-                        if (pnet.getPetriNet() != null) {
-                            String pnetName = graphNet.getPetriNet().getName();
-                               nameTextField.setText(pnetName);
-                        } else {
-                            nameTextField.setText(DEFAULT_NAME);
-                        }
-                        return pp;
-                    }
-                }
-                for (GraphPetriTransition pt : pnet.getGraphPetriTransitionList()) {
-                    if (pt.isGraphElement(p)) {
-                        graphNet = pnet;
-                        if (pnet.getPetriNet() != null) {
-                            String pnetName = graphNet.getPetriNet().getName();
-                            nameTextField.setText(pnetName);
-                        } else {
-                            nameTextField.setText(DEFAULT_NAME);
-                        }
-                        return pt;
-                    }
-                }
-            }
-        }*/
         return null;
     }
 
@@ -285,36 +247,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return ti;
             }
         }
-       /* if (graphNetList.size() > 1) {  // added 24.07.2018
-            for (GraphPetriNet pnet : graphNetList) {
-                for (GraphArcOut to : pnet.getGraphArcOutList()) {
-                    if (to.isEnoughDistance(p)) {
-                        // System.out.println("Current element is from  net = " + pnet.getPetriNet().getName());
-                        graphNet = pnet;
-                        if (pnet.getPetriNet() != null) {
-                            String pnetName = graphNet.getPetriNet().getName();
-                            nameTextField.setText(pnetName);
-                        } else {
-                            nameTextField.setText(DEFAULT_NAME);
-                        }
-                        return to;
-                    }
-                }
-                for (GraphArcIn ti : pnet.getGraphArcInList()) {
-                    if (ti.isEnoughDistance(p)) {
-                        // System.out.println("Current element is from  net = " + pnet.getPetriNet().getName());
-                        graphNet = pnet;
-                        if (pnet.getPetriNet() != null) {
-                            String pnetName = graphNet.getPetriNet().getName();
-                            nameTextField.setText(pnetName);
-                        } else {
-                            nameTextField.setText(DEFAULT_NAME);
-                        }
-                        return ti;
-                    }
-                }
-            }
-        }*/
         return null;
     }
 
@@ -326,10 +258,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             current = null;
 
         }
-       /* if(current!=null)System.out.println("remove : "+current.getName()+"  "+s.getName());
+        /* if(current!=null)System.out.println("remove : "+current.getName()+"  "+s.getName());
         else System.out.println("remove : current null");*/
         graphNet.delGraphElement(s); //added by Inna 4.12.2012
-
+        
         repaint();
     }
 
@@ -749,7 +681,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     public void addGraphNet(GraphPetriNet net) {
 
         graphNet = net;
-
+       
         int maxIdPetriNet = 0; //
         for (GraphPetriPlace pp : graphNet.getGraphPetriPlaceList()) {  //відшукуємо найбільший id для позицій
             if (maxIdPetriNet < pp.getId()) {
@@ -793,15 +725,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         return graphNetList.get(graphNetList.size() - 1);
     }
 */
-    public static int getIdPosition() {  //назва методу не за стандартом Чоме немає id для зв"язків?
+    public static int getIdElement() {  //edited by Inna 1.10.2018
         return id++;
     }
-
-    public static int getIdTransition() { //назва методу не за стандартом 
-        return id++;
-    }
-
-
+  
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always

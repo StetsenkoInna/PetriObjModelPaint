@@ -29,10 +29,6 @@ import javax.swing.JTextArea;
  */
 public class GraphPetriNet implements Cloneable, Serializable {
 
-    private int idElements; // додано 19. 10. 12 Олею . потрібен для відновлення id позицій і переходів, коли відкриваємо файл 
-    //але НЕ використовується ...поки що ?...
-    private static final long serialVersionUID = 1238766L; //  але НЕ використовується ...поки що ?...
-    // added by Olha 14.11.2012 GraphPetriNet повинен зберігати не лише PetriNet, а й графічні елементи
     private ArrayList<GraphPetriPlace> graphPetriPlaceList;
     private ArrayList<GraphPetriTransition> graphPetriTransitionList;
     private ArrayList<GraphArcIn> graphArcInList;
@@ -111,21 +107,13 @@ public class GraphPetriNet implements Cloneable, Serializable {
             to.printParameters();
         }
     }
-
+    
     public PetriNet getPetriNet() {
         return pNet;
     }
 
     public void setPetriNet(PetriNet net) {
         pNet = net;
-    }
-
-    public int getIdElements() {  // додано 19. 10. 12 Олею , але НЕ використовується?
-        return idElements;
-    }
-
-    public void setIdElements(int idElements) {  // додано 19. 10. 12 Олею  , але НЕ використовується?
-        this.idElements = idElements;
     }
 
     public ArrayList<GraphPetriPlace> getGraphPetriPlaceList() {
@@ -228,8 +216,8 @@ public class GraphPetriNet implements Cloneable, Serializable {
         return b;
     }
 
-    public void createPetriNet(String s) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay //added by Inna 4.12.2012 //створюється мережа Петрі у відповідності до графічних елементів 
-    {// added by Inna 4.12.2012
+    public void createPetriNet(String s) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {//added by Inna 4.12.2012 //створюється мережа Петрі у відповідності до графічних елементів 
+    // added by Inna 4.12.2012
         correctingNumP();
         correctingNumT();
         pNet = new PetriNet(s, this.getPetriPList(), this.getPetriTList(), this.getArcInList(), this.getArcOutList());
@@ -259,8 +247,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
         return b;
     }
 
-    public void correctingNumP() //added by Inna 5.12.2012
-    {
+    public void correctingNumP() { //added by Inna 5.12.2012
         if (isCorrectNumberP() == true) {
             return;
         } else {
@@ -300,8 +287,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
         }
     }
 
-    public void correctingNumT() //added by Inna 5.12.2012
-    {
+    public void correctingNumT() { //added by Inna 5.12.2012
         if (isCorrectNumberT() == true) {
             return;
         } else {
@@ -342,19 +328,17 @@ public class GraphPetriNet implements Cloneable, Serializable {
         }
     }
 
-    public void delGraphElement(GraphElement s) throws ExceptionInvalidNetStructure //added by Inna 4.12.2012
-    {
+    public void delGraphElement(GraphElement s) throws ExceptionInvalidNetStructure { //added by Inna 4.12.2012
         String name;
         if (pNet != null) {
             name = pNet.getName();
         } else {
-            name = " untitled ";
+            name = "Untitled";
         }
         pNet = null; //тому що порушується структура мережі Петрі!!!
         for (GraphPetriPlace pp : graphPetriPlaceList) {
-            if (pp.getId() == s.getId()) {
+              if (pp.getId() == s.getId()) {
                 boolean b = true;
-
                 while (b) {
                     b = false;
                     for (GraphArcIn arc : graphArcInList) {
@@ -370,6 +354,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
                     b = false;
                     for (GraphArcOut arc : graphArcOutList) {
                         if (arc.getEndElement().getId() == s.getId()) {
+                            graphArcOutList.remove(arc);
                             b = true;
                             break;
                         }

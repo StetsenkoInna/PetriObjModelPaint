@@ -198,7 +198,7 @@ public class ArcOut implements Cloneable, Serializable {
     }
 
     public void printParameters() {
-        System.out.println("This tie has direction from  transition  with number " + numT + " to place with number " + numP
+        System.out.println("This arc has direction from  transition  with number " + numT + " to place with number " + numP
                 + " and has " + k + " value of multiplicity");
     }
 

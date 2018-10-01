@@ -26,16 +26,13 @@ public class GraphPetriPlace extends GraphPlace implements Serializable {     //
     
     private int id; //додано Олею
   
-    public GraphPetriPlace(PetriP P, int i) //додано Олею
-    {
+    public GraphPetriPlace(PetriP P, int i){ //додано Олею
         place = P;
         id=i;
-        
     }
 
-    public PetriP getPetriPlace()
-    {
-       return place;
+    public PetriP getPetriPlace(){
+         return place;
     }
    
     public GraphPetriPlace(PetriP P) {

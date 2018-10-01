@@ -22,37 +22,37 @@ import java.util.List;
 public class GraphArcIn extends GraphArc implements Serializable {
 
     private static ArrayList<GraphArcIn> graphArcInList = new ArrayList<>(); // added by Olha 24.09.12, cjrrect by Inna 28.11.2012
-    private ArcIn tie;
+    private ArcIn arc;
    
    
   
     public GraphArcIn() { // додано Олею 28.09.12 для створення тимчасової дуги (тільки для промальовки)  
         super();
-        tie = new ArcIn();
-        //System.out.println("GraphArcIn  "+ tie.getNameP()+"  "+tie.getNumP()+"  "+tie.getNameT()+"  "+tie.getNumT());
+        arc = new ArcIn();
+        //System.out.println("GraphArcIn  "+ arc.getNameP()+"  "+arc.getNumP()+"  "+arc.getNameT()+"  "+arc.getNumT());
         super.setLineWidth(1);
         super.setColor(Color.BLACK);
     }
         
-    public GraphArcIn(ArcIn tiein){
-        tie = tiein;
+    public GraphArcIn(ArcIn arcin){
+        arc = arcin;
         super.setLineWidth(1);
         super.setColor(Color.BLACK);
    
     }
     public ArcIn getArcIn()
     {
-    return tie;
+    return arc;
     }
 
     @Override
     public void setPetriElements() {
-        tie.setQuantity(tie.getQuantity());
-        tie.setInf(tie.getIsInf());
-        tie.setNumP(super.getBeginElement().getNumber());
-        tie.setNumT(super.getEndElement().getNumber());
-        tie.setNameP(super.getBeginElement().getName());
-        tie.setNameT(super.getEndElement().getName());
+        arc.setQuantity(arc.getQuantity());
+        arc.setInf(arc.getIsInf());
+        arc.setNumP(super.getBeginElement().getNumber());
+        arc.setNumT(super.getEndElement().getNumber());
+        arc.setNameP(super.getBeginElement().getName());
+        arc.setNameT(super.getEndElement().getName());
       
      
         addElementToArrayList(); //// added by Olha 24.09.12
@@ -69,7 +69,7 @@ public class GraphArcIn extends GraphArc implements Serializable {
     @Override
     public void drawGraphElement(Graphics2D g) {
         Graphics2D g2 = (Graphics2D) g;
-        if (tie.getIsInf()) {
+        if (arc.getIsInf()) {
             Stroke drawingStroke = new BasicStroke(1, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[]{4, 4}, 0);
             g2.setStroke(drawingStroke);
             g2.draw(this.getGraphElement());
@@ -80,10 +80,10 @@ public class GraphArcIn extends GraphArc implements Serializable {
             g2.draw(this.getGraphElement());
             drawArrowHead(g2);
         }
-        if (tie.getQuantity() != 1 || tie.kIsParam()) {
-            String quantityString = tie.kIsParam() // added by Katya 08.12.2016
-                ? tie.getKParamName()
-                : Integer.toString(tie.getQuantity());
+        if (arc.getQuantity() != 1 || arc.kIsParam()) {
+            String quantityString = arc.kIsParam() // added by Katya 08.12.2016
+                ? arc.getKParamName()
+                : Integer.toString(arc.getQuantity());
             this.getAvgLine().setLocation((this.getGraphElement().getX1() + this.getGraphElement().getX2()) / 2, (this.getGraphElement().getY1() + this.getGraphElement().getY2()) / 2);
             g2.drawLine((int) this.getAvgLine().getX() + 5, (int) this.getAvgLine().getY() - 5, (int) this.getAvgLine().getX() - 5, (int) this.getAvgLine().getY() + 5);
             g2.drawString(quantityString, (float) this.getAvgLine().getX(), (float) this.getAvgLine().getY() - 7);
@@ -108,19 +108,19 @@ public class GraphArcIn extends GraphArc implements Serializable {
   
     @Override
     public int getQuantity(){
-            return tie.getQuantity();
+            return arc.getQuantity();
         }
     @Override
    public void setQuantity(int i){
-            tie.setQuantity(i);
+            arc.setQuantity(i);
         }
     @Override
    public boolean getIsInf(){
-            return tie.getIsInf();
+            return arc.getIsInf();
         }
     @Override
    public void setInf(boolean i){
-            tie.setInf(i);
+            arc.setInf(i);
         } 
     public static void addGraphArcInList(List<GraphArcIn> tieIn){ // added by Olha 14/11/2012
         for (GraphArcIn ti:tieIn){

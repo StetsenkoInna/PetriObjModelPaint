@@ -245,11 +245,8 @@ public class FileUse {
         }
 
         try {
-            String pnetName = name;
-            //System.out.println("Saving GraphPetriNet with name '" + pnetName + "'");
-         
-            pnet.createPetriNet(pnetName);      
-            File file = new File(pnetName + ".pns");
+            pnet.createPetriNet(name);      
+            File file = new File(name + ".pns");
             // System.out.println("Saving path = " + file.getAbsolutePath());
             fos = new FileOutputStream(file);
             oos = new ObjectOutputStream(fos);
@@ -480,13 +477,13 @@ public class FileUse {
                     y += 80;
                     if (set.IsForPlaces()) {
                         PetriP place = (PetriP)elem;
-                        GraphPetriPlace grPlace = new GraphPetriPlace(place);
+                        GraphPetriPlace grPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
                         grPlace.setNewCoordinates(new Point2D.Double(x, y));
                         grPlaces.add(grPlace);
                         //choosenElements.add(grPlace);
                     } else {
                         PetriT tran = (PetriT)elem;
-                        GraphPetriTransition grTran = new GraphPetriTransition(tran);
+                        GraphPetriTransition grTran = new GraphPetriTransition(tran, PetriNetsPanel.getIdElement());
                         grTran.setNewCoordinates(new Point2D.Double(x, y));
                         grTransitions.add(grTran);
                         //choosenElements.add(grTran);
@@ -506,13 +503,13 @@ public class FileUse {
                     y += 80;
                     if (set.IsForPlaces()) {
                         PetriP place = (PetriP)elem;
-                        GraphPetriPlace grPlace = new GraphPetriPlace(place);
+                        GraphPetriPlace grPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
                         grPlace.setNewCoordinates(new Point2D.Double(x, y));
                         grPlaces.add(grPlace);
                         //choosenElements.add(grPlace);
                     } else {
                         PetriT tran = (PetriT)elem;
-                        GraphPetriTransition grTran = new GraphPetriTransition(tran);
+                        GraphPetriTransition grTran = new GraphPetriTransition(tran, PetriNetsPanel.getIdElement());
                         grTran.setNewCoordinates(new Point2D.Double(x, y));
                         grTransitions.add(grTran);
                         //choosenElements.add(grTran);
