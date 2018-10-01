@@ -530,13 +530,13 @@ public class FileUse {
                     y += 80;
                     if (set.IsForPlaces()) {
                         PetriP place = (PetriP)elem;
-                        GraphPetriPlace grPlace = new GraphPetriPlace(place);
+                        GraphPetriPlace grPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
                         grPlace.setNewCoordinates(new Point2D.Double(x, y));
                         grPlaces.add(grPlace);
                         //choosenElements.add(grPlace);
                     } else {
                         PetriT tran = (PetriT)elem;
-                        GraphPetriTransition grTran = new GraphPetriTransition(tran);
+                        GraphPetriTransition grTran = new GraphPetriTransition(tran, PetriNetsPanel.getIdElement());
                         grTran.setNewCoordinates(new Point2D.Double(x, y));
                         grTransitions.add(grTran);
                        // choosenElements.add(grTran);

@@ -21,9 +21,6 @@ public class GraphPetriPlace extends GraphPlace implements Serializable {     //
  
     private PetriP place;
     private static int simpleInd=0; // added by Inna 18.01.2013
-  
-    
-    
     private int id; //додано Олею
   
     public GraphPetriPlace(PetriP P, int i){ //додано Олею
@@ -35,11 +32,6 @@ public class GraphPetriPlace extends GraphPlace implements Serializable {     //
          return place;
     }
    
-    public GraphPetriPlace(PetriP P) {
-       place = P;
-       id=place.getNumber();
-   }
-
     @Override                 //додано Олею 17.09.2012
     public void drawGraphElement(Graphics2D g2) {
         super.drawGraphElement(g2);

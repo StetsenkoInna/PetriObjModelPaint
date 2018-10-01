@@ -19,19 +19,13 @@ public class GraphPetriTransition extends GraphTransition implements Serializabl
     private int id;
     private static int simpleInd=0; // added by Inna 18.01.2013
 
-    public GraphPetriTransition(PetriT T, int i) //додано Олею
-    {
-        transition = T;
+    public GraphPetriTransition(PetriT T, int i) { //додано Олею
+          transition = T;
         id=i;
     }
-
-    public GraphPetriTransition(PetriT T) {
-        transition = T;
-        id = transition.getNumber(); // added by Katya 20.11.2016
-    }
-    public PetriT getPetriTransition()
-    {
-       return transition;
+   
+    public PetriT getPetriTransition(){
+           return transition;
     }
 
     @Override
