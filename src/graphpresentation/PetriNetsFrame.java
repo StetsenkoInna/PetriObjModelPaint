@@ -571,6 +571,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         protokolScrollPane.setBorder(null);
         protokolScrollPane.setAutoscrolls(true);
+        protokolScrollPane.setMinimumSize(new java.awt.Dimension(21, 220));
 
         protocolTextArea.setFont(new java.awt.Font("Tahoma", 0, 10)); // NOI18N
         protocolTextArea.setText("-------------- Events protokol ---------------");

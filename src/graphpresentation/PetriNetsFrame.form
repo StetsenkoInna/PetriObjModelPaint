@@ -642,6 +642,9 @@
                               <Border info="null"/>
                             </Property>
                             <Property name="autoscrolls" type="boolean" value="true"/>
+                            <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                              <Dimension value="[21, 220]"/>
+                            </Property>
                           </Properties>
                           <AuxValues>
                             <AuxValue name="autoScrollPane" type="java.lang.Boolean" value="true"/>

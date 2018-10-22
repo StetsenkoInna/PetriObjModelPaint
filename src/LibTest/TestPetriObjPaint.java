@@ -67,13 +67,13 @@ public class TestPetriObjPaint {  //Результати співпадають 
           
        /*   for(PetriSim e: model.getListObj()){
               e.printMark();
-             
-          }
-          for(PetriSim e: model.getListObj()){
+                           
+         }
+         for(PetriSim e: model.getListObj()){
               e.printBuffer();
              
-          }*/
-          
+         }*/
+           
              
       } 
       
@@ -105,5 +105,5 @@ public class TestPetriObjPaint {  //Результати співпадають 
           PetriObjModel model = new PetriObjModel(list);
           return model;
       }
-    
+           
 }
