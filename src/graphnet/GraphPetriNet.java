@@ -12,12 +12,17 @@ import PetriObj.ArcIn;
 import PetriObj.ArcOut;
 import PetriObj.ExceptionInvalidTimeDelay;
 import graphpresentation.GraphElement;
+import graphpresentation.PetriNetsPanel;
+
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import javax.swing.JTextArea;
 //import java.util.List;  замінено на ArrayList 19.11.2012
 
@@ -58,6 +63,22 @@ public class GraphPetriNet implements Cloneable, Serializable {
 
         pNet = net; // Немає гарантії, що списки елементів мережі Петрі відповідають спискам графічних елементів
         //використовувати ТІЛЬКИ при копіюванні
+    }
+
+    /**
+     * Coping constructor
+     * @param graphPetriNet: GraphPetriNet to copy
+     */
+    public GraphPetriNet(GraphPetriNet graphPetriNet) {
+        graphPetriPlaceList = new ArrayList<>();
+        graphPetriTransitionList = new ArrayList<>();
+        graphArcInList = new ArrayList<>();
+        graphArcOutList = new ArrayList<>();
+
+        List<GraphElement> elementsToCopy = new ArrayList<>();
+        elementsToCopy.addAll(graphPetriNet.graphPetriPlaceList);
+        elementsToCopy.addAll(graphPetriNet.graphPetriTransitionList);
+        bulkCopyElements(elementsToCopy, graphPetriNet.graphArcInList, graphPetriNet.graphArcOutList);
     }
 
     @Override
@@ -394,6 +415,96 @@ public class GraphPetriNet implements Cloneable, Serializable {
             }
         }
      }
+
+    public GraphElement copyElement(GraphElement element) {
+        if (element instanceof GraphPetriPlace) {
+            GraphPetriPlace newPlace = new GraphPetriPlace(
+                    new PetriP(((GraphPetriPlace) element).getPetriPlace()),
+                    PetriNetsPanel.getIdElement()
+            );
+
+            newPlace.setNewCoordinates(element.getGraphElementCenter());
+            graphPetriPlaceList.add(newPlace);
+            return newPlace;
+        }
+
+        if (element instanceof GraphPetriTransition) {
+            GraphPetriTransition newTransition = new GraphPetriTransition(
+                    new PetriT(((GraphPetriTransition) element).getPetriTransition()),
+                    PetriNetsPanel.getIdElement()
+            );
+
+            newTransition.setNewCoordinates(element.getGraphElementCenter());
+            graphPetriTransitionList.add(newTransition);
+            return newTransition;
+        }
+
+        return null;
+    }
+
+    public List<GraphElement> bulkCopyElements(List<GraphElement> elements) {
+        return bulkCopyElements(elements, graphArcInList, graphArcOutList);
+    }
+
+    private List<GraphElement> bulkCopyElements(List<GraphElement> elements, List<GraphArcIn> arcInSource, List<GraphArcOut> arcOutSource) {
+        Map<GraphPetriTransition, GraphPetriTransition> transitionsCopies = new HashMap<>();
+        Map<GraphPetriPlace, GraphPetriPlace> positionCopies = new HashMap<>();
+
+        for (GraphElement element : elements) {
+            GraphElement copiedElement = copyElement(element);
+
+            if (copiedElement instanceof GraphPetriPlace) {
+                positionCopies.put((GraphPetriPlace) element, (GraphPetriPlace) copiedElement);
+            } else if (copiedElement instanceof GraphPetriTransition) {
+                transitionsCopies.put((GraphPetriTransition) element, (GraphPetriTransition) copiedElement);
+            }
+        }
+
+        List<GraphArcIn> arcInsToAdd = new ArrayList<>();
+        List<GraphArcOut> arcOutsToAdd = new ArrayList<>();
+
+        for (GraphPetriTransition transition : transitionsCopies.keySet()) {
+            for (GraphArcIn arc : arcInSource) {
+                if (arc.getEndElement().getId() == transition.getId()) {
+                    GraphPetriPlace position = positionCopies.get(arc.getBeginElement());
+
+                    if (position != null) {
+                        GraphArcIn arcIn = new GraphArcIn(new ArcIn(arc.getArcIn()));
+                        arcIn.setEndElement(transitionsCopies.get(transition));
+                        arcIn.settingNewArc(position);
+                        arcIn.setPetriElements();
+                        arcIn.changeBorder();
+                        arcIn.updateCoordinates();
+                        arcInsToAdd.add(arcIn);
+                    }
+                }
+            }
+
+            for (GraphArcOut arc : arcOutSource) {
+                if (arc.getBeginElement().getId() == transition.getId()) {
+                    GraphPetriPlace position = positionCopies.get(arc.getEndElement());
+
+                    if (position != null) {
+                        GraphArcOut arcOut = new GraphArcOut(new ArcOut(arc.getArcOut()));
+                        arcOut.settingNewArc(transitionsCopies.get(transition));
+                        arcOut.setEndElement(position);
+                        arcOut.setPetriElements();
+                        arcOut.changeBorder();
+                        arcOut.updateCoordinates();
+                        arcOutsToAdd.add(arcOut);
+                    }
+                }
+            }
+        }
+
+        graphArcInList.addAll(arcInsToAdd);
+        graphArcOutList.addAll(arcOutsToAdd);
+
+        List<GraphElement> copiedElements = new ArrayList<>(transitionsCopies.values());
+        copiedElements.addAll(positionCopies.values());
+
+        return copiedElements;
+    }
 
     public void printStatistics(JTextArea area) {
 

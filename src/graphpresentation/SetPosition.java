@@ -5,6 +5,8 @@ import PetriObj.PetriP;
 import java.awt.*;
 import utils.Utils;
 
+import javax.swing.*;
+
 /**
  *
  * @author Оля
@@ -118,6 +120,8 @@ public class SetPosition extends javax.swing.JFrame {
                     .addComponent(cancelButton))
                 .addGap(20, 20, 20))
         );
+
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);//<-- destroy only this frame
 
         pack();
     }// </editor-fold>//GEN-END:initComponents

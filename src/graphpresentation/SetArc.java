@@ -14,6 +14,8 @@ import PetriObj.*;
 import graphnet.*;
 import utils.Utils;
 
+import javax.swing.*;
+
 /**
  *
  * @author Оля
@@ -27,6 +29,8 @@ public class SetArc extends javax.swing.JFrame {
         initComponents();
         this.setLocationRelativeTo(null);
         this.panel = panel;
+
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);//<-- destroy only this frame
     }
 
     /**

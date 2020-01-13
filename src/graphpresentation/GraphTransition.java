@@ -19,7 +19,7 @@ public class GraphTransition extends GraphElement{
     private static int height = 50;
     private static final int defaultWidth = 5;
     private int width = 5;
-    
+
 
 
     /**

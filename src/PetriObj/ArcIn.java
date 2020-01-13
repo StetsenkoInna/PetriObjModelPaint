@@ -106,6 +106,12 @@ public class ArcIn implements Cloneable, Serializable {
         number = next;
         next++;
     }
+
+    public ArcIn(ArcIn arcIn) {
+        this(arcIn.getNumP(), arcIn.getNumT(), arcIn.getQuantity());
+        inf = arcIn.getIsInf();
+    }
+
     public boolean kIsParam() {
         return kIsParam;
     }

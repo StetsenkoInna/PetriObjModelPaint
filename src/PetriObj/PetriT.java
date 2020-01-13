@@ -140,8 +140,19 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
      */
     public PetriT(String id, String n, double tS, int prior) { //changed by Inna 21.03.2018
         this(id, n, tS); 
-      
+
         priority = prior;
+    }
+
+    public PetriT(PetriT transition) {
+        this(transition.getName(), transition.getParametr());
+        setDistribution(transition.getDistribution(), transition.getParametr());
+        priority = transition.getPriority();
+        probability = transition.getProbability();
+        number = next;
+        next++;
+        buffer = transition.getBuffer();
+        paramDeviation = transition.getParamDeviation();
     }
 
     /**

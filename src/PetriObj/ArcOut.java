@@ -64,6 +64,11 @@ public class ArcOut implements Cloneable, Serializable {
         number = next;
         next++;
     }
+
+    public ArcOut(ArcOut arcOut) {
+        this(arcOut.getNumT(), arcOut.getNumP(), arcOut.getQuantity());
+    }
+
     public boolean kIsParam() {
         return kIsParam;
     }
