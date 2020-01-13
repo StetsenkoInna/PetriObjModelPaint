@@ -29,6 +29,7 @@ import java.awt.event.MouseWheelListener;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -71,6 +72,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private List<GraphElement> choosenElements = new ArrayList<>();
     private double scale = 1.0;
     private boolean leftMouseButtonPressed = false;
+
+    private List<GraphElement> copiedElements;
 
     public List<GraphElement> getChoosenElements() {
         return choosenElements;
@@ -133,6 +136,41 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     
                     selectAll();
                     repaint();
+                }
+
+                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_C) {
+                    copiedElements = new ArrayList<>(choosenElements);
+                }
+
+                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_V) {
+                    if (copiedElements != null && !copiedElements.isEmpty()) {
+                        List<GraphElement> elementsToSpawn =
+                                graphNet.bulkCopyElements(copiedElements);
+
+                        for (GraphElement prevElement: choosenElements) {
+                            prevElement.setColor(Color.BLACK);
+                        }
+                        choosenElements.clear();
+
+                        for (GraphElement element: elementsToSpawn) {
+                            Point2D spawnPoint = element.getGraphElementCenter();
+                            spawnPoint.setLocation(spawnPoint.getX() + 15, spawnPoint.getY() + 15);
+
+                            element.setNewCoordinates(spawnPoint);
+                            choosenElements.add(element);
+                            element.setColor(Color.GREEN);
+                        }
+
+                        copiedElements = new ArrayList<>(elementsToSpawn);
+
+                        for (GraphArcIn ti : graphNet.getGraphArcInList()) {
+                            ti.updateCoordinates();
+                        }
+                        for (GraphArcOut to : graphNet.getGraphArcOutList()) {
+                            to.updateCoordinates();
+                        }
+                        repaint();
+                    }
                 }
             }
         });
@@ -308,12 +346,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             to.setColor(Color.BLACK);
         }
     }
+
+    public void redraw() {
+        setDefaultColorGraphElements();
+        setDefaultColorGraphArcs();
+        repaint();
+    }
     
 
     public class MouseHandler extends MouseAdapter {
+        private java.util.Timer timer;
+        private boolean isMouseButtonHold = false;
 
         @Override
         public void mousePressed(MouseEvent ev) {
+            startTimer();
+
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
             if (SwingUtilities.isLeftMouseButton(ev)) {
                 leftMouseButtonPressed = true;
@@ -329,17 +377,21 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             } else {
                 current = find(scaledCurrentMousePoint);
                 if (current != null) {
+                    setDefaultColorGraphElements();
                     current.setColor(Color.BLUE); //26.07.2018
-                    current.setNewCoordinates(scaledCurrentMousePoint);
-                    setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
                     choosen = current;
 
-                    for (GraphArcIn ti : graphNet.getGraphArcInList()) {
-                        ti.updateCoordinates();
-                    }
+                    if (!isSettingArc && isMouseButtonHold) {
+                        current.setNewCoordinates(scaledCurrentMousePoint);
+                        setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 
-                    for (GraphArcOut to : graphNet.getGraphArcOutList()) {
-                        to.updateCoordinates();
+                        for (GraphArcIn ti : graphNet.getGraphArcInList()) {
+                            ti.updateCoordinates();
+                        }
+
+                        for (GraphArcOut to : graphNet.getGraphArcOutList()) {
+                            to.updateCoordinates();
+                        }
                     }
                     
                     if( choosenArc!=null){
@@ -395,7 +447,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             if (current != null) {
                 current.setColor(Color.BLUE); //26.07.2018
-                current.setNewCoordinates(scaledCurrentMousePoint);
                 choosenElements.clear(); // 27.08.2018
             } else {
                 current = find(scaledCurrentMousePoint);
@@ -403,17 +454,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     current.setColor(Color.BLUE);//26.07.2018
                     choosen = current;
                 }
-                if (current != null && ev.getClickCount() >= 2) { //change 2->1??
+                if (current != null && (ev.getClickCount() >= 2 || SwingUtilities.isRightMouseButton(ev))) { //change 2->1??
                     current.setColor(Color.BLUE);//26.07.2018
                     choosen = current;
-
-                    for (GraphArcIn ti : graphNet.getGraphArcInList()) {
-                        ti.updateCoordinates();
-                    }
-
-                    for (GraphArcOut to : graphNet.getGraphArcOutList()) {
-                        to.updateCoordinates();
-                    }
 
                     if (choosen.getClass().equals(GraphPetriPlace.class)) {
                         setPositionFrame.setVisible(true);
@@ -448,6 +491,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseReleased(MouseEvent ev) {
+            removeTimer();
+
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
             if (startDragMouseLocation != null && currentDragMouseLocation != null && leftMouseButtonPressed) {
                 for (GraphPetriPlace p : graphNet.getGraphPetriPlaceList()) {
@@ -528,6 +573,28 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             leftMouseButtonPressed = false;
             repaint();
            
+        }
+
+        private void startTimer() {
+            if(timer == null)
+            {
+                timer = new java.util.Timer();
+            }
+            timer.schedule(new TimerTask()
+            {
+                public void run()
+                {
+                    isMouseButtonHold = true;
+                }
+            },500);
+        }
+
+        private void removeTimer() {
+            if (timer != null) {
+                isMouseButtonHold = false;
+                timer.cancel();
+                timer = null;
+            }
         }
     }
 
@@ -657,6 +724,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     public void setIsSettingArc(boolean b) { //26.01.2013
+        if (b) {
+            setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+        } else {
+            setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+        }
         isSettingArc = b;
     }
 

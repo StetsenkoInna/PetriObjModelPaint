@@ -15,6 +15,8 @@ import PetriObj.*;
 import java.awt.*;
 import utils.Utils;
 
+import javax.swing.*;
+
 /**
  *
  * @author User
@@ -27,6 +29,8 @@ public class SetTransition extends javax.swing.JFrame {
         this.setLocationRelativeTo(null);
         this.panel=panel;
         this.setSize(new Dimension(374, 564));
+
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);//<-- destroy only this frame
     }
 
     /** This method is called from within the constructor to
