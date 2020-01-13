@@ -496,6 +496,22 @@ public class GraphPetriNet implements Cloneable, Serializable {
                 }
             }
         }
+         // added by Inna 13.01.2020
+        for (GraphArcOut arcOut : arcOutSource) {
+            for (GraphArcIn arcIn : arcInSource) {
+                int inBeginId = ((GraphPetriPlace)arcIn.getBeginElement()).getId();
+                int inEndId = ((GraphPetriTransition)arcIn.getEndElement()).getId();
+                int outBeginId = ((GraphPetriTransition)arcOut.getBeginElement()).getId();
+                int outEndId = ((GraphPetriPlace)arcOut.getEndElement()).getId();
+                if (inBeginId == outEndId && inEndId == outBeginId) {
+                    arcIn.twoArcs(arcOut); // two arcs
+                    arcIn.updateCoordinates();
+                    arcOut.updateCoordinates();
+             
+                }
+            }
+        }
+        //
 
         graphArcInList.addAll(arcInsToAdd);
         graphArcOutList.addAll(arcOutsToAdd);
