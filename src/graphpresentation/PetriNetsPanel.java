@@ -132,7 +132,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
 
               
-                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_C) {
+                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_A) {
                     
                     selectAll();
                     repaint();
