@@ -163,11 +163,18 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
                         copiedElements = new ArrayList<>(elementsToSpawn);
 
-                        for (GraphArcIn ti : graphNet.getGraphArcInList()) {
-                            ti.updateCoordinates();
-                        }
-                        for (GraphArcOut to : graphNet.getGraphArcOutList()) {
-                            to.updateCoordinates();
+                        for (GraphArcOut arcOut : graphNet.getGraphArcOutList()) { // added by Inna 29.01.2020
+                            for (GraphArcIn arcIn : graphNet.getGraphArcInList()) {
+                                int inBeginId = ((GraphPetriPlace) arcIn.getBeginElement()).getId();
+                                int inEndId = ((GraphPetriTransition) arcIn.getEndElement()).getId();
+                                int outBeginId = ((GraphPetriTransition) arcOut.getBeginElement()).getId();
+                                int outEndId = ((GraphPetriPlace) arcOut.getEndElement()).getId();
+                                if (inBeginId == outEndId && inEndId == outBeginId) {
+                                    arcIn.twoArcs(arcOut); // two arcs
+                                }
+                                arcIn.updateCoordinates();
+                                arcOut.updateCoordinates();
+                            }
                         }
                         repaint();
                     }
