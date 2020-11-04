@@ -416,7 +416,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
         }
      }
 
-    public GraphElement copyElement(GraphElement element) { // why not clone??? (Шаверський автор)
+    public GraphElement copyElement(GraphElement element) {
         if (element instanceof GraphPetriPlace) {
             GraphPetriPlace newPlace = new GraphPetriPlace(
                     new PetriP(((GraphPetriPlace) element).getPetriPlace()),
@@ -442,7 +442,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
         return null;
     }
 
-    public List<GraphElement> bulkCopyElements(List<GraphElement> elements) {  //need to rewrite, I dislike this way to do copies
+    public List<GraphElement> bulkCopyElements(List<GraphElement> elements) {
         return bulkCopyElements(elements, graphArcInList, graphArcOutList);
     }
 
@@ -474,7 +474,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
                         arcIn.settingNewArc(position);
                         arcIn.setPetriElements();
                         arcIn.changeBorder();
-                       // arcIn.updateCoordinates();
+                        arcIn.updateCoordinates();
                         arcInsToAdd.add(arcIn);
                     }
                 }
@@ -490,13 +490,13 @@ public class GraphPetriNet implements Cloneable, Serializable {
                         arcOut.setEndElement(position);
                         arcOut.setPetriElements();
                         arcOut.changeBorder();
-                      //  arcOut.updateCoordinates();
+                        arcOut.updateCoordinates();
                         arcOutsToAdd.add(arcOut);
                     }
                 }
             }
         }
-        // added by Inna 13.01.2020
+         // added by Inna 13.01.2020
         for (GraphArcOut arcOut : arcOutSource) {
             for (GraphArcIn arcIn : arcInSource) {
                 int inBeginId = ((GraphPetriPlace)arcIn.getBeginElement()).getId();
@@ -505,14 +505,14 @@ public class GraphPetriNet implements Cloneable, Serializable {
                 int outEndId = ((GraphPetriPlace)arcOut.getEndElement()).getId();
                 if (inBeginId == outEndId && inEndId == outBeginId) {
                     arcIn.twoArcs(arcOut); // two arcs
-                   
+                    arcIn.updateCoordinates();
+                    arcOut.updateCoordinates();
              
                 }
-                arcIn.updateCoordinates();
-                arcOut.updateCoordinates();
             }
         }
         //
+
         graphArcInList.addAll(arcInsToAdd);
         graphArcOutList.addAll(arcOutsToAdd);
 

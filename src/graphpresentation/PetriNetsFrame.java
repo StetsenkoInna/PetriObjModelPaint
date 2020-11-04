@@ -1453,8 +1453,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     disableInput();
 
                     GraphPetriNetBackupHolder.getInstance()
-                            .setGraphPetriNet( new GraphPetriNet(getPetriNetsPanel().getGraphNet())
-                            );
+                            .setGraphPetriNet(new GraphPetriNet(getPetriNetsPanel().getGraphNet()));
 
                     timer.start();
                     runNet();
@@ -1469,15 +1468,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }.start();
     }//GEN-LAST:event_itemRunNetActionPerformed
 
-    private void itemResetNetActionPerformed(java.awt.event.ActionEvent evt)  {
+    private void itemResetNetActionPerformed(java.awt.event.ActionEvent evt) {
         GraphPetriNet graphPetriNetBackup = GraphPetriNetBackupHolder.getInstance().getGraphPetriNet();
         if (graphPetriNetBackup != null) {
             getPetriNetsPanel().setGraphNet(graphPetriNetBackup);
 
             GraphPetriNetBackupHolder.getInstance()
-                    .setGraphPetriNet(                         
-                            new GraphPetriNet(getPetriNetsPanel().getGraphNet())
-                    );
+                    .setGraphPetriNet(new GraphPetriNet(getPetriNetsPanel().getGraphNet()));
 
             getPetriNetsPanel().requestFocusInWindow();
             getPetriNetsPanel().redraw();
