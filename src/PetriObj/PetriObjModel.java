@@ -438,10 +438,5 @@ public class PetriObjModel implements Serializable, Cloneable  {
                                 li.getOther().getName()+".p["+ li.getNumPlaceOther()+"] ");
         }
     }
-    public StateModel getState(){
-       
-        return new StateModel(this);
-        
-    }
-
+    
 }
