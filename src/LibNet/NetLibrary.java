@@ -464,11 +464,8 @@ public static PetriNet CreateNetConsistency(double forDelay, double readDelay, d
         d_T.get(0).setDistribution("norm", d_T.get(0).getTimeServ());
         d_T.get(0).setParamDeviation(0.1);
 	d_T.add(new PetriT("read",readDelay));
-	
 	d_T.add(new PetriT("modify",modifyDelay));
-	
 	d_T.add(new PetriT("write",writeDelay));
-	
 	d_In.add(new ArcIn(d_P.get(0),d_T.get(0),1));
 	d_In.add(new ArcIn(d_P.get(4),d_T.get(0),1));
 	d_In.add(new ArcIn(d_P.get(1),d_T.get(1),1));
