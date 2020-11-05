@@ -20,7 +20,7 @@ import java.util.ArrayList;
  */
 public class TestPetriObjPaint {  //Результати співпадають з аналітичними обрахунками
       public static void main(String[] args) throws ExceptionInvalidTimeDelay, ExceptionInvalidNetStructure {
-      
+          
      // цей фрагмент для запуску імітації моделі з заданною мережею Петрі на інтервалі часу timeModeling  
           PetriObjModel model = getModel();
           model.setIsProtokol(false);

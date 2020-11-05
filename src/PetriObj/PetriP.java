@@ -169,6 +169,12 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
      */
     public void setMark(int a) {
         mark = a;
+        if (observedMax < mark) {
+            observedMax = mark;
+        }
+        if (observedMin > mark) {
+            observedMin = mark;
+        }
     }
     
     
