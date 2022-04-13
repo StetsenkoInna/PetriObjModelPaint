@@ -22,7 +22,7 @@ public class NetLibrary {
      * @return Petri net dynamics of which corresponds to system of mass service with given parameters
      * @throws PetriObj.ExceptionInvalidNetStructure
      */
-public static PetriNet CreateNetSMOwithoutQueue(int numChannel, double timeMean, String name) throws ExceptionInvalidTimeDelay, ExceptionInvalidNetStructure{
+public static PetriNet CreateNetSMOwithoutQueue(int numChannel, double timeMean, String name) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay{
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
 	ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -30,7 +30,7 @@ public static PetriNet CreateNetSMOwithoutQueue(int numChannel, double timeMean,
 	d_P.add(new PetriP("P1",0));
 	d_P.add(new PetriP("P2",numChannel));
 	d_P.add(new PetriP("P3",0));
-	d_T.add(new PetriT("T1",timeMean,Double.MAX_VALUE));
+	d_T.add(new PetriT("T1",timeMean));
 	d_T.get(0).setDistribution("exp", d_T.get(0).getTimeServ());
 	d_T.get(0).setParamDeviation(0.0);
 	d_In.add(new ArcIn(d_P.get(0),d_T.get(0),1));
@@ -55,7 +55,7 @@ public static PetriNet CreateNetSMOwithoutQueue(int numChannel, double timeMean,
      * @throws PetriObj.ExceptionInvalidTimeDelay if Petri net has invalid structure
      * @throws PetriObj.ExceptionInvalidNetStructure
      */
-public static PetriNet CreateNetGenerator(double timeMean) throws ExceptionInvalidTimeDelay, ExceptionInvalidNetStructure{
+public static PetriNet CreateNetGenerator(double timeMean) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
 	ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -87,7 +87,7 @@ public static PetriNet CreateNetGenerator(double timeMean) throws ExceptionInval
      * @throws PetriObj.ExceptionInvalidTimeDelay if Petri net has invalid structure
      * @throws PetriObj.ExceptionInvalidNetStructure
      */
-public static PetriNet CreateNetFork(double p1, double p2, double p3) throws ExceptionInvalidTimeDelay, ExceptionInvalidNetStructure{
+public static PetriNet CreateNetFork(double p1, double p2, double p3) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay{
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
 	ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -131,7 +131,7 @@ public static PetriNet CreateNetFork(double p1, double p2, double p3) throws Exc
      * @throws PetriObj.ExceptionInvalidTimeDelay if Petri net has invalid structure
      * @throws PetriObj.ExceptionInvalidNetStructure
      */
-    public static PetriNet CreateNetFork(int numOfWay, double[] probabilities) throws ExceptionInvalidTimeDelay, ExceptionInvalidNetStructure {
+    public static PetriNet CreateNetFork(int numOfWay, double[] probabilities) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -168,7 +168,7 @@ public static PetriNet CreateNetFork(double p1, double p2, double p3) throws Exc
         return d_Net;
     }    
 
-public static PetriNet CreateNetMalware() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+/*pblic static PetriNet CreateNetMalware() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
 	ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -272,8 +272,8 @@ public static PetriNet CreateNetMalware() throws ExceptionInvalidNetStructure, E
 	ArcOut.initNext();
 
 	return d_Net;
-}
-public static PetriNet CreateNetAdmin() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+}*/
+/*pblic static PetriNet CreateNetAdmin() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
 	ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -322,7 +322,7 @@ public static PetriNet CreateNetAdmin() throws ExceptionInvalidNetStructure, Exc
 	ArcOut.initNext();
 
 	return d_Net;
-}
+}*/
 public static PetriNet CreateNetTest3() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
@@ -447,7 +447,7 @@ public static PetriNet CreateNetThread3() throws ExceptionInvalidNetStructure, E
 	return d_Net;
 }
 
-public static PetriNet CreateNetConsistency(double forDelay, double readDelay, double modifyDelay, double writeDelay) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+/*pblic static PetriNet CreateNetConsistency(double forDelay, double readDelay, double modifyDelay, double writeDelay) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
 	ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -488,7 +488,7 @@ public static PetriNet CreateNetConsistency(double forDelay, double readDelay, d
 	ArcOut.initNext();
 
 	return d_Net;
-}
+}*/
 
 public static PetriNet CreateNetFriend() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	double delay = 100.0;
@@ -576,7 +576,7 @@ public static PetriNet CreateNetFriend() throws ExceptionInvalidNetStructure, Ex
 	return d_Net;
 }
 
-public static PetriNet CreateNetFriendUsingCores() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+/*pblic static PetriNet CreateNetFriendUsingCores() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	double delay = 100.0;
         double x=0.8;
         ArrayList<PetriP> d_P = new ArrayList<>();
@@ -661,10 +661,10 @@ public static PetriNet CreateNetFriendUsingCores() throws ExceptionInvalidNetStr
 	ArcOut.initNext();
 
 	return d_Net;
-}
+}*/
 
 
-public static PetriNet CreateNetNewPool() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+/*pblic static PetriNet CreateNetNewPool() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
 	ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -707,7 +707,7 @@ public static PetriNet CreateNetNewPool() throws ExceptionInvalidNetStructure, E
 	return d_Net;
 }
 
-public static PetriNet CreateNetThreadStartAndEnd() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+pblic static PetriNet CreateNetThreadStartAndEnd() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
 	ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -745,7 +745,7 @@ public static PetriNet CreateNetThreadStartAndEnd() throws ExceptionInvalidNetSt
 	ArcOut.initNext();
 
 	return d_Net;
-}
+}*/
 
 public static PetriNet CreateNetTestInfArc() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
@@ -849,7 +849,7 @@ public static PetriNet CreateNetGeneratorInf() throws ExceptionInvalidNetStructu
 
 	return d_Net;
 }
-public static PetriNet CreateNetUntitled() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+public static PetriNet CreateNetSimple() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
 	ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -859,7 +859,7 @@ public static PetriNet CreateNetUntitled() throws ExceptionInvalidNetStructure, 
 	d_T.add(new PetriT("T1",2.0));
 	d_In.add(new ArcIn(d_P.get(0),d_T.get(0),1));
 	d_Out.add(new ArcOut(d_T.get(0),d_P.get(1),1));
-	PetriNet d_Net = new PetriNet("Untitled",d_P,d_T,d_In,d_Out);
+	PetriNet d_Net = new PetriNet("Simple",d_P,d_T,d_In,d_Out);
 	PetriP.initNext();
 	PetriT.initNext();
 	ArcIn.initNext();
@@ -867,4 +867,30 @@ public static PetriNet CreateNetUntitled() throws ExceptionInvalidNetStructure, 
 
 	return d_Net;
 }
+public static PetriNet CreateNetSMOgroup(int numInGroup,int numChannel, double timeMean, String name) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay{
+        ArrayList<PetriP> d_P = new ArrayList<>();
+        ArrayList<PetriT> d_T = new ArrayList<>();
+        ArrayList<ArcIn> d_In = new ArrayList<>();
+        ArrayList<ArcOut> d_Out = new ArrayList<>();
+        d_P.add(new PetriP("P0", 0)); 
+        for (int j = 0; j < numInGroup; j++) {
+            d_P.add(new PetriP("P" + (2 * j + 1), numChannel));
+            d_P.add(new PetriP("P" + (2 * j + 2), 0));
+            d_T.add(new PetriT("T"+(j), timeMean));
+            d_T.get(j).setDistribution("exp", d_T.get(j).getTimeServ());
+            d_T.get(j).setParamDeviation(0.0);
+            d_In.add(new ArcIn(d_P.get(2 * j), d_T.get(j), 1));
+            d_In.add(new ArcIn(d_P.get(2 * j + 1), d_T.get(j), 1));
+            d_Out.add(new ArcOut(d_T.get(j), d_P.get(2 * j + 1), 1));
+            d_Out.add(new ArcOut(d_T.get(j), d_P.get(2 * j + 2), 1));
+        }
+        PetriNet d_Net = new PetriNet(name, d_P, d_T, d_In, d_Out);
+        PetriP.initNext();
+        PetriT.initNext();
+        ArcIn.initNext();
+        ArcOut.initNext();
+
+        return d_Net;
+    }
+
 }

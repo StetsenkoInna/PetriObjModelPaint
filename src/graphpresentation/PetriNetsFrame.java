@@ -103,7 +103,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             Pattern pattern = Pattern.compile(Pattern
                     .quote("public static PetriNet CreateNet")
                     + "(\\w+\\([^\\)]*\\))"
-                    + Pattern.quote(" throws ExceptionInvalidNetStructure"));
+                    + Pattern.quote(" throws"));
             Matcher matcher = pattern.matcher(libraryText);
             while (matcher.find()) {
                 methodNamesList.add("CreateNet" + matcher.group(1));
@@ -186,28 +186,29 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetsFrameToolBar.add(poolBtn);*/
 
         newPlaceButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-       // newPlaceButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
-       // newPlaceButton.setText("");
+        newPlaceButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
+        newPlaceButton.setText("Place");
         newPlaceButton.setBorder(null);
         newPlaceButton.setMargin(new Insets(0, 0, 0, 0));
-        newPlaceButton.setContentAreaFilled(false);
-        newPlaceButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/pl.png")));
+//        newPlaceButton.setContentAreaFilled(false);
+//        newPlaceButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/pl.png")));
 
         newArcButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newArcButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
-        newArcButton.setText("");
+        newArcButton.setText("Arc");
         newArcButton.setBorder(null);
         newArcButton.setMargin(new Insets(0, 0, 0, 0));
-        newArcButton.setContentAreaFilled(false);
-        newArcButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/Arc.png")));
+//        newArcButton.setContentAreaFilled(false);
+//        newArcButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/Arc.png")));
 
         newTransitionButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newTransitionButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
-        newTransitionButton.setText("");
+        newTransitionButton.setText("Transition");
+
         newTransitionButton.setBorder(null);
         newTransitionButton.setMargin(new Insets(0, 0, 0, 0));
-        newTransitionButton.setContentAreaFilled(false);
-        newTransitionButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/trans.png")));
+//        newTransitionButton.setContentAreaFilled(false);
+//        newTransitionButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/trans.png")));
 //                try {
 //                   
 //                    //Image img = ImageIO.read(new File(new File(".").getCanonicalPath() + "\\src\\utils\\pl.PNG"));
@@ -386,7 +387,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         itemAnimateEvent = new javax.swing.JMenuItem();
         runMenu = new javax.swing.JMenu();
         javax.swing.JMenuItem itemRunNet = new javax.swing.JMenuItem();
-        javax.swing.JMenuItem itemResetNet = new javax.swing.JMenuItem();
         itemRunEvent = new javax.swing.JMenuItem();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
@@ -493,20 +493,21 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetsFrameToolBar.setMargin(new java.awt.Insets(0, 10, 0, 10));
 
         newPlaceButton.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newPlaceButton.setText("Place");
+        newPlaceButton.setToolTipText("");
         newPlaceButton.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
         newPlaceButton.setFocusable(false);
         newPlaceButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        newPlaceButton.setMaximumSize(new java.awt.Dimension(103, 19));
+        newPlaceButton.setMinimumSize(new java.awt.Dimension(103, 19));
+        newPlaceButton.setPreferredSize(new java.awt.Dimension(101, 19));
+        newPlaceButton.setRequestFocusEnabled(false);
         newPlaceButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newPlaceButton.setToolTipText("Alt+1");
-        newPlaceButton.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_1, InputEvent.ALT_DOWN_MASK), "NewPosition");
-        Action newPlaceAction = new AbstractAction() {
-            @Override
+        newPlaceButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 newPlaceButtonActionPerformed(evt);
             }
-        };
-        newPlaceButton.getActionMap().put("NewPosition", newPlaceAction);
-        newPlaceButton.addActionListener(newPlaceAction);
+        });
         petriNetsFrameToolBar.add(newPlaceButton);
 
         newTransitionButton.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
@@ -514,17 +515,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         newTransitionButton.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
         newTransitionButton.setFocusable(false);
         newTransitionButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        newTransitionButton.setMaximumSize(new java.awt.Dimension(103, 19));
+        newTransitionButton.setMinimumSize(new java.awt.Dimension(103, 19));
+        newTransitionButton.setPreferredSize(new java.awt.Dimension(101, 19));
         newTransitionButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newTransitionButton.setToolTipText("Alt+2");
-        newTransitionButton.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_2, InputEvent.ALT_DOWN_MASK), "newTransition");
-        Action newTransitionAction = new AbstractAction() {
-            @Override
+        newTransitionButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 newTransitionButtonActionPerformed(evt);
             }
-        };
-        newTransitionButton.getActionMap().put("newTransition", newTransitionAction);
-        newTransitionButton.addActionListener(newTransitionAction);
+        });
         petriNetsFrameToolBar.add(newTransitionButton);
 
         newArcButton.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
@@ -532,17 +531,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         newArcButton.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
         newArcButton.setFocusable(false);
         newArcButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        newArcButton.setMaximumSize(new java.awt.Dimension(103, 19));
+        newArcButton.setMinimumSize(new java.awt.Dimension(103, 19));
+        newArcButton.setPreferredSize(new java.awt.Dimension(101, 19));
         newArcButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newArcButton.setToolTipText("Alt+3");
-        newArcButton.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_3, InputEvent.ALT_DOWN_MASK), "newArc");
-        Action newArcAction = new AbstractAction() {
-            @Override
+        newArcButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 newArcButtonActionPerformed(evt);
             }
-        };
-        newArcButton.getActionMap().put("newArc", newArcAction);
-        newArcButton.addActionListener(newArcAction);
+        });
         petriNetsFrameToolBar.add(newArcButton);
 
         petriNetsFrameSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
@@ -551,7 +548,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetsFrameSplitPane.setAutoscrolls(true);
         petriNetsFrameSplitPane.setMinimumSize(new java.awt.Dimension(405, 202));
 
-        petriNetPanelScrollPane.setBackground(new java.awt.Color(255, 255, 255));
         petriNetPanelScrollPane.setBorder(null);
         petriNetPanelScrollPane.setForeground(new java.awt.Color(255, 255, 255));
         petriNetPanelScrollPane.setAutoscrolls(true);
@@ -601,7 +597,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         modelingResultsPanel.setLayout(modelingResultsPanelLayout);
         modelingResultsPanelLayout.setHorizontalGroup(
             modelingResultsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(modelingResultsSplitPane, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 429, Short.MAX_VALUE)
+            .addComponent(modelingResultsSplitPane, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 433, Short.MAX_VALUE)
         );
         modelingResultsPanelLayout.setVerticalGroup(
             modelingResultsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -648,11 +644,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetDesign.setLayout(petriNetDesignLayout);
         petriNetDesignLayout.setHorizontalGroup(
             petriNetDesignLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(petriNetsFrameToolBar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(petriNetsFrameToolBar, javax.swing.GroupLayout.PREFERRED_SIZE, 827, javax.swing.GroupLayout.PREFERRED_SIZE)
             .addComponent(modelingParametersPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(petriNetDesignLayout.createSequentialGroup()
                 .addGap(183, 183, 183)
-                .addComponent(petriNetsFrameSplitPane, javax.swing.GroupLayout.DEFAULT_SIZE, 634, Short.MAX_VALUE)
+                .addComponent(petriNetsFrameSplitPane, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
             .addGroup(petriNetDesignLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(petriNetDesignLayout.createSequentialGroup()
@@ -756,7 +752,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetsFrameSplitPane1.setAutoscrolls(true);
         petriNetsFrameSplitPane1.setMinimumSize(new java.awt.Dimension(405, 202));
 
-        petriNetPanelScrollPane1.setBackground(new java.awt.Color(255, 255, 255));
         petriNetPanelScrollPane1.setBorder(new javax.swing.border.MatteBorder(null));
         petriNetPanelScrollPane1.setForeground(new java.awt.Color(255, 255, 255));
         petriNetPanelScrollPane1.setAutoscrolls(true);
@@ -985,7 +980,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetsFrameSplitPane2.setAutoscrolls(true);
         petriNetsFrameSplitPane2.setMinimumSize(new java.awt.Dimension(405, 202));
 
-        petriNetPanelScrollPane2.setBackground(new java.awt.Color(255, 255, 255));
         petriNetPanelScrollPane2.setBorder(new javax.swing.border.MatteBorder(null));
         petriNetPanelScrollPane2.setForeground(new java.awt.Color(255, 255, 255));
         petriNetPanelScrollPane2.setAutoscrolls(true);
@@ -1301,14 +1295,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         });
         runMenu.add(itemRunEvent);
-
-        itemResetNet.setText("Reset");
-        itemResetNet.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                itemResetNetActionPerformed(evt);
-            }
-        });
-        runMenu.add(itemResetNet);
 
         petriNetsFrameMenuBar.add(runMenu);
 

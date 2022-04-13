@@ -16,6 +16,20 @@ import java.util.logging.Logger;
  */
 public class PetriNet implements Cloneable, Serializable {
 
+    /**
+     * @return the ListIn
+     */
+    public ArcIn[] getListIn() {
+        return ListIn;
+    }
+
+    /**
+     * @return the ListOut
+     */
+    public ArcOut[] getListOut() {
+        return ListOut;
+    }
+
     private String name;
     private int numP;
     private int numT;
@@ -49,8 +63,8 @@ public class PetriNet implements Cloneable, Serializable {
 
         for (PetriT transition : ListT) {
             try {
-                transition.createInP(ListP, ListIn);
-                transition.createOutP(ListP, ListOut);
+                transition.createInP(ListIn);
+                transition.createOutP(ListOut);
                 if (transition.getInP().isEmpty()) {
                     throw new ExceptionInvalidTimeDelay("Error: Transition " + transition.getName() + " has empty list of input places "); //генерувати виключення???
                 }
@@ -101,8 +115,8 @@ public class PetriNet implements Cloneable, Serializable {
         }
 
         for (PetriT transition : ListT) {
-            transition.createInP(ListP, ListIn);
-            transition.createOutP(ListP, ListOut);
+            transition.createInP( ListIn);
+            transition.createOutP( ListOut);
         }
 
     }
@@ -145,7 +159,7 @@ public class PetriNet implements Cloneable, Serializable {
      * @return array of Petri net input arcs
      */
     public ArcIn[] getArcIn() {
-        return ListIn;
+        return getListIn();
     }
 
     /**
@@ -153,7 +167,7 @@ public class PetriNet implements Cloneable, Serializable {
      * @return array of Petri net output arcs
      */
     public ArcOut[] getArcOut() {
-        return ListOut;
+        return getListOut();
     }
 
     /**
@@ -260,12 +274,12 @@ public class PetriNet implements Cloneable, Serializable {
      */
     public void printArcs() //додано 1.10.2012
     {
-        System.out.println("Petri net " + name + " arcs: " + ListIn.length + " input arcs snd " + ListOut.length + " output arcs");
+        System.out.println("Petri net " + name + " arcs: " + getListIn().length + " input arcs snd " + getListOut().length + " output arcs");
 
-        for (ArcIn arcs : ListIn) {
+        for (ArcIn arcs : getListIn()) {
             arcs.print();
         }
-        for (ArcOut arcs : ListOut) {
+        for (ArcOut arcs : getListOut()) {
             arcs.print();
         }
     }
@@ -303,15 +317,15 @@ public class PetriNet implements Cloneable, Serializable {
             copyListT[j] = ListT[j].clone();
         }
         for (int j = 0; j < numIn; j++) {
-            copyListIn[j] = ListIn[j].clone();
-            copyListIn[j].setNameP(ListIn[j].getNameP());
-            copyListIn[j].setNameT(ListIn[j].getNameT());
+            copyListIn[j] = getListIn()[j].clone();
+            copyListIn[j].setNameP(getListIn()[j].getNameP());
+            copyListIn[j].setNameT(getListIn()[j].getNameT());
         }
 
         for (int j = 0; j < numOut; j++) {
-            copyListOut[j] = ListOut[j].clone();
-            copyListOut[j].setNameP(ListOut[j].getNameP());
-            copyListOut[j].setNameT(ListOut[j].getNameT());
+            copyListOut[j] = getListOut()[j].clone();
+            copyListOut[j].setNameP(getListOut()[j].getNameP());
+            copyListOut[j].setNameT(getListOut()[j].getNameT());
         }
 
         PetriNet net = new PetriNet(name, copyListP, copyListT, copyListIn, copyListOut);
@@ -330,12 +344,12 @@ public class PetriNet implements Cloneable, Serializable {
                 return true;
             }
         }
-        for (ArcIn arcIn : ListIn) {
+        for (ArcIn arcIn : getListIn()) {
             if (arcIn.infIsParam() || arcIn.kIsParam()) {
                 return true;
             }
         }
-        for (ArcOut arcOut : ListOut) {
+        for (ArcOut arcOut : getListOut()) {
             if (arcOut.kIsParam()) {
                 return true;
             }

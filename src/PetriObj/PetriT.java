@@ -474,11 +474,11 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
      * The class PetriNet use this method for creating net with given arrays of
      * places, transitions, input arcs and output arcs.
      *
-     * @param inPP array of places
+     * @param inPP array of places  // не використовується методом, видалити
      * @param arcs array of input arcs
      * @throws PetriObj.ExceptionInvalidTimeDelay if Petri net has invalid structure
      */
-    public void createInP(PetriP[] inPP, ArcIn[] arcs) throws ExceptionInvalidTimeDelay {
+    public void createInP(ArcIn[] arcs) throws ExceptionInvalidTimeDelay {
         inPwithInf.clear();    //додано 28.11.2012  список має бути порожнім!!!
         quantInwithInf.clear(); //додано 28.11.2012
         inP.clear();            //додано 28.11.2012
@@ -512,7 +512,7 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
      * @param arcs array of output arcs
      * @throws PetriObj.ExceptionInvalidTimeDelay if Petri net has invalid structure
      */
-    public void createOutP(PetriP[] inPP, ArcOut[] arcs) throws ExceptionInvalidTimeDelay {
+    public void createOutP(ArcOut[] arcs) throws ExceptionInvalidTimeDelay {
         getOutP().clear(); //додано 28.11.2012
         quantOut.clear();   //додано 28.11.2012
         for (ArcOut arc: arcs) {

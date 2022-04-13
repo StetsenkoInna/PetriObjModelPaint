@@ -18,9 +18,9 @@ import java.util.ArrayList;
  *
  * @author Inna V. Stetsenko
  */
-public class TestPetriObjPaint {  //Результати співпадають з аналітичними обрахунками
+public class TestPetriObjSimulation {  //Результати співпадають з аналітичними обрахунками
       public static void main(String[] args) throws ExceptionInvalidTimeDelay, ExceptionInvalidNetStructure {
-          
+                   
      // цей фрагмент для запуску імітації моделі з заданною мережею Петрі на інтервалі часу timeModeling  
           PetriObjModel model = getModel();
           model.setIsProtokol(false);
@@ -80,7 +80,7 @@ public class TestPetriObjPaint {  //Результати співпадають 
      // метод для конструювання моделі масового обслуговування з 4 СМО 
       
       public static PetriObjModel getModel() throws ExceptionInvalidTimeDelay, ExceptionInvalidNetStructure{
-          ArrayList<PetriSim> list = new ArrayList<PetriSim>();
+          ArrayList<PetriSim> list = new ArrayList<>();
           list.add(new PetriSim(NetLibrary.CreateNetGenerator(2.0)));
           list.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(1, 0.6,"First")));
           list.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(1, 0.3, "Second")));
