@@ -10,6 +10,7 @@ import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
 import graphreuse.GraphNetParametersFrame;
+import graphpresentation.undoable_edits.AddPlaceEdit;
 
 import java.awt.*;
 import java.awt.event.InputEvent;
@@ -36,6 +37,8 @@ import java.awt.event.ActionListener;
 import java.io.ObjectInputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import javax.swing.undo.UndoManager;
+import javax.swing.undo.UndoableEditSupport;
 
 /**
  *
@@ -229,6 +232,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         this.setExtendedState(JFrame.MAXIMIZED_BOTH / 2);
         this.setTitle("Discrete Event Simulation System ");
         this.setSize(1000, 700);
+        
+        undoSupport.addUndoableEditListener((event) -> {
+            undoMenuItem.setEnabled(undoManager.canUndo());
+            redoMenuItem.setEnabled(undoManager.canRedo());
+        });
     }
 
     private JButton createPtrnButton(String title, String tooltip) {
@@ -376,6 +384,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         editMenu = new javax.swing.JMenu();
         editNetParameters = new javax.swing.JMenuItem();
         centerLocationOfGraphNet = new javax.swing.JMenuItem();
+        undoMenuItem = new javax.swing.JMenuItem();
+        redoMenuItem = new javax.swing.JMenuItem();
         save = new javax.swing.JMenu();
         SaveGraphNet = new javax.swing.JMenuItem();
         jMenuItem2 = new javax.swing.JMenuItem();
@@ -542,7 +552,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         petriNetsFrameToolBar.add(newArcButton);
 
-        petriNetsFrameSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
+        petriNetsFrameSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(null));
         petriNetsFrameSplitPane.setDividerSize(3);
         petriNetsFrameSplitPane.setToolTipText("Результати обчислення статистики");
         petriNetsFrameSplitPane.setAutoscrolls(true);
@@ -565,7 +575,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         modelingResultsPanel.setMaximumSize(new java.awt.Dimension(2147483647, 2147483647));
         modelingResultsPanel.setRequestFocusEnabled(false);
 
-        modelingResultsSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
+        modelingResultsSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(null));
         modelingResultsSplitPane.setDividerSize(1);
         modelingResultsSplitPane.setOrientation(javax.swing.JSplitPane.VERTICAL_SPLIT);
 
@@ -582,7 +592,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         modelingResultsSplitPane.setLeftComponent(protokolScrollPane);
 
-        statisticsScrollPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
+        statisticsScrollPane.setBorder(javax.swing.BorderFactory.createLineBorder(null));
 
         statisticsTextArea.setFont(new java.awt.Font("Tahoma", 0, 10)); // NOI18N
         statisticsTextArea.setText("--------------- STATISTICS ----------------");
@@ -601,7 +611,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         );
         modelingResultsPanelLayout.setVerticalGroup(
             modelingResultsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(modelingResultsSplitPane, javax.swing.GroupLayout.DEFAULT_SIZE, 475, Short.MAX_VALUE)
+            .addComponent(modelingResultsSplitPane, javax.swing.GroupLayout.DEFAULT_SIZE, 476, Short.MAX_VALUE)
         );
 
         petriNetsFrameSplitPane.setRightComponent(modelingResultsPanel);
@@ -668,7 +678,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 .addGroup(petriNetDesignLayout.createSequentialGroup()
                     .addGap(38, 38, 38)
                     .addComponent(leftNenuPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 477, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(42, Short.MAX_VALUE)))
+                    .addContainerGap(43, Short.MAX_VALUE)))
         );
 
         petriNetsFrameToolBar.getAccessibleContext().setAccessibleName("");
@@ -881,7 +891,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 .addGap(0, 0, 0)
                 .addComponent(modelingParametersPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(modelingResultsSplitPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 475, Short.MAX_VALUE)
+                .addComponent(modelingResultsSplitPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 478, Short.MAX_VALUE)
                 .addGap(2, 2, 2))
         );
 
@@ -1109,7 +1119,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 .addContainerGap()
                 .addComponent(modelingParametersPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(modelingResultsSplitPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 448, Short.MAX_VALUE)
+                .addComponent(modelingResultsSplitPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 461, Short.MAX_VALUE)
                 .addContainerGap())
         );
 
@@ -1154,7 +1164,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         fileMenu.setText("File");
         fileMenu.setMargin(new java.awt.Insets(0, 10, 0, 10));
 
-        openMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_O, java.awt.event.InputEvent.CTRL_MASK));
+        openMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_O, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         openMenuItem.setText("Open");
         openMenuItem.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1163,7 +1173,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         fileMenu.add(openMenuItem);
 
-        newMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_N, java.awt.event.InputEvent.CTRL_MASK));
+        newMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_N, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         newMenuItem.setText("New");
         newMenuItem.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1172,7 +1182,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         fileMenu.add(newMenuItem);
 
-        openMethodMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.CTRL_MASK));
+        openMethodMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         openMethodMenuItem.setText("Open a method file");
         openMethodMenuItem.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1186,7 +1196,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         editMenu.setText("Edit");
         editMenu.setMargin(new java.awt.Insets(0, 10, 0, 10));
 
-        editNetParameters.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_E, java.awt.event.InputEvent.CTRL_MASK));
+        editNetParameters.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_E, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         editNetParameters.setText("Edit net parameters");
         editNetParameters.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1195,7 +1205,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         editMenu.add(editNetParameters);
 
-        centerLocationOfGraphNet.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_L, java.awt.event.InputEvent.CTRL_MASK));
+        centerLocationOfGraphNet.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_L, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         centerLocationOfGraphNet.setText("Locate net in center");
         centerLocationOfGraphNet.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1204,12 +1214,32 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         editMenu.add(centerLocationOfGraphNet);
 
+        undoMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_Z, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        undoMenuItem.setText("Undo");
+        undoMenuItem.setEnabled(undoManager.canUndo());
+        undoMenuItem.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                undoMenuItemActionPerformed(evt);
+            }
+        });
+        editMenu.add(undoMenuItem);
+
+        redoMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_Z, java.awt.event.InputEvent.SHIFT_DOWN_MASK | java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        redoMenuItem.setText("Redo");
+        redoMenuItem.setEnabled(undoManager.canRedo());
+        redoMenuItem.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                redoMenuItemActionPerformed(evt);
+            }
+        });
+        editMenu.add(redoMenuItem);
+
         petriNetsFrameMenuBar.add(editMenu);
 
         save.setText("Save");
         save.setMargin(new java.awt.Insets(0, 10, 0, 10));
 
-        SaveGraphNet.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_MASK));
+        SaveGraphNet.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         SaveGraphNet.setText("Save Graph net");
         SaveGraphNet.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1218,7 +1248,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         save.add(SaveGraphNet);
 
-        jMenuItem2.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.SHIFT_MASK | java.awt.event.InputEvent.CTRL_MASK));
+        jMenuItem2.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.SHIFT_DOWN_MASK | java.awt.event.InputEvent.CTRL_DOWN_MASK));
         jMenuItem2.setText("Save Graph net as");
         jMenuItem2.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1227,7 +1257,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         save.add(jMenuItem2);
 
-        SavePetriNetAs.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_P, java.awt.event.InputEvent.CTRL_MASK));
+        SavePetriNetAs.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_P, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         SavePetriNetAs.setText("Save  Petri net as");
         SavePetriNetAs.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1236,7 +1266,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         save.add(SavePetriNetAs);
 
-        SaveNetAsMethod.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.CTRL_MASK));
+        SaveNetAsMethod.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         SaveNetAsMethod.setText("Save net as method");
         SaveNetAsMethod.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1245,7 +1275,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         save.add(SaveNetAsMethod);
 
-        SaveMethodInNetLibrary.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.SHIFT_MASK | java.awt.event.InputEvent.CTRL_MASK));
+        SaveMethodInNetLibrary.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.SHIFT_DOWN_MASK | java.awt.event.InputEvent.CTRL_DOWN_MASK));
         SaveMethodInNetLibrary.setText("Save method in NetLibrary");
         SaveMethodInNetLibrary.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1388,8 +1418,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         GraphPetriPlace pp = new GraphPetriPlace(new PetriP(
                 GraphPetriPlace.setSimpleName(), 0),
                 PetriNetsPanel.getIdElement()); // by Inna 18.01.2013, changed 1.10.2018
-        getPetriNetsPanel().getGraphNet().getGraphPetriPlaceList().add(pp);
-        getPetriNetsPanel().setCurrent(pp);
+        /* getPetriNetsPanel().getGraphNet().getGraphPetriPlaceList().add(pp);
+        getPetriNetsPanel().setCurrent(pp);*/
+        AddPlaceEdit edit = new AddPlaceEdit(getPetriNetsPanel(), pp); 
+        edit.doFirstTime();
+        undoManager.addEdit(edit);
+        undoSupport.postEdit(edit);
+        
     }//GEN-LAST:event_newPlaceButtonActionPerformed
 
     private void timeStartFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timeStartFieldActionPerformed
@@ -1485,6 +1520,22 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         }.start();
     }//GEN-LAST:event_itemRunEventActionPerformed
+
+    private void undoMenuItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_undoMenuItemActionPerformed
+        if (undoManager.canUndo()) {
+            undoManager.undo();
+        }
+        undoMenuItem.setEnabled(undoManager.canUndo());
+        redoMenuItem.setEnabled(undoManager.canRedo());
+    }//GEN-LAST:event_undoMenuItemActionPerformed
+
+    private void redoMenuItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_redoMenuItemActionPerformed
+        if (undoManager.canRedo()) {
+            undoManager.redo();
+        }
+        undoMenuItem.setEnabled(undoManager.canUndo());
+        redoMenuItem.setEnabled(undoManager.canRedo());
+    }//GEN-LAST:event_redoMenuItemActionPerformed
 
     private void openMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMenuItemActionPerformed
         try {
@@ -2055,6 +2106,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JScrollPane protokolScrollPane2;
     private javax.swing.JTextArea protokolTextArea1;
     private javax.swing.JTextArea protokolTextArea2;
+    private javax.swing.JMenuItem redoMenuItem;
     private javax.swing.JButton runEventButton1;
     private javax.swing.JButton runEventButton2;
     private javax.swing.JMenu runMenu;
@@ -2082,6 +2134,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JLabel timeStartLabel;
     private javax.swing.JLabel timeStartLabel1;
     private javax.swing.JLabel timeStartLabel2;
+    private javax.swing.JMenuItem undoMenuItem;
     // End of variables declaration//GEN-END:variables
     private static PetriNetsPanel petriNetsPanel;
     private FileUse fileUse = new FileUse();
@@ -2092,5 +2145,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton newThreadBtn;
     private javax.swing.JButton lockBtn;
     private javax.swing.JButton guardBtn;*/
+    
+    private final UndoManager undoManager = new UndoManager();
+    private final UndoableEditSupport undoSupport = new UndoableEditSupport(this);
 
 }
