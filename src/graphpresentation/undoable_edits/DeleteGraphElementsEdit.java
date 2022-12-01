@@ -44,13 +44,13 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
         this.outArcs = outArcs;
     }
     
-    public DeleteGraphElementsEdit(PetriNetsPanel panel, GraphElement element) {
+    public DeleteGraphElementsEdit(PetriNetsPanel panel, GraphElement element,
+            List<GraphArcIn> inArcs, List<GraphArcOut> outArcs) {
         this.panel = panel;
         this.elements = new ArrayList();
         this.elements.add(element);
-        // TODO: proper implementation
-        this.inArcs = new ArrayList<>();
-        this.outArcs = new ArrayList<>();
+        this.inArcs = inArcs;
+        this.outArcs = outArcs;
     }
     
     @Override

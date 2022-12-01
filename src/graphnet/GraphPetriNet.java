@@ -415,7 +415,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
             }
         }
      }
-
+    
     public GraphElement copyElement(GraphElement element) {
         if (element instanceof GraphPetriPlace) {
             GraphPetriPlace newPlace = new GraphPetriPlace(

@@ -106,11 +106,43 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     }
                     if (choosen != null) {
                         try {
+                            // TODO: make the following code a separate function
+                            List<GraphArcIn> inArcsToBeRemoved = new ArrayList<>();
+                            List<GraphArcOut> outArcsToBeRemoved = new ArrayList<>();
+                                
+                            /* finding arcs that will be deleted along with this element. It's mostly a copy-paste from
+                            * PetriGraphNet.removeElement and this functionality probably should be merged,
+                            * but copy-pasting was the least invasive method of implementing bulk delete undoing.
+                            */ 
+
+                            for (GraphArcIn arc : getGraphNet().getGraphArcInList()) {
+                                if (arc.getBeginElement() == choosen 
+                                        || arc.getEndElement() == choosen) {
+                                    if (!inArcsToBeRemoved.contains(arc)) {
+                                        System.out.println("Added in arc to be deleted");
+                                        inArcsToBeRemoved.add(arc);
+                                    }
+
+                                }
+                            }
+
+                            for (GraphArcOut arc : getGraphNet().getGraphArcOutList()) {
+                                if (arc.getBeginElement() == choosen 
+                                        || arc.getEndElement() == choosen) {
+                                    if (!outArcsToBeRemoved.contains(arc)) {
+                                        outArcsToBeRemoved.add(arc);
+                                    }
+
+                                }
+                            }
+                            /* found all arcs that will be deleted */   
+                            
                             remove(choosen);
                             // TODO: restoring removed arcs too 
                             /* save this action into undo manager so that it can be undone */
                             DeleteGraphElementsEdit edit = 
-                                    new DeleteGraphElementsEdit(instance, choosen);
+                                    new DeleteGraphElementsEdit(instance, choosen, 
+                                            inArcsToBeRemoved, outArcsToBeRemoved);
                             PetriNetsFrame.getUndoSupport().postEdit(edit);
                             choosen = null;
                             current = null;
