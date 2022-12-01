@@ -43,6 +43,7 @@ import graphnet.GraphPetriTransition;
 import graphnet.GraphArcIn;
 import graphnet.GraphArcOut;
 import graphpresentation.undoable_edits.AddArcEdit;
+import graphpresentation.undoable_edits.DeleteArcEdit;
 import graphpresentation.undoable_edits.DeleteGraphElementsEdit;
 
 /**
@@ -102,6 +103,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 if (e.getKeyCode() == KeyEvent.VK_DELETE||e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
                     if (choosenArc != null) {
                         removeArc(choosenArc);
+                        
+                        /* saving this edit for possible undoing */
+                        DeleteArcEdit edit = new DeleteArcEdit(instance, choosenArc);
+                        PetriNetsFrame.getUndoSupport().postEdit(edit);
+                        
                         choosenArc = null;
                         currentArc = null;
                     }
