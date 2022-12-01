@@ -42,6 +42,7 @@ import graphnet.GraphPetriPlace;
 import graphnet.GraphPetriTransition;
 import graphnet.GraphArcIn;
 import graphnet.GraphArcOut;
+import graphpresentation.undoable_edits.DeleteGraphElementsEdit;
 
 /**
  * Creates new form PetriNetsPanel
@@ -74,13 +75,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private boolean leftMouseButtonPressed = false;
 
     private List<GraphElement> copiedElements;
+    
+    private static PetriNetsPanel instance; // TODO: remove and find a better way
 
     public List<GraphElement> getChoosenElements() {
         return choosenElements;
     }
 	
     public PetriNetsPanel(JTextField textField) {
-
+        instance = this;
         initComponents();
         this.setBackground(Color.WHITE);
       
@@ -104,6 +107,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     if (choosen != null) {
                         try {
                             remove(choosen);
+                            // TODO: restoring removed arcs too 
+                            /* save this action into undo manager so that it can be undone */
+                            DeleteGraphElementsEdit edit = 
+                                    new DeleteGraphElementsEdit(instance, choosen);
+                            PetriNetsFrame.getUndoSupport().postEdit(edit);
                             choosen = null;
                             current = null;
                         } catch (ExceptionInvalidNetStructure ex) {
@@ -116,10 +124,47 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                                 "Delete", JOptionPane.OK_CANCEL_OPTION);
                         if (result == JOptionPane.OK_OPTION) {
                             try {
+                                List<GraphArcIn> inArcsToBeRemoved = new ArrayList<>();
+                                List<GraphArcOut> outArcsToBeRemoved = new ArrayList<>();                      
+                                
                                 for (GraphElement graphElement : choosenElements) {
+                                    /* finding arcs that will be deleted along with this element. It's mostly a copy-paste from
+                                     * PetriGraphNet.removeElement and this functionality probably should be merged,
+                                     * but copy-pasting was the least invasive method of implementing bulk delete undoing.
+                                    */ 
+                                    
+                                    for (GraphArcIn arc : getGraphNet().getGraphArcInList()) {
+                                        if (arc.getBeginElement() == graphElement 
+                                                || arc.getEndElement() == graphElement) {
+                                            if (!inArcsToBeRemoved.contains(arc)) {
+                                                System.out.println("Added in arc to be deleted");
+                                                inArcsToBeRemoved.add(arc);
+                                            }
+
+                                        }
+                                    }
+                                    
+                                    for (GraphArcOut arc : getGraphNet().getGraphArcOutList()) {
+                                        if (arc.getBeginElement() == graphElement 
+                                                || arc.getEndElement() == graphElement) {
+                                            if (!outArcsToBeRemoved.contains(arc)) {
+                                                outArcsToBeRemoved.add(arc);
+                                            }
+
+                                        }
+                                    }
+                                    /* found all arcs that will be deleted */
+                                    
                                     remove(graphElement);
                                     PetriNetsPanel.this.setDefaultColorGraphElements(); //27.07.2018
                                 }
+                                /* save this action into undo manager so that it can be undone */
+                                DeleteGraphElementsEdit edit = 
+                                        new DeleteGraphElementsEdit(instance, 
+                                                new ArrayList(choosenElements),
+                                        inArcsToBeRemoved, outArcsToBeRemoved);
+                                
+                                PetriNetsFrame.getUndoSupport().postEdit(edit);
                             } catch (ExceptionInvalidNetStructure ex) {
                                 Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
                             } finally {

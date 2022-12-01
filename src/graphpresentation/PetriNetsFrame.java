@@ -234,6 +234,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         this.setSize(1000, 700);
         
         undoSupport.addUndoableEditListener((event) -> {
+            undoManager.addEdit(event.getEdit());
             undoMenuItem.setEnabled(undoManager.canUndo());
             redoMenuItem.setEnabled(undoManager.canRedo());
         });
@@ -1422,7 +1423,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         getPetriNetsPanel().setCurrent(pp);*/
         AddPlaceEdit edit = new AddPlaceEdit(getPetriNetsPanel(), pp); 
         edit.doFirstTime();
-        undoManager.addEdit(edit);
         undoSupport.postEdit(edit);
         
     }//GEN-LAST:event_newPlaceButtonActionPerformed
@@ -2146,7 +2146,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton lockBtn;
     private javax.swing.JButton guardBtn;*/
     
-    private final UndoManager undoManager = new UndoManager();
-    private final UndoableEditSupport undoSupport = new UndoableEditSupport(this);
-
+    private static final UndoManager undoManager = new UndoManager();
+    private static final UndoableEditSupport undoSupport = new UndoableEditSupport();
+    
+    public static UndoableEditSupport getUndoSupport() {
+        return undoSupport;
+    }
 }
