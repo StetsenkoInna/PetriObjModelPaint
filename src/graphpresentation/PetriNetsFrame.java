@@ -10,7 +10,7 @@ import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
 import graphreuse.GraphNetParametersFrame;
-import graphpresentation.undoable_edits.AddPlaceEdit;
+import graphpresentation.undoable_edits.AddGraphElementEdit;
 
 import java.awt.*;
 import java.awt.event.InputEvent;
@@ -1411,8 +1411,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         GraphPetriTransition pt = new GraphPetriTransition(new PetriT(
                 GraphPetriTransition.setSimpleName(), 0.0),
                 PetriNetsPanel.getIdElement());// by Inna 18.01.2013, changed 1.10.2018
-        getPetriNetsPanel().getGraphNet().getGraphPetriTransitionList().add(pt);
-        getPetriNetsPanel().setCurrent(pt);
+        
+        AddGraphElementEdit edit = new AddGraphElementEdit(getPetriNetsPanel(), pt);
+        edit.doFirstTime();
+        undoSupport.postEdit(edit);
     }//GEN-LAST:event_newTransitionButtonActionPerformed
 
     private void newPlaceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newPlaceButtonActionPerformed
@@ -1421,7 +1423,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 PetriNetsPanel.getIdElement()); // by Inna 18.01.2013, changed 1.10.2018
         /* getPetriNetsPanel().getGraphNet().getGraphPetriPlaceList().add(pp);
         getPetriNetsPanel().setCurrent(pp);*/
-        AddPlaceEdit edit = new AddPlaceEdit(getPetriNetsPanel(), pp); 
+        AddGraphElementEdit edit = new AddGraphElementEdit(getPetriNetsPanel(), pp); 
         edit.doFirstTime();
         undoSupport.postEdit(edit);
         

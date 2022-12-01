@@ -42,6 +42,7 @@ import graphnet.GraphPetriPlace;
 import graphnet.GraphPetriTransition;
 import graphnet.GraphArcIn;
 import graphnet.GraphArcOut;
+import graphpresentation.undoable_edits.AddArcEdit;
 import graphpresentation.undoable_edits.DeleteGraphElementsEdit;
 
 /**
@@ -262,7 +263,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     }
 
-    private void removeArc(GraphArc s) {
+    public void removeArc(GraphArc s) {
         if (s == null) {
             return;
         }
@@ -641,6 +642,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                                 currentArc.updateCoordinates();
                             }
                         }
+                        
+                        /* saving the action of adding an arc for possible undoing */ 
+                        AddArcEdit edit = new AddArcEdit(instance, currentArc);
+                        PetriNetsFrame.getUndoSupport().postEdit(edit);
+                        
                         currentArc = null;
                         setDefaultColorGraphArcs();
                     } else {                        //1.02.2013 цей фрагмент дозволяє відслідковувати намагання 
@@ -794,6 +800,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     public GraphArc getChoosenArc() {
         return choosenArc;
+    }
+    
+    public void setChoosenArc(GraphArc arc) {
+        this.choosenArc = arc;
     }
 
     public int getSavedId() {
