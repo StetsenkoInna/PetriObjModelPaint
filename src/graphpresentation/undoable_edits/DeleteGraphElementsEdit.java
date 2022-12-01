@@ -1,5 +1,6 @@
 package graphpresentation.undoable_edits;
 
+import PetriObj.ExceptionInvalidNetStructure;
 import graphnet.GraphArcIn;
 import graphnet.GraphArcOut;
 import graphnet.GraphPetriPlace;
@@ -119,6 +120,24 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
     @Override
     public void redo() {
         super.redo();
+        for (GraphElement element : elements) {
+            if (element == panel.getCurrent()) {
+                panel.setCurrent(null);
+            }
+            //if (element == panel.getChoosen()) {
+               // panel.setChoosen(null);
+            //}
+            if (panel.getChoosenElements().contains(element)) {
+                panel.getChoosenElements().remove(element);
+            }
+            try {
+               panel.getGraphNet().delGraphElement(element);
+            } catch (ExceptionInvalidNetStructure e) {
+                e.printStackTrace();
+                // theoretically this exception should never happen here
+            }
+        }
+        panel.repaint();
     }
     
 }

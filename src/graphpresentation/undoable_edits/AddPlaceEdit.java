@@ -24,6 +24,7 @@ public class AddPlaceEdit extends AbstractUndoableEdit  {
         super.redo(); // checking whether it can be redone and setting hasBeenDone = true
         doFirstTime();
         panel.setCurrent(null);
+        panel.repaint();
     }
     
     /**
@@ -42,6 +43,15 @@ public class AddPlaceEdit extends AbstractUndoableEdit  {
         //panel.setCurrent(null);
         //panel.redraw();
        // try {
+        if (place == panel.getCurrent()) {
+                panel.setCurrent(null);
+            }
+            if (place == panel.getChoosen()) {
+               panel.setChoosen(null);
+            }
+            if (panel.getChoosenElements().contains(place)) {
+                panel.getChoosenElements().remove(place);
+            }
             panel.getGraphNet().getGraphPetriPlaceList().remove(place);
             panel.revalidate();
             panel.repaint();

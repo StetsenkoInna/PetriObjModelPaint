@@ -747,6 +747,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     public GraphElement getChoosen() {
         return choosen;
     }
+    
+    public void setChoosen(GraphElement chosen) {
+        this.choosen = chosen;
+    }
 
     public void setCurrentGraphArc(GraphArc t) {
         currentArc = t;
