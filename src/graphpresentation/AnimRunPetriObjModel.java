@@ -25,6 +25,11 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
     private PetriNetsPanel panel;
     private JSlider delaySlider;
     private ArrayList<AnimRunPetriSim> runlist = new ArrayList<>();
+    
+    /**
+     * Whether the simulation is paused (by pressing pause button)
+     */
+    private boolean isPaused = false;
        
     public AnimRunPetriObjModel(ArrayList<PetriSim> list,
                                 JTextArea area,
@@ -63,7 +68,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
         ArrayList<AnimRunPetriSim> conflictObj = new ArrayList<>();
         Random r = new Random();
 
-        while (super.getCurrentTime() < super.getSimulationTime()) {
+        while ((super.getCurrentTime() < super.getSimulationTime()) && !isPaused) {
 
             conflictObj.clear();
 
@@ -131,7 +136,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                     if (list.getNumObj() == conflictObj.get(num).getNumObj()) {
                         super.printInfo(" time =   " + super.getCurrentTime() + "   Event '" + list.getEventMin().getName() + "'\n" + "                       is occuring for the object   " + list.getName() + "\n", area);
                         list.doT();
-                        list.output();
+                        list.output(); /* вихід маркерів з переходів */
                     }
                 }
                 super.printInfo("Markers leave transitions:", area);
@@ -195,4 +200,12 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
             }
         }
     }
+    
+    /**
+     * Pause or unpause the simulation
+     */
+    public void setPaused(boolean isPaused) {
+        this.isPaused = isPaused;
+    }
+    
 }

@@ -324,14 +324,14 @@
                       <Component id="petriNetsFrameToolBar" min="-2" pref="33" max="-2" attributes="0"/>
                       <EmptySpace min="-2" max="-2" attributes="0"/>
                       <Component id="petriNetsFrameSplitPane" max="32767" attributes="0"/>
-                      <EmptySpace min="-2" max="-2" attributes="0"/>
+                      <EmptySpace type="unrelated" max="-2" attributes="0"/>
                       <Component id="modelingParametersPanel" min="-2" max="-2" attributes="0"/>
                   </Group>
                   <Group type="103" rootIndex="1" groupAlignment="0" attributes="0">
                       <Group type="102" alignment="0" attributes="0">
                           <EmptySpace min="-2" pref="38" max="-2" attributes="0"/>
                           <Component id="leftNenuPanel" min="-2" pref="477" max="-2" attributes="0"/>
-                          <EmptySpace pref="43" max="32767" attributes="0"/>
+                          <EmptySpace pref="99" max="32767" attributes="0"/>
                       </Group>
                   </Group>
               </Group>
@@ -345,21 +345,29 @@
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Group type="102" alignment="0" attributes="0">
                           <EmptySpace min="-2" max="-2" attributes="0"/>
-                          <Component id="netNameLabel" max="32767" attributes="0"/>
+                          <Component id="netNameLabel" pref="0" max="32767" attributes="0"/>
                           <EmptySpace min="-2" max="-2" attributes="0"/>
-                          <Component id="netNameTextField" max="32767" attributes="0"/>
+                          <Component id="netNameTextField" pref="0" max="32767" attributes="0"/>
                           <EmptySpace min="-2" pref="10" max="-2" attributes="0"/>
                           <Component id="timeStartLabel" max="32767" attributes="0"/>
                           <EmptySpace min="-2" max="-2" attributes="0"/>
-                          <Component id="timeStartField" max="32767" attributes="0"/>
+                          <Component id="timeStartField" pref="0" max="32767" attributes="0"/>
                           <EmptySpace type="unrelated" min="-2" max="-2" attributes="0"/>
                           <Component id="timeModelingLabel" max="32767" attributes="0"/>
                           <EmptySpace min="-2" max="-2" attributes="0"/>
-                          <Component id="timeModelingTextField" max="32767" attributes="0"/>
+                          <Component id="timeModelingTextField" pref="0" max="32767" attributes="0"/>
                           <EmptySpace type="unrelated" max="-2" attributes="0"/>
                           <Component id="speedLabel" min="-2" pref="92" max="-2" attributes="0"/>
                           <EmptySpace type="separate" max="-2" attributes="0"/>
                           <Component id="speedSlider" min="-2" pref="163" max="-2" attributes="0"/>
+                          <EmptySpace max="-2" attributes="0"/>
+                          <Component id="skipBackwardAnimationButton" min="-2" max="-2" attributes="0"/>
+                          <EmptySpace max="-2" attributes="0"/>
+                          <Component id="playPauseAnimationButton" min="-2" max="-2" attributes="0"/>
+                          <EmptySpace max="-2" attributes="0"/>
+                          <Component id="stopAnimationButton" min="-2" max="-2" attributes="0"/>
+                          <EmptySpace max="-2" attributes="0"/>
+                          <Component id="skipForwardAnimationButton" min="-2" max="-2" attributes="0"/>
                           <EmptySpace max="-2" attributes="0"/>
                       </Group>
                   </Group>
@@ -367,7 +375,7 @@
                 <DimensionLayout dim="1">
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Group type="102" attributes="0">
-                          <EmptySpace pref="12" max="32767" attributes="0"/>
+                          <EmptySpace pref="16" max="32767" attributes="0"/>
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="103" alignment="1" groupAlignment="3" max="-2" attributes="0">
                                   <Component id="netNameLabel" alignment="3" min="-2" max="-2" attributes="0"/>
@@ -378,7 +386,13 @@
                                   <Component id="netNameTextField" alignment="3" max="32767" attributes="0"/>
                                   <Component id="speedLabel" alignment="3" min="-2" max="-2" attributes="0"/>
                               </Group>
-                              <Component id="speedSlider" alignment="1" min="-2" max="-2" attributes="0"/>
+                              <Group type="103" alignment="1" groupAlignment="3" attributes="0">
+                                  <Component id="speedSlider" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  <Component id="playPauseAnimationButton" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  <Component id="stopAnimationButton" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  <Component id="skipBackwardAnimationButton" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  <Component id="skipForwardAnimationButton" alignment="3" min="-2" max="-2" attributes="0"/>
+                              </Group>
                           </Group>
                       </Group>
                   </Group>
@@ -481,6 +495,37 @@
                   </Properties>
                   <Events>
                     <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="speedSliderStateChanged"/>
+                  </Events>
+                </Component>
+                <Component class="javax.swing.JButton" name="playPauseAnimationButton">
+                  <Properties>
+                    <Property name="text" type="java.lang.String" value="&#x23f5;"/>
+                  </Properties>
+                  <Events>
+                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="playPauseAnimationButtonActionPerformed"/>
+                  </Events>
+                </Component>
+                <Component class="javax.swing.JButton" name="stopAnimationButton">
+                  <Properties>
+                    <Property name="text" type="java.lang.String" value="&#x23f9;"/>
+                    <Property name="enabled" type="boolean" value="false"/>
+                  </Properties>
+                </Component>
+                <Component class="javax.swing.JButton" name="skipBackwardAnimationButton">
+                  <Properties>
+                    <Property name="text" type="java.lang.String" value="&#x23ee;"/>
+                    <Property name="enabled" type="boolean" value="false"/>
+                  </Properties>
+                  <Events>
+                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="skipBackwardAnimationButtonActionPerformed"/>
+                  </Events>
+                </Component>
+                <Component class="javax.swing.JButton" name="skipForwardAnimationButton">
+                  <Properties>
+                    <Property name="text" type="java.lang.String" value="&#x23ed;"/>
+                  </Properties>
+                  <Events>
+                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="skipForwardAnimationButtonActionPerformed"/>
                   </Events>
                 </Component>
               </SubComponents>
@@ -672,7 +717,7 @@
                     </DimensionLayout>
                     <DimensionLayout dim="1">
                       <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="modelingResultsSplitPane" alignment="0" pref="476" max="32767" attributes="0"/>
+                          <Component id="modelingResultsSplitPane" alignment="0" pref="522" max="32767" attributes="0"/>
                       </Group>
                     </DimensionLayout>
                   </Layout>
@@ -1080,7 +1125,7 @@
                               <EmptySpace min="-2" pref="0" max="-2" attributes="0"/>
                               <Component id="modelingParametersPanel1" min="-2" pref="31" max="-2" attributes="0"/>
                               <EmptySpace max="-2" attributes="0"/>
-                              <Component id="modelingResultsSplitPane1" pref="478" max="32767" attributes="0"/>
+                              <Component id="modelingResultsSplitPane1" pref="534" max="32767" attributes="0"/>
                               <EmptySpace min="-2" pref="2" max="-2" attributes="0"/>
                           </Group>
                       </Group>
@@ -1178,17 +1223,17 @@
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="102" alignment="0" attributes="0">
                                   <EmptySpace min="-2" max="-2" attributes="0"/>
-                                  <Component id="netNameLabel1" pref="93" max="32767" attributes="0"/>
+                                  <Component id="netNameLabel1" pref="94" max="32767" attributes="0"/>
                                   <EmptySpace min="-2" max="-2" attributes="0"/>
-                                  <Component id="netNameTextField1" pref="119" max="32767" attributes="0"/>
+                                  <Component id="netNameTextField1" pref="118" max="32767" attributes="0"/>
                                   <EmptySpace min="-2" pref="10" max="-2" attributes="0"/>
                                   <Component id="timeStartLabel1" max="32767" attributes="0"/>
                                   <EmptySpace min="-2" max="-2" attributes="0"/>
-                                  <Component id="timeStartField1" pref="118" max="32767" attributes="0"/>
+                                  <Component id="timeStartField1" pref="119" max="32767" attributes="0"/>
                                   <EmptySpace type="unrelated" min="-2" max="-2" attributes="0"/>
                                   <Component id="timeModelingLabel1" max="32767" attributes="0"/>
                                   <EmptySpace min="-2" max="-2" attributes="0"/>
-                                  <Component id="timeModelingTextField1" pref="118" max="32767" attributes="0"/>
+                                  <Component id="timeModelingTextField1" pref="119" max="32767" attributes="0"/>
                                   <EmptySpace min="-2" max="-2" attributes="0"/>
                               </Group>
                           </Group>
@@ -1527,7 +1572,7 @@
                                   <EmptySpace max="-2" attributes="0"/>
                                   <Component id="modelingParametersPanel2" min="-2" pref="31" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
-                                  <Component id="modelingResultsSplitPane2" pref="461" max="32767" attributes="0"/>
+                                  <Component id="modelingResultsSplitPane2" pref="517" max="32767" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
                               </Group>
                           </Group>
@@ -1625,17 +1670,17 @@
                               <Group type="103" groupAlignment="0" attributes="0">
                                   <Group type="102" alignment="0" attributes="0">
                                       <EmptySpace min="-2" max="-2" attributes="0"/>
-                                      <Component id="netNameLabel2" pref="77" max="32767" attributes="0"/>
+                                      <Component id="netNameLabel2" pref="78" max="32767" attributes="0"/>
                                       <EmptySpace min="-2" max="-2" attributes="0"/>
-                                      <Component id="netNameTextField2" pref="101" max="32767" attributes="0"/>
+                                      <Component id="netNameTextField2" pref="102" max="32767" attributes="0"/>
                                       <EmptySpace min="-2" pref="10" max="-2" attributes="0"/>
-                                      <Component id="timeStartLabel2" pref="75" max="32767" attributes="0"/>
+                                      <Component id="timeStartLabel2" pref="80" max="32767" attributes="0"/>
                                       <EmptySpace min="-2" max="-2" attributes="0"/>
-                                      <Component id="timeStartField2" pref="99" max="32767" attributes="0"/>
+                                      <Component id="timeStartField2" pref="100" max="32767" attributes="0"/>
                                       <EmptySpace type="unrelated" min="-2" max="-2" attributes="0"/>
-                                      <Component id="timeModelingLabel2" pref="95" max="32767" attributes="0"/>
+                                      <Component id="timeModelingLabel2" pref="96" max="32767" attributes="0"/>
                                       <EmptySpace min="-2" max="-2" attributes="0"/>
-                                      <Component id="timeModelingTextField2" pref="99" max="32767" attributes="0"/>
+                                      <Component id="timeModelingTextField2" pref="100" max="32767" attributes="0"/>
                                       <EmptySpace min="-2" max="-2" attributes="0"/>
                                   </Group>
                               </Group>

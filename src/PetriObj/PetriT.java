@@ -719,8 +719,6 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
      */
     @Override
     public PetriT clone() throws CloneNotSupportedException { // 30.11.2015
-    
-        super.clone();
         PetriT T = new PetriT(name, parametr);
         T.setDistribution(distribution, parametr);
         T.setPriority(priority);

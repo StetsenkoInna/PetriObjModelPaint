@@ -317,6 +317,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeModelingTextField = new javax.swing.JTextField();
         speedLabel = new javax.swing.JLabel();
         speedSlider = new javax.swing.JSlider();
+        playPauseAnimationButton = new javax.swing.JButton();
+        stopAnimationButton = new javax.swing.JButton();
+        skipBackwardAnimationButton = new javax.swing.JButton();
+        skipForwardAnimationButton = new javax.swing.JButton();
         petriNetsFrameToolBar = new javax.swing.JToolBar();
         newPlaceButton = new javax.swing.JButton();
         newTransitionButton = new javax.swing.JButton();
@@ -457,33 +461,66 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         });
 
+        playPauseAnimationButton.setText("⏵");
+        playPauseAnimationButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                playPauseAnimationButtonActionPerformed(evt);
+            }
+        });
+
+        stopAnimationButton.setText("⏹");
+        stopAnimationButton.setEnabled(false);
+
+        skipBackwardAnimationButton.setText("⏮");
+        skipBackwardAnimationButton.setEnabled(false);
+        skipBackwardAnimationButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                skipBackwardAnimationButtonActionPerformed(evt);
+            }
+        });
+
+        skipForwardAnimationButton.setText("⏭");
+        skipForwardAnimationButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                skipForwardAnimationButtonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout modelingParametersPanelLayout = new javax.swing.GroupLayout(modelingParametersPanel);
         modelingParametersPanel.setLayout(modelingParametersPanelLayout);
         modelingParametersPanelLayout.setHorizontalGroup(
             modelingParametersPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(modelingParametersPanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(netNameLabel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(netNameLabel, javax.swing.GroupLayout.DEFAULT_SIZE, 1, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(netNameTextField, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(netNameTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 1, Short.MAX_VALUE)
                 .addGap(10, 10, 10)
                 .addComponent(timeStartLabel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeStartField, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(timeStartField, javax.swing.GroupLayout.DEFAULT_SIZE, 1, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(timeModelingLabel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeModelingTextField, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(timeModelingTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 1, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(speedLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 92, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(speedSlider, javax.swing.GroupLayout.PREFERRED_SIZE, 163, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(skipBackwardAnimationButton)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(playPauseAnimationButton)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(stopAnimationButton)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(skipForwardAnimationButton)
                 .addContainerGap())
         );
         modelingParametersPanelLayout.setVerticalGroup(
             modelingParametersPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(modelingParametersPanelLayout.createSequentialGroup()
-                .addContainerGap(12, Short.MAX_VALUE)
+                .addContainerGap(16, Short.MAX_VALUE)
                 .addGroup(modelingParametersPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, modelingParametersPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE, false)
                         .addComponent(netNameLabel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -493,7 +530,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         .addComponent(timeModelingTextField, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(netNameTextField, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(speedLabel))
-                    .addComponent(speedSlider, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, modelingParametersPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(speedSlider, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(playPauseAnimationButton)
+                        .addComponent(stopAnimationButton)
+                        .addComponent(skipBackwardAnimationButton)
+                        .addComponent(skipForwardAnimationButton))))
         );
 
         timeStartLabel.getAccessibleContext().setAccessibleName("Time");
@@ -553,7 +595,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         petriNetsFrameToolBar.add(newArcButton);
 
-        petriNetsFrameSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(null));
+        petriNetsFrameSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
         petriNetsFrameSplitPane.setDividerSize(3);
         petriNetsFrameSplitPane.setToolTipText("Результати обчислення статистики");
         petriNetsFrameSplitPane.setAutoscrolls(true);
@@ -576,7 +618,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         modelingResultsPanel.setMaximumSize(new java.awt.Dimension(2147483647, 2147483647));
         modelingResultsPanel.setRequestFocusEnabled(false);
 
-        modelingResultsSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(null));
+        modelingResultsSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
         modelingResultsSplitPane.setDividerSize(1);
         modelingResultsSplitPane.setOrientation(javax.swing.JSplitPane.VERTICAL_SPLIT);
 
@@ -593,7 +635,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         modelingResultsSplitPane.setLeftComponent(protokolScrollPane);
 
-        statisticsScrollPane.setBorder(javax.swing.BorderFactory.createLineBorder(null));
+        statisticsScrollPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
 
         statisticsTextArea.setFont(new java.awt.Font("Tahoma", 0, 10)); // NOI18N
         statisticsTextArea.setText("--------------- STATISTICS ----------------");
@@ -612,7 +654,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         );
         modelingResultsPanelLayout.setVerticalGroup(
             modelingResultsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(modelingResultsSplitPane, javax.swing.GroupLayout.DEFAULT_SIZE, 476, Short.MAX_VALUE)
+            .addComponent(modelingResultsSplitPane, javax.swing.GroupLayout.DEFAULT_SIZE, 522, Short.MAX_VALUE)
         );
 
         petriNetsFrameSplitPane.setRightComponent(modelingResultsPanel);
@@ -673,13 +715,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 .addComponent(petriNetsFrameToolBar, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(petriNetsFrameSplitPane, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(modelingParametersPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
             .addGroup(petriNetDesignLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(petriNetDesignLayout.createSequentialGroup()
                     .addGap(38, 38, 38)
                     .addComponent(leftNenuPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 477, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(43, Short.MAX_VALUE)))
+                    .addContainerGap(99, Short.MAX_VALUE)))
         );
 
         petriNetsFrameToolBar.getAccessibleContext().setAccessibleName("");
@@ -848,17 +890,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             modelingParametersPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(modelingParametersPanel1Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(netNameLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, 93, Short.MAX_VALUE)
+                .addComponent(netNameLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, 94, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(netNameTextField1, javax.swing.GroupLayout.DEFAULT_SIZE, 119, Short.MAX_VALUE)
+                .addComponent(netNameTextField1, javax.swing.GroupLayout.DEFAULT_SIZE, 118, Short.MAX_VALUE)
                 .addGap(10, 10, 10)
                 .addComponent(timeStartLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeStartField1, javax.swing.GroupLayout.DEFAULT_SIZE, 118, Short.MAX_VALUE)
+                .addComponent(timeStartField1, javax.swing.GroupLayout.DEFAULT_SIZE, 119, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(timeModelingLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeModelingTextField1, javax.swing.GroupLayout.DEFAULT_SIZE, 118, Short.MAX_VALUE)
+                .addComponent(timeModelingTextField1, javax.swing.GroupLayout.DEFAULT_SIZE, 119, Short.MAX_VALUE)
                 .addContainerGap())
         );
         modelingParametersPanel1Layout.setVerticalGroup(
@@ -892,7 +934,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 .addGap(0, 0, 0)
                 .addComponent(modelingParametersPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(modelingResultsSplitPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 478, Short.MAX_VALUE)
+                .addComponent(modelingResultsSplitPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 534, Short.MAX_VALUE)
                 .addGap(2, 2, 2))
         );
 
@@ -1076,17 +1118,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             modelingParametersPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(modelingParametersPanel2Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(netNameLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 77, Short.MAX_VALUE)
+                .addComponent(netNameLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 78, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(netNameTextField2, javax.swing.GroupLayout.DEFAULT_SIZE, 101, Short.MAX_VALUE)
+                .addComponent(netNameTextField2, javax.swing.GroupLayout.DEFAULT_SIZE, 102, Short.MAX_VALUE)
                 .addGap(10, 10, 10)
-                .addComponent(timeStartLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 75, Short.MAX_VALUE)
+                .addComponent(timeStartLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 80, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeStartField2, javax.swing.GroupLayout.DEFAULT_SIZE, 99, Short.MAX_VALUE)
+                .addComponent(timeStartField2, javax.swing.GroupLayout.DEFAULT_SIZE, 100, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(timeModelingLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 95, Short.MAX_VALUE)
+                .addComponent(timeModelingLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 96, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeModelingTextField2, javax.swing.GroupLayout.DEFAULT_SIZE, 99, Short.MAX_VALUE)
+                .addComponent(timeModelingTextField2, javax.swing.GroupLayout.DEFAULT_SIZE, 100, Short.MAX_VALUE)
                 .addContainerGap())
         );
         modelingParametersPanel2Layout.setVerticalGroup(
@@ -1120,7 +1162,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 .addContainerGap()
                 .addComponent(modelingParametersPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(modelingResultsSplitPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 461, Short.MAX_VALUE)
+                .addComponent(modelingResultsSplitPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 517, Short.MAX_VALUE)
                 .addContainerGap())
         );
 
@@ -1375,34 +1417,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_newPlaceButton2ActionPerformed
 
-    private void timeStartField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timeStartField1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_timeStartField1ActionPerformed
-
-    private void netNameTextField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_netNameTextField1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_netNameTextField1ActionPerformed
-
-    private void runEventButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_runEventButton1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_runEventButton1ActionPerformed
-
-    private void runPetriNetButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_runPetriNetButton1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_runPetriNetButton1ActionPerformed
-
-    private void newArcButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newArcButton1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_newArcButton1ActionPerformed
-
-    private void newTransitionButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newTransitionButton1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_newTransitionButton1ActionPerformed
-
-    private void newPlaceButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newPlaceButton1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_newPlaceButton1ActionPerformed
-
     private void newArcButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newArcButtonActionPerformed
         getPetriNetsPanel().setIsSettingArc(true);
     }//GEN-LAST:event_newArcButtonActionPerformed
@@ -1428,18 +1442,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         undoSupport.postEdit(edit);
         
     }//GEN-LAST:event_newPlaceButtonActionPerformed
-
-    private void timeStartFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timeStartFieldActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_timeStartFieldActionPerformed
-
-    private void netNameTextFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_netNameTextFieldActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_netNameTextFieldActionPerformed
-
-    private void speedSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_speedSliderStateChanged
-        timer.setDelay(speedSlider.getValue() / 3);
-    }//GEN-LAST:event_speedSliderStateChanged
 
     private void leftMenuListMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_leftMenuListMouseClicked
         if (evt.getClickCount() == 2) {
@@ -1539,6 +1541,77 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         redoMenuItem.setEnabled(undoManager.canRedo());
     }//GEN-LAST:event_redoMenuItemActionPerformed
 
+    private void timeStartField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timeStartField1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_timeStartField1ActionPerformed
+
+    private void netNameTextField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_netNameTextField1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_netNameTextField1ActionPerformed
+
+    private void runEventButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_runEventButton1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_runEventButton1ActionPerformed
+
+    private void runPetriNetButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_runPetriNetButton1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_runPetriNetButton1ActionPerformed
+
+    private void newArcButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newArcButton1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_newArcButton1ActionPerformed
+
+    private void newTransitionButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newTransitionButton1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_newTransitionButton1ActionPerformed
+
+    private void newPlaceButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newPlaceButton1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_newPlaceButton1ActionPerformed
+
+    private void skipForwardAnimationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_skipForwardAnimationButtonActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_skipForwardAnimationButtonActionPerformed
+
+    private void playPauseAnimationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_playPauseAnimationButtonActionPerformed
+        if (isAnimationPaused) {
+            /* unpause */
+            startAnimation(); // this recreates the model which we may not want
+            // animationModel.setPaused(false);
+            playPauseAnimationButton.setText("||"); // TODO: replace with charcode
+            isAnimationPaused = false;
+            skipBackwardAnimationButton.setEnabled(false);
+        } else {
+            /* pause */
+            animationModel.setPaused(true);
+            playPauseAnimationButton.setText("⏵"); // TODO: replace with charcode
+            isAnimationPaused = true;
+            if (backupNet != null) {
+                skipBackwardAnimationButton.setEnabled(true);
+            }
+        }
+    }//GEN-LAST:event_playPauseAnimationButtonActionPerformed
+
+    private void speedSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_speedSliderStateChanged
+        timer.setDelay(speedSlider.getValue() / 3);
+    }//GEN-LAST:event_speedSliderStateChanged
+
+    private void timeStartFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timeStartFieldActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_timeStartFieldActionPerformed
+
+    private void netNameTextFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_netNameTextFieldActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_netNameTextFieldActionPerformed
+
+    private void skipBackwardAnimationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_skipBackwardAnimationButtonActionPerformed
+        if (backupNet != null) {
+            getPetriNetsPanel().deletePetriNet();
+            getPetriNetsPanel().addGraphNet(backupNet);
+            skipBackwardAnimationButton.setEnabled(false);
+        }
+    }//GEN-LAST:event_skipBackwardAnimationButtonActionPerformed
+
     private void openMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMenuItemActionPerformed
         try {
             fileUse.newWorksheet(getPetriNetsPanel());
@@ -1636,7 +1709,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }
     }// GEN-LAST:event_editNetParametersActionPerformed
 
-    private void itemAnimateNetActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_itemRunNetActionPerformed
+    private void itemAnimateNetActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_itemAnimateNetActionPerformed
+        startAnimation();
+    }// GEN-LAST:event_itemAnimateNetActionPerformed
+    
+    /**
+     * Starts animating the simulation of the net in a new thread
+     */
+    private void startAnimation() {
+        /* save the current state of the net for possible future rewinding */
+        backupNet = new GraphPetriNet(getPetriNetsPanel().getGraphNet());
+        
         new Thread() {
             @Override
             public void run() {
@@ -1654,7 +1737,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
             }
         }.start();
-    }// GEN-LAST:event_itemRunNetActionPerformed
+    }
 
     private boolean isCorrectNet() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
        // System.out.println(petriNetsPanel.getGraphNet().getGraphPetriPlaceList().size());
@@ -1758,18 +1841,19 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
                 ArrayList<PetriSim> list = new ArrayList<PetriSim>();
                 list.add(petriSim);
-                AnimRunPetriObjModel m = new AnimRunPetriObjModel(list,
+                
+                animationModel = new AnimRunPetriObjModel(list,
                         protocolTextArea, getPetriNetsPanel(),
                         speedSlider); // Петрі-об"єктна модель, що складається з одного Петріз-об"єкта
-                m.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
-                m.setCurrentTime(Double.valueOf(timeStartField.getText()));
-                m.go(Double.valueOf(timeModelingTextField.getText()));
+                animationModel.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
+                animationModel.setCurrentTime(Double.valueOf(timeStartField.getText()));
+                animationModel.go(Double.valueOf(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
                         statisticsTextArea);
                 // перетворення у потрібний формат ...
-                Double d = m.getCurrentTime(); // added
+                Double d = animationModel.getCurrentTime(); // added
 
-                Double dd = 100.0 * (m.getCurrentTime() - d.intValue()); // десяткова частина
+                Double dd = 100.0 * (animationModel.getCurrentTime() - d.intValue()); // десяткова частина
 
                 //timeStartField.setText(String.valueOf(d.intValue()
                 //		+ "." + dd.intValue())); // added by Inna
@@ -2102,6 +2186,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JToolBar petriNetsFrameToolBar;
     private javax.swing.JToolBar petriNetsFrameToolBar1;
     private javax.swing.JToolBar petriNetsFrameToolBar2;
+    private javax.swing.JButton playPauseAnimationButton;
     private javax.swing.JTextArea protocolTextArea;
     private javax.swing.JScrollPane protokolScrollPane;
     private javax.swing.JScrollPane protokolScrollPane1;
@@ -2116,6 +2201,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton runPetriNetButton2;
     private javax.swing.JMenu save;
     private javax.swing.JScrollPane scrollPane;
+    private javax.swing.JButton skipBackwardAnimationButton;
+    private javax.swing.JButton skipForwardAnimationButton;
     private javax.swing.JLabel speedLabel;
     private javax.swing.JSlider speedSlider;
     private javax.swing.JScrollPane statisticsScrollPane;
@@ -2124,6 +2211,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JTextArea statisticsTextArea;
     private javax.swing.JTextArea statisticsTextArea1;
     private javax.swing.JTextArea statisticsTextArea2;
+    private javax.swing.JButton stopAnimationButton;
     private javax.swing.JLabel timeModelingLabel;
     private javax.swing.JLabel timeModelingLabel1;
     private javax.swing.JLabel timeModelingLabel2;
@@ -2154,4 +2242,22 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public static UndoableEditSupport getUndoSupport() {
         return undoSupport;
     }
+    
+    /**
+     * A petri-object model that is used for displaying animation
+     * and can be paused an unpaused
+     */
+    private AnimRunPetriObjModel animationModel;
+    
+    /**
+     * Whether the simulation animation is pasued. Before starting
+     * or after ending it is considered paused
+     */
+    private boolean isAnimationPaused = true;
+    
+    /**
+     * Saved state of the net before the simulation. Needed for possible
+     * rewinding of simulation (restoring the net to its original state)
+     */
+    private GraphPetriNet backupNet;
 }
