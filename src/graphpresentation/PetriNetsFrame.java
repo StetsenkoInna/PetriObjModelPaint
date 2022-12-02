@@ -1574,22 +1574,34 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_skipForwardAnimationButtonActionPerformed
 
     private void playPauseAnimationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_playPauseAnimationButtonActionPerformed
-        if (isAnimationPaused) {
-            /* unpause */
-            startAnimation(); // this recreates the model which we may not want
-            // animationModel.setPaused(false);
+        if (!isAnimationInitiated) {
+            isAnimationInitiated = true;
+            startAnimation(); // this creates a new model and runs it
             playPauseAnimationButton.setText("||"); // TODO: replace with charcode
             isAnimationPaused = false;
             skipBackwardAnimationButton.setEnabled(false);
         } else {
-            /* pause */
-            animationModel.setPaused(true);
-            playPauseAnimationButton.setText("⏵"); // TODO: replace with charcode
-            isAnimationPaused = true;
-            if (backupNet != null) {
-                skipBackwardAnimationButton.setEnabled(true);
+            if (isAnimationPaused) {
+                /* unpause */
+                animationModel.setPaused(false);
+                synchronized(animationModel) { // TODO: replace with somthing better
+                    animationModel.notifyAll();
+                }
+                
+                playPauseAnimationButton.setText("||"); // TODO: replace with charcode
+                isAnimationPaused = false;
+                skipBackwardAnimationButton.setEnabled(false);
+            } else {
+                /* pause */
+                animationModel.setPaused(true);
+                playPauseAnimationButton.setText("⏵"); // TODO: replace with charcode
+                isAnimationPaused = true;
+                if (backupNet != null) {
+                    skipBackwardAnimationButton.setEnabled(true);
+                }
             }
         }
+        
     }//GEN-LAST:event_playPauseAnimationButtonActionPerformed
 
     private void speedSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_speedSliderStateChanged
@@ -1718,6 +1730,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      */
     private void startAnimation() {
         /* save the current state of the net for possible future rewinding */
+        // TODO: do not recreate the model when unpausing
         backupNet = new GraphPetriNet(getPetriNetsPanel().getGraphNet());
         
         new Thread() {
@@ -1733,6 +1746,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 } finally {
                     enableInput();
                     timer.stop();
+                    
+                    isAnimationPaused = true;
+                    playPauseAnimationButton.setText("⏵");
+                    skipBackwardAnimationButton.setEnabled(true);
                 }
 
             }
@@ -2248,6 +2265,16 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * and can be paused an unpaused
      */
     private AnimRunPetriObjModel animationModel;
+    
+    /**
+     * Indicates whether animation has been started. Is needed for
+     * starting and then stoping/resuming animations. True if an
+     * animation has been started (it can be running or paused),
+     * false if either the animation was never started at all
+     * or it was killed using the stop button (do not confuse with
+     * pause button)
+     */
+    private boolean isAnimationInitiated = false;
     
     /**
      * Whether the simulation animation is pasued. Before starting

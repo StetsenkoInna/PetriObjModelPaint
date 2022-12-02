@@ -29,7 +29,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
     /**
      * Whether the simulation is paused (by pressing pause button)
      */
-    private boolean isPaused = false;
+    private volatile boolean isPaused = false;
        
     public AnimRunPetriObjModel(ArrayList<PetriSim> list,
                                 JTextArea area,
@@ -68,7 +68,18 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
         ArrayList<AnimRunPetriSim> conflictObj = new ArrayList<>();
         Random r = new Random();
 
-        while ((super.getCurrentTime() < super.getSimulationTime()) && !isPaused) {
+        while ((super.getCurrentTime() < super.getSimulationTime())) {
+            /* pausing/unpausing support */
+            if (isPaused) {
+                synchronized(this) {
+                    while (isPaused) {
+                        try {
+                            wait();
+                        } catch (InterruptedException e) {}
+                    }
+                }
+            }
+            // TODO: add pasuing support to the AnimRunPetriSim.input() / output()/
 
             conflictObj.clear();
 
@@ -141,6 +152,19 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                 }
                 super.printInfo("Markers leave transitions:", area);
                 super.printMark(area);
+                
+                /* pausing/unpausing support between input and output */
+                if (isPaused) {
+                    synchronized(this) {
+                        while (isPaused) {
+                            try {
+                                wait();
+                            } catch (InterruptedException e) {}
+                        }
+                    }
+                } 
+                /* end of pausing/unpausing support */
+                
                 super.getListObj().sort(PetriSim.getComparatorByPriority());
                 for (AnimRunPetriSim e : getRunlist()) {
                         e.input(); //вхід маркерів в переходи Петрі-об'єкта
