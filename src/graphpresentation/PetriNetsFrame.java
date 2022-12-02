@@ -1849,7 +1849,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 AnimRunPetriSim petriSim = new AnimRunPetriSim(
                         getPetriNetsPanel().getGraphNet().getPetriNet(),
                         this.protocolTextArea, getPetriNetsPanel(),
-                        speedSlider);
+                        speedSlider, null); // parentmodel = null is ok since petri objects are recreated in constructor anyway
 
                 petriSim.setSimulationTime(Double.parseDouble(
                         timeModelingTextField.getText()));
@@ -1973,7 +1973,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     AnimRunPetriSim petriSim = new AnimRunPetriSim(
                             getPetriNetsPanel().getGraphNet().getPetriNet(),
                             protocolTextArea, getPetriNetsPanel(),
-                            speedSlider);
+                            speedSlider, null);
 
                     petriSim.setSimulationTime(
                             Double.parseDouble(timeModelingTextField.getText()));

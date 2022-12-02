@@ -11,6 +11,7 @@ import PetriObj.PetriSim;
 import PetriObj.PetriT;
 import PetriObj.StateTime;
 import java.util.ArrayList;
+import java.util.function.Function;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
 
@@ -23,11 +24,14 @@ public class AnimRunPetriSim extends PetriSim {
     private final PetriNetsPanel panel;
     private JSlider delaySlider = null;
     
-    public AnimRunPetriSim(PetriNet net, StateTime timeState, JTextArea area,PetriNetsPanel panel,  JSlider delaySlider) {
+    private final AnimRunPetriObjModel parentModel;
+    
+    public AnimRunPetriSim(PetriNet net, StateTime timeState, JTextArea area,PetriNetsPanel panel,  JSlider delaySlider, AnimRunPetriObjModel parentModel) {
         super(net, timeState);
         this.panel = panel;
         this.area = area;
         this.delaySlider = delaySlider;
+        this.parentModel = parentModel;
     }
        
     /**
@@ -37,13 +41,14 @@ public class AnimRunPetriSim extends PetriSim {
      * @param area 
      * @param panel
      * @param delaySlider
+     * @param parentModel AnimRunPetriObjModel that includes this object
      */
-   public AnimRunPetriSim(PetriNet net,  JTextArea area, PetriNetsPanel panel, JSlider delaySlider) {
-        this(net, new StateTime(), area, panel,delaySlider);  // Be carefull with this constructor. Time should be the same for all PetriSim objects in the list of PetriObjModel
+   public AnimRunPetriSim(PetriNet net,  JTextArea area, PetriNetsPanel panel, JSlider delaySlider, AnimRunPetriObjModel parentModel) {
+        this(net, new StateTime(), area, panel,delaySlider, parentModel);  // Be carefull with this constructor. Time should be the same for all PetriSim objects in the list of PetriObjModel
     }
    
-    public AnimRunPetriSim(String id, PetriNet net, JTextArea area,PetriNetsPanel panel, JSlider delaySlider) {
-        this(net, new StateTime(),  area, panel,delaySlider);
+    public AnimRunPetriSim(String id, PetriNet net, JTextArea area,PetriNetsPanel panel, JSlider delaySlider, AnimRunPetriObjModel parentModel) {
+        this(net, new StateTime(),  area, panel,delaySlider, parentModel);
         
         super.setId(id); // server set id
 
@@ -79,6 +84,18 @@ public class AnimRunPetriSim extends PetriSim {
             if (delaySlider != null) {
                 Thread.sleep(delaySlider.getValue());
             }
+            
+            /* pausing/unpausing support */
+            // can it cause problems when doAfterStep() is called from step()?
+            if (parentModel != null && parentModel.isPaused()) {
+                synchronized(parentModel) {
+                    while (parentModel.isPaused()) {
+                        try {
+                            parentModel.wait();
+                        } catch (InterruptedException e) {}
+                    }
+                }
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -101,7 +118,7 @@ public class AnimRunPetriSim extends PetriSim {
                         panel.animateOut(eventMin);
                         eventMin.actOut(super.getNet().getListP(),super.getCurrentTime());
                         panel.animateP(eventMin.getOutP());
-                        
+                        doAfterStep();
                     } else {
                         u = false;
                     }

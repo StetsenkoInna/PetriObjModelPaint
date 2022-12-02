@@ -16,7 +16,7 @@ import javax.swing.JSlider;
 import javax.swing.JTextArea;
 
 /**
- *
+ * 
  * @author Inna
  */
 public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
@@ -29,7 +29,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
     /**
      * Whether the simulation is paused (by pressing pause button)
      */
-    private volatile boolean isPaused = false;
+    private volatile boolean paused = false;
        
     public AnimRunPetriObjModel(ArrayList<PetriSim> list,
                                 JTextArea area,
@@ -41,7 +41,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
         this.delaySlider = delaySlider;
         StateTime s = new StateTime();
         for(PetriSim sim: list){
-            runlist.add(new AnimRunPetriSim(sim.getNet(),s, area, panel,delaySlider)); // edit 25.07.2018
+            runlist.add(new AnimRunPetriSim(sim.getNet(),s, area, panel,delaySlider, this)); // edit 25.07.2018
         }
         super.setTimeState(s); // edit 25.07.2018  It's very important for correct statistics but building of project get error...very strange
         super.setListObj(list); // edit 25.07.2018 May be it's not important 
@@ -70,15 +70,15 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
 
         while ((super.getCurrentTime() < super.getSimulationTime())) {
             /* pausing/unpausing support */
-            if (isPaused) {
+            /*if (paused) {
                 synchronized(this) {
-                    while (isPaused) {
+                    while (paused) {
                         try {
                             wait();
                         } catch (InterruptedException e) {}
                     }
                 }
-            }
+            }*/
             // TODO: add pasuing support to the AnimRunPetriSim.input() / output()/
 
             conflictObj.clear();
@@ -154,15 +154,15 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                 super.printMark(area);
                 
                 /* pausing/unpausing support between input and output */
-                if (isPaused) {
+                /*if (paused) {
                     synchronized(this) {
-                        while (isPaused) {
+                        while (paused) {
                             try {
                                 wait();
                             } catch (InterruptedException e) {}
                         }
                     }
-                } 
+                } */
                 /* end of pausing/unpausing support */
                 
                 super.getListObj().sort(PetriSim.getComparatorByPriority());
@@ -229,7 +229,13 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
      * Pause or unpause the simulation
      */
     public void setPaused(boolean isPaused) {
-        this.isPaused = isPaused;
+        this.paused = isPaused;
     }
     
+    /**
+     * @return Whether the animation is paused or not
+     */
+    public boolean isPaused() {
+        return paused;
+    }
 }
