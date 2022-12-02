@@ -71,6 +71,11 @@ public class AnimRunPetriSim extends PetriSim {
                 tr.actIn(super.getNet().getListP(), super.getCurrentTime()); //розв'язання конфліктів
                 panel.animateT(tr);
                 doAfterStep();
+                /* support for early termination of the simulation */
+                if (parentModel.isHalted()) {
+                    System.out.println("isInterrupted check 1");
+                    return;
+                }
                 activeT = this.findActiveT(); //оновлення списку активних переходів
             }
 
@@ -92,7 +97,10 @@ public class AnimRunPetriSim extends PetriSim {
                     while (parentModel.isPaused()) {
                         try {
                             parentModel.wait();
-                        } catch (InterruptedException e) {}
+                        } catch (InterruptedException e) {
+                            /* the simulation should stop asap */
+                            parentModel.halt();
+                        }
                     }
                 }
             }
@@ -109,6 +117,11 @@ public class AnimRunPetriSim extends PetriSim {
             eventMin.actOut(super.getNet().getListP(),super.getCurrentTime());//здійснення події
             panel.animateP(eventMin.getOutP());
             doAfterStep();
+            /* support for early termination of the simulation */
+            if (parentModel.isHalted()) {
+                System.out.println("isInterrupted check 2");
+                return;
+            }
             if (eventMin.getBuffer() > 0) {
                 boolean u = true;
                 while (u == true) {
@@ -119,6 +132,11 @@ public class AnimRunPetriSim extends PetriSim {
                         eventMin.actOut(super.getNet().getListP(),super.getCurrentTime());
                         panel.animateP(eventMin.getOutP());
                         doAfterStep();
+                        /* support for early termination of the simulation */
+                        if (parentModel.isHalted()) {
+                            System.out.println("isInterrupted check 3");
+                            return;
+                        }
                     } else {
                         u = false;
                     }

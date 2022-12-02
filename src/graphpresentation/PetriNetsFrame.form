@@ -510,6 +510,9 @@
                     <Property name="text" type="java.lang.String" value="&#x23f9;"/>
                     <Property name="enabled" type="boolean" value="false"/>
                   </Properties>
+                  <Events>
+                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="stopAnimationButtonActionPerformed"/>
+                  </Events>
                 </Component>
                 <Component class="javax.swing.JButton" name="skipBackwardAnimationButton">
                   <Properties>

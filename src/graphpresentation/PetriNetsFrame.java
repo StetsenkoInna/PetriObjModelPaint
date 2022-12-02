@@ -470,6 +470,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         stopAnimationButton.setText("⏹");
         stopAnimationButton.setEnabled(false);
+        stopAnimationButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                stopAnimationButtonActionPerformed(evt);
+            }
+        });
 
         skipBackwardAnimationButton.setText("⏮");
         skipBackwardAnimationButton.setEnabled(false);
@@ -1595,6 +1600,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 /* pause */
                 animationModel.setPaused(true);
                 playPauseAnimationButton.setText("⏵"); // TODO: replace with charcode
+                stopAnimationButton.setEnabled(true);
                 isAnimationPaused = true;
                 if (backupNet != null) {
                     skipBackwardAnimationButton.setEnabled(true);
@@ -1617,13 +1623,33 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_netNameTextFieldActionPerformed
 
     private void skipBackwardAnimationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_skipBackwardAnimationButtonActionPerformed
+        haltAnimation();
         if (backupNet != null) {
             getPetriNetsPanel().deletePetriNet();
             getPetriNetsPanel().addGraphNet(backupNet);
             skipBackwardAnimationButton.setEnabled(false);
+            backupNet = null;
         }
     }//GEN-LAST:event_skipBackwardAnimationButtonActionPerformed
 
+    private void stopAnimationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stopAnimationButtonActionPerformed
+        /* halting the animation and removing saved backup */
+        haltAnimation();
+        skipBackwardAnimationButton.setEnabled(false);
+        backupNet = null;
+    }//GEN-LAST:event_stopAnimationButtonActionPerformed
+
+    /* Stops animation completely, you won't be able to unpause it afterwards */
+    private void haltAnimation() {
+        if (isAnimationInitiated && isAnimationPaused && animationThread != null) {
+            isAnimationInitiated = false;
+            isAnimationPaused = true;
+            animationModel.halt();
+            stopAnimationButton.setEnabled(false);
+            playPauseAnimationButton.setText("⏵"); // TODO
+        }
+    }
+    
     private void openMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMenuItemActionPerformed
         try {
             fileUse.newWorksheet(getPetriNetsPanel());
@@ -1733,7 +1759,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // TODO: do not recreate the model when unpausing
         backupNet = new GraphPetriNet(getPetriNetsPanel().getGraphNet());
         
-        new Thread() {
+        animationThread = new Thread() {
             @Override
             public void run() {
 
@@ -1744,16 +1770,19 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 } catch (Exception e) {
                     e.printStackTrace();
                 } finally {
+                    System.out.println("Animation thread halted");
                     enableInput();
                     timer.stop();
                     
                     isAnimationPaused = true;
+                    isAnimationInitiated = false;
                     playPauseAnimationButton.setText("⏵");
                     skipBackwardAnimationButton.setEnabled(true);
                 }
 
             }
-        }.start();
+        };
+        animationThread.start();
     }
 
     private boolean isCorrectNet() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
@@ -2287,4 +2316,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * rewinding of simulation (restoring the net to its original state)
      */
     private GraphPetriNet backupNet;
+    
+    /**
+     * The thread on which animation happens. Is stored here so that it
+     * can be interrupted if stop button is pressed
+     */
+    private Thread animationThread;
 }
