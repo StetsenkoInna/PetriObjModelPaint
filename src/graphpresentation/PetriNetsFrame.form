@@ -190,11 +190,11 @@
           <SubComponents>
             <MenuItem class="javax.swing.JMenuItem" name="itemAnimateNet">
               <Properties>
+                <Property name="action" type="javax.swing.Action" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                  <Connection code="playPauseAction" type="code"/>
+                </Property>
                 <Property name="text" type="java.lang.String" value="Animate Petri net"/>
               </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="itemAnimateNetActionPerformed"/>
-              </Events>
             </MenuItem>
             <MenuItem class="javax.swing.JMenuItem" name="itemAnimateEvent">
               <Properties>
@@ -208,16 +208,19 @@
         </Menu>
         <Menu class="javax.swing.JMenu" name="runMenu">
           <Properties>
+            <Property name="action" type="javax.swing.Action" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+              <Connection code="runNetAction" type="code"/>
+            </Property>
             <Property name="text" type="java.lang.String" value="Run"/>
           </Properties>
           <SubComponents>
             <MenuItem class="javax.swing.JMenuItem" name="itemRunNet">
               <Properties>
+                <Property name="action" type="javax.swing.Action" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                  <Connection code="runNetAction" type="code"/>
+                </Property>
                 <Property name="text" type="java.lang.String" value="run"/>
               </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="itemRunNetActionPerformed"/>
-              </Events>
               <AuxValues>
                 <AuxValue name="JavaCodeGenerator_VariableLocal" type="java.lang.Boolean" value="true"/>
                 <AuxValue name="JavaCodeGenerator_VariableModifier" type="java.lang.Integer" value="0"/>
@@ -499,37 +502,35 @@
                 </Component>
                 <Component class="javax.swing.JButton" name="playPauseAnimationButton">
                   <Properties>
+                    <Property name="action" type="javax.swing.Action" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                      <Connection code="playPauseAction" type="code"/>
+                    </Property>
                     <Property name="text" type="java.lang.String" value="&#x23f5;"/>
                   </Properties>
-                  <Events>
-                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="playPauseAnimationButtonActionPerformed"/>
-                  </Events>
                 </Component>
                 <Component class="javax.swing.JButton" name="stopAnimationButton">
                   <Properties>
+                    <Property name="action" type="javax.swing.Action" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                      <Connection code="stopSimulationAction" type="code"/>
+                    </Property>
                     <Property name="text" type="java.lang.String" value="&#x23f9;"/>
-                    <Property name="enabled" type="boolean" value="false"/>
                   </Properties>
-                  <Events>
-                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="stopAnimationButtonActionPerformed"/>
-                  </Events>
                 </Component>
                 <Component class="javax.swing.JButton" name="skipBackwardAnimationButton">
                   <Properties>
+                    <Property name="action" type="javax.swing.Action" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                      <Connection code="rewindAction" type="code"/>
+                    </Property>
                     <Property name="text" type="java.lang.String" value="&#x23ee;"/>
-                    <Property name="enabled" type="boolean" value="false"/>
                   </Properties>
-                  <Events>
-                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="skipBackwardAnimationButtonActionPerformed"/>
-                  </Events>
                 </Component>
                 <Component class="javax.swing.JButton" name="skipForwardAnimationButton">
                   <Properties>
+                    <Property name="action" type="javax.swing.Action" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                      <Connection code="runNetAction" type="code"/>
+                    </Property>
                     <Property name="text" type="java.lang.String" value="&#x23ed;"/>
                   </Properties>
-                  <Events>
-                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="skipForwardAnimationButtonActionPerformed"/>
-                  </Events>
                 </Component>
               </SubComponents>
             </Container>

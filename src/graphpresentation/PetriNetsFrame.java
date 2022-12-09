@@ -30,6 +30,10 @@ import javax.swing.*;
 import graphnet.GraphPetriNet;
 import graphnet.GraphPetriPlace;
 import graphnet.GraphPetriTransition;
+import graphpresentation.actions.PlayPauseAction;
+import graphpresentation.actions.RewindAction;
+import graphpresentation.actions.RunNetAction;
+import graphpresentation.actions.StopSimulationAction;
 
 import java.awt.Dialog.ModalityType;
 import java.awt.event.ActionEvent;
@@ -47,7 +51,7 @@ import javax.swing.undo.UndoableEditSupport;
 
 public class PetriNetsFrame extends javax.swing.JFrame {
 
-    private Timer timer; //timer thats starts repainting while net simulates
+    public Timer timer; //timer thats starts repainting while net simulates
     private final MethodNameDialogPanel dialogPanel = new MethodNameDialogPanel();
     private JDialog dialog;
     class MethodNameDialogPanel extends JPanel { // Added by Katya 23.10.2016,
@@ -88,6 +92,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         }
     }
+    
+    /* ACTIONS */
+    private final RunNetAction runNetAction = new RunNetAction(this);
+    public final RewindAction rewindAction = new RewindAction(this);
+    public final StopSimulationAction stopSimulationAction = new StopSimulationAction(this);
+    public final PlayPauseAction playPauseAction = new PlayPauseAction(this);
 
     private void UpdateNetLibraryMethodsCombobox() { // added by Katya
         // 27.11.2016
@@ -239,7 +249,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             redoMenuItem.setEnabled(undoManager.canRedo());
         });
     }
-
+    
     private JButton createPtrnButton(String title, String tooltip) {
 
         javax.swing.JButton btn = new javax.swing.JButton();
@@ -461,35 +471,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         });
 
+        playPauseAnimationButton.setAction(playPauseAction);
         playPauseAnimationButton.setText("⏵");
-        playPauseAnimationButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                playPauseAnimationButtonActionPerformed(evt);
-            }
-        });
 
+        stopAnimationButton.setAction(stopSimulationAction);
         stopAnimationButton.setText("⏹");
-        stopAnimationButton.setEnabled(false);
-        stopAnimationButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                stopAnimationButtonActionPerformed(evt);
-            }
-        });
 
+        skipBackwardAnimationButton.setAction(rewindAction);
         skipBackwardAnimationButton.setText("⏮");
-        skipBackwardAnimationButton.setEnabled(false);
-        skipBackwardAnimationButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                skipBackwardAnimationButtonActionPerformed(evt);
-            }
-        });
 
+        skipForwardAnimationButton.setAction(runNetAction);
         skipForwardAnimationButton.setText("⏭");
-        skipForwardAnimationButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                skipForwardAnimationButtonActionPerformed(evt);
-            }
-        });
 
         javax.swing.GroupLayout modelingParametersPanelLayout = new javax.swing.GroupLayout(modelingParametersPanel);
         modelingParametersPanel.setLayout(modelingParametersPanelLayout);
@@ -1342,12 +1334,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         Animate.setText("Animate");
         Animate.setMargin(new java.awt.Insets(0, 10, 0, 10));
 
+        itemAnimateNet.setAction(playPauseAction);
         itemAnimateNet.setText("Animate Petri net");
-        itemAnimateNet.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                itemAnimateNetActionPerformed(evt);
-            }
-        });
         Animate.add(itemAnimateNet);
 
         itemAnimateEvent.setText("Animate event");
@@ -1360,14 +1348,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         petriNetsFrameMenuBar.add(Animate);
 
+        runMenu.setAction(runNetAction);
         runMenu.setText("Run");
 
+        itemRunNet.setAction(runNetAction);
         itemRunNet.setText("run");
-        itemRunNet.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                itemRunNetActionPerformed(evt);
-            }
-        });
         runMenu.add(itemRunNet);
 
         itemRunEvent.setText("runEvent");
@@ -1480,36 +1465,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }// TODO add your handling code here:
     }//GEN-LAST:event_leftMenuListMouseClicked
 
-    private void itemRunNetActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_itemRunNetActionPerformed
-         new Thread() {
-            @Override
-            public void run() {
-                try {
-                    disableInput();
-
-                    GraphPetriNetBackupHolder.getInstance()
-                            .setGraphPetriNet(new GraphPetriNet(getPetriNetsPanel().getGraphNet()));
-
-                    timer.start();
-                    runNet();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                } finally {
-                    enableInput();
-                    timer.stop();
-                }
-
-            }
-        }.start();
-    }//GEN-LAST:event_itemRunNetActionPerformed
-
     private void itemResetNetActionPerformed(java.awt.event.ActionEvent evt) {
-        GraphPetriNet graphPetriNetBackup = GraphPetriNetBackupHolder.getInstance().getGraphPetriNet();
+        GraphPetriNet graphPetriNetBackup = GraphPetriNetBackupHolder.getInstance().get();
         if (graphPetriNetBackup != null) {
             getPetriNetsPanel().setGraphNet(graphPetriNetBackup);
 
             GraphPetriNetBackupHolder.getInstance()
-                    .setGraphPetriNet(new GraphPetriNet(getPetriNetsPanel().getGraphNet()));
+                    .save(new GraphPetriNet(getPetriNetsPanel().getGraphNet()));
 
             getPetriNetsPanel().requestFocusInWindow();
             getPetriNetsPanel().redraw();
@@ -1579,43 +1541,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_newPlaceButton1ActionPerformed
 
-    private void skipForwardAnimationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_skipForwardAnimationButtonActionPerformed
-        // save current net if not saved by animation
-        // if there's an animation running -- kill it
-    }//GEN-LAST:event_skipForwardAnimationButtonActionPerformed
-
-    private void playPauseAnimationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_playPauseAnimationButtonActionPerformed
-        if (!isAnimationInitiated) {
-            isAnimationInitiated = true;
-            startAnimation(); // this creates a new model and runs it
-            playPauseAnimationButton.setText("||"); // TODO: replace with charcode
-            isAnimationPaused = false;
-            skipBackwardAnimationButton.setEnabled(false);
-        } else {
-            if (isAnimationPaused) {
-                /* unpause */
-                animationModel.setPaused(false);
-                synchronized(animationModel) { // TODO: replace with somthing better
-                    animationModel.notifyAll();
-                }
-                
-                playPauseAnimationButton.setText("||"); // TODO: replace with charcode
-                isAnimationPaused = false;
-                skipBackwardAnimationButton.setEnabled(false);
-            } else {
-                /* pause */
-                animationModel.setPaused(true);
-                playPauseAnimationButton.setText("⏵"); // TODO: replace with charcode
-                stopAnimationButton.setEnabled(true);
-                isAnimationPaused = true;
-                if (backupNet != null) {
-                    skipBackwardAnimationButton.setEnabled(true);
-                }
-            }
-        }
-        
-    }//GEN-LAST:event_playPauseAnimationButtonActionPerformed
-
     private void speedSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_speedSliderStateChanged
         timer.setDelay(speedSlider.getValue() / 3);
     }//GEN-LAST:event_speedSliderStateChanged
@@ -1628,32 +1553,16 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_netNameTextFieldActionPerformed
 
-    private void skipBackwardAnimationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_skipBackwardAnimationButtonActionPerformed
-        haltAnimation();
-        if (backupNet != null) {
-            getPetriNetsPanel().deletePetriNet();
-            getPetriNetsPanel().addGraphNet(backupNet);
-            skipBackwardAnimationButton.setEnabled(false);
-            backupNet = null;
-        }
-    }//GEN-LAST:event_skipBackwardAnimationButtonActionPerformed
-
-    private void stopAnimationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stopAnimationButtonActionPerformed
-        /* halting the animation and removing saved backup */
-        haltAnimation();
-        skipBackwardAnimationButton.setEnabled(false);
-        backupNet = null;
-    }//GEN-LAST:event_stopAnimationButtonActionPerformed
-
     /* Stops animation completely, you won't be able to unpause it afterwards */
-    private void haltAnimation() {
+    public void haltAnimation() {
         if (isAnimationInitiated && isAnimationPaused && animationThread != null) {
             isAnimationInitiated = false;
             isAnimationPaused = true;
             animationModel.halt();
             
-            stopAnimationButton.setEnabled(false);
-            playPauseAnimationButton.setText("⏵"); // TODO
+            // stopAnimationButton.setEnabled(false);
+            playPauseAction.switchToPlayButton();
+            // playPauseAnimationButton.setText("⏵"); // TODO
         }
     }
     
@@ -1754,44 +1663,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }
     }// GEN-LAST:event_editNetParametersActionPerformed
 
-    private void itemAnimateNetActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_itemAnimateNetActionPerformed
-        startAnimation();
-    }// GEN-LAST:event_itemAnimateNetActionPerformed
-    
-    /**
-     * Starts animating the simulation of the net in a new thread
-     */
-    private void startAnimation() {
-        /* save the current state of the net for possible future rewinding */
-        // TODO: do not recreate the model when unpausing
-        backupNet = new GraphPetriNet(getPetriNetsPanel().getGraphNet());
-        
-        animationThread = new Thread() {
-            @Override
-            public void run() {
-
-                try {
-                    disableInput();
-                    timer.start();
-                    animateNet();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                } finally {
-                    System.out.println("Animation thread halted");
-                    enableInput();
-                    timer.stop();
-                    
-                    isAnimationPaused = true;
-                    isAnimationInitiated = false;
-                    playPauseAnimationButton.setText("⏵");
-                    skipBackwardAnimationButton.setEnabled(true);
-                }
-
-            }
-        };
-        animationThread.start();
-    }
-
     private boolean isCorrectNet() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
        // System.out.println(petriNetsPanel.getGraphNet().getGraphPetriPlaceList().size());
         if (getPetriNetsPanel().getGraphNet() == null) {
@@ -1827,7 +1698,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         return true;
     }
 
-    private void runNet() {
+    public void runNet() {
         protocolTextArea.setText("---------Events protocol----------");
         protocolTextArea.setText("---------STATISTICS---------");
         try {
@@ -1875,7 +1746,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
 
 
-    private void animateNet() {
+    public void animateNet() {
         protocolTextArea.setText("---------Events protocol----------");
         protocolTextArea.setText("---------STATISTICS---------");
         try {
@@ -2112,7 +1983,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         return petriNetPanelScrollPane;
     }
 
-    private void disableInput() {
+    public void disableInput() {
         save.setEnabled(false);
         editMenu.setEnabled(false);
         fileMenu.setEnabled(false);
@@ -2133,7 +2004,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         leftMenuList.setEnabled(false);
     }
 
-    private void enableInput() {
+    public void enableInput() {
         save.setEnabled(true);
         editMenu.setEnabled(true);
         fileMenu.setEnabled(true);
@@ -2300,7 +2171,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * A petri-object model that is used for displaying animation
      * and can be paused an unpaused
      */
-    private AnimRunPetriObjModel animationModel;
+    public AnimRunPetriObjModel animationModel;
     
     /**
      * Indicates whether animation has been started. Is needed for
@@ -2310,23 +2181,23 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * or it was killed using the stop button (do not confuse with
      * pause button)
      */
-    private boolean isAnimationInitiated = false;
+    public boolean isAnimationInitiated = false;
     
     /**
      * Whether the simulation animation is pasued. Before starting
      * or after ending it is considered paused
      */
-    private boolean isAnimationPaused = true;
+    public boolean isAnimationPaused = true;
     
     /**
      * Saved state of the net before the simulation. Needed for possible
      * rewinding of simulation (restoring the net to its original state)
      */
-    private GraphPetriNet backupNet;
+    // private GraphPetriNet backupNet;
     
     /**
      * The thread on which animation happens. Is stored here so that it
      * can be interrupted if stop button is pressed
      */
-    private Thread animationThread;
+    public Thread animationThread;
 }

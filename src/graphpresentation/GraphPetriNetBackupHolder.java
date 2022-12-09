@@ -4,7 +4,7 @@ import graphnet.GraphPetriNet;
 
 public class GraphPetriNetBackupHolder {
     private static GraphPetriNetBackupHolder instance;
-    private GraphPetriNet graphPetriNet;
+    private GraphPetriNet graphPetriNet = null;
 
     private GraphPetriNetBackupHolder() {}
 
@@ -16,11 +16,20 @@ public class GraphPetriNetBackupHolder {
         return instance;
     }
 
-    public GraphPetriNet getGraphPetriNet() {
+    public GraphPetriNet get() {
         return graphPetriNet;
     }
 
-    public void setGraphPetriNet(GraphPetriNet graphPetriNet) {
+    public void save(GraphPetriNet graphPetriNet) {
         this.graphPetriNet = graphPetriNet;
     }
+    
+    public boolean isEmpty() {
+        return graphPetriNet == null;
+    }
+    
+    public void clear() {
+        graphPetriNet = null;
+    }
+    
 }
