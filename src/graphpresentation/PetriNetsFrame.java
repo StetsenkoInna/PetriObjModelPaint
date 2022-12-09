@@ -546,6 +546,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartLabel.getAccessibleContext().setAccessibleName("Time");
 
         petriNetsFrameToolBar.setBorder(null);
+        petriNetsFrameToolBar.setFloatable(false);
         petriNetsFrameToolBar.setRollover(true);
         petriNetsFrameToolBar.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
         petriNetsFrameToolBar.setMargin(new java.awt.Insets(0, 10, 0, 10));
@@ -601,6 +602,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetsFrameToolBar.add(newArcButton);
 
         petriNetsFrameSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
+        petriNetsFrameSplitPane.setDividerLocation(650);
         petriNetsFrameSplitPane.setDividerSize(3);
         petriNetsFrameSplitPane.setToolTipText("Результати обчислення статистики");
         petriNetsFrameSplitPane.setAutoscrolls(true);
@@ -611,7 +613,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetPanelScrollPane.setAutoscrolls(true);
         petriNetPanelScrollPane.setMaximumSize(new java.awt.Dimension(2147483647, 2147483647));
         petriNetPanelScrollPane.setMinimumSize(new java.awt.Dimension(200, 200));
-        petriNetPanelScrollPane.setPreferredSize(new java.awt.Dimension(1, 1));
+        petriNetPanelScrollPane.setPreferredSize(new java.awt.Dimension(800, 1));
         petriNetPanelScrollPane.setWheelScrollingEnabled(false);
         petriNetsFrameSplitPane.setLeftComponent(petriNetPanelScrollPane);
         petriNetPanelScrollPane.getAccessibleContext().setAccessibleDescription("");
@@ -626,6 +628,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         modelingResultsSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
         modelingResultsSplitPane.setDividerSize(1);
         modelingResultsSplitPane.setOrientation(javax.swing.JSplitPane.VERTICAL_SPLIT);
+        modelingResultsSplitPane.setPreferredSize(new java.awt.Dimension(100, 35));
 
         protokolScrollPane.setBorder(null);
         protokolScrollPane.setAutoscrolls(true);
@@ -655,7 +658,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         modelingResultsPanel.setLayout(modelingResultsPanelLayout);
         modelingResultsPanelLayout.setHorizontalGroup(
             modelingResultsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(modelingResultsSplitPane, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 433, Short.MAX_VALUE)
+            .addComponent(modelingResultsSplitPane, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 780, Short.MAX_VALUE)
         );
         modelingResultsPanelLayout.setVerticalGroup(
             modelingResultsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -706,13 +709,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             .addComponent(modelingParametersPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(petriNetDesignLayout.createSequentialGroup()
                 .addGap(183, 183, 183)
-                .addComponent(petriNetsFrameSplitPane, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(petriNetsFrameSplitPane, javax.swing.GroupLayout.DEFAULT_SIZE, 1434, Short.MAX_VALUE)
                 .addContainerGap())
             .addGroup(petriNetDesignLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(petriNetDesignLayout.createSequentialGroup()
                     .addContainerGap()
                     .addComponent(leftNenuPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 170, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(647, Short.MAX_VALUE)))
+                    .addContainerGap(1447, Short.MAX_VALUE)))
         );
         petriNetDesignLayout.setVerticalGroup(
             petriNetDesignLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -735,6 +738,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         jTabbedPane1.addTab("Net designer", petriNetDesign);
 
         petriNetsFrameToolBar1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
+        petriNetsFrameToolBar1.setFloatable(false);
         petriNetsFrameToolBar1.setRollover(true);
         petriNetsFrameToolBar1.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
         petriNetsFrameToolBar1.setMargin(new java.awt.Insets(0, 10, 0, 10));
@@ -895,17 +899,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             modelingParametersPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(modelingParametersPanel1Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(netNameLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, 94, Short.MAX_VALUE)
+                .addComponent(netNameLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, 291, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(netNameTextField1, javax.swing.GroupLayout.DEFAULT_SIZE, 118, Short.MAX_VALUE)
+                .addComponent(netNameTextField1, javax.swing.GroupLayout.DEFAULT_SIZE, 315, Short.MAX_VALUE)
                 .addGap(10, 10, 10)
                 .addComponent(timeStartLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeStartField1, javax.swing.GroupLayout.DEFAULT_SIZE, 119, Short.MAX_VALUE)
+                .addComponent(timeStartField1, javax.swing.GroupLayout.DEFAULT_SIZE, 316, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(timeModelingLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeModelingTextField1, javax.swing.GroupLayout.DEFAULT_SIZE, 119, Short.MAX_VALUE)
+                .addComponent(timeModelingTextField1, javax.swing.GroupLayout.DEFAULT_SIZE, 316, Short.MAX_VALUE)
                 .addContainerGap())
         );
         modelingParametersPanel1Layout.setVerticalGroup(
@@ -952,8 +956,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             .addGroup(petriNetDesign1Layout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addGroup(petriNetDesign1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(petriNetsFrameSplitPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 827, Short.MAX_VALUE)
-                    .addComponent(petriNetsFrameToolBar1, javax.swing.GroupLayout.DEFAULT_SIZE, 827, Short.MAX_VALUE))
+                    .addComponent(petriNetsFrameSplitPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 1629, Short.MAX_VALUE)
+                    .addComponent(petriNetsFrameToolBar1, javax.swing.GroupLayout.DEFAULT_SIZE, 1629, Short.MAX_VALUE))
                 .addGap(0, 0, 0))
         );
         petriNetDesign1Layout.setVerticalGroup(
@@ -968,6 +972,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         jTabbedPane1.addTab("Model designer", petriNetDesign1);
 
         petriNetsFrameToolBar2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
+        petriNetsFrameToolBar2.setFloatable(false);
         petriNetsFrameToolBar2.setRollover(true);
         petriNetsFrameToolBar2.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
         petriNetsFrameToolBar2.setMargin(new java.awt.Insets(0, 10, 0, 10));
@@ -1123,17 +1128,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             modelingParametersPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(modelingParametersPanel2Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(netNameLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 78, Short.MAX_VALUE)
+                .addComponent(netNameLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 212, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(netNameTextField2, javax.swing.GroupLayout.DEFAULT_SIZE, 102, Short.MAX_VALUE)
+                .addComponent(netNameTextField2, javax.swing.GroupLayout.DEFAULT_SIZE, 231, Short.MAX_VALUE)
                 .addGap(10, 10, 10)
-                .addComponent(timeStartLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 80, Short.MAX_VALUE)
+                .addComponent(timeStartLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 209, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeStartField2, javax.swing.GroupLayout.DEFAULT_SIZE, 100, Short.MAX_VALUE)
+                .addComponent(timeStartField2, javax.swing.GroupLayout.DEFAULT_SIZE, 229, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(timeModelingLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 96, Short.MAX_VALUE)
+                .addComponent(timeModelingLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 225, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(timeModelingTextField2, javax.swing.GroupLayout.DEFAULT_SIZE, 100, Short.MAX_VALUE)
+                .addComponent(timeModelingTextField2, javax.swing.GroupLayout.DEFAULT_SIZE, 229, Short.MAX_VALUE)
                 .addContainerGap())
         );
         modelingParametersPanel2Layout.setVerticalGroup(
@@ -1180,8 +1185,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             .addGroup(petriNetDesign2Layout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addGroup(petriNetDesign2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(petriNetsFrameSplitPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 827, Short.MAX_VALUE)
-                    .addComponent(petriNetsFrameToolBar2, javax.swing.GroupLayout.DEFAULT_SIZE, 827, Short.MAX_VALUE))
+                    .addComponent(petriNetsFrameSplitPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 1629, Short.MAX_VALUE)
+                    .addComponent(petriNetsFrameToolBar2, javax.swing.GroupLayout.DEFAULT_SIZE, 1629, Short.MAX_VALUE))
                 .addGap(0, 0, 0))
         );
         petriNetDesign2Layout.setVerticalGroup(
