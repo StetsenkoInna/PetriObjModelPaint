@@ -254,7 +254,11 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
      * It wouldn't be possible to continue this simulation after that.
      */
     public void halt() {
+        paused = false; // otherwise it remains paused and doesn't terminate
         halted = true;
+        synchronized(this) {
+            this.notifyAll();
+        }
     }
     
     /**

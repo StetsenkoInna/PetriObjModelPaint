@@ -1580,7 +1580,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_newPlaceButton1ActionPerformed
 
     private void skipForwardAnimationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_skipForwardAnimationButtonActionPerformed
-        // TODO add your handling code here:
+        // save current net if not saved by animation
+        // if there's an animation running -- kill it
     }//GEN-LAST:event_skipForwardAnimationButtonActionPerformed
 
     private void playPauseAnimationButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_playPauseAnimationButtonActionPerformed
@@ -1650,6 +1651,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             isAnimationInitiated = false;
             isAnimationPaused = true;
             animationModel.halt();
+            
             stopAnimationButton.setEnabled(false);
             playPauseAnimationButton.setText("⏵"); // TODO
         }
