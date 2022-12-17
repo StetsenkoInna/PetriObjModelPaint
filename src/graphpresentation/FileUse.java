@@ -43,6 +43,7 @@ import graphnet.GraphArcOut;
 import graphnet.GraphPetriPlace;
 import graphnet.GraphPetriTransition;
 import graphnet.GraphPetriNet;
+import java.awt.Component;
 
 import java.awt.geom.Point2D;
 import java.nio.file.FileSystems;
@@ -72,6 +73,27 @@ public class FileUse {
             fis = new FileInputStream(fdlg.getDirectory() + fdlg.getFile());
             ois = new ObjectInputStream(fis);
             GraphPetriNet net = ((GraphPetriNet) ois.readObject()).clone();
+            
+            // if there are transitions where b != 0, find them and
+            // ask the user if they want to remove exit times from buffers
+            List<GraphPetriTransition> tWithNon0Buffers =  net.getGraphPetriTransitionList().stream()
+                    .filter(
+                            transition -> transition.getPetriTransition().getBuffer() != 0)
+                    .toList();
+            if (!tWithNon0Buffers.isEmpty()) {
+                // display dialog
+                int result = JOptionPane.showConfirmDialog((Component) null, "There are transitions in this net with non-empty buffers. Do you want to clear them?",
+                                "Buffers reset", JOptionPane.OK_CANCEL_OPTION);
+                if (result == JOptionPane.OK_OPTION) {
+                    for (GraphPetriTransition trans : tWithNon0Buffers) {
+                        // removing all saved exit times 
+                        trans.getPetriTransition().getTimeOut().clear();
+                        trans.getPetriTransition().getTimeOut().add(Double.MAX_VALUE);
+                        trans.getPetriTransition().setBuffer(0);
+                    }
+                }
+            }
+            
             panel.addGraphNet(net);
             pnetName = net.getPetriNet().getName();
             ois.close();
@@ -574,6 +596,12 @@ public class FileUse {
     }
 
     public PetriNet convertMethodToPetriNet(String methodText) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay { // added by Katya 16.10.2016
+        System.out.println(methodText);
+        // TODO: load class java
+        // also TODO: prevent networks with the same name from being saved
+        // also TODO: check code syntax before saving?
+        
+        
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
         ArrayList<ArcIn> d_In = new ArrayList<>();
