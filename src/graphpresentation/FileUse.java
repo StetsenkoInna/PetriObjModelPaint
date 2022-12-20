@@ -799,7 +799,9 @@ public class FileUse {
             /* compiling */
             // TODO: maybe use a different classloader?
             if (netLibraryClass == null) {
-                netLibraryClass = CompilerUtils.CACHED_COMPILER.loadFromJava(className, libraryText);
+                /* we need a new instance of class loader each time. See NetLibraryClassLoader.java for details */
+                NetLibraryClassLoader loader = new NetLibraryClassLoader(getClass().getClassLoader());
+                netLibraryClass = CompilerUtils.CACHED_COMPILER.loadFromJava(loader, className, libraryText);
 
             }
             PetriNet net = (PetriNet)netLibraryClass.getMethod(methodName).invoke(null);
@@ -817,20 +819,21 @@ public class FileUse {
             
         } catch (FileNotFoundException e) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
+            e.printStackTrace();
         } catch (IOException e) {
                         Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
-
+e.printStackTrace();
         } catch (ClassNotFoundException e) { // from CACHED_COMPILER.loadFromJava()
                         Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
-
+e.printStackTrace();
         }  catch (NoSuchMethodException e) { // either no constuctor with 0 params or no method with given name
-            
+            e.printStackTrace();
         } catch (IllegalAccessException e) { // from newInstance() or invoke()
                         Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
-
+e.printStackTrace();
         } catch (InvocationTargetException e) { // from newInstance() or invoke()
                         Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
-
+e.printStackTrace();
         } finally {
              try {
                 if (fis != null) {
@@ -1250,5 +1253,8 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
         } catch (IOException ex) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
         }
+        
+        // Force to recomile the class next time any method from there is used
+        netLibraryClass = null;
     }
 }
