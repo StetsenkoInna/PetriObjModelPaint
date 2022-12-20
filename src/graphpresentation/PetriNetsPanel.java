@@ -175,7 +175,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                                         if (arc.getBeginElement() == graphElement 
                                                 || arc.getEndElement() == graphElement) {
                                             if (!inArcsToBeRemoved.contains(arc)) {
-                                                System.out.println("Added in arc to be deleted");
                                                 inArcsToBeRemoved.add(arc);
                                             }
 

@@ -46,9 +46,11 @@ import graphnet.GraphPetriNet;
 import java.awt.Component;
 
 import java.awt.geom.Point2D;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Objects;
+import net.openhft.compiler.CompilerUtils;
 
 import utils.Utils;
 
@@ -59,6 +61,8 @@ import utils.Utils;
 public class FileUse {
 
     private final String PATTERN = ".pns";
+    
+    Class netLibraryClass;
 
     public String openFile(PetriNetsPanel panel, JFrame frame) throws ExceptionInvalidNetStructure {
         String pnetName = "";
@@ -595,13 +599,10 @@ public class FileUse {
         return graphNet;
     }
 
+    @Deprecated
     public PetriNet convertMethodToPetriNet(String methodText) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay { // added by Katya 16.10.2016
         System.out.println(methodText);
-        // TODO: load class java
-        // also TODO: prevent networks with the same name from being saved
-        // also TODO: check code syntax before saving?
-        
-        
+             
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
         ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -769,7 +770,80 @@ public class FileUse {
     }
 
     public String openMethod(PetriNetsPanel panel, String methodFullName, JFrame frame) throws ExceptionInvalidNetStructure { // added by Katya 16.10.2016
-        String methodName = methodFullName.substring(0, methodFullName.indexOf("(")); // modified by Katya 22.11.2016 (till the "try" block)
+        // TODO: just compile the NetLibrary c lass
+        // TODO: load class java
+        // also TODO: prevent networks with the same name from being saved
+        // also TODO: check code syntax before saving?
+        
+        String methodName = methodFullName.substring(0, methodFullName.indexOf("("));
+        
+        String className = "LibNet.NetLibrary";
+        
+        String netName = "";
+        
+        FileInputStream fis = null;
+        try {
+            /* reading NetLibrary.java */
+            // TODO: read it easier, you can do it with ine method really
+            String libraryText = "";
+            Path path = FileSystems.getDefault().getPath(
+                    System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
+            String pathNetLibrary = path.toString();
+            fis = new FileInputStream(pathNetLibrary); // modified by Katya 23.10.2016, by Inna 29.09.2018
+
+            int content;
+            while ((content = fis.read()) != -1) {
+                libraryText += (char) content;
+            }
+            
+            /* compiling */
+            // TODO: maybe use a different classloader?
+            if (netLibraryClass == null) {
+                netLibraryClass = CompilerUtils.CACHED_COMPILER.loadFromJava(className, libraryText);
+
+            }
+            PetriNet net = (PetriNet)netLibraryClass.getMethod(methodName).invoke(null);
+            
+            /* moving the prev. screen content and adding net  */
+            PetriNetsFrame petriNetsFrame = (PetriNetsFrame)frame;
+            JScrollPane pane = petriNetsFrame.GetPetriNetPanelScrollPane();
+            Point paneCenter = new Point(pane.getLocation().x+pane.getBounds().width/2, pane.getLocation().y+pane.getBounds().height/2);
+           
+            GraphPetriNet graphNet  = generateGraphNetBySimpleNet(panel ,net, paneCenter);
+       
+            panel.addGraphNet(graphNet);
+            netName = graphNet.getPetriNet().getName();
+            panel.repaint();
+            
+        } catch (FileNotFoundException e) {
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
+        } catch (IOException e) {
+                        Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
+
+        } catch (ClassNotFoundException e) { // from CACHED_COMPILER.loadFromJava()
+                        Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
+
+        }  catch (NoSuchMethodException e) { // either no constuctor with 0 params or no method with given name
+            
+        } catch (IllegalAccessException e) { // from newInstance() or invoke()
+                        Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
+
+        } catch (InvocationTargetException e) { // from newInstance() or invoke()
+                        Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
+
+        } finally {
+             try {
+                if (fis != null) {
+                    fis.close();
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        
+        
+        /* The following is old code */
+        /*String methodName = methodFullName.substring(0, methodFullName.indexOf("(")); // modified by Katya 22.11.2016 (till the "try" block)
         String paramsString = methodFullName.substring(methodFullName.indexOf("(") + 1);
         paramsString = paramsString.substring(0, paramsString.length() - 1);
         String pnetName = "";
@@ -821,8 +895,9 @@ public class FileUse {
             } catch (IOException ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
-        }
-        return pnetName.substring(0, pnetName.length());
+        }*/
+        // return pnetName.substring(0, pnetName.length());
+        return netName;
     }
 
     private String generateArgumentsString(PetriNet net) { // added by Katya 08.12.2016

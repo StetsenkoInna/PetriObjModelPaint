@@ -507,7 +507,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
                     arcIn.twoArcs(arcOut); // two arcs
                     arcIn.updateCoordinates();
                     arcOut.updateCoordinates();
-             
+
                 }
             }
         }
