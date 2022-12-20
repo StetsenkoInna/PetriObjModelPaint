@@ -7,8 +7,8 @@ import graphpresentation.GraphElement;
 import javax.swing.undo.AbstractUndoableEdit;
 
 /**
- * Represents an action of adding a new place to the net. Contains methods
- * to undo and redo adding the place and is supposed to be used with an UndoManager.
+ * Represents an action of adding elements to the net. Contains methods
+ * to undo and redo adding element and is supposed to be used with an UndoManager.
  * @author Leonid
  */
 public class AddGraphElementEdit extends AbstractUndoableEdit  {
@@ -63,7 +63,7 @@ public class AddGraphElementEdit extends AbstractUndoableEdit  {
             } else if (element instanceof GraphPetriTransition) {
                 panel.getGraphNet().getGraphPetriTransitionList().remove((GraphPetriTransition)element);
             } else {
-                throw new RuntimeException("AddPlaceEdit.undo(): unsupported element");
+                throw new RuntimeException("AddGraphElementEdit.undo(): unsupported element");
             }
            
             panel.revalidate();

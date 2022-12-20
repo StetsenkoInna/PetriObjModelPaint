@@ -45,6 +45,7 @@ import graphnet.GraphArcOut;
 import graphpresentation.undoable_edits.AddArcEdit;
 import graphpresentation.undoable_edits.DeleteArcEdit;
 import graphpresentation.undoable_edits.DeleteGraphElementsEdit;
+import graphpresentation.undoable_edits.PasteElementsEdit;
 
 /**
  * Creates new form PetriNetsPanel
@@ -225,46 +226,86 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
 
                 if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_V) {
-                    if (copiedElements != null && !copiedElements.isEmpty()) {
-                        List<GraphElement> elementsToSpawn =
-                                graphNet.bulkCopyElements(copiedElements);
-
-                        for (GraphElement prevElement: choosenElements) {
-                            prevElement.setColor(Color.BLACK);
-                        }
-                        choosenElements.clear();
-
-                        for (GraphElement element: elementsToSpawn) {
-                            Point2D spawnPoint = element.getGraphElementCenter();
-                            spawnPoint.setLocation(spawnPoint.getX() + 15, spawnPoint.getY() + 15);
-
-                            element.setNewCoordinates(spawnPoint);
-                            choosenElements.add(element);
-                            element.setColor(Color.GREEN);
-                        }
-
-                        copiedElements = new ArrayList<>(elementsToSpawn);
-
-
-                        for (GraphArcOut arcOut : graphNet.getGraphArcOutList()) { // added by Inna 29.01.2020
-                            for (GraphArcIn arcIn : graphNet.getGraphArcInList()) {
-                                int inBeginId = ((GraphPetriPlace) arcIn.getBeginElement()).getId();
-                                int inEndId = ((GraphPetriTransition) arcIn.getEndElement()).getId();
-                                int outBeginId = ((GraphPetriTransition) arcOut.getBeginElement()).getId();
-                                int outEndId = ((GraphPetriPlace) arcOut.getEndElement()).getId();
-                                if (inBeginId == outEndId && inEndId == outBeginId) {
-                                    arcIn.twoArcs(arcOut); // two arcs
-                                }
-                                arcIn.updateCoordinates();
-                                arcOut.updateCoordinates();
-                            }
-                        }
-                        repaint();
-                    }
+                    pasteAction();
                 }
             }
         });
 
+    }
+    
+    /**
+     * A handler for ctrl+V. Clones elements and arcs associated with them and pastes
+     * them onto the canvas
+     */
+    public void pasteAction() {
+        if (copiedElements != null && !copiedElements.isEmpty()) {
+            GraphPetriNet.GraphNetFragment clonedFragment = 
+                    graphNet.bulkCopyNoPasteElements(copiedElements);
+            
+            addNetFragment(clonedFragment);
+            
+            copiedElements = new ArrayList<>(clonedFragment.elements);
+            
+            PetriNetsFrame.getUndoSupport().postEdit(
+                    new PasteElementsEdit(this, clonedFragment)
+            );    
+        }
+    }
+    
+    /**
+     * Adds a fragment of a net onto the canvas. Fragments' coordinates are 
+     * updated in the process.
+     * @param fragment fragment to add
+     */
+    public void addNetFragment(GraphPetriNet.GraphNetFragment fragment) {
+        List<GraphElement> elementsToSpawn = fragment.elements;               
+
+        // de-selecting any selected elements
+        for (GraphElement prevElement: choosenElements) {
+            prevElement.setColor(Color.BLACK);
+        }
+        choosenElements.clear();
+
+        for (GraphElement element: elementsToSpawn) {
+            Point2D spawnPoint = element.getGraphElementCenter();
+            spawnPoint.setLocation(spawnPoint.getX() + 15, spawnPoint.getY() + 15);
+
+            element.setNewCoordinates(spawnPoint);
+            
+            if (element instanceof GraphPetriPlace) {
+                this.getGraphNet().getGraphPetriPlaceList().add((GraphPetriPlace)element);
+            } else {
+                this.getGraphNet().getGraphPetriTransitionList().add((GraphPetriTransition)element);
+            }
+            
+            choosenElements.add(element);
+            element.setColor(Color.GREEN);
+        }
+        
+        for (GraphArcIn arcIn : fragment.inArcs) {
+            getGraphNet().getGraphArcInList().add(arcIn);
+        }
+        
+        for (GraphArcOut arcOut : fragment.outArcs) {
+            getGraphNet().getGraphArcOutList().add(arcOut);
+        }
+
+        // wtf is this
+        for (GraphArcOut arcOut : fragment.outArcs) {
+            for (GraphArcIn arcIn : fragment.inArcs) {
+                int inBeginId = ((GraphPetriPlace) arcIn.getBeginElement()).getId();
+                int inEndId = ((GraphPetriTransition) arcIn.getEndElement()).getId();
+                int outBeginId = ((GraphPetriTransition) arcOut.getBeginElement()).getId();
+                int outEndId = ((GraphPetriPlace) arcOut.getEndElement()).getId();
+                if (inBeginId == outEndId && inEndId == outBeginId) {
+                    arcIn.twoArcs(arcOut); // two arcs
+                }
+                arcIn.updateCoordinates();
+                arcOut.updateCoordinates();
+            }
+        }
+        
+        repaint();
     }
 
     public void removeArc(GraphArc s) {
