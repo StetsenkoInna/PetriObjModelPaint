@@ -48,6 +48,7 @@ import java.awt.Component;
 import java.awt.geom.Point2D;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import net.openhft.compiler.CompilerUtils;
@@ -770,8 +771,6 @@ public class FileUse {
     }
 
     public String openMethod(PetriNetsPanel panel, String methodFullName, JFrame frame) throws ExceptionInvalidNetStructure { // added by Katya 16.10.2016
-        // TODO: just compile the NetLibrary c lass
-        // TODO: load class java
         // also TODO: prevent networks with the same name from being saved
         // also TODO: check code syntax before saving?
         
@@ -781,24 +780,17 @@ public class FileUse {
         
         String netName = "";
         
-        FileInputStream fis = null;
+        
         try {
-            /* reading NetLibrary.java */
-            // TODO: read it easier, you can do it with ine method really
-            String libraryText = "";
-            Path path = FileSystems.getDefault().getPath(
-                    System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
-            String pathNetLibrary = path.toString();
-            fis = new FileInputStream(pathNetLibrary); // modified by Katya 23.10.2016, by Inna 29.09.2018
-
-            int content;
-            while ((content = fis.read()) != -1) {
-                libraryText += (char) content;
-            }
-            
-            /* compiling */
-            // TODO: maybe use a different classloader?
+            // TODO: maybe pre-comile on program launch in background thread
             if (netLibraryClass == null) {
+                /* reading NetLibrary.java */
+                Path path = FileSystems.getDefault().getPath(
+                        System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); 
+                String libraryText = Files.readString(path);
+                
+                libraryText = preProcessNetLibraryCode(libraryText);
+                
                 /* we need a new instance of class loader each time. See NetLibraryClassLoader.java for details */
                 NetLibraryClassLoader loader = new NetLibraryClassLoader(getClass().getClassLoader());
                 netLibraryClass = CompilerUtils.CACHED_COMPILER.loadFromJava(loader, className, libraryText);
@@ -834,14 +826,6 @@ e.printStackTrace();
         } catch (InvocationTargetException e) { // from newInstance() or invoke()
                         Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
 e.printStackTrace();
-        } finally {
-             try {
-                if (fis != null) {
-                    fis.close();
-                }
-            } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-            }
         }
         
         
@@ -902,6 +886,98 @@ e.printStackTrace();
         // return pnetName.substring(0, pnetName.length());
         return netName;
     }
+    
+    public static String replaceGroup(String regex, String source, int groupToReplace, String replacement) {
+        StringBuilder result = new StringBuilder(source);
+        
+        boolean hasSequencesToProcess = true;
+        Pattern pattern = Pattern.compile(regex);
+        while (hasSequencesToProcess) {
+            System.out.println("bruh");
+            Matcher m = pattern.matcher(source);
+            if (!m.find()) {
+                hasSequencesToProcess = false;
+            } else {
+                result = new StringBuilder(result.replace(m.start(groupToReplace), m.end(groupToReplace), replacement).toString());
+                
+            }
+        }
+        
+        return result.toString();
+    }
+    
+    /**
+     * Process the code of NetLibrary.java, specifically, in methods that have arguments, 
+     * remove them from method's signature and replace their usage in the code with 
+     * string parameter names, so that the compiled method can be called without supplying
+     * any arguments.
+     * @param code NetLibrary.java source code
+     * @return processed code ready for compilation
+     */
+    public String preProcessNetLibraryCode(String code) {      
+        // remove arguments from method header
+        code = code.replaceAll("public\\s+static\\s+PetriNet\\s+(\\w+)\\s*\\((.+)\\)", "public static PetriNet $1()");
+        
+        // parametrized place
+        // Node: doesn't support whitespace between any elements of this statement (e.g. dot and method name)
+        // to add such support, add \s* where appropriate
+        Matcher matcher = Pattern.compile("d_P\\.add\\(new PetriP\\(\"([^\"]+)\",\\s*(\\w+)\\)\\);").matcher(code);
+        code = matcher.replaceAll(matchRes -> {
+            String markersParameter = matchRes.group(2);
+            boolean isInt;
+            try {
+                int markers = Integer.parseInt(markersParameter);
+                isInt = true;
+            } catch (NumberFormatException e) {
+                isInt = false;
+            }
+            if (!isInt) {
+                String placeName = matcher.group(1);
+                String variableName = placeName;
+                
+                // replace the entire line like so
+                /*
+                    PetriP @varName@ = new PetriP("@pName@", 0);\n
+                    @varName@.setMarkParam("@markStr@");\n
+                    d_P.add(@varName@);
+                */
+                String replacement = 
+                        "PetriP " + variableName + " = new PetriP(\""+placeName+"\", 0);\n"
+                        + variableName + ".setMarkParam(\""+markersParameter+"\");\n" 
+                        + "d_P.add("+variableName+");";
+                return replacement;
+            } 
+            return matchRes.group(0);
+        });
+        
+        // parametrized transition delay mean
+        
+        // parametrized transition priority
+        
+        // parametrized transition probability
+        
+        // parametrized distribution name?
+        
+        // parametrized number of arc links
+        
+        // parametrized information link
+        
+        
+        System.out.println(code);
+        
+        
+        return code; // TODO
+    }
+    
+    /**
+     * Process the code of a method (including header and { }) to replace
+     * numeric arguments with string parameter names
+     * @param code original method code
+     * @return processed code
+     */
+    /*private String preProcessMethod(String code) {
+        return code;
+    }*/
 
     private String generateArgumentsString(PetriNet net) { // added by Katya 08.12.2016
         String str = "";
@@ -1202,17 +1278,16 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
 
         area.append("}");
     }
-    public void saveMethodInNetLibrary(JTextArea area) {  //added by Inna 20.05.2013
 
+    public void saveMethodInNetLibrary(JTextArea area) {  //added by Inna 20.05.2013
         try {
 
             Path path = FileSystems.getDefault().getPath(
                     System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
             String pathNetLibrary = path.toString(); //added by Inna 29.09.2018
 
-
             RandomAccessFile f = new RandomAccessFile(pathNetLibrary, "rw");
-           System.out.println("The path of Library of nets is\t"+path.toString());
+            // System.out.println("The path of Library of nets is\t"+path.toString());
 
             long n = f.length();
             if (n == 0) {
@@ -1257,4 +1332,5 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
         // Force to recomile the class next time any method from there is used
         netLibraryClass = null;
     }
+    
 }
