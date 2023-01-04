@@ -70,4 +70,21 @@ public class FileUseTest {
         assertEquals(expectedCode, fileUse.preProcessNetLibraryCode(code));
     }
     
+    @Test
+    public void testParametrizedTransitionDelay() {
+        String code = fileHeader
+                + "public static PetriNet CreateNetUntitled(double k) {\n"
+                + "d_T.add(new PetriT(\"T1\",k));\n"
+                + "}\n}"; 
+        
+        String expectedCode = fileHeader
+                + "public static PetriNet CreateNetUntitled() {\n"
+                + "PetriT T1 = new PetriT(\"T1\",0);\n" 
+                + "T1.setParametrParam(\"k\");\n" 
+                + "d_T.add(T1);\n"
+                + "}\n}"; 
+        
+        assertEquals(expectedCode, fileUse.preProcessNetLibraryCode(code));
+    }
+    
 }

@@ -183,7 +183,7 @@ public class GraphArc implements Serializable{
         return graphElement.ptSegDist(p) < 3;
     }
 
-public void updateCoordinates() { // метод для оновлення інформації щодо координат елементу (для перемалювання) 09.01.13
+    public void updateCoordinates() { // метод для оновлення інформації щодо координат елементу (для перемалювання) 09.01.13
         graphElement.setLine(beginElement.getGraphElementCenter(), endElement.getGraphElementCenter());
         changeBorder();
     }

@@ -627,20 +627,32 @@ public class FileUse {
                 d_P.get(d_P.size() - 1).setMarkParam(markStr);
             }
         }
-        pattern = Pattern.compile(Pattern.quote("d_T.add(new PetriT(\"") + "(.*?)" + Pattern.quote("\",") + "(.*?)" + Pattern.quote("));"));
+        // pattern = Pattern.compile(Pattern.quote("d_T.add(new PetriT(\"") + "(.*?)" + Pattern.quote("\",") + "(.*?)" + Pattern.quote("));"));
+        pattern = Pattern.compile("d_T\\.add\\(new PetriT\\(\\\"(.*?)\\\",([^,)]*),?(.*?)\\)\\);");
         matcher = pattern.matcher(methodText);
         while (matcher.find()) {
             String match1 = matcher.group(1);
             String match2 = matcher.group(2);
+            String probability = matcher.group(3);
             String tName = match1;
             String parametrStr = match2;
             double parametr = Utils.tryParseDouble(parametrStr) // added by Katya 08.12.2016
                 ? Double.parseDouble(parametrStr)
                 : 0;
-            d_T.add(new PetriT(tName, parametr));
+            PetriT place = new PetriT(tName, parametr);
             if (!Utils.tryParseDouble(parametrStr)) { // added by Katya 08.12.2016
-                d_T.get(d_T.size() - 1).setParametrParam(parametrStr);
+                place.setParametrParam(parametrStr);
             }
+            if (!probability.isBlank()) {
+                try {
+                    double prob = Double.parseDouble(probability);
+                    place.setProbability(prob);
+                } catch (NumberFormatException e) {
+                    // do nothing
+                }
+            }
+            d_T.add(place);
+            
         }
 
         pattern = Pattern.compile(Pattern.quote("d_T.get(") + "(.*?)" + Pattern.quote(").setDistribution(") + "(.*?)" + Pattern.quote(", d_T.get("));
@@ -774,7 +786,7 @@ public class FileUse {
         // also TODO: prevent networks with the same name from being saved
         // also TODO: check code syntax before saving?
         
-        String methodName = methodFullName.substring(0, methodFullName.indexOf("("));
+        /*String methodName = methodFullName.substring(0, methodFullName.indexOf("("));
         
         String className = "LibNet.NetLibrary";
         
@@ -784,21 +796,21 @@ public class FileUse {
         try {
             // TODO: maybe pre-comile on program launch in background thread
             if (netLibraryClass == null) {
-                /* reading NetLibrary.java */
+                //  reading NetLibrary.java 
                 Path path = FileSystems.getDefault().getPath(
                         System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); 
                 String libraryText = Files.readString(path);
                 
                 libraryText = preProcessNetLibraryCode(libraryText);
                 
-                /* we need a new instance of class loader each time. See NetLibraryClassLoader.java for details */
+                // we need a new instance of class loader each time. See NetLibraryClassLoader.java for details 
                 NetLibraryClassLoader loader = new NetLibraryClassLoader(getClass().getClassLoader());
                 netLibraryClass = CompilerUtils.CACHED_COMPILER.loadFromJava(loader, className, libraryText);
 
             }
             PetriNet net = (PetriNet)netLibraryClass.getMethod(methodName).invoke(null);
             
-            /* moving the prev. screen content and adding net  */
+            // moving the prev. screen content and adding net  
             PetriNetsFrame petriNetsFrame = (PetriNetsFrame)frame;
             JScrollPane pane = petriNetsFrame.GetPetriNetPanelScrollPane();
             Point paneCenter = new Point(pane.getLocation().x+pane.getBounds().width/2, pane.getLocation().y+pane.getBounds().height/2);
@@ -826,11 +838,11 @@ e.printStackTrace();
         } catch (InvocationTargetException e) { // from newInstance() or invoke()
                         Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
 e.printStackTrace();
-        }
+        }*/
         
         
-        /* The following is old code */
-        /*String methodName = methodFullName.substring(0, methodFullName.indexOf("(")); // modified by Katya 22.11.2016 (till the "try" block)
+        // The following is old code 
+        String methodName = methodFullName.substring(0, methodFullName.indexOf("(")); // modified by Katya 22.11.2016 (till the "try" block)
         String paramsString = methodFullName.substring(methodFullName.indexOf("(") + 1);
         paramsString = paramsString.substring(0, paramsString.length() - 1);
         String pnetName = "";
@@ -882,9 +894,9 @@ e.printStackTrace();
             } catch (IOException ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
-        }*/
-        // return pnetName.substring(0, pnetName.length());
-        return netName;
+        }
+        return pnetName.substring(0, pnetName.length());
+        // return netName;
     }
     
     public static String replaceGroup(String regex, String source, int groupToReplace, String replacement) {
@@ -951,6 +963,18 @@ e.printStackTrace();
         });
         
         // parametrized transition delay mean
+        /*
+            PetriT @name@ = new PetriT("@name@",0); 
+            @name@.setParametrParam("@paramname@");
+            d_T.add(@name@);
+            
+            @name@ - group 1
+            @paramname@ - group2
+        */
+        code = code.replaceAll("d_T\\.add\\(new PetriT\\(\\\"([^\\\"]+)\\\",\\s*(\\w+)\\)\\);", 
+                "PetriT $1 = new PetriT(\"$1\",0);\n" 
+                        + "$1.setParametrParam(\"$2\");\n" 
+                        + "d_T.add($1);");
         
         // parametrized transition priority
         

@@ -73,6 +73,22 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
         this(id, n, 0);
         
     }
+    
+    /**
+     * Create a place with parametrized number of markers
+     * @param placeName place's name
+     * @param marksParameterName name of the parameter representing number of markers in this place
+     */
+    /*public PetriP(String placeName, String marksParameterName) {
+        name = placeName;
+        
+        mean = 0;
+        number = next; //додано 1.10.2012
+        next++;
+        
+        id=null;
+        this.setMarkParam(marksParameterName);
+    }*/
 
     public PetriP(PetriP position) {
         this(position.getName(), position.getMark());
