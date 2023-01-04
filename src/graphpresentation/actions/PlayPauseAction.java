@@ -13,8 +13,8 @@ public class PlayPauseAction extends AbstractAction {
     
     private final AnimationControls controls;
     
-    private static String PLAY_DESCRIPTION = "Start/continue animating the net";
-    private static String PAUSE_DESCRIPTION = "Pause the simulation";
+    private static String PLAY_DESCRIPTION = "Start net animation";
+    private static String PAUSE_DESCRIPTION = "Pause animation";
     
     public PlayPauseAction(AnimationControls controls) {
         super("⏵");

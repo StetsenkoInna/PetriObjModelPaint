@@ -312,14 +312,14 @@
                   <Component id="modelingParametersPanel" alignment="0" max="32767" attributes="0"/>
                   <Group type="102" alignment="0" attributes="0">
                       <EmptySpace min="-2" pref="183" max="-2" attributes="0"/>
-                      <Component id="petriNetsFrameSplitPane" pref="1434" max="32767" attributes="0"/>
+                      <Component id="petriNetsFrameSplitPane" pref="1443" max="32767" attributes="0"/>
                       <EmptySpace min="-2" max="-2" attributes="0"/>
                   </Group>
                   <Group type="103" rootIndex="1" groupAlignment="0" attributes="0">
                       <Group type="102" alignment="0" attributes="0">
                           <EmptySpace max="-2" attributes="0"/>
                           <Component id="leftNenuPanel" min="-2" pref="170" max="-2" attributes="0"/>
-                          <EmptySpace pref="1447" max="32767" attributes="0"/>
+                          <EmptySpace pref="1456" max="32767" attributes="0"/>
                       </Group>
                   </Group>
               </Group>
@@ -337,7 +337,7 @@
                       <Group type="102" alignment="0" attributes="0">
                           <EmptySpace min="-2" pref="38" max="-2" attributes="0"/>
                           <Component id="leftNenuPanel" min="-2" pref="477" max="-2" attributes="0"/>
-                          <EmptySpace pref="99" max="32767" attributes="0"/>
+                          <EmptySpace pref="151" max="32767" attributes="0"/>
                       </Group>
                   </Group>
               </Group>
@@ -351,31 +351,31 @@
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Group type="102" alignment="0" attributes="0">
                           <EmptySpace min="-2" max="-2" attributes="0"/>
-                          <Component id="netNameLabel" pref="153" max="32767" attributes="0"/>
+                          <Component id="netNameLabel" pref="148" max="32767" attributes="0"/>
                           <EmptySpace min="-2" max="-2" attributes="0"/>
-                          <Component id="netNameTextField" pref="153" max="32767" attributes="0"/>
+                          <Component id="netNameTextField" pref="148" max="32767" attributes="0"/>
                           <EmptySpace min="-2" pref="10" max="-2" attributes="0"/>
-                          <Component id="timeStartLabel" pref="199" max="32767" attributes="0"/>
+                          <Component id="timeStartLabel" pref="194" max="32767" attributes="0"/>
                           <EmptySpace min="-2" max="-2" attributes="0"/>
-                          <Component id="timeStartField" pref="153" max="32767" attributes="0"/>
+                          <Component id="timeStartField" pref="148" max="32767" attributes="0"/>
                           <EmptySpace type="unrelated" min="-2" max="-2" attributes="0"/>
-                          <Component id="timeModelingLabel" pref="222" max="32767" attributes="0"/>
+                          <Component id="timeModelingLabel" pref="217" max="32767" attributes="0"/>
                           <EmptySpace min="-2" max="-2" attributes="0"/>
-                          <Component id="timeModelingTextField" pref="153" max="32767" attributes="0"/>
+                          <Component id="timeModelingTextField" pref="147" max="32767" attributes="0"/>
                           <EmptySpace type="unrelated" max="-2" attributes="0"/>
                           <Component id="speedLabel" min="-2" pref="92" max="-2" attributes="0"/>
                           <EmptySpace type="separate" max="-2" attributes="0"/>
                           <Component id="speedSlider" min="-2" pref="163" max="-2" attributes="0"/>
+                          <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                          <Component id="skipBackwardAnimationButton" min="-2" pref="50" max="-2" attributes="0"/>
                           <EmptySpace max="-2" attributes="0"/>
-                          <Component id="skipBackwardAnimationButton" min="-2" max="-2" attributes="0"/>
+                          <Component id="playPauseAnimationButton" min="-2" pref="50" max="-2" attributes="0"/>
                           <EmptySpace max="-2" attributes="0"/>
-                          <Component id="playPauseAnimationButton" min="-2" max="-2" attributes="0"/>
+                          <Component id="stopAnimationButton" min="-2" pref="50" max="-2" attributes="0"/>
                           <EmptySpace max="-2" attributes="0"/>
-                          <Component id="stopAnimationButton" min="-2" max="-2" attributes="0"/>
+                          <Component id="runOneEventButton" min="-2" pref="50" max="-2" attributes="0"/>
                           <EmptySpace max="-2" attributes="0"/>
-                          <Component id="runOneEventButton" min="-2" max="-2" attributes="0"/>
-                          <EmptySpace max="-2" attributes="0"/>
-                          <Component id="skipForwardAnimationButton" min="-2" max="-2" attributes="0"/>
+                          <Component id="skipForwardAnimationButton" min="-2" pref="50" max="-2" attributes="0"/>
                           <EmptySpace max="-2" attributes="0"/>
                       </Group>
                   </Group>
@@ -383,7 +383,7 @@
                 <DimensionLayout dim="1">
                   <Group type="103" groupAlignment="0" attributes="0">
                       <Group type="102" attributes="0">
-                          <EmptySpace pref="16" max="32767" attributes="0"/>
+                          <EmptySpace max="32767" attributes="0"/>
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="103" alignment="1" groupAlignment="3" max="-2" attributes="0">
                                   <Component id="netNameLabel" alignment="3" min="-2" max="-2" attributes="0"/>
@@ -394,16 +394,14 @@
                                   <Component id="netNameTextField" alignment="3" max="32767" attributes="0"/>
                                   <Component id="speedLabel" alignment="3" min="-2" max="-2" attributes="0"/>
                               </Group>
-                              <Group type="103" alignment="1" groupAlignment="3" attributes="0">
-                                  <Component id="speedSlider" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="playPauseAnimationButton" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="stopAnimationButton" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="skipBackwardAnimationButton" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="skipForwardAnimationButton" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="runOneEventButton" alignment="3" min="-2" max="-2" attributes="0"/>
-                              </Group>
+                              <Component id="speedSlider" alignment="1" min="-2" max="-2" attributes="0"/>
                           </Group>
                       </Group>
+                      <Component id="playPauseAnimationButton" alignment="1" pref="50" max="32767" attributes="0"/>
+                      <Component id="stopAnimationButton" alignment="1" pref="50" max="32767" attributes="0"/>
+                      <Component id="runOneEventButton" alignment="1" pref="50" max="32767" attributes="0"/>
+                      <Component id="skipForwardAnimationButton" alignment="1" pref="50" max="32767" attributes="0"/>
+                      <Component id="skipBackwardAnimationButton" alignment="1" pref="50" max="32767" attributes="0"/>
                   </Group>
                 </DimensionLayout>
               </Layout>
@@ -732,12 +730,12 @@
                   <Layout>
                     <DimensionLayout dim="0">
                       <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="modelingResultsSplitPane" alignment="1" pref="780" max="32767" attributes="0"/>
+                          <Component id="modelingResultsSplitPane" alignment="1" pref="789" max="32767" attributes="0"/>
                       </Group>
                     </DimensionLayout>
                     <DimensionLayout dim="1">
                       <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="modelingResultsSplitPane" alignment="0" pref="522" max="32767" attributes="0"/>
+                          <Component id="modelingResultsSplitPane" alignment="0" pref="561" max="32767" attributes="0"/>
                       </Group>
                     </DimensionLayout>
                   </Layout>
@@ -922,8 +920,8 @@
                   <Group type="102" alignment="0" attributes="0">
                       <EmptySpace min="-2" pref="0" max="-2" attributes="0"/>
                       <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="petriNetsFrameSplitPane1" alignment="0" pref="1629" max="32767" attributes="0"/>
-                          <Component id="petriNetsFrameToolBar1" alignment="0" pref="1629" max="32767" attributes="0"/>
+                          <Component id="petriNetsFrameSplitPane1" alignment="0" pref="1638" max="32767" attributes="0"/>
+                          <Component id="petriNetsFrameToolBar1" alignment="0" pref="1638" max="32767" attributes="0"/>
                       </Group>
                       <EmptySpace min="-2" pref="0" max="-2" attributes="0"/>
                   </Group>
@@ -1149,7 +1147,7 @@
                               <EmptySpace min="-2" pref="0" max="-2" attributes="0"/>
                               <Component id="modelingParametersPanel1" min="-2" pref="31" max="-2" attributes="0"/>
                               <EmptySpace max="-2" attributes="0"/>
-                              <Component id="modelingResultsSplitPane1" pref="534" max="32767" attributes="0"/>
+                              <Component id="modelingResultsSplitPane1" pref="582" max="32767" attributes="0"/>
                               <EmptySpace min="-2" pref="2" max="-2" attributes="0"/>
                           </Group>
                       </Group>
@@ -1247,17 +1245,17 @@
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="102" alignment="0" attributes="0">
                                   <EmptySpace min="-2" max="-2" attributes="0"/>
-                                  <Component id="netNameLabel1" pref="291" max="32767" attributes="0"/>
+                                  <Component id="netNameLabel1" pref="293" max="32767" attributes="0"/>
                                   <EmptySpace min="-2" max="-2" attributes="0"/>
-                                  <Component id="netNameTextField1" pref="315" max="32767" attributes="0"/>
+                                  <Component id="netNameTextField1" pref="317" max="32767" attributes="0"/>
                                   <EmptySpace min="-2" pref="10" max="-2" attributes="0"/>
                                   <Component id="timeStartLabel1" max="32767" attributes="0"/>
                                   <EmptySpace min="-2" max="-2" attributes="0"/>
-                                  <Component id="timeStartField1" pref="316" max="32767" attributes="0"/>
+                                  <Component id="timeStartField1" pref="318" max="32767" attributes="0"/>
                                   <EmptySpace type="unrelated" min="-2" max="-2" attributes="0"/>
                                   <Component id="timeModelingLabel1" max="32767" attributes="0"/>
                                   <EmptySpace min="-2" max="-2" attributes="0"/>
-                                  <Component id="timeModelingTextField1" pref="316" max="32767" attributes="0"/>
+                                  <Component id="timeModelingTextField1" pref="318" max="32767" attributes="0"/>
                                   <EmptySpace min="-2" max="-2" attributes="0"/>
                               </Group>
                           </Group>
@@ -1395,8 +1393,8 @@
                       <Group type="102" alignment="0" attributes="0">
                           <EmptySpace min="-2" pref="0" max="-2" attributes="0"/>
                           <Group type="103" groupAlignment="0" attributes="0">
-                              <Component id="petriNetsFrameSplitPane2" alignment="0" pref="1629" max="32767" attributes="0"/>
-                              <Component id="petriNetsFrameToolBar2" alignment="0" pref="1629" max="32767" attributes="0"/>
+                              <Component id="petriNetsFrameSplitPane2" alignment="0" pref="1638" max="32767" attributes="0"/>
+                              <Component id="petriNetsFrameToolBar2" alignment="0" pref="1638" max="32767" attributes="0"/>
                           </Group>
                           <EmptySpace min="-2" pref="0" max="-2" attributes="0"/>
                       </Group>
@@ -1597,7 +1595,7 @@
                                   <EmptySpace max="-2" attributes="0"/>
                                   <Component id="modelingParametersPanel2" min="-2" pref="31" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
-                                  <Component id="modelingResultsSplitPane2" pref="517" max="32767" attributes="0"/>
+                                  <Component id="modelingResultsSplitPane2" pref="552" max="32767" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
                               </Group>
                           </Group>
@@ -1695,17 +1693,17 @@
                               <Group type="103" groupAlignment="0" attributes="0">
                                   <Group type="102" alignment="0" attributes="0">
                                       <EmptySpace min="-2" max="-2" attributes="0"/>
-                                      <Component id="netNameLabel2" pref="212" max="32767" attributes="0"/>
+                                      <Component id="netNameLabel2" pref="213" max="32767" attributes="0"/>
                                       <EmptySpace min="-2" max="-2" attributes="0"/>
-                                      <Component id="netNameTextField2" pref="231" max="32767" attributes="0"/>
+                                      <Component id="netNameTextField2" pref="232" max="32767" attributes="0"/>
                                       <EmptySpace min="-2" pref="10" max="-2" attributes="0"/>
-                                      <Component id="timeStartLabel2" pref="209" max="32767" attributes="0"/>
+                                      <Component id="timeStartLabel2" pref="213" max="32767" attributes="0"/>
                                       <EmptySpace min="-2" max="-2" attributes="0"/>
-                                      <Component id="timeStartField2" pref="229" max="32767" attributes="0"/>
+                                      <Component id="timeStartField2" pref="230" max="32767" attributes="0"/>
                                       <EmptySpace type="unrelated" min="-2" max="-2" attributes="0"/>
-                                      <Component id="timeModelingLabel2" pref="225" max="32767" attributes="0"/>
+                                      <Component id="timeModelingLabel2" pref="226" max="32767" attributes="0"/>
                                       <EmptySpace min="-2" max="-2" attributes="0"/>
-                                      <Component id="timeModelingTextField2" pref="229" max="32767" attributes="0"/>
+                                      <Component id="timeModelingTextField2" pref="230" max="32767" attributes="0"/>
                                       <EmptySpace min="-2" max="-2" attributes="0"/>
                                   </Group>
                               </Group>

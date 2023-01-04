@@ -15,6 +15,7 @@ public class RewindAction extends AbstractAction {
     
     public RewindAction(AnimationControls controls) {
         this.controls = controls;
+        putValue(SHORT_DESCRIPTION, "Restore net state");
     }
 
     @Override
