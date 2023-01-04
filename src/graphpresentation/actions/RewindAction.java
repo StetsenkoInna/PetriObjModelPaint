@@ -1,7 +1,6 @@
 package graphpresentation.actions;
 
-import graphpresentation.GraphPetriNetBackupHolder;
-import graphpresentation.PetriNetsFrame;
+import graphpresentation.AnimationControls;
 import java.awt.event.ActionEvent;
 import javax.swing.AbstractAction;
 
@@ -12,23 +11,15 @@ import javax.swing.AbstractAction;
  */
 public class RewindAction extends AbstractAction {
     
-    private final PetriNetsFrame frame;
+    private final AnimationControls controls;
     
-    public RewindAction(PetriNetsFrame frame) {
-        this.frame = frame;
-        setEnabled(false);
+    public RewindAction(AnimationControls controls) {
+        this.controls = controls;
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        frame.haltAnimation();
-        GraphPetriNetBackupHolder holder = GraphPetriNetBackupHolder.getInstance();
-        if (!holder.isEmpty()) {
-            frame.getPetriNetsPanel().deletePetriNet();
-            frame.getPetriNetsPanel().addGraphNet(holder.get());
-            this.setEnabled(false);
-            GraphPetriNetBackupHolder.getInstance().clear();
-        }
+        controls.rewindButtonPressed();
     }
     
 }

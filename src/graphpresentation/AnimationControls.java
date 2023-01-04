@@ -46,13 +46,14 @@ public class AnimationControls {
     
     public AnimationControls(PetriNetsFrame frame) {
         this.frame = frame;
-        currentState = State.NO_SAVED_STATE;
         
         runNetAction = new RunNetAction(frame); // TODO: replace with 'this'
-        rewindAction = new RewindAction(frame);
+        rewindAction = new RewindAction(this);
         stopSimulationAction = new StopSimulationAction(frame);
         playPauseAction = new PlayPauseAction(frame);
         runOneEventAction = new RunOneEventAction(this);
+        
+        setState(State.NO_SAVED_STATE);
     }
     
     /**
@@ -82,6 +83,25 @@ public class AnimationControls {
                 setState(AnimationControls.State.SAVED_STATE_EXISTS);
             }
         }).start();
+    }
+    
+    /**
+     * A handler for "rewind (restore state)" button
+     */
+    public void rewindButtonPressed() {
+        throwIfActionIsIllegal(
+                List.of(State.ANIMATION_PAUSED, State.SAVED_STATE_EXISTS), 
+                "rewind");
+        
+        // if animation is paused, stop it altogether
+        if (currentState == State.ANIMATION_PAUSED) {
+            frame.animationModel.halt();
+        }
+        
+        // restore state
+        restoreSavedState();
+        
+        setState(State.NO_SAVED_STATE);
     }
     
     private void setState(State state) {
@@ -146,4 +166,21 @@ public class AnimationControls {
             new GraphPetriNet(frame.getPetriNetsPanel().getGraphNet())
         );
     }
+    
+    /**
+     * Restores the net to the state that was previously saved and clears the saved state.
+     * Throws RuntimeException if no state was saved.
+     */
+    private void restoreSavedState() {
+        GraphPetriNetBackupHolder holder = GraphPetriNetBackupHolder.getInstance();
+        
+        if (holder.isEmpty()) {
+            throw new RuntimeException("Tried to restore saved state, but there was no state saved");
+        }  
+        
+        frame.getPetriNetsPanel().deletePetriNet();
+        frame.getPetriNetsPanel().addGraphNet(holder.get());
+        holder.clear();
+    }
+    
 }
