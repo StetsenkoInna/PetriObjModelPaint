@@ -30,6 +30,10 @@ public class AnimationControls {
         SAVED_STATE_EXISTS,
         ANIMATION_IN_PROGRESS,
         ANIMATION_PAUSED,
+        /**
+         * All buttons blocked. Happens when a non-animated simulation is running
+         */
+        CONTROLS_BLOCKED,
     }
     
     private final PetriNetsFrame frame;
@@ -42,12 +46,12 @@ public class AnimationControls {
     public final RunOneEventAction runOneEventAction; // D (>|)
     public final RunNetAction runNetAction; // E (>>|)
     
-    private static String ILLEGAL_ACTION_MESSAGE = "Illegal action on AnimationControls. Current state: %s, attempted action: %s";  
+    private static final String ILLEGAL_ACTION_MESSAGE = "Illegal action on AnimationControls. Current state: %s, attempted action: %s";  
     
     public AnimationControls(PetriNetsFrame frame) {
         this.frame = frame;
         
-        runNetAction = new RunNetAction(frame); // TODO: replace with 'this'
+        runNetAction = new RunNetAction(this);
         rewindAction = new RewindAction(this);
         stopSimulationAction = new StopSimulationAction(this);
         playPauseAction = new PlayPauseAction(this);
@@ -69,7 +73,7 @@ public class AnimationControls {
         }
         
         // run one event
-        new Thread(() -> {
+        Thread t = new Thread(() -> {
             try {
                 frame.disableInput();
                 frame.timer.start();
@@ -82,7 +86,9 @@ public class AnimationControls {
 
                 setState(AnimationControls.State.SAVED_STATE_EXISTS);
             }
-        }).start();
+        });
+        setState(State.CONTROLS_BLOCKED);
+        t.start();
     }
     
     /**
@@ -105,7 +111,7 @@ public class AnimationControls {
     }
     
     /**
-     * A handler for the "play" / "paused" action
+     * A handler for the "play" / "pause" action
      */
     public void playPauseButtonPressed() {
         throwIfActionIsIllegal(
@@ -170,10 +176,13 @@ public class AnimationControls {
         frame.animationModel.halt();
     }
     
+    /**
+     * A handler for the "stop" action
+     */
     public void stopSimulationButtonPressed() {
         throwIfActionIsIllegal(
                 List.of(State.SAVED_STATE_EXISTS, State.ANIMATION_PAUSED), 
-                "playPause");
+                "stopSimulation");
         
         // if animation exists and paused, stop it altogether
         if (currentState == State.ANIMATION_PAUSED) {
@@ -182,6 +191,34 @@ public class AnimationControls {
         
         clearSavedState();
         setState(State.NO_SAVED_STATE);
+    }
+    
+    /**
+     * A handler for the "run net" (skip forward) action
+     */
+    public void runNetButtonPressed() {
+        throwIfActionIsIllegal(
+                List.of(State.NO_SAVED_STATE), 
+                "runNet");
+        
+        saveCurrentNetState();
+        
+        Thread t = new Thread(() -> {
+            try {
+                frame.disableInput();
+                frame.timer.start();
+                frame.runNet();
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                frame.enableInput();
+                frame.timer.stop();
+                setState(AnimationControls.State.SAVED_STATE_EXISTS);
+            }
+
+        });  
+        setState(State.CONTROLS_BLOCKED);
+        t.start();
     }
     
     private synchronized void setState(State state) {
@@ -218,6 +255,13 @@ public class AnimationControls {
                 playPauseAction.setEnabled(true);
                 playPauseAction.switchToPlayButton();
                 stopSimulationAction.setEnabled(true);
+                runOneEventAction.setEnabled(false);
+                runNetAction.setEnabled(false);
+                break;
+            case CONTROLS_BLOCKED:
+                rewindAction.setEnabled(false);
+                playPauseAction.setEnabled(false);
+                stopSimulationAction.setEnabled(false);
                 runOneEventAction.setEnabled(false);
                 runNetAction.setEnabled(false);
                 break;
