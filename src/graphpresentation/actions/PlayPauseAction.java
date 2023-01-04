@@ -4,6 +4,7 @@ import graphpresentation.AnimationControls;
 import java.awt.event.ActionEvent;
 import javax.swing.AbstractAction;
 import static javax.swing.Action.SHORT_DESCRIPTION;
+import javax.swing.ImageIcon;
 
 /**
  * Start/Pause/Unpause net animation
@@ -16,10 +17,12 @@ public class PlayPauseAction extends AbstractAction {
     private static String PLAY_DESCRIPTION = "Start net animation";
     private static String PAUSE_DESCRIPTION = "Pause animation";
     
+    private final ImageIcon playIcon = new ImageIcon(getClass().getResource("icons/play.png"));
+    private final ImageIcon pauseIcon = new ImageIcon(getClass().getResource("icons/pause.png"));
+    
     public PlayPauseAction(AnimationControls controls) {
-        super("⏵");
         this.controls = controls;
-        putValue(SHORT_DESCRIPTION, PLAY_DESCRIPTION);
+        switchToPlayButton();
     }
 
     @Override
@@ -32,7 +35,7 @@ public class PlayPauseAction extends AbstractAction {
      * be a pause button
      */
     public void switchToPauseButton() {
-        putValue(NAME, "||"); // TODO: char
+        putValue(LARGE_ICON_KEY, pauseIcon);
         putValue(SHORT_DESCRIPTION, PAUSE_DESCRIPTION);
     }
     
@@ -41,7 +44,7 @@ public class PlayPauseAction extends AbstractAction {
      * be a play button
      */
     public void switchToPlayButton() {
-        putValue(NAME, "⏵");
+        putValue(LARGE_ICON_KEY, playIcon);
         putValue(SHORT_DESCRIPTION, PLAY_DESCRIPTION);
     }
     
