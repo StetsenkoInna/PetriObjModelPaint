@@ -30,6 +30,7 @@ import javax.swing.*;
 import graphnet.GraphPetriNet;
 import graphnet.GraphPetriPlace;
 import graphnet.GraphPetriTransition;
+import graphpresentation.actions.AnimateEventAction;
 import graphpresentation.actions.PlayPauseAction;
 import graphpresentation.actions.RewindAction;
 import graphpresentation.actions.RunNetAction;
@@ -101,6 +102,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public final StopSimulationAction stopSimulationAction = animationContols.stopSimulationAction;
     public final PlayPauseAction playPauseAction = animationContols.playPauseAction;
     public final RunOneEventAction runOneEventAction = animationContols.runOneEventAction;
+    public final AnimateEventAction animateEventAction = animationContols.animateEventAction; 
 
     private void UpdateNetLibraryMethodsCombobox() { // added by Katya
         // 27.11.2016
@@ -1341,6 +1343,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         petriNetsFrameMenuBar.add(save);
 
+        Animate.setAction(animateEventAction);
         Animate.setText("Animate");
         Animate.setMargin(new java.awt.Insets(0, 10, 0, 10));
 
@@ -1348,12 +1351,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         itemAnimateNet.setText("Animate Petri net");
         Animate.add(itemAnimateNet);
 
+        itemAnimateEvent.setAction(animateEventAction);
         itemAnimateEvent.setText("Animate event");
-        itemAnimateEvent.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                itemAnimateEventActionPerformed(evt);
-            }
-        });
         Animate.add(itemAnimateEvent);
 
         petriNetsFrameMenuBar.add(Animate);
@@ -1541,19 +1540,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_netNameTextFieldActionPerformed
 
-    /* Stops animation completely, you won't be able to unpause it afterwards */
-    public void haltAnimation() {
-        if (isAnimationInitiated && isAnimationPaused && animationThread != null) {
-            isAnimationInitiated = false;
-            isAnimationPaused = true;
-            animationModel.halt();
-            
-            // stopAnimationButton.setEnabled(false);
-            playPauseAction.switchToPlayButton();
-            // playPauseAnimationButton.setText("⏵"); // TODO
-        }
-    }
-    
     private void openMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMenuItemActionPerformed
         try {
             fileUse.newWorksheet(getPetriNetsPanel());
@@ -1754,18 +1740,23 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 ArrayList<PetriSim> list = new ArrayList<PetriSim>();
                 list.add(petriSim);
                 
-                animationModel = new AnimRunPetriObjModel(list,
+                 
+                
+                AnimRunPetriObjModel model = new AnimRunPetriObjModel(list,
                         protocolTextArea, getPetriNetsPanel(),
                         speedSlider); // Петрі-об"єктна модель, що складається з одного Петріз-об"єкта
-                animationModel.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
-                animationModel.setCurrentTime(Double.valueOf(timeStartField.getText()));
-                animationModel.go(Double.valueOf(timeModelingTextField.getText()));
+                
+                animationModel = model;
+                
+                model.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
+                model.setCurrentTime(Double.valueOf(timeStartField.getText()));
+                model.go(Double.valueOf(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
                         statisticsTextArea);
                 // перетворення у потрібний формат ...
-                Double d = animationModel.getCurrentTime(); // added
+                Double d = model.getCurrentTime(); // added
 
-                Double dd = 100.0 * (animationModel.getCurrentTime() - d.intValue()); // десяткова частина
+                Double dd = 100.0 * (model.getCurrentTime() - d.intValue()); // десяткова частина
 
                 //timeStartField.setText(String.valueOf(d.intValue()
                 //		+ "." + dd.intValue())); // added by Inna
@@ -1785,23 +1776,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
 
     private void itemAnimateEventActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_itemRunEventActionPerformed
-        new Thread() {
-            @Override
-            public void run() {
-
-                try {
-                    disableInput();
-                    timer.start();
-                    animateEvent();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                } finally {
-                    enableInput();
-                    timer.stop();
-                }
-
-            }
-        }.start();
+        
     }// GEN-LAST:event_itemRunEventActionPerformed
 
     public void runEvent() {
@@ -1851,7 +1826,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     }
 
-    private void animateEvent() {
+    void animateEvent() {
         if (getPetriNetsPanel().getGraphNet() == null) {
             errorFrame.setErrorMessage(" Petri Net does not exist yet. Paint it or read it from file.");
             errorFrame.setVisible(true);
@@ -1865,25 +1840,27 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     errorFrame.setVisible(true);
                     return;
                 } else {
-                    AnimRunPetriSim petriSim = new AnimRunPetriSim(
+                    AnimRunPetriSim object = new AnimRunPetriSim(
                             getPetriNetsPanel().getGraphNet().getPetriNet(),
                             protocolTextArea, getPetriNetsPanel(),
                             speedSlider, null);
+                    
+                    animationPetriObject = object;
 
-                    petriSim.setSimulationTime(
+                    object.setSimulationTime(
                             Double.parseDouble(timeModelingTextField.getText()));
 
-                    petriSim.setTimeCurr(
+                    object.setTimeCurr(
                             Double.valueOf(timeStartField.getText()));
 
                     // System.out.println("in the begining we have such state of net places:");
-                    petriSim.printMark();
-                    petriSim.step();
+                    object.printMark();
+                    object.step();
                     // System.out.println("at the result we have such state of net places:");
-                    petriSim.printMark(protocolTextArea);
+                    object.printMark(protocolTextArea);
 
-                    Double d = new Double(petriSim.getCurrentTime()); // added by
-                    Double dd = new Double(100.0 * (petriSim.getCurrentTime() - d.intValue()));
+                    Double d = new Double(object.getCurrentTime()); // added by
+                    Double dd = new Double(100.0 * (object.getCurrentTime() - d.intValue()));
                     //timeStartField.setText(String.valueOf(d.intValue() + "."
                     //		+ dd.intValue() // перетворення у цілий формат, але
                     // тоді здається що час
@@ -2163,26 +2140,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public AnimRunPetriObjModel animationModel;
     
     /**
-     * Indicates whether animation has been started. Is needed for
-     * starting and then stoping/resuming animations. True if an
-     * animation has been started (it can be running or paused),
-     * false if either the animation was never started at all
-     * or it was killed using the stop button (do not confuse with
-     * pause button)
+     *  A petri-object that is used for displaying animation
+     * and can be paused an unpaused, if there's no parent model
      */
-    public boolean isAnimationInitiated = false;
-    
-    /**
-     * Whether the simulation animation is pasued. Before starting
-     * or after ending it is considered paused
-     */
-    public boolean isAnimationPaused = true;
-    
-    /**
-     * Saved state of the net before the simulation. Needed for possible
-     * rewinding of simulation (restoring the net to its original state)
-     */
-    // private GraphPetriNet backupNet;
+    public AnimRunPetriSim animationPetriObject;
     
     /**
      * The thread on which animation happens. Is stored here so that it

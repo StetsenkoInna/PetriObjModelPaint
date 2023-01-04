@@ -1,6 +1,7 @@
 package graphpresentation;
 
 import graphnet.GraphPetriNet;
+import graphpresentation.actions.AnimateEventAction;
 import graphpresentation.actions.PlayPauseAction;
 import graphpresentation.actions.RewindAction;
 import graphpresentation.actions.RunNetAction;
@@ -45,6 +46,7 @@ public class AnimationControls {
     public final StopSimulationAction stopSimulationAction; // C (square)
     public final RunOneEventAction runOneEventAction; // D (>|)
     public final RunNetAction runNetAction; // E (>>|)
+    public final AnimateEventAction animateEventAction; // only in menu
     
     private static final String ILLEGAL_ACTION_MESSAGE = "Illegal action on AnimationControls. Current state: %s, attempted action: %s";  
     
@@ -56,6 +58,7 @@ public class AnimationControls {
         stopSimulationAction = new StopSimulationAction(this);
         playPauseAction = new PlayPauseAction(this);
         runOneEventAction = new RunOneEventAction(this);
+        animateEventAction = new AnimateEventAction(this);
         
         setState(State.NO_SAVED_STATE);
     }
@@ -147,33 +150,105 @@ public class AnimationControls {
                 frame.enableInput();
                 frame.timer.stop();
                 
-                if (!frame.animationModel.isHalted() 
-                        && currentState == State.ANIMATION_IN_PROGRESS) { // if anim ended on its own
-                    setState(State.SAVED_STATE_EXISTS);
+                if (frame.animationModel == null) {
+                    // the net was incorrect and animation didn't even start
+                    setState(State.NO_SAVED_STATE);
+                } else {
+                    // if anim ended on its own, set state SAVED_STATE_EXISTS
+                    // otherwise (if anim was haled by stop button) the state
+                    // change will be handled by stopSimulationButtonPressed()
+                    if (!frame.animationModel.isHalted() 
+                            && currentState == State.ANIMATION_IN_PROGRESS) {
+                        setState(State.SAVED_STATE_EXISTS);
+                    }
                 }
+                
+                frame.animationModel = null;
             }
 
         });
-        frame.animationThread.start();
         setState(State.ANIMATION_IN_PROGRESS);
+        frame.animationThread.start();
+    }
+    
+    /**
+     * A handler for the "animate event" action
+     */
+    public void animateEventButtonPressed() {
+        throwIfActionIsIllegal(
+                List.of(State.NO_SAVED_STATE, State.SAVED_STATE_EXISTS), 
+                "animateEvent");
+        
+        if (currentState == State.NO_SAVED_STATE) {
+            saveCurrentNetState();
+        }
+        
+        frame.animationThread = new Thread(() -> {
+            try {
+                frame.disableInput();
+                frame.timer.start();
+                frame.animateEvent();
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                frame.enableInput();
+                frame.timer.stop();
+                
+                // if anim ended on its own, set state SAVED_STATE_EXISTS
+                // otherwise (if anim was haled by stop button) the state
+                // change will be handled by stopSimulationButtonPressed()
+                if (!frame.animationPetriObject.isHalted() 
+                            && currentState == State.ANIMATION_IN_PROGRESS) {
+                    setState(State.SAVED_STATE_EXISTS);
+                }
+                
+                frame.animationPetriObject = null;
+            }
+
+        });
+        setState(State.ANIMATION_IN_PROGRESS);
+        frame.animationThread.start();
     }
     
     private void resumeAnimation() {
-        frame.animationModel.setPaused(false);
-        synchronized(frame.animationModel) { // TODO: replace with somthing better
-            frame.animationModel.notifyAll();
+        setState(State.ANIMATION_IN_PROGRESS);
+        
+        if (frame.animationModel != null) {
+            frame.animationModel.setPaused(false);
+            
+            synchronized(frame.animationModel) { // TODO: replace with somthing better
+                frame.animationModel.notifyAll();
+            }
         }
         
-        setState(State.ANIMATION_IN_PROGRESS);
+        if (frame.animationPetriObject != null) {
+            frame.animationPetriObject.setPaused(false);
+            synchronized(frame.animationPetriObject) {
+                frame.animationPetriObject.notifyAll();
+            }
+        } 
     }
     
     private void pauseAnimation() {
-        frame.animationModel.setPaused(true);
+        if (frame.animationModel != null) {
+            frame.animationModel.setPaused(true);
+        }
+        
+        if (frame.animationPetriObject != null) {
+            frame.animationPetriObject.setPaused(true);
+        }
+        
         setState(State.ANIMATION_PAUSED);
     }
     
     private void haltAnimation() {
-        frame.animationModel.halt();
+        if (frame.animationModel != null) {
+            frame.animationModel.halt();
+        }
+        
+        if (frame.animationPetriObject != null) {
+            frame.animationPetriObject.halt();
+        }
     }
     
     /**
@@ -233,6 +308,7 @@ public class AnimationControls {
                 stopSimulationAction.setEnabled(false);
                 runOneEventAction.setEnabled(true);
                 runNetAction.setEnabled(true);
+                animateEventAction.setEnabled(true);
                 break;
             case SAVED_STATE_EXISTS:
                 rewindAction.setEnabled(true);
@@ -241,6 +317,7 @@ public class AnimationControls {
                 stopSimulationAction.setEnabled(true);
                 runOneEventAction.setEnabled(true);
                 runNetAction.setEnabled(false);
+                animateEventAction.setEnabled(true);
                 break;
             case ANIMATION_IN_PROGRESS:
                 rewindAction.setEnabled(false);
@@ -249,6 +326,7 @@ public class AnimationControls {
                 stopSimulationAction.setEnabled(false);
                 runOneEventAction.setEnabled(false);
                 runNetAction.setEnabled(false);
+                animateEventAction.setEnabled(false);
                 break;
             case ANIMATION_PAUSED:
                 rewindAction.setEnabled(true);
@@ -257,6 +335,7 @@ public class AnimationControls {
                 stopSimulationAction.setEnabled(true);
                 runOneEventAction.setEnabled(false);
                 runNetAction.setEnabled(false);
+                animateEventAction.setEnabled(false);
                 break;
             case CONTROLS_BLOCKED:
                 rewindAction.setEnabled(false);
@@ -264,6 +343,7 @@ public class AnimationControls {
                 stopSimulationAction.setEnabled(false);
                 runOneEventAction.setEnabled(false);
                 runNetAction.setEnabled(false);
+                animateEventAction.setEnabled(false);
                 break;
         }
     }

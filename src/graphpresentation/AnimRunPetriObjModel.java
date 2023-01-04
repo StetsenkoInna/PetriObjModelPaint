@@ -240,6 +240,9 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
      */
     public void setPaused(boolean isPaused) {
         this.paused = isPaused;
+        for (AnimRunPetriSim petriObject: runlist) {
+            petriObject.setPaused(isPaused);
+        }
     }
     
     /**
@@ -254,10 +257,13 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
      * It wouldn't be possible to continue this simulation after that.
      */
     public void halt() {
-        paused = false; // otherwise it remains paused and doesn't terminate
         halted = true;
+        setPaused(false); // otherwise it remains paused and doesn't terminate
         synchronized(this) {
             this.notifyAll();
+        }
+        for (AnimRunPetriSim petriObject: runlist) {
+            petriObject.halt();
         }
     }
     
