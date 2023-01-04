@@ -1,7 +1,6 @@
 package graphpresentation.actions;
 
-import graphpresentation.GraphPetriNetBackupHolder;
-import graphpresentation.PetriNetsFrame;
+import graphpresentation.AnimationControls;
 import java.awt.event.ActionEvent;
 import javax.swing.AbstractAction;
 
@@ -14,20 +13,16 @@ import javax.swing.AbstractAction;
  */
 public class StopSimulationAction extends AbstractAction {
     
-    private final PetriNetsFrame frame;
+    private final AnimationControls controls;
     
-    public StopSimulationAction(PetriNetsFrame frame) {
-        this.frame = frame;
-        setEnabled(false);
-        putValue(SHORT_DESCRIPTION, "Stop simulation & use current net state");
+    public StopSimulationAction(AnimationControls controls) {
+        this.controls = controls;
+        putValue(SHORT_DESCRIPTION, "Stop simulation & commit current net state");
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        frame.haltAnimation();
-        this.setEnabled(false);
-        frame.rewindAction.setEnabled(false);
-        GraphPetriNetBackupHolder.getInstance().clear();
+        controls.stopSimulationButtonPressed();
     }
     
 }

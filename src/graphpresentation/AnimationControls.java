@@ -49,7 +49,7 @@ public class AnimationControls {
         
         runNetAction = new RunNetAction(frame); // TODO: replace with 'this'
         rewindAction = new RewindAction(this);
-        stopSimulationAction = new StopSimulationAction(frame);
+        stopSimulationAction = new StopSimulationAction(this);
         playPauseAction = new PlayPauseAction(this);
         runOneEventAction = new RunOneEventAction(this);
         
@@ -95,7 +95,7 @@ public class AnimationControls {
         
         // if animation is paused, stop it altogether
         if (currentState == State.ANIMATION_PAUSED) {
-            frame.animationModel.halt();
+            haltAnimation();
         }
         
         // restore state
@@ -164,6 +164,24 @@ public class AnimationControls {
     private void pauseAnimation() {
         frame.animationModel.setPaused(true);
         setState(State.ANIMATION_PAUSED);
+    }
+    
+    private void haltAnimation() {
+        frame.animationModel.halt();
+    }
+    
+    public void stopSimulationButtonPressed() {
+        throwIfActionIsIllegal(
+                List.of(State.SAVED_STATE_EXISTS, State.ANIMATION_PAUSED), 
+                "playPause");
+        
+        // if animation exists and paused, stop it altogether
+        if (currentState == State.ANIMATION_PAUSED) {
+            haltAnimation();
+        }
+        
+        clearSavedState();
+        setState(State.NO_SAVED_STATE);
     }
     
     private synchronized void setState(State state) {
@@ -247,6 +265,13 @@ public class AnimationControls {
         frame.getPetriNetsPanel().deletePetriNet();
         frame.getPetriNetsPanel().addGraphNet(holder.get());
         holder.clear();
+    }
+    
+    /**
+     * Delete previously saved net state backup
+     */
+    private void clearSavedState() {
+        GraphPetriNetBackupHolder.getInstance().clear();
     }
     
 }
