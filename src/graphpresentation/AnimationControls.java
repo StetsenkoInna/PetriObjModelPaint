@@ -34,7 +34,7 @@ public class AnimationControls {
     
     private final PetriNetsFrame frame;
     
-    private State currentState;
+    private volatile State currentState;
     
     public final RewindAction rewindAction; // A (|<<)
     public final PlayPauseAction playPauseAction; // B (> or ||)
@@ -50,7 +50,7 @@ public class AnimationControls {
         runNetAction = new RunNetAction(frame); // TODO: replace with 'this'
         rewindAction = new RewindAction(this);
         stopSimulationAction = new StopSimulationAction(frame);
-        playPauseAction = new PlayPauseAction(frame);
+        playPauseAction = new PlayPauseAction(this);
         runOneEventAction = new RunOneEventAction(this);
         
         setState(State.NO_SAVED_STATE);
@@ -104,7 +104,69 @@ public class AnimationControls {
         setState(State.NO_SAVED_STATE);
     }
     
-    private void setState(State state) {
+    /**
+     * A handler for the "play" / "paused" action
+     */
+    public void playPauseButtonPressed() {
+        throwIfActionIsIllegal(
+                List.of(State.NO_SAVED_STATE, State.ANIMATION_PAUSED, State.ANIMATION_IN_PROGRESS), 
+                "playPause");
+        
+        if (currentState == State.NO_SAVED_STATE) {
+            // save the state and initialize animation 
+            saveCurrentNetState();
+            initializeAnimation();
+            return;
+        }
+        
+        if (currentState == State.ANIMATION_PAUSED) {
+            resumeAnimation();
+        } else if (currentState == State.ANIMATION_IN_PROGRESS) {
+            pauseAnimation();
+        }
+    }
+    
+    /**
+     * Initialize and run net animation
+     */
+    private void initializeAnimation() {
+        frame.animationThread = new Thread(() -> {
+            try {
+                frame.disableInput();
+                frame.timer.start();
+                frame.animateNet();
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                frame.enableInput();
+                frame.timer.stop();
+                
+                if (!frame.animationModel.isHalted() 
+                        && currentState == State.ANIMATION_IN_PROGRESS) { // if anim ended on its own
+                    setState(State.SAVED_STATE_EXISTS);
+                }
+            }
+
+        });
+        frame.animationThread.start();
+        setState(State.ANIMATION_IN_PROGRESS);
+    }
+    
+    private void resumeAnimation() {
+        frame.animationModel.setPaused(false);
+        synchronized(frame.animationModel) { // TODO: replace with somthing better
+            frame.animationModel.notifyAll();
+        }
+        
+        setState(State.ANIMATION_IN_PROGRESS);
+    }
+    
+    private void pauseAnimation() {
+        frame.animationModel.setPaused(true);
+        setState(State.ANIMATION_PAUSED);
+    }
+    
+    private synchronized void setState(State state) {
         this.currentState = state;
         
         // turn the buttons on/off appropriately
@@ -112,6 +174,7 @@ public class AnimationControls {
             case NO_SAVED_STATE:
                 rewindAction.setEnabled(false);
                 playPauseAction.setEnabled(true);
+                playPauseAction.switchToPlayButton();
                 stopSimulationAction.setEnabled(false);
                 runOneEventAction.setEnabled(true);
                 runNetAction.setEnabled(true);
@@ -119,6 +182,7 @@ public class AnimationControls {
             case SAVED_STATE_EXISTS:
                 rewindAction.setEnabled(true);
                 playPauseAction.setEnabled(false);
+                playPauseAction.switchToPlayButton();
                 stopSimulationAction.setEnabled(true);
                 runOneEventAction.setEnabled(true);
                 runNetAction.setEnabled(false);
@@ -126,6 +190,7 @@ public class AnimationControls {
             case ANIMATION_IN_PROGRESS:
                 rewindAction.setEnabled(false);
                 playPauseAction.setEnabled(true);
+                playPauseAction.switchToPauseButton();
                 stopSimulationAction.setEnabled(false);
                 runOneEventAction.setEnabled(false);
                 runNetAction.setEnabled(false);
@@ -133,7 +198,8 @@ public class AnimationControls {
             case ANIMATION_PAUSED:
                 rewindAction.setEnabled(true);
                 playPauseAction.setEnabled(true);
-                stopSimulationAction.setEnabled(false);
+                playPauseAction.switchToPlayButton();
+                stopSimulationAction.setEnabled(true);
                 runOneEventAction.setEnabled(false);
                 runNetAction.setEnabled(false);
                 break;
