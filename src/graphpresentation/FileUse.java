@@ -43,11 +43,16 @@ import graphnet.GraphArcOut;
 import graphnet.GraphPetriPlace;
 import graphnet.GraphPetriTransition;
 import graphnet.GraphPetriNet;
+import java.awt.Component;
 
 import java.awt.geom.Point2D;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedList;
 import java.util.Objects;
+import net.openhft.compiler.CompilerUtils;
 
 import utils.Utils;
 
@@ -58,6 +63,8 @@ import utils.Utils;
 public class FileUse {
 
     private final String PATTERN = ".pns";
+    
+    Class netLibraryClass;
 
     public String openFile(PetriNetsPanel panel, JFrame frame) throws ExceptionInvalidNetStructure {
         String pnetName = "";
@@ -72,6 +79,28 @@ public class FileUse {
             fis = new FileInputStream(fdlg.getDirectory() + fdlg.getFile());
             ois = new ObjectInputStream(fis);
             GraphPetriNet net = ((GraphPetriNet) ois.readObject()).clone();
+            
+            // if there are transitions where b != 0, find them and
+            // ask the user if they want to remove exit times from buffers
+            GraphPetriTransition[] tWithNon0Buffers =  net.getGraphPetriTransitionList().stream()
+                    .filter(
+                            transition -> transition.getPetriTransition().getBuffer() != 0)
+                    
+                    .toArray(GraphPetriTransition[]::new);
+            if (tWithNon0Buffers.length != 0) {
+                // display dialog
+                int result = JOptionPane.showConfirmDialog((Component) null, "There are transitions in this net with non-empty buffers. Do you want to clear them?",
+                                "Buffers reset", JOptionPane.OK_CANCEL_OPTION);
+                if (result == JOptionPane.OK_OPTION) {
+                    for (GraphPetriTransition trans : tWithNon0Buffers) {
+                        // removing all saved exit times 
+                        trans.getPetriTransition().getTimeOut().clear();
+                        trans.getPetriTransition().getTimeOut().add(Double.MAX_VALUE);
+                        trans.getPetriTransition().setBuffer(0);
+                    }
+                }
+            }
+            
             panel.addGraphNet(net);
             pnetName = net.getPetriNet().getName();
             ois.close();
@@ -573,7 +602,10 @@ public class FileUse {
         return graphNet;
     }
 
+    @Deprecated
     public PetriNet convertMethodToPetriNet(String methodText) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay { // added by Katya 16.10.2016
+        System.out.println(methodText);
+             
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
         ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -597,20 +629,32 @@ public class FileUse {
                 d_P.get(d_P.size() - 1).setMarkParam(markStr);
             }
         }
-        pattern = Pattern.compile(Pattern.quote("d_T.add(new PetriT(\"") + "(.*?)" + Pattern.quote("\",") + "(.*?)" + Pattern.quote("));"));
+        // pattern = Pattern.compile(Pattern.quote("d_T.add(new PetriT(\"") + "(.*?)" + Pattern.quote("\",") + "(.*?)" + Pattern.quote("));"));
+        pattern = Pattern.compile("d_T\\.add\\(new PetriT\\(\\\"(.*?)\\\",([^,)]*),?(.*?)\\)\\);");
         matcher = pattern.matcher(methodText);
         while (matcher.find()) {
             String match1 = matcher.group(1);
             String match2 = matcher.group(2);
+            String probability = matcher.group(3);
             String tName = match1;
             String parametrStr = match2;
             double parametr = Utils.tryParseDouble(parametrStr) // added by Katya 08.12.2016
                 ? Double.parseDouble(parametrStr)
                 : 0;
-            d_T.add(new PetriT(tName, parametr));
+            PetriT place = new PetriT(tName, parametr);
             if (!Utils.tryParseDouble(parametrStr)) { // added by Katya 08.12.2016
-                d_T.get(d_T.size() - 1).setParametrParam(parametrStr);
+                place.setParametrParam(parametrStr);
             }
+            if (!Utils.isBlank(probability)) {
+                try {
+                    double prob = Double.parseDouble(probability);
+                    place.setProbability(prob);
+                } catch (NumberFormatException e) {
+                    // do nothing
+                }
+            }
+            d_T.add(place);
+            
         }
 
         pattern = Pattern.compile(Pattern.quote("d_T.get(") + "(.*?)" + Pattern.quote(").setDistribution(") + "(.*?)" + Pattern.quote(", d_T.get("));
@@ -741,6 +785,65 @@ public class FileUse {
     }
 
     public String openMethod(PetriNetsPanel panel, String methodFullName, JFrame frame) throws ExceptionInvalidNetStructure { // added by Katya 16.10.2016
+        // also TODO: prevent networks with the same name from being saved
+        // also TODO: check code syntax before saving?
+        
+        /*String methodName = methodFullName.substring(0, methodFullName.indexOf("("));
+        
+        String className = "LibNet.NetLibrary";
+        
+        String netName = "";
+        
+        
+        try {
+            // TODO: maybe pre-comile on program launch in background thread
+            if (netLibraryClass == null) {
+                //  reading NetLibrary.java 
+                Path path = FileSystems.getDefault().getPath(
+                        System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); 
+                String libraryText = Files.readString(path);
+                
+                libraryText = preProcessNetLibraryCode(libraryText);
+                
+                // we need a new instance of class loader each time. See NetLibraryClassLoader.java for details 
+                NetLibraryClassLoader loader = new NetLibraryClassLoader(getClass().getClassLoader());
+                netLibraryClass = CompilerUtils.CACHED_COMPILER.loadFromJava(loader, className, libraryText);
+
+            }
+            PetriNet net = (PetriNet)netLibraryClass.getMethod(methodName).invoke(null);
+            
+            // moving the prev. screen content and adding net  
+            PetriNetsFrame petriNetsFrame = (PetriNetsFrame)frame;
+            JScrollPane pane = petriNetsFrame.GetPetriNetPanelScrollPane();
+            Point paneCenter = new Point(pane.getLocation().x+pane.getBounds().width/2, pane.getLocation().y+pane.getBounds().height/2);
+           
+            GraphPetriNet graphNet  = generateGraphNetBySimpleNet(panel ,net, paneCenter);
+       
+            panel.addGraphNet(graphNet);
+            netName = graphNet.getPetriNet().getName();
+            panel.repaint();
+            
+        } catch (FileNotFoundException e) {
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
+            e.printStackTrace();
+        } catch (IOException e) {
+                        Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
+e.printStackTrace();
+        } catch (ClassNotFoundException e) { // from CACHED_COMPILER.loadFromJava()
+                        Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
+e.printStackTrace();
+        }  catch (NoSuchMethodException e) { // either no constuctor with 0 params or no method with given name
+            e.printStackTrace();
+        } catch (IllegalAccessException e) { // from newInstance() or invoke()
+                        Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
+e.printStackTrace();
+        } catch (InvocationTargetException e) { // from newInstance() or invoke()
+                        Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, e.getMessage(), e);
+e.printStackTrace();
+        }*/
+        
+        
+        // The following is old code 
         String methodName = methodFullName.substring(0, methodFullName.indexOf("(")); // modified by Katya 22.11.2016 (till the "try" block)
         String paramsString = methodFullName.substring(methodFullName.indexOf("(") + 1);
         paramsString = paramsString.substring(0, paramsString.length() - 1);
@@ -795,7 +898,147 @@ public class FileUse {
             }
         }
         return pnetName.substring(0, pnetName.length());
+        // return netName;
     }
+    
+    public static String replaceGroup(String regex, String source, int groupToReplace, String replacement) {
+        StringBuilder result = new StringBuilder(source);
+        
+        boolean hasSequencesToProcess = true;
+        Pattern pattern = Pattern.compile(regex);
+        while (hasSequencesToProcess) {
+            System.out.println("bruh");
+            Matcher m = pattern.matcher(source);
+            if (!m.find()) {
+                hasSequencesToProcess = false;
+            } else {
+                result = new StringBuilder(result.replace(m.start(groupToReplace), m.end(groupToReplace), replacement).toString());
+                
+            }
+        }
+        
+        return result.toString();
+    }
+    
+    /**
+     * Process the code of NetLibrary.java, specifically, in methods that have arguments, 
+     * remove them from method's signature and replace their usage in the code with 
+     * string parameter names, so that the compiled method can be called without supplying
+     * any arguments.
+     * @param code NetLibrary.java source code
+     * @return processed code ready for compilation
+     */
+    public String preProcessNetLibraryCode(String code) {      
+        // remove arguments from method header
+        code = code.replaceAll("public\\s+static\\s+PetriNet\\s+(\\w+)\\s*\\((.+)\\)", "public static PetriNet $1()");
+        
+        // parametrized place
+        // Node: doesn't support whitespace between any elements of this statement (e.g. dot and method name)
+        // to add such support, add \s* where appropriate
+        Matcher matcher = Pattern.compile("d_P\\.add\\(new PetriP\\(\"([^\"]+)\",\\s*(\\w+)\\)\\);").matcher(code);
+        
+        // Java 8 code
+        StringBuffer sb = new StringBuffer();
+        while (matcher.find()) {
+            String markersParameter = matcher.group(2);
+            boolean isInt;
+            try {
+                int markers = Integer.parseInt(markersParameter);
+                isInt = true;
+            } catch (NumberFormatException e) {
+                isInt = false;
+            }
+            if (!isInt) {
+                String placeName = matcher.group(1);
+                String variableName = placeName;
+                
+                // replace the entire line like so
+                /*
+                    PetriP @varName@ = new PetriP("@pName@", 0);\n
+                    @varName@.setMarkParam("@markStr@");\n
+                    d_P.add(@varName@);
+                */
+                String replacement = 
+                        "PetriP " + variableName + " = new PetriP(\""+placeName+"\", 0);\n"
+                        + variableName + ".setMarkParam(\""+markersParameter+"\");\n" 
+                        + "d_P.add("+variableName+");";
+                matcher.appendReplacement(sb, replacement);
+            } 
+            matcher.appendReplacement(sb, matcher.group(0));
+        }
+        matcher.appendTail(sb);
+        
+        code = sb.toString();
+        
+        // java 17 code
+        /*code = matcher.replaceAll(matchRes -> {
+            String markersParameter = matchRes.group(2);
+            boolean isInt;
+            try {
+                int markers = Integer.parseInt(markersParameter);
+                isInt = true;
+            } catch (NumberFormatException e) {
+                isInt = false;
+            }
+            if (!isInt) {
+                String placeName = matcher.group(1);
+                String variableName = placeName;
+                
+                // replace the entire line like so
+                //
+                //    PetriP @varName@ = new PetriP("@pName@", 0);\n
+                //    @varName@.setMarkParam("@markStr@");\n
+                //    d_P.add(@varName@);
+                //
+                String replacement = 
+                        "PetriP " + variableName + " = new PetriP(\""+placeName+"\", 0);\n"
+                        + variableName + ".setMarkParam(\""+markersParameter+"\");\n" 
+                        + "d_P.add("+variableName+");";
+                return replacement;
+            } 
+            return matchRes.group(0);
+        });*/
+        
+        // parametrized transition delay mean
+        /*
+            PetriT @name@ = new PetriT("@name@",0); 
+            @name@.setParametrParam("@paramname@");
+            d_T.add(@name@);
+            
+            @name@ - group 1
+            @paramname@ - group2
+        */
+        code = code.replaceAll("d_T\\.add\\(new PetriT\\(\\\"([^\\\"]+)\\\",\\s*(\\w+)\\)\\);", 
+                "PetriT $1 = new PetriT(\"$1\",0);\n" 
+                        + "$1.setParametrParam(\"$2\");\n" 
+                        + "d_T.add($1);");
+        
+        // parametrized transition priority
+        
+        // parametrized transition probability
+        
+        // parametrized distribution name?
+        
+        // parametrized number of arc links
+        
+        // parametrized information link
+        
+        
+        //System.out.println(code);
+        
+        
+        return code; // TODO
+    }
+    
+    /**
+     * Process the code of a method (including header and { }) to replace
+     * numeric arguments with string parameter names
+     * @param code original method code
+     * @return processed code
+     */
+    /*private String preProcessMethod(String code) {
+        return code;
+    }*/
 
     private String generateArgumentsString(PetriNet net) { // added by Katya 08.12.2016
         String str = "";
@@ -1096,17 +1339,16 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
 
         area.append("}");
     }
-    public void saveMethodInNetLibrary(JTextArea area) {  //added by Inna 20.05.2013
 
+    public void saveMethodInNetLibrary(JTextArea area) {  //added by Inna 20.05.2013
         try {
 
             Path path = FileSystems.getDefault().getPath(
                     System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
             String pathNetLibrary = path.toString(); //added by Inna 29.09.2018
 
-
             RandomAccessFile f = new RandomAccessFile(pathNetLibrary, "rw");
-           System.out.println("The path of Library of nets is\t"+path.toString());
+            // System.out.println("The path of Library of nets is\t"+path.toString());
 
             long n = f.length();
             if (n == 0) {
@@ -1147,5 +1389,9 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
         } catch (IOException ex) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
         }
+        
+        // Force to recomile the class next time any method from there is used
+        netLibraryClass = null;
     }
+    
 }

@@ -16,7 +16,7 @@ import javax.swing.JSlider;
 import javax.swing.JTextArea;
 
 /**
- *
+ * 
  * @author Inna
  */
 public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
@@ -25,6 +25,16 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
     private PetriNetsPanel panel;
     private JSlider delaySlider;
     private ArrayList<AnimRunPetriSim> runlist = new ArrayList<>();
+    
+    /**
+     * Whether the simulation is paused (by pressing pause button)
+     */
+    private volatile boolean paused = false;
+    
+    /**
+     * Whether the simulation should completely stop immediately
+     */
+    private volatile boolean halted = false;
        
     public AnimRunPetriObjModel(ArrayList<PetriSim> list,
                                 JTextArea area,
@@ -36,7 +46,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
         this.delaySlider = delaySlider;
         StateTime s = new StateTime();
         for(PetriSim sim: list){
-            runlist.add(new AnimRunPetriSim(sim.getNet(),s, area, panel,delaySlider)); // edit 25.07.2018
+            runlist.add(new AnimRunPetriSim(sim.getNet(),s, area, panel,delaySlider, this)); // edit 25.07.2018
         }
         super.setTimeState(s); // edit 25.07.2018  It's very important for correct statistics but building of project get error...very strange
         super.setListObj(list); // edit 25.07.2018 May be it's not important 
@@ -58,13 +68,16 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
         super.getListObj().sort(PetriSim.getComparatorByPriority()); //виправлено 9.11.2015, 12.10.2017
         for (AnimRunPetriSim e : getRunlist()) {
             e.input();
+            /* support for early termination of the simulation */
+            if (isHalted()) {
+                return;
+            }
         }
         super.printMark(area);
         ArrayList<AnimRunPetriSim> conflictObj = new ArrayList<>();
         Random r = new Random();
 
-        while (super.getCurrentTime() < super.getSimulationTime()) {
-
+        while ((super.getCurrentTime() < super.getSimulationTime())) {
             conflictObj.clear();
 
             min = Double.MAX_VALUE;  //пошук найближчої події
@@ -131,22 +144,48 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                     if (list.getNumObj() == conflictObj.get(num).getNumObj()) {
                         super.printInfo(" time =   " + super.getCurrentTime() + "   Event '" + list.getEventMin().getName() + "'\n" + "                       is occuring for the object   " + list.getName() + "\n", area);
                         list.doT();
-                        list.output();
+                        list.output(); /* вихід маркерів з переходів */
+                        /* support for early termination of the simulation */
+                        if (isHalted()) {
+                            return;
+                        }
                     }
                 }
                 super.printInfo("Markers leave transitions:", area);
                 super.printMark(area);
+                
+                /* pausing/unpausing support between input and output */
+                /*if (paused) {
+                    synchronized(this) {
+                        while (paused) {
+                            try {
+                                wait();
+                            } catch (InterruptedException e) {}
+                        }
+                    }
+                } */
+                /* end of pausing/unpausing support */
+                
                 super.getListObj().sort(PetriSim.getComparatorByPriority());
                 for (AnimRunPetriSim e : getRunlist()) {
-                        e.input(); //вхід маркерів в переходи Петрі-об'єкта
+                        e.input(); //вхід маркерів в переходи Петрі-об'єкта 
+                        /* support for early termination of the simulation */
+                        if (isHalted()) {
+                            return;
+                        }
                 }
 
                 super.printInfo("Markers enter transitions:", area);
                 super.printMark(area);
             }
         }
+        
+        
+        displayModellingResults();
+    }
+    
+    private void displayModellingResults() {
         area.append("\n Modeling results: \n");
-
         for (AnimRunPetriSim e : getRunlist()) {
             area.append("\n Petri-object " + e.getName());
             area.append("\n Mean values of the quantity of markers in places : ");
@@ -194,5 +233,44 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                 e.printMark(area);
             }
         }
+    }
+    
+    /**
+     * Pause or unpause the simulation
+     */
+    public void setPaused(boolean isPaused) {
+        this.paused = isPaused;
+        for (AnimRunPetriSim petriObject: runlist) {
+            petriObject.setPaused(isPaused);
+        }
+    }
+    
+    /**
+     * @return Whether the animation is paused or not
+     */
+    public boolean isPaused() {
+        return paused;
+    }
+    
+    /**
+     * Send a signal to the simulation that it should stop ASAP.
+     * It wouldn't be possible to continue this simulation after that.
+     */
+    public void halt() {
+        halted = true;
+        setPaused(false); // otherwise it remains paused and doesn't terminate
+        synchronized(this) {
+            this.notifyAll();
+        }
+        for (AnimRunPetriSim petriObject: runlist) {
+            petriObject.halt();
+        }
+    }
+    
+    /**
+     * @return whether the simulation received the signal to halt 
+     */
+    public boolean isHalted() {
+        return halted;
     }
 }

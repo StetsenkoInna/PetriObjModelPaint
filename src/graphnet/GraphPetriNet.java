@@ -415,7 +415,12 @@ public class GraphPetriNet implements Cloneable, Serializable {
             }
         }
      }
-
+    
+    /**
+     * Makes a copy of an element and adds it into this graph net
+     * @param element
+     * @return 
+     */
     public GraphElement copyElement(GraphElement element) {
         if (element instanceof GraphPetriPlace) {
             GraphPetriPlace newPlace = new GraphPetriPlace(
@@ -441,12 +446,125 @@ public class GraphPetriNet implements Cloneable, Serializable {
 
         return null;
     }
+    
+    /**
+     * Makes a copy of an element without adding it into the graph net
+     * @param element
+     * @return 
+     */
+    public GraphElement copyElementNoPaste(GraphElement element) {
+        if (element instanceof GraphPetriPlace) {
+            GraphPetriPlace newPlace = new GraphPetriPlace(
+                    new PetriP(((GraphPetriPlace) element).getPetriPlace()),
+                    PetriNetsPanel.getIdElement()
+            );
 
-    public List<GraphElement> bulkCopyElements(List<GraphElement> elements) {
-        return bulkCopyElements(elements, graphArcInList, graphArcOutList);
+            newPlace.setNewCoordinates(element.getGraphElementCenter());
+            
+            return newPlace;
+        }
+
+        if (element instanceof GraphPetriTransition) {
+            GraphPetriTransition newTransition = new GraphPetriTransition(
+                    new PetriT(((GraphPetriTransition) element).getPetriTransition()),
+                    PetriNetsPanel.getIdElement()
+            );
+
+            newTransition.setNewCoordinates(element.getGraphElementCenter());
+            
+            return newTransition;
+        }
+
+        return null;
     }
 
-    private List<GraphElement> bulkCopyElements(List<GraphElement> elements, List<GraphArcIn> arcInSource, List<GraphArcOut> arcOutSource) {
+    public GraphNetFragment bulkCopyElements(List<GraphElement> elements) {
+        return bulkCopyElements(elements, graphArcInList, graphArcOutList);
+    }
+    
+    /* a bean representing a fragement of a GraphNet */
+    public static class GraphNetFragment {
+        public List<GraphElement> elements;
+        public List<GraphArcIn> inArcs; 
+        public List<GraphArcOut> outArcs;
+        
+        public GraphNetFragment(List<GraphElement> e, List<GraphArcIn> i, List<GraphArcOut> o) {
+            this.elements = e;
+            this.inArcs = i;
+            this.outArcs = o;
+        } 
+    }
+    
+    public GraphNetFragment bulkCopyNoPasteElements(List<GraphElement> elements) {
+        return bulkCopyNoPasteElements(elements, graphArcInList, graphArcOutList);
+    }
+    
+    /**
+     * Copies elements and arcs connected to them, but doesn't add them into the net
+     * @param elements
+     * @param arcInSource
+     * @param arcOutSource
+     * @return 
+     */
+    public GraphNetFragment bulkCopyNoPasteElements(List<GraphElement> elements, List<GraphArcIn> arcInSource, List<GraphArcOut> arcOutSource) {
+        Map<GraphPetriTransition, GraphPetriTransition> transitionsCopies = new HashMap<>();
+        Map<GraphPetriPlace, GraphPetriPlace> positionCopies = new HashMap<>();
+
+        for (GraphElement element : elements) {
+            GraphElement copiedElement = copyElementNoPaste(element);
+
+            if (copiedElement instanceof GraphPetriPlace) {
+                positionCopies.put((GraphPetriPlace) element, (GraphPetriPlace) copiedElement);
+            } else if (copiedElement instanceof GraphPetriTransition) {
+                transitionsCopies.put((GraphPetriTransition) element, (GraphPetriTransition) copiedElement);
+            }
+        }
+
+        List<GraphArcIn> arcInsToAdd = new ArrayList<>();
+        List<GraphArcOut> arcOutsToAdd = new ArrayList<>();
+
+        for (GraphPetriTransition transition : transitionsCopies.keySet()) {
+            for (GraphArcIn arc : arcInSource) {
+                if (arc.getEndElement().getId() == transition.getId()) {
+                    GraphPetriPlace position = positionCopies.get(arc.getBeginElement());
+
+                    if (position != null) {
+                        GraphArcIn arcIn = new GraphArcIn(new ArcIn(arc.getArcIn()));
+                        arcIn.setEndElement(transitionsCopies.get(transition));
+                        arcIn.settingNewArc(position);
+                        arcIn.setPetriElements();
+                        arcIn.changeBorder();
+                        arcIn.updateCoordinates();
+                        arcInsToAdd.add(arcIn);
+                    }
+                }
+            }
+
+            for (GraphArcOut arc : arcOutSource) {
+                if (arc.getBeginElement().getId() == transition.getId()) {
+                    GraphPetriPlace position = positionCopies.get(arc.getEndElement());
+
+                    if (position != null) {
+                        GraphArcOut arcOut = new GraphArcOut(new ArcOut(arc.getArcOut()));
+                        arcOut.settingNewArc(transitionsCopies.get(transition));
+                        arcOut.setEndElement(position);
+                        arcOut.setPetriElements();
+                        arcOut.changeBorder();
+                        arcOut.updateCoordinates();
+                        arcOutsToAdd.add(arcOut);
+                    }
+                }
+            }
+        }
+
+        List<GraphElement> copiedElements = new ArrayList<>(transitionsCopies.values());
+        copiedElements.addAll(positionCopies.values());
+
+        return new GraphNetFragment(copiedElements, arcInsToAdd, arcOutsToAdd);
+    }
+
+    @Deprecated
+    private GraphNetFragment bulkCopyElements(List<GraphElement> elements, List<GraphArcIn> arcInSource, List<GraphArcOut> arcOutSource) {
         Map<GraphPetriTransition, GraphPetriTransition> transitionsCopies = new HashMap<>();
         Map<GraphPetriPlace, GraphPetriPlace> positionCopies = new HashMap<>();
 
@@ -507,7 +625,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
                     arcIn.twoArcs(arcOut); // two arcs
                     arcIn.updateCoordinates();
                     arcOut.updateCoordinates();
-             
+
                 }
             }
         }
@@ -519,7 +637,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
         List<GraphElement> copiedElements = new ArrayList<>(transitionsCopies.values());
         copiedElements.addAll(positionCopies.values());
 
-        return copiedElements;
+        return new GraphNetFragment(copiedElements, arcInsToAdd, arcOutsToAdd);
     }
 
     public void printStatistics(JTextArea area) {

@@ -11,6 +11,7 @@ import PetriObj.PetriSim;
 import PetriObj.PetriT;
 import PetriObj.StateTime;
 import java.util.ArrayList;
+import java.util.function.Function;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
 
@@ -23,11 +24,24 @@ public class AnimRunPetriSim extends PetriSim {
     private final PetriNetsPanel panel;
     private JSlider delaySlider = null;
     
-    public AnimRunPetriSim(PetriNet net, StateTime timeState, JTextArea area,PetriNetsPanel panel,  JSlider delaySlider) {
+    private final AnimRunPetriObjModel parentModel;
+    
+    /**
+     * Whether the simulation is paused (by pressing pause button)
+     */
+    private volatile boolean paused = false;
+    
+    /**
+     * Whether the simulation should completely stop immediately
+     */
+    private volatile boolean halted = false;
+    
+    public AnimRunPetriSim(PetriNet net, StateTime timeState, JTextArea area,PetriNetsPanel panel,  JSlider delaySlider, AnimRunPetriObjModel parentModel) {
         super(net, timeState);
         this.panel = panel;
         this.area = area;
         this.delaySlider = delaySlider;
+        this.parentModel = parentModel;
     }
        
     /**
@@ -37,13 +51,14 @@ public class AnimRunPetriSim extends PetriSim {
      * @param area 
      * @param panel
      * @param delaySlider
+     * @param parentModel AnimRunPetriObjModel that includes this object
      */
-   public AnimRunPetriSim(PetriNet net,  JTextArea area, PetriNetsPanel panel, JSlider delaySlider) {
-        this(net, new StateTime(), area, panel,delaySlider);  // Be carefull with this constructor. Time should be the same for all PetriSim objects in the list of PetriObjModel
+   public AnimRunPetriSim(PetriNet net,  JTextArea area, PetriNetsPanel panel, JSlider delaySlider, AnimRunPetriObjModel parentModel) {
+        this(net, new StateTime(), area, panel,delaySlider, parentModel);  // Be carefull with this constructor. Time should be the same for all PetriSim objects in the list of PetriObjModel
     }
    
-    public AnimRunPetriSim(String id, PetriNet net, JTextArea area,PetriNetsPanel panel, JSlider delaySlider) {
-        this(net, new StateTime(),  area, panel,delaySlider);
+    public AnimRunPetriSim(String id, PetriNet net, JTextArea area,PetriNetsPanel panel, JSlider delaySlider, AnimRunPetriObjModel parentModel) {
+        this(net, new StateTime(),  area, panel,delaySlider, parentModel);
         
         super.setId(id); // server set id
 
@@ -66,6 +81,10 @@ public class AnimRunPetriSim extends PetriSim {
                 tr.actIn(super.getNet().getListP(), super.getCurrentTime()); //розв'язання конфліктів
                 panel.animateT(tr);
                 doAfterStep();
+                /* support for early termination of the simulation */
+                if (halted) {
+                    return;
+                }
                 activeT = this.findActiveT(); //оновлення списку активних переходів
             }
 
@@ -79,6 +98,37 @@ public class AnimRunPetriSim extends PetriSim {
             if (delaySlider != null) {
                 Thread.sleep(delaySlider.getValue());
             }
+            
+            /* pausing/unpausing support */   
+            if (parentModel != null) {
+                if (parentModel.isPaused()) {
+                    synchronized(parentModel) {
+                        while (parentModel.isPaused()) {
+                            try {
+                                parentModel.wait();
+                            } catch (InterruptedException e) {
+                                /* the simulation should stop asap */
+                                parentModel.halt();
+                            }
+                        }
+                    }
+                }
+            } else {
+                // there's no parent model
+                if (paused){
+                    synchronized(this) {
+                        while (paused) {
+                            try {
+                                this.wait();
+                            } catch (InterruptedException e) {
+                                /* the simulation should stop asap */
+                                halt();
+                            }
+                        }
+                    }
+                }
+            }
+            
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -92,6 +142,10 @@ public class AnimRunPetriSim extends PetriSim {
             eventMin.actOut(super.getNet().getListP(),super.getCurrentTime());//здійснення події
             panel.animateP(eventMin.getOutP());
             doAfterStep();
+            /* support for early termination of the simulation */
+            if (halted) {
+                return;
+            }
             if (eventMin.getBuffer() > 0) {
                 boolean u = true;
                 while (u == true) {
@@ -101,7 +155,11 @@ public class AnimRunPetriSim extends PetriSim {
                         panel.animateOut(eventMin);
                         eventMin.actOut(super.getNet().getListP(),super.getCurrentTime());
                         panel.animateP(eventMin.getOutP());
-                        
+                        doAfterStep();
+                        /* support for early termination of the simulation */
+                        if (halted) {
+                            return;
+                        }
                     } else {
                         u = false;
                     }
@@ -133,7 +191,7 @@ public class AnimRunPetriSim extends PetriSim {
         }
     }
     
-    @Override
+    @Override // ttodo: check halted support
     public void step() //один крок,використовується для одного об'єкту мережа Петрі(наприклад, покрокова імітація мережі Петрі в графічному редакторі)
     {
         area.append("\n Next event, current time = " + getCurrentTime());
@@ -164,6 +222,10 @@ public class AnimRunPetriSim extends PetriSim {
                 area.append("\n Choosing a transition to activate " + this.doConflikt(activeT).getName());
                 this.doConflikt(activeT).actIn(super.getNet().getListP(), getCurrentTime()); //розв'язання конфліктів
                 doAfterStep();
+                /* support for early termination of the simulation */
+                if (halted) {
+                    return;
+                }
                 activeT = this.findActiveT(); //оновлення списку активних переходів
             }
             area.append("\n Markers enter transitions:");
@@ -186,6 +248,10 @@ public class AnimRunPetriSim extends PetriSim {
                 //Вихід маркерів
                 eventMin.actOut(super.getNet().getListP(),super.getCurrentTime());//Вихід маркерів з переходу, що відповідає найближчому моменту часу
                 doAfterStep();
+                /* support for early termination of the simulation */
+                if (halted) {
+                    return;
+                }
                 area.append("\n Markers leave a transition " + eventMin.getName());
                 this.printMark(area);//друкувати поточне маркування
 
@@ -199,6 +265,10 @@ public class AnimRunPetriSim extends PetriSim {
                            
                             eventMin.actOut(super.getNet().getListP(),super.getCurrentTime());
                             doAfterStep();
+                            /* support for early termination of the simulation */
+                            if (halted) {
+                                return;
+                            }
                             // this.printMark();//друкувати поточне маркування
                         } else {
                             u = false;
@@ -212,6 +282,10 @@ public class AnimRunPetriSim extends PetriSim {
                     if (transition.getBuffer() > 0 && transition.getMinTime() == getCurrentTime()) {
                     	transition.actOut(super.getNet().getListP(),super.getCurrentTime());//Вихід маркерів з переходу, що відповідає найближчому моменту часу
                     	doAfterStep();
+                        /* support for early termination of the simulation */
+                        if (halted) {
+                            return;
+                        }
                     	area.append("\n Markers leave a transition " + transition.getName());
                         this.printMark(area);//друкувати поточне маркування
                         if (transition.getBuffer() > 0) {
@@ -222,6 +296,10 @@ public class AnimRunPetriSim extends PetriSim {
                                     // System.out.println("MinTime="+TEvent.getMinTime());
                                 	transition.actOut(super.getNet().getListP(),super.getCurrentTime());
                                 	doAfterStep();
+                                        /* support for early termination of the simulation */
+                                        if (halted) {
+                                            return;
+                                        }
                                     // this.printMark();//друкувати поточне маркування
                                 } else {
                                     u = false;
@@ -236,7 +314,21 @@ public class AnimRunPetriSim extends PetriSim {
         }
      
     }
-
-
+ 
+    public void setPaused(boolean paused) {
+        this.paused = paused;
+    }
+    
+    public void halt() {
+        this.halted = true;
+        setPaused(false); // otherwise it doesn't halt and remains paused      
+        synchronized(this) {
+            this.notifyAll();
+        }
+    }
+    
+    public boolean isHalted() {
+        return halted;
+    }
     
 }

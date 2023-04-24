@@ -168,6 +168,11 @@ public class GraphArc implements Serializable{
         }
     }
 
+     /**
+      * I guess it's called when setting two arcs that go between the same place
+      * and transition but in opposite directions
+      * @param t the arc that goes in opposite direction form this arc
+      */
     public void twoArcs(GraphArc t) {
         t.secondArc = true;
         this.firstArc = true;
@@ -178,7 +183,7 @@ public class GraphArc implements Serializable{
         return graphElement.ptSegDist(p) < 3;
     }
 
-public void updateCoordinates() { // метод для оновлення інформації щодо координат елементу (для перемалювання) 09.01.13
+    public void updateCoordinates() { // метод для оновлення інформації щодо координат елементу (для перемалювання) 09.01.13
         graphElement.setLine(beginElement.getGraphElementCenter(), endElement.getGraphElementCenter());
         changeBorder();
     }
