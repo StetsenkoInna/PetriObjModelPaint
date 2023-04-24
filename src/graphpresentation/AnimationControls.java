@@ -7,7 +7,6 @@ import graphpresentation.actions.RewindAction;
 import graphpresentation.actions.RunNetAction;
 import graphpresentation.actions.RunOneEventAction;
 import graphpresentation.actions.StopSimulationAction;
-import java.util.List;
 
 /**
  * This class is responsible for contolling the state of the net
@@ -68,7 +67,7 @@ public class AnimationControls {
      */
     public void runOneEventButtonPressed() {
         throwIfActionIsIllegal(
-                List.of(State.NO_SAVED_STATE, State.SAVED_STATE_EXISTS), 
+                new State[] { State.NO_SAVED_STATE, State.SAVED_STATE_EXISTS },
                 "runOneEvent");
  
         if (currentState == State.NO_SAVED_STATE) {
@@ -99,7 +98,7 @@ public class AnimationControls {
      */
     public void rewindButtonPressed() {
         throwIfActionIsIllegal(
-                List.of(State.ANIMATION_PAUSED, State.SAVED_STATE_EXISTS), 
+                new State[] { State.ANIMATION_PAUSED, State.SAVED_STATE_EXISTS }, 
                 "rewind");
         
         // if animation is paused, stop it altogether
@@ -118,7 +117,7 @@ public class AnimationControls {
      */
     public void playPauseButtonPressed() {
         throwIfActionIsIllegal(
-                List.of(State.NO_SAVED_STATE, State.ANIMATION_PAUSED, State.ANIMATION_IN_PROGRESS), 
+                new State[] { State.NO_SAVED_STATE, State.ANIMATION_PAUSED, State.ANIMATION_IN_PROGRESS }, 
                 "playPause");
         
         if (currentState == State.NO_SAVED_STATE) {
@@ -176,7 +175,7 @@ public class AnimationControls {
      */
     public void animateEventButtonPressed() {
         throwIfActionIsIllegal(
-                List.of(State.NO_SAVED_STATE, State.SAVED_STATE_EXISTS), 
+                new State[] { State.NO_SAVED_STATE, State.SAVED_STATE_EXISTS },
                 "animateEvent");
         
         if (currentState == State.NO_SAVED_STATE) {
@@ -256,7 +255,7 @@ public class AnimationControls {
      */
     public void stopSimulationButtonPressed() {
         throwIfActionIsIllegal(
-                List.of(State.SAVED_STATE_EXISTS, State.ANIMATION_PAUSED), 
+                new State[] { State.SAVED_STATE_EXISTS, State.ANIMATION_PAUSED },
                 "stopSimulation");
         
         // if animation exists and paused, stop it altogether
@@ -273,7 +272,7 @@ public class AnimationControls {
      */
     public void runNetButtonPressed() {
         throwIfActionIsIllegal(
-                List.of(State.NO_SAVED_STATE), 
+                new State[] { State.NO_SAVED_STATE }, 
                 "runNet");
         
         saveCurrentNetState();
@@ -354,15 +353,20 @@ public class AnimationControls {
      * @param legalStates a list of acceptable states
      * @param actionName name of the attempted action to be included in exception's message
      */
-    private void throwIfActionIsIllegal(List<State> legalStates, String actionName) {
+    private void throwIfActionIsIllegal(State[] legalStates, String actionName) {
         if (!isActionLegal(legalStates)) {
              throw new RuntimeException(String.format(ILLEGAL_ACTION_MESSAGE,
                     currentState.name(), actionName));
         }
     }
     
-    private boolean isActionLegal(List<State> legalStates) {
-        return legalStates.contains(currentState);
+    private boolean isActionLegal(State[] legalStates) {
+        for (State legalState: legalStates) {
+            if (legalState.equals(currentState)) {
+                return true;
+            }
+        }
+        return false;
     }
     
     /**

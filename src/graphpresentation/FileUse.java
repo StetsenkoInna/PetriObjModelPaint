@@ -50,6 +50,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedList;
 import java.util.Objects;
 import net.openhft.compiler.CompilerUtils;
 
@@ -81,11 +82,12 @@ public class FileUse {
             
             // if there are transitions where b != 0, find them and
             // ask the user if they want to remove exit times from buffers
-            List<GraphPetriTransition> tWithNon0Buffers =  net.getGraphPetriTransitionList().stream()
+            GraphPetriTransition[] tWithNon0Buffers =  net.getGraphPetriTransitionList().stream()
                     .filter(
                             transition -> transition.getPetriTransition().getBuffer() != 0)
-                    .toList();
-            if (!tWithNon0Buffers.isEmpty()) {
+                    
+                    .toArray(GraphPetriTransition[]::new);
+            if (tWithNon0Buffers.length != 0) {
                 // display dialog
                 int result = JOptionPane.showConfirmDialog((Component) null, "There are transitions in this net with non-empty buffers. Do you want to clear them?",
                                 "Buffers reset", JOptionPane.OK_CANCEL_OPTION);
@@ -643,7 +645,7 @@ public class FileUse {
             if (!Utils.tryParseDouble(parametrStr)) { // added by Katya 08.12.2016
                 place.setParametrParam(parametrStr);
             }
-            if (!probability.isBlank()) {
+            if (!Utils.isBlank(probability)) {
                 try {
                     double prob = Double.parseDouble(probability);
                     place.setProbability(prob);
@@ -934,8 +936,11 @@ e.printStackTrace();
         // Node: doesn't support whitespace between any elements of this statement (e.g. dot and method name)
         // to add such support, add \s* where appropriate
         Matcher matcher = Pattern.compile("d_P\\.add\\(new PetriP\\(\"([^\"]+)\",\\s*(\\w+)\\)\\);").matcher(code);
-        code = matcher.replaceAll(matchRes -> {
-            String markersParameter = matchRes.group(2);
+        
+        // Java 8 code
+        StringBuffer sb = new StringBuffer();
+        while (matcher.find()) {
+            String markersParameter = matcher.group(2);
             boolean isInt;
             try {
                 int markers = Integer.parseInt(markersParameter);
@@ -957,10 +962,42 @@ e.printStackTrace();
                         "PetriP " + variableName + " = new PetriP(\""+placeName+"\", 0);\n"
                         + variableName + ".setMarkParam(\""+markersParameter+"\");\n" 
                         + "d_P.add("+variableName+");";
+                matcher.appendReplacement(sb, replacement);
+            } 
+            matcher.appendReplacement(sb, matcher.group(0));
+        }
+        matcher.appendTail(sb);
+        
+        code = sb.toString();
+        
+        // java 17 code
+        /*code = matcher.replaceAll(matchRes -> {
+            String markersParameter = matchRes.group(2);
+            boolean isInt;
+            try {
+                int markers = Integer.parseInt(markersParameter);
+                isInt = true;
+            } catch (NumberFormatException e) {
+                isInt = false;
+            }
+            if (!isInt) {
+                String placeName = matcher.group(1);
+                String variableName = placeName;
+                
+                // replace the entire line like so
+                //
+                //    PetriP @varName@ = new PetriP("@pName@", 0);\n
+                //    @varName@.setMarkParam("@markStr@");\n
+                //    d_P.add(@varName@);
+                //
+                String replacement = 
+                        "PetriP " + variableName + " = new PetriP(\""+placeName+"\", 0);\n"
+                        + variableName + ".setMarkParam(\""+markersParameter+"\");\n" 
+                        + "d_P.add("+variableName+");";
                 return replacement;
             } 
             return matchRes.group(0);
-        });
+        });*/
         
         // parametrized transition delay mean
         /*
@@ -987,7 +1024,7 @@ e.printStackTrace();
         // parametrized information link
         
         
-        System.out.println(code);
+        //System.out.println(code);
         
         
         return code; // TODO
