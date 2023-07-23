@@ -1019,7 +1019,7 @@ e.printStackTrace();
         
         // parametrized distribution name?
         
-        // parametrized number of arc links
+        // parametrized number of GraphArcOut links
         
         // parametrized information link
         

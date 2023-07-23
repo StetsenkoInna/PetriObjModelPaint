@@ -586,6 +586,7 @@ public class PetriSim implements Cloneable, Serializable {
                 int j = 0;
                 double sum = 0;
                 double prob;
+                // здається, тут потрібно вдосконалити...
                 while (j < transitions.size() && transitions.get(j).getPriority() == aT.getPriority()) {
 
                     if (transitions.get(j).getProbability() == 1.0) {

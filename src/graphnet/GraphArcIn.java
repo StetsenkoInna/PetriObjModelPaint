@@ -47,7 +47,7 @@ public class GraphArcIn extends GraphArc implements Serializable {
 
     @Override
     public void setPetriElements() {
-        arc.setQuantity(arc.getQuantity());
+        arc.setQuantity(arc.getQuantity()); // ?? зайва операція?
         arc.setInf(arc.getIsInf());
         arc.setNumP(super.getBeginElement().getNumber());
         arc.setNumT(super.getEndElement().getNumber());
@@ -87,6 +87,9 @@ public class GraphArcIn extends GraphArc implements Serializable {
             this.getAvgLine().setLocation((this.getGraphElement().getX1() + this.getGraphElement().getX2()) / 2, (this.getGraphElement().getY1() + this.getGraphElement().getY2()) / 2);
             g2.drawLine((int) this.getAvgLine().getX() + 5, (int) this.getAvgLine().getY() - 5, (int) this.getAvgLine().getX() - 5, (int) this.getAvgLine().getY() + 5);
             g2.drawString(quantityString, (float) this.getAvgLine().getX(), (float) this.getAvgLine().getY() - 7);
+        }
+        if(this.isFirstArc()||this.isSecondArc()){ // важливо для правильної відмальовки після запуску мережі
+            this.updateCoordinates();
         }
     }
     

@@ -7,7 +7,7 @@ import graphpresentation.PetriNetsPanel;
 import javax.swing.undo.AbstractUndoableEdit;
 
 /**
- * Represents an undoable & redoable action of adding a new arc to the graph
+ * Represents an undoable & redoable action of adding a new GraphArcOut to the graph
  * @author Leonid
  */
 public class AddArcEdit extends AbstractUndoableEdit {

@@ -50,7 +50,6 @@ public class GraphPlace extends GraphElement {
         g2.draw(graphElement);
         g2.setColor(Color.WHITE);
         g2.fill(graphElement);
-        g2.setStroke(new BasicStroke(getLineWidth()));
         g2.setColor(getColor());
      
     }

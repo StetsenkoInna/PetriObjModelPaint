@@ -45,11 +45,12 @@ public class GraphPetriTransition extends GraphTransition implements Serializabl
                 ? transition.getDistributionParamName()
                 : transition.getDistribution();
         if (transition.getDistribution() != null || transition.distributionIsParam()) {
-            g2.drawString("t=" + parametrString + "(" + distributionString + ")", (float) this.getGraphElement().getCenterX() - Double.toString(transition.getParametr()).length() * font / 2, (float) this.getGraphElement().getCenterY() + GraphPetriTransition.getHeight() / 2 + 20);
+            g2.drawString("d=" + parametrString + "(" + distributionString + ")", (float) this.getGraphElement().getCenterX() - Double.toString(transition.getParametr()).length() * font / 2, (float) this.getGraphElement().getCenterY() + GraphPetriTransition.getHeight() / 2 + 20);
         } else {
-            g2.drawString("t=" + parametrString, (float) this.getGraphElement().getCenterX() - Double.toString(transition.getParametr()).length() * font / 2, (float) this.getGraphElement().getCenterY() + GraphPetriTransition.getHeight() / 2 + 20);
+            g2.drawString("d=" + parametrString, (float) this.getGraphElement().getCenterX() - Double.toString(transition.getParametr()).length() * font / 2, (float) this.getGraphElement().getCenterY() + GraphPetriTransition.getHeight() / 2 + 20);
         }
-        g2.drawString("b=" + transition.getBuffer(), (float) this.getGraphElement().getCenterX() - Double.toString(transition.getBuffer()).length() * font / 2, (float) this.getGraphElement().getCenterY() + GraphPetriTransition.getHeight() / 2 + 40);
+        
+        g2.drawString("r=" + transition.getProbability(), (float) this.getGraphElement().getCenterX() - Double.toString(transition.getBuffer()).length() * font / 2, (float) this.getGraphElement().getCenterY() + GraphPetriTransition.getHeight() / 2 + 40);
     }
 
     @Override
