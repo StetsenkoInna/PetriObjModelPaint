@@ -114,10 +114,6 @@ public static PetriNet CreateNetFork(double p1, double p2, double p3) throws Exc
 	d_Out.add(new ArcOut(d_T.get(2),d_P.get(3),1));
 	d_Out.add(new ArcOut(d_T.get(3),d_P.get(4),1));
 	PetriNet d_Net = new PetriNet("Fork",d_P,d_T,d_In,d_Out);
-	PetriP.initNext();
-	PetriT.initNext();
-	ArcIn.initNext();
-	ArcOut.initNext();
 
 	return d_Net;
 }
