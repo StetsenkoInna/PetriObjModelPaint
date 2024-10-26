@@ -9,6 +9,7 @@ import PetriObj.ExceptionInvalidTimeDelay;
 import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
+import graphpresentation.statistic.StatisticMonitorDialog;
 import graphreuse.GraphNetParametersFrame;
 import graphpresentation.undoable_edits.AddGraphElementEdit;
 
@@ -413,6 +414,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         SavePetriNetAs = new javax.swing.JMenuItem();
         SaveNetAsMethod = new javax.swing.JMenuItem();
         SaveMethodInNetLibrary = new javax.swing.JMenuItem();
+        statisticMenu = new javax.swing.JMenu();
+        openMonitor = new javax.swing.JMenuItem();
         Animate = new javax.swing.JMenu();
         itemAnimateNet = new javax.swing.JMenuItem();
         itemAnimateEvent = new javax.swing.JMenuItem();
@@ -552,7 +555,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartLabel.getAccessibleContext().setAccessibleName("Time");
 
         petriNetsFrameToolBar.setBorder(null);
-        petriNetsFrameToolBar.setFloatable(false);
         petriNetsFrameToolBar.setRollover(true);
         petriNetsFrameToolBar.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
         petriNetsFrameToolBar.setMargin(new java.awt.Insets(0, 10, 0, 10));
@@ -744,7 +746,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         jTabbedPane1.addTab("Net designer", petriNetDesign);
 
         petriNetsFrameToolBar1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
-        petriNetsFrameToolBar1.setFloatable(false);
         petriNetsFrameToolBar1.setRollover(true);
         petriNetsFrameToolBar1.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
         petriNetsFrameToolBar1.setMargin(new java.awt.Insets(0, 10, 0, 10));
@@ -978,7 +979,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         jTabbedPane1.addTab("Model designer", petriNetDesign1);
 
         petriNetsFrameToolBar2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
-        petriNetsFrameToolBar2.setFloatable(false);
         petriNetsFrameToolBar2.setRollover(true);
         petriNetsFrameToolBar2.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
         petriNetsFrameToolBar2.setMargin(new java.awt.Insets(0, 10, 0, 10));
@@ -1345,6 +1345,18 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         petriNetsFrameMenuBar.add(save);
 
+        statisticMenu.setText("Statistic");
+
+        openMonitor.setText("Open monitor");
+        openMonitor.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                openMonitorActionPerformed(evt);
+            }
+        });
+        statisticMenu.add(openMonitor);
+
+        petriNetsFrameMenuBar.add(statisticMenu);
+
         Animate.setAction(animateEventAction);
         Animate.setText("Animate");
         Animate.setMargin(new java.awt.Insets(0, 10, 0, 10));
@@ -1541,6 +1553,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void netNameTextFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_netNameTextFieldActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_netNameTextFieldActionPerformed
+
+    private void openMonitorActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openMonitorActionPerformed
+        StatisticMonitorDialog dialog = new StatisticMonitorDialog(this, false);
+        dialog.setVisible(true);
+    }//GEN-LAST:event_openMonitorActionPerformed
 
     private void openMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMenuItemActionPerformed
         try {
@@ -2064,6 +2081,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton newTransitionButton2;
     private javax.swing.JMenuItem openMenuItem;
     private javax.swing.JMenuItem openMethodMenuItem;
+    private javax.swing.JMenuItem openMonitor;
     private javax.swing.JPanel petriNetDesign;
     private javax.swing.JPanel petriNetDesign1;
     private javax.swing.JPanel petriNetDesign2;
@@ -2097,6 +2115,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton skipForwardAnimationButton;
     private javax.swing.JLabel speedLabel;
     private javax.swing.JSlider speedSlider;
+    private javax.swing.JMenu statisticMenu;
     private javax.swing.JScrollPane statisticsScrollPane;
     private javax.swing.JScrollPane statisticsScrollPane1;
     private javax.swing.JScrollPane statisticsScrollPane2;
