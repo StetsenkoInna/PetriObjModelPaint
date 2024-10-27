@@ -8,6 +8,6 @@ public interface ChartBuilderService {
     void createChart(JFXPanel jfxPanel, ChartConfigDto configDto);
     void clearChart();
     void appendData(XYChart.Data<Number, Number> data);
-
+    void changeSeriesName(String name);
     boolean isChartEmpty();
 }

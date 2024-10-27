@@ -202,11 +202,12 @@ public class RunPetriObjModel extends PetriObjModel{
                             e.doStatistics((timeModeling - super.getCurrentTime()) / super.getSimulationTime());
                         }
                     }
-                    elementStatistics.addAll(collectElementStatistic(e, statWatchList));
+                    if (statWatchList != null && !statWatchList.isEmpty()) {
+                        elementStatistics.addAll(PetriElementStatisticDto.collectElementStatistic(e.getNet(), statWatchList));
+                    }
                 }
             }
-            if (!elementStatistics.isEmpty()) {
-                System.out.println("SEND CURRENT TIME:"+getCurrentTime());
+            if (statMonitor != null && !elementStatistics.isEmpty()) {
                 statMonitor.sendStatistic(getCurrentTime(), elementStatistics);
             }
 
@@ -316,18 +317,5 @@ public class RunPetriObjModel extends PetriObjModel{
 
     public void setStatWatchList(List<String> statWatchList) {
         this.statWatchList = statWatchList;
-    }
-
-    public List<PetriElementStatisticDto> collectElementStatistic(PetriSim petriSim, List<String> statistisWatchList) {
-        List<PetriElementStatisticDto> petriStat = new ArrayList<>();
-        petriStat.addAll(Arrays.stream(petriSim.getNet().getListP())
-                .filter(petriP -> statistisWatchList.contains(petriP.getName()))
-                .map(petriP -> new PetriElementStatisticDto(getCurrentTime(), petriP.getName(), petriP.getObservedMin(), petriP.getObservedMax(), petriP.getMean()))
-                .collect(Collectors.toList()));
-        petriStat.addAll(Arrays.stream(petriSim.getNet().getListT())
-                .filter(petriT -> statistisWatchList.contains(petriT.getName()))
-                .map(petriT -> new PetriElementStatisticDto(getCurrentTime(), petriT.getName(), petriT.getObservedMin(), petriT.getObservedMax(), petriT.getMean()))
-                .collect(Collectors.toList()));
-        return petriStat;
     }
 }

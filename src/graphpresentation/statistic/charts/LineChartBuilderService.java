@@ -47,6 +47,15 @@ public class LineChartBuilderService implements ChartBuilderService {
         });
     }
 
+    @Override
+    public void changeSeriesName(String name) {
+        Platform.runLater(() -> {
+            series.setName(name);
+            series.getData().clear();
+        });
+    }
+
+    @Override
     public boolean isChartEmpty() {
         return lineChart == null || lineChart.getData().isEmpty();
     }

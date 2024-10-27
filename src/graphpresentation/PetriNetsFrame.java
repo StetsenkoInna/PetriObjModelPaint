@@ -1556,6 +1556,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         if (statisticMonitorDialog == null) {
             statisticMonitorDialog = new StatisticMonitorDialog(this, false);
         }
+        statisticMonitorDialog.setSize(600, 600);
         statisticMonitorDialog.setLocationRelativeTo(this);
         statisticMonitorDialog.setVisible(true);
     }//GEN-LAST:event_openMonitorActionPerformed
@@ -1713,8 +1714,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         protocolTextArea); // Петрі-об"єктна модель, що складається з одного Петрі-об"єкта
                 m.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 m.setCurrentTime(Double.valueOf(timeStartField.getText()));
-                m.setStatMonitor(statisticMonitorDialog);
-                m.setStatWatchList(statisticMonitorDialog.getSelectedElementNames());
+                if (statisticMonitorDialog != null) {
+                    m.setStatMonitor(statisticMonitorDialog);
+                    m.setStatWatchList(statisticMonitorDialog.getSelectedElementNames());
+                }
                 m.go(Double.valueOf(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
                         statisticsTextArea);
@@ -1772,8 +1775,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
                 model.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 model.setCurrentTime(Double.valueOf(timeStartField.getText()));
-                model.setStatMonitor(statisticMonitorDialog);
-                model.setStatWatchList(statisticMonitorDialog.getSelectedElementNames());
+                if (statisticMonitorDialog != null) {
+                    model.setStatMonitor(statisticMonitorDialog);
+                    model.setStatWatchList(statisticMonitorDialog.getSelectedElementNames());
+                }
                 model.go(Double.valueOf(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
                         statisticsTextArea);
@@ -1991,6 +1996,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartField.setEnabled(false);
         netNameTextField.setEnabled(false);
         leftMenuList.setEnabled(false);
+        if (statisticMonitorDialog != null) {
+            statisticMonitorDialog.onSimulationStart();
+        }
     }
 
     public void enableInput() {
@@ -2012,6 +2020,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartField.setEnabled(true);
         netNameTextField.setEnabled(true);
         leftMenuList.setEnabled(true);
+        if (statisticMonitorDialog != null) {
+            statisticMonitorDialog.onSimulationEnd();
+        }
     }
 
     /**

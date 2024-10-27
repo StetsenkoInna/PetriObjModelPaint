@@ -6,7 +6,6 @@ import graphpresentation.GraphTransition;
 import graphpresentation.statistic.dto.PetriElementStatisticDto;
 import graphpresentation.statistic.enums.FunctionType;
 import graphpresentation.statistic.enums.PetriStatFunction;
-import javafx.scene.chart.XYChart;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,6 +14,7 @@ import java.util.stream.Collectors;
 
 public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     private final GraphPetriNet graphPetriNet;
+    private static final List<String> OPERATORS = Arrays.asList("+", "-", "*", "/");
 
     public FormulaBuilderServiceImpl(GraphPetriNet graphPetriNet) {
         this.graphPetriNet = graphPetriNet;
@@ -100,6 +100,12 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
                 } else if (part.startsWith(PetriStatFunction.P_MAX.getFunctionName())) {
                     result += (int) statistic.getMax();
                 } else if (part.startsWith(PetriStatFunction.P_AVG.getFunctionName())) {
+                    result += statistic.getAvg();
+                } else if (part.startsWith(PetriStatFunction.T_MIN.getFunctionName())) {
+                    result += (double) statistic.getMin();
+                } else if (part.startsWith(PetriStatFunction.T_MAX.getFunctionName())) {
+                    result += (double) statistic.getMax();
+                } else if (part.startsWith(PetriStatFunction.T_AVG.getFunctionName())) {
                     result += statistic.getAvg();
                 }
             }

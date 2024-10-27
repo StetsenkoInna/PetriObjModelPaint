@@ -40,7 +40,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         this.jfxPanel = new JFXPanel();
         this.graphPetriNet = parent.getPetriNetsPanel().getGraphNet();
         this.formulaBuilderService = new FormulaBuilderServiceImpl(graphPetriNet);
-
         initComponents();
 
         this.lineChartBuilderService = new LineChartBuilderService();
@@ -180,7 +179,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     }//GEN-LAST:event_formulaInfoBtnActionPerformed
 
     private void clearFormulaBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clearFormulaBtnActionPerformed
-//        formulaInputField.setText("");
         lineChartBuilderService.clearChart();
     }//GEN-LAST:event_clearFormulaBtnActionPerformed
 
@@ -224,16 +222,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         }
     }
 
-    public List<String> getSelectedElementNames() {
-        return selectedElements;
-    }
-
-    public void sendStatistic(double currentTime, List<PetriElementStatisticDto> statistics) {
-        statistics.forEach(System.out::println);
-        Number formulaValue = formulaBuilderService.calculateFormula(formulaInputField.getText(), statistics);
-        lineChartBuilderService.appendData(new XYChart.Data<>(currentTime, formulaValue));
-    }
-
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private java.awt.Frame parent;
     private javax.swing.JPanel chartViewPanel;
@@ -250,4 +238,26 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     private javax.swing.JPopupMenu formulaSuggestionPopup;
     private final JFXPanel jfxPanel;
     // End of variables declaration//GEN-END:variables
+
+    public List<String> getSelectedElementNames() {
+        return selectedElements;
+    }
+
+    public void sendStatistic(double currentTime, List<PetriElementStatisticDto> statistics) {
+        Number formulaValue = formulaBuilderService.calculateFormula(formulaInputField.getText(), statistics);
+        lineChartBuilderService.appendData(new XYChart.Data<>(currentTime, formulaValue));
+    }
+
+    public void onSimulationStart() {
+        formulaInputField.setEnabled(false);
+        formulaInfoBtn.setEnabled(false);
+        clearFormulaBtn.setEnabled(false);
+        lineChartBuilderService.changeSeriesName(formulaInputField.getText());
+    }
+
+    public void onSimulationEnd() {
+        formulaInputField.setEnabled(true);
+        formulaInfoBtn.setEnabled(true);
+        clearFormulaBtn.setEnabled(true);
+    }
 }

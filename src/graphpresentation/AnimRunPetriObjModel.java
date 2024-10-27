@@ -104,11 +104,12 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                             e.doStatistics((timeModeling - super.getCurrentTime()) / super.getSimulationTime());
                         }
                     }
-                    elementStatistics.addAll(e.collectElementStatistic(statWatchList));
+                    if (statWatchList != null && !statWatchList.isEmpty()) {
+                        elementStatistics.addAll(PetriElementStatisticDto.collectElementStatistic(e.getNet(), statWatchList));
+                    }
                 }
             }
-            if (!elementStatistics.isEmpty()) {
-                System.out.println("SEND CURRENT TIME:"+getCurrentTime());
+            if (statMonitor != null && !elementStatistics.isEmpty()) {
                 statMonitor.sendStatistic(getCurrentTime(), elementStatistics);
             }
 
