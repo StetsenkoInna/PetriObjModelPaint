@@ -3,8 +3,10 @@ package graphpresentation.statistic.formula;
 import graphnet.GraphPetriNet;
 import graphnet.GraphPetriPlace;
 import graphpresentation.GraphTransition;
+import graphpresentation.statistic.dto.PetriElementStatisticDto;
 import graphpresentation.statistic.enums.FunctionType;
 import graphpresentation.statistic.enums.PetriStatFunction;
+import javafx.scene.chart.XYChart;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,6 +67,45 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         return suggestions;
     }
 
+    @Override
+    public List<String> getSelectedElements(String formula) {
+        List<String> contents = new ArrayList<>();
+        int openParenIndex = 0;
+        while ((openParenIndex = formula.indexOf("(", openParenIndex)) != -1) {
+            int closeParenIndex = formula.indexOf(")", openParenIndex);
+            if (closeParenIndex == -1) {
+                break;
+            }
+            String contentInsideParens = formula.substring(openParenIndex + 1, closeParenIndex).trim();
+            contents.add(contentInsideParens);
+            openParenIndex = closeParenIndex + 1;
+        }
+        return contents;
+    }
+
+    @Override
+    public Number calculateFormula(String formula, List<PetriElementStatisticDto> statistics) {
+        double result = 0.0;
+        String[] parts = formula.split("\\+");
+
+        for (String part : parts) {
+            part = part.trim();
+            String elementName = getArgumentName(part);
+            PetriElementStatisticDto statistic = statistics.stream()
+                    .filter(petriElementStatistic -> petriElementStatistic.getElementName().equals(elementName))
+                    .findFirst().orElse(null);
+            if (statistic != null) {
+                if (part.startsWith(PetriStatFunction.P_MIN.getFunctionName())) {
+                    result += (int) statistic.getMin();
+                } else if (part.startsWith(PetriStatFunction.P_MAX.getFunctionName())) {
+                    result += (int) statistic.getMax();
+                } else if (part.startsWith(PetriStatFunction.P_AVG.getFunctionName())) {
+                    result += statistic.getAvg();
+                }
+            }
+        }
+        return result;
+    }
 
     private int findLastOperatorIndex(String input) {
         int lastPlus = input.lastIndexOf("+");
@@ -94,5 +135,11 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
 
     private List<String> getOperatorSuggestions() {
         return Arrays.asList("+", "-", "*", "/");
+    }
+
+    private String getArgumentName(String part) {
+        int startIndex = part.indexOf("(") + 1;
+        int endIndex = part.indexOf(")", startIndex);
+        return part.substring(startIndex, endIndex).trim();
     }
 }

@@ -10,9 +10,11 @@ import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
 import graphpresentation.PetriNetsPanel;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Random;
+import graphpresentation.statistic.StatisticMonitorDialog;
+import graphpresentation.statistic.dto.PetriElementStatisticDto;
+
+import java.util.*;
+import java.util.stream.Collectors;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
 
@@ -23,7 +25,9 @@ import javax.swing.JTextArea;
 public class RunPetriObjModel extends PetriObjModel{
     
     private JTextArea area; // specifies where simulation protokol is printed
-  
+    private List<String> statWatchList;
+    private StatisticMonitorDialog statMonitor;
+
     public RunPetriObjModel(ArrayList<PetriSim> list, JTextArea area){
         super(list);
         this.area = area;
@@ -187,6 +191,8 @@ public class RunPetriObjModel extends PetriObjModel{
                     min = e.getTimeMin();
                 }
             }
+
+            List<PetriElementStatisticDto> elementStatistics = new ArrayList<>();
             if (super.isStatistics() == true) {
                 for (PetriSim e : super.getListObj()) {
                     if (min > 0) {
@@ -196,7 +202,12 @@ public class RunPetriObjModel extends PetriObjModel{
                             e.doStatistics((timeModeling - super.getCurrentTime()) / super.getSimulationTime());
                         }
                     }
+                    elementStatistics.addAll(collectElementStatistic(e, statWatchList));
                 }
+            }
+            if (!elementStatistics.isEmpty()) {
+                System.out.println("SEND CURRENT TIME:"+getCurrentTime());
+                statMonitor.sendStatistic(getCurrentTime(), elementStatistics);
             }
 
             super.setCurrentTime(min); // просування часу
@@ -297,5 +308,26 @@ public class RunPetriObjModel extends PetriObjModel{
                 e.printMark(area);
             }
         }
+    }
+
+    public void setStatMonitor(StatisticMonitorDialog statMonitor) {
+        this.statMonitor = statMonitor;
+    }
+
+    public void setStatWatchList(List<String> statWatchList) {
+        this.statWatchList = statWatchList;
+    }
+
+    public List<PetriElementStatisticDto> collectElementStatistic(PetriSim petriSim, List<String> statistisWatchList) {
+        List<PetriElementStatisticDto> petriStat = new ArrayList<>();
+        petriStat.addAll(Arrays.stream(petriSim.getNet().getListP())
+                .filter(petriP -> statistisWatchList.contains(petriP.getName()))
+                .map(petriP -> new PetriElementStatisticDto(getCurrentTime(), petriP.getName(), petriP.getObservedMin(), petriP.getObservedMax(), petriP.getMean()))
+                .collect(Collectors.toList()));
+        petriStat.addAll(Arrays.stream(petriSim.getNet().getListT())
+                .filter(petriT -> statistisWatchList.contains(petriT.getName()))
+                .map(petriT -> new PetriElementStatisticDto(getCurrentTime(), petriT.getName(), petriT.getObservedMin(), petriT.getObservedMax(), petriT.getMean()))
+                .collect(Collectors.toList()));
+        return petriStat;
     }
 }

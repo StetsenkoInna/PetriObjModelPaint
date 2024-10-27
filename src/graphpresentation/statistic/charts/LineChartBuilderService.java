@@ -20,10 +20,6 @@ public class LineChartBuilderService implements ChartBuilderService {
     @Override
     public void createChart(JFXPanel jfxPanel, ChartConfigDto configDto) {
         Platform.runLater(() -> {
-            if (lineChart != null) {
-                lineChart.getData().clear();
-            }
-
             NumberAxis xAxis = new NumberAxis();
             NumberAxis yAxis = new NumberAxis();
             xAxis.setLabel(configDto.getxAxisTitle());
@@ -37,6 +33,11 @@ public class LineChartBuilderService implements ChartBuilderService {
             lineChart.getData().add(series);
             jfxPanel.setScene(new Scene(lineChart, 800, 600));
         });
+    }
+
+    @Override
+    public void clearChart() {
+        Platform.runLater(() -> series.getData().clear());
     }
 
     @Override

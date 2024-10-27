@@ -10,8 +10,12 @@ import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
 import PetriObj.StateTime;
+import graphpresentation.statistic.dto.PetriElementStatisticDto;
+
 import java.util.ArrayList;
-import java.util.function.Function;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
 
@@ -330,5 +334,18 @@ public class AnimRunPetriSim extends PetriSim {
     public boolean isHalted() {
         return halted;
     }
-    
+
+
+    public List<PetriElementStatisticDto> collectElementStatistic(List<String> statistisWatchList) {
+        List<PetriElementStatisticDto> petriStat = new ArrayList<>();
+        petriStat.addAll(Arrays.stream(getNet().getListP())
+               .filter(petriP -> statistisWatchList.contains(petriP.getName()))
+               .map(petriP -> new PetriElementStatisticDto(getCurrentTime(), petriP.getName(), petriP.getObservedMin(), petriP.getObservedMax(), petriP.getMean()))
+               .collect(Collectors.toList()));
+        petriStat.addAll(Arrays.stream(getNet().getListT())
+                .filter(petriT -> statistisWatchList.contains(petriT.getName()))
+                .map(petriT -> new PetriElementStatisticDto(getCurrentTime(), petriT.getName(), petriT.getObservedMin(), petriT.getObservedMax(), petriT.getMean()))
+                .collect(Collectors.toList()));
+        return petriStat;
+    }
 }

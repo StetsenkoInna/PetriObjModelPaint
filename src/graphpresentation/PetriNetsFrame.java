@@ -37,8 +37,6 @@ import graphpresentation.actions.RewindAction;
 import graphpresentation.actions.RunNetAction;
 import graphpresentation.actions.RunOneEventAction;
 import graphpresentation.actions.StopSimulationAction;
-import javafx.application.Platform;
-import javafx.embed.swing.JFXPanel;
 
 import java.awt.Dialog.ModalityType;
 import java.io.ObjectInputStream;
@@ -1715,6 +1713,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         protocolTextArea); // Петрі-об"єктна модель, що складається з одного Петрі-об"єкта
                 m.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 m.setCurrentTime(Double.valueOf(timeStartField.getText()));
+                m.setStatMonitor(statisticMonitorDialog);
+                m.setStatWatchList(statisticMonitorDialog.getSelectedElementNames());
                 m.go(Double.valueOf(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
                         statisticsTextArea);
@@ -1769,9 +1769,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         speedSlider); // Петрі-об"єктна модель, що складається з одного Петріз-об"єкта
                 
                 animationModel = model;
-                
+
                 model.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 model.setCurrentTime(Double.valueOf(timeStartField.getText()));
+                model.setStatMonitor(statisticMonitorDialog);
+                model.setStatWatchList(statisticMonitorDialog.getSelectedElementNames());
                 model.go(Double.valueOf(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
                         statisticsTextArea);

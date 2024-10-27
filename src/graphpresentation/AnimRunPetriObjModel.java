@@ -10,7 +10,11 @@ import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
 import PetriObj.StateTime;
+import graphpresentation.statistic.StatisticMonitorDialog;
+import graphpresentation.statistic.dto.PetriElementStatisticDto;
+
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
@@ -24,6 +28,8 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
     private JTextArea area; // specifies where simulation protokol is printed
     private PetriNetsPanel panel;
     private JSlider delaySlider;
+    private List<String> statWatchList;
+    private StatisticMonitorDialog statMonitor;
     private ArrayList<AnimRunPetriSim> runlist = new ArrayList<>();
     
     /**
@@ -87,6 +93,8 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                     min = e.getTimeMin();
                 }
             }
+
+            List<PetriElementStatisticDto> elementStatistics = new ArrayList<>();
             if (super.isStatistics() == true) {
                 for (AnimRunPetriSim e : getRunlist()) {
                     if (min > 0) {
@@ -96,7 +104,12 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                             e.doStatistics((timeModeling - super.getCurrentTime()) / super.getSimulationTime());
                         }
                     }
+                    elementStatistics.addAll(e.collectElementStatistic(statWatchList));
                 }
+            }
+            if (!elementStatistics.isEmpty()) {
+                System.out.println("SEND CURRENT TIME:"+getCurrentTime());
+                statMonitor.sendStatistic(getCurrentTime(), elementStatistics);
             }
 
             super.setCurrentTime(min); // просування часу
@@ -272,5 +285,13 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
      */
     public boolean isHalted() {
         return halted;
+    }
+
+    public void setStatMonitor(StatisticMonitorDialog statMonitor) {
+        this.statMonitor = statMonitor;
+    }
+
+    public void setStatWatchList(List<String> statWatchList) {
+        this.statWatchList = statWatchList;
     }
 }

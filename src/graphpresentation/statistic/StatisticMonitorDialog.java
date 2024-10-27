@@ -4,17 +4,17 @@
  */
 package graphpresentation.statistic;
 
-import PetriObj.ExceptionInvalidNetStructure;
-import PetriObj.ExceptionInvalidTimeDelay;
 import graphnet.GraphPetriNet;
 import graphpresentation.PetriNetsFrame;
 import graphpresentation.statistic.charts.ChartBuilderService;
 import graphpresentation.statistic.charts.LineChartBuilderService;
 import graphpresentation.statistic.dto.ChartConfigDto;
+import graphpresentation.statistic.dto.PetriElementStatisticDto;
 import graphpresentation.statistic.enums.PetriStatFunction;
 import graphpresentation.statistic.formula.FormulaBuilderService;
 import graphpresentation.statistic.formula.FormulaBuilderServiceImpl;
 import javafx.embed.swing.JFXPanel;
+import javafx.scene.chart.XYChart;
 
 import javax.swing.*;
 import java.awt.*;
@@ -29,6 +29,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     private final ChartBuilderService lineChartBuilderService;
     private final FormulaBuilderService formulaBuilderService;
     private GraphPetriNet graphPetriNet;
+    private List<String> selectedElements;
 
     /**
      * Creates new form StatisticMonitorDialog
@@ -179,13 +180,15 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     }//GEN-LAST:event_formulaInfoBtnActionPerformed
 
     private void clearFormulaBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clearFormulaBtnActionPerformed
-        formulaInputField.setText("");
+//        formulaInputField.setText("");
+        lineChartBuilderService.clearChart();
     }//GEN-LAST:event_clearFormulaBtnActionPerformed
 
     private void onFormulaFieldChange(KeyEvent e) {
         if (formulaInputField.getText().trim().isEmpty()) {
             return;
         }
+        this.selectedElements = formulaBuilderService.getSelectedElements(formulaInputField.getText());
         char keyChar = e.getKeyChar();
         if (Character.isLetterOrDigit(keyChar) || keyChar == KeyEvent.VK_BACK_SPACE) {
             showFormulaSuggestions();
@@ -219,6 +222,16 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
             }
             formulaInputField.requestFocus();
         }
+    }
+
+    public List<String> getSelectedElementNames() {
+        return selectedElements;
+    }
+
+    public void sendStatistic(double currentTime, List<PetriElementStatisticDto> statistics) {
+        statistics.forEach(System.out::println);
+        Number formulaValue = formulaBuilderService.calculateFormula(formulaInputField.getText(), statistics);
+        lineChartBuilderService.appendData(new XYChart.Data<>(currentTime, formulaValue));
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

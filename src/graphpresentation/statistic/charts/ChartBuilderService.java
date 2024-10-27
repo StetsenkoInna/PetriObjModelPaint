@@ -6,6 +6,7 @@ import javafx.scene.chart.XYChart;
 
 public interface ChartBuilderService {
     void createChart(JFXPanel jfxPanel, ChartConfigDto configDto);
+    void clearChart();
     void appendData(XYChart.Data<Number, Number> data);
 
     boolean isChartEmpty();
