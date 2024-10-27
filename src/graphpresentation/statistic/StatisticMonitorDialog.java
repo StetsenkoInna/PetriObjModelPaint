@@ -17,6 +17,8 @@ import javafx.embed.swing.JFXPanel;
 import javafx.scene.chart.XYChart;
 
 import javax.swing.*;
+import javax.swing.border.Border;
+import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
@@ -28,8 +30,9 @@ import java.util.List;
 public class StatisticMonitorDialog extends javax.swing.JDialog {
     private final ChartBuilderService lineChartBuilderService;
     private final FormulaBuilderService formulaBuilderService;
-    private GraphPetriNet graphPetriNet;
     private List<String> selectedElements;
+    private Boolean isFormulaValid;
+
 
     /**
      * Creates new form StatisticMonitorDialog
@@ -38,8 +41,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         super(parent, modal);
         this.parent = parent;
         this.jfxPanel = new JFXPanel();
-        this.graphPetriNet = parent.getPetriNetsPanel().getGraphNet();
-        this.formulaBuilderService = new FormulaBuilderServiceImpl(graphPetriNet);
+        this.formulaBuilderService = new FormulaBuilderServiceImpl(parent);
         initComponents();
 
         this.lineChartBuilderService = new LineChartBuilderService();
@@ -90,10 +92,11 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
 
         formulaActionsGroup.setLayout(new java.awt.GridBagLayout());
 
-        clearFormulaBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/close_icon.png"))); // NOI18N
+        clearFormulaBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/reset_icon.png"))); // NOI18N
         clearFormulaBtn.setContentAreaFilled(false);
         clearFormulaBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         clearFormulaBtn.setPreferredSize(new java.awt.Dimension(40, 40));
+        clearFormulaBtn.setToolTipText("Clear chart");
         clearFormulaBtn.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 clearFormulaBtnActionPerformed(evt);
@@ -107,6 +110,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         formulaInfoBtn.setContentAreaFilled(false);
         formulaInfoBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         formulaInfoBtn.setPreferredSize(new java.awt.Dimension(40, 40));
+        formulaInfoBtn.setToolTipText("Available formulas");
         formulaInfoBtn.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 formulaInfoBtnActionPerformed(evt);
@@ -125,6 +129,8 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         formulaInputField.setColumns(20);
         formulaInputField.setLineWrap(true);
         formulaInputField.setRows(5);
+        formulaInputField.setBorder(BorderFactory.createCompoundBorder(formulaInputField.getBorder(),
+                BorderFactory.createEmptyBorder(5, 5, 5, 5)));
         formulaInputField.setFont(new Font("Consolas", Font.PLAIN, 14));
         formulaInputField.setToolTipText("Enter your formula...");
         formulaInputField.setPreferredSize(new java.awt.Dimension(232, 60));
@@ -176,6 +182,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         if (selectedFunction != null) {
             String formula = formulaBuilderService.updateFormula(formulaInputField.getText(), selectedFunction.getFunctionName());
             formulaInputField.setText(formula);
+            onFormulaFieldChange(null);
         }
     }//GEN-LAST:event_formulaInfoBtnActionPerformed
 
@@ -189,8 +196,12 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
             return;
         }
         this.selectedElements = formulaBuilderService.getSelectedPetriElementNames(formula);
+        this.isFormulaValid = formulaBuilderService.isFormulaValid(formula);
+
         List<String> suggestions = formulaBuilderService.getFormulaSuggestions(formula);
         updateFormulaSuggestions(suggestions);
+        updateFormulaField();
+
 
 //        char keyChar = e.getKeyChar();
 //        if (Character.isLetterOrDigit(keyChar) || keyChar == KeyEvent.VK_BACK_SPACE) {
@@ -225,6 +236,12 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         }
     }
 
+    private void updateFormulaField() {
+        Border border = BorderFactory.createLineBorder(isFormulaValid ? Color.GREEN : Color.RED, 2);
+        formulaInputField.setBorder(BorderFactory.createCompoundBorder(border,
+                BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+    }
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private java.awt.Frame parent;
     private javax.swing.JPanel chartViewPanel;
@@ -247,8 +264,10 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     }
 
     public void sendStatistic(double currentTime, List<PetriElementStatisticDto> statistics) {
-        Number formulaValue = formulaBuilderService.calculateFormula(formulaInputField.getText(), statistics);
-        lineChartBuilderService.appendData(new XYChart.Data<>(currentTime, formulaValue));
+        if (isFormulaValid) {
+            Number formulaValue = formulaBuilderService.calculateFormula(formulaInputField.getText(), statistics);
+            lineChartBuilderService.appendData(new XYChart.Data<>(currentTime, formulaValue));
+        }
     }
 
     public void onSimulationStart() {

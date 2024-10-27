@@ -91,7 +91,7 @@ public enum PetriStatFunction {
 
     public static PetriStatFunction findFunctionByName(String functionName) {
         return Arrays.stream(values())
-                .filter(func -> func.getFunctionName().toUpperCase().startsWith(functionName.toUpperCase()))
+                .filter(func -> func.getFunctionName().equalsIgnoreCase(functionName))
                 .findFirst().orElse(null);
     }
 }

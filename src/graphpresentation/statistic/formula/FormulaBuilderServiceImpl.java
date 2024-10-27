@@ -3,21 +3,23 @@ package graphpresentation.statistic.formula;
 import graphnet.GraphPetriNet;
 import graphnet.GraphPetriPlace;
 import graphpresentation.GraphTransition;
+import graphpresentation.PetriNetsFrame;
 import graphpresentation.statistic.dto.PetriElementStatisticDto;
 import graphpresentation.statistic.enums.FunctionType;
 import graphpresentation.statistic.enums.PetriStatFunction;
 
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 
 public class FormulaBuilderServiceImpl implements FormulaBuilderService {
-    private final GraphPetriNet graphPetriNet;
-    private static final List<PetriStatFunction> PETRI_STAT_FUNCTIONS = Arrays.asList(PetriStatFunction.values());
+    private final PetriNetsFrame petriNetParent;
     private static final List<String> OPERATORS = Arrays.asList("+", "-", "*", "/");
+    private static final Pattern VALID_CHARACTERS_PATTERN = Pattern.compile("^[A-Za-z0-9_() +\\-*/\\u0400-\\u04FF]*$");
 
-    public FormulaBuilderServiceImpl(GraphPetriNet graphPetriNet) {
-        this.graphPetriNet = graphPetriNet;
+    public FormulaBuilderServiceImpl(PetriNetsFrame parent) {
+        this.petriNetParent = parent;
     }
 
     @Override
@@ -80,7 +82,58 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     }
 
     @Override
-    public Number calculateFormula(String formula, List<PetriElementStatisticDto> statistics) {
+    public boolean isFormulaValid(String formula) {
+        if (formula == null || formula.isEmpty()) {
+            return false;
+        }
+
+        if (!VALID_CHARACTERS_PATTERN.matcher(formula).matches() || !hasBalancedParentheses(formula)) {
+            return false;
+        }
+
+        String[] operations = formula.split("(?=[+\\-*/])|(?<=[+\\-*/])");
+        boolean isPreviousMathOperator = true;
+
+        for (String operation : operations) {
+            operation = operation.trim();
+            if (operation.isEmpty()) {
+                continue;
+            }
+
+            if (OPERATORS.contains(operation)) {
+                isPreviousMathOperator = true;
+                continue;
+            }
+
+            if (!operation.endsWith("()") && !operation.contains("(")) {
+                return false;
+            }
+
+            if (operation.indexOf(")") != operation.length() - 1) {
+                return false;
+            }
+
+            String lastFunctionName = getLastFunctionName(operation);
+            PetriStatFunction function = PetriStatFunction.findFunctionByName(lastFunctionName);
+            if (function != null) {
+                String argument = getFunctionArgumentName(operation);
+                if (argument == null || argument.isEmpty() || !isValidArgument(function, argument)) {
+                    return false;
+                }
+                if (!isPreviousMathOperator) {
+                    return false;
+                }
+                isPreviousMathOperator = false;
+            } else {
+                return false;
+            }
+        }
+
+        return !isPreviousMathOperator;
+    }
+
+    @Override
+    public Number calculateFormula(String formula, List<PetriElementStatisticDto> statistics) { //TODO REVIEW
         double result = 0.0;
         String[] parts = formula.split("\\+");
 
@@ -115,10 +168,10 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         }
 
         List<String> elements = new ArrayList<>();
-        List<String> placeNames = graphPetriNet.getGraphPetriPlaceList().stream()
+        List<String> placeNames = getGraphNet().getGraphPetriPlaceList().stream()
                 .map(GraphPetriPlace::getName)
                 .collect(Collectors.toList());
-        List<String> transitionNames = graphPetriNet.getGraphPetriTransitionList().stream()
+        List<String> transitionNames = getGraphNet().getGraphPetriTransitionList().stream()
                 .map(GraphTransition::getName)
                 .collect(Collectors.toList());
         if (petriStatFunction.getFunctionType().equals(FunctionType.POSITION_BASED)) {
@@ -148,6 +201,50 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         if (openParenIndex > 0 && closeParenIndex > openParenIndex) {
             return input.substring(openParenIndex + 1, closeParenIndex).trim().toUpperCase();
         }
-        return "";
+        return null;
+    }
+
+    private String getLastFunctionName(String token) {
+        if (token.endsWith("(")) {
+            return token.substring(0, token.length() - 1).trim();
+        }
+        int openParenIndex = token.indexOf('(');
+        if (openParenIndex > -1) {
+            return token.substring(0, openParenIndex).trim();
+        }
+        return null;
+    }
+
+    private boolean hasBalancedParentheses(String formula) {
+        Stack<Character> stack = new Stack<>();
+        for (char c : formula.toCharArray()) {
+            if (c == '(') {
+                stack.push(c);
+            } else if (c == ')') {
+                if (stack.isEmpty()) {
+                    return false;
+                }
+                stack.pop();
+            }
+        }
+        return stack.isEmpty();
+    }
+
+    private boolean isValidArgument(PetriStatFunction function, String argument) {
+        List<String> elements;
+        if (function.getFunctionType() == FunctionType.POSITION_BASED) {
+            elements = getGraphNet().getGraphPetriPlaceList().stream()
+                    .map(place -> place.getName().toUpperCase())
+                    .collect(Collectors.toList());
+        } else {
+            elements = getGraphNet().getGraphPetriTransitionList().stream()
+                    .map(transition -> transition.getName().toUpperCase())
+                    .collect(Collectors.toList());
+        }
+        return elements.contains(argument.toUpperCase());
+    }
+
+    private GraphPetriNet getGraphNet() {
+        return petriNetParent.getPetriNetsPanel().getGraphNet();
     }
 }

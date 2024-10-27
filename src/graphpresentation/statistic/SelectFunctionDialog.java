@@ -6,6 +6,8 @@ package graphpresentation.statistic;
 
 import graphpresentation.statistic.enums.PetriStatFunction;
 
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.util.List;
 
 /**
@@ -95,7 +97,12 @@ public class SelectFunctionDialog extends javax.swing.JDialog {
         jPanel1.add(cancelSelectionBtn);
 
         getContentPane().add(jPanel1, java.awt.BorderLayout.PAGE_END);
-
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                selectedFunction = null;
+            }
+        });
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
