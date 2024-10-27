@@ -4,7 +4,7 @@
  */
 package graphpresentation.statistic;
 
-import graphpresentation.statistic.enums.FunctionType;
+import graphpresentation.statistic.enums.PetriStatFunction;
 
 import java.util.List;
 
@@ -13,7 +13,7 @@ import java.util.List;
  * @author kachm
  */
 public class SelectFunctionDialog extends javax.swing.JDialog {
-    private FunctionType selectedFunction;
+    private PetriStatFunction selectedFunction;
 
     /**
      * Creates new form SelectFunctionDialog
@@ -52,12 +52,12 @@ public class SelectFunctionDialog extends javax.swing.JDialog {
         selectFunctionPanel.setLayout(new java.awt.BorderLayout());
 
         functionList.setModel(new javax.swing.AbstractListModel<String>() {
-            List<String> functions = FunctionType.getFunctionNames();
+            List<String> functions = PetriStatFunction.getFunctionNames();
             public int getSize() { return functions.size(); }
             public String getElementAt(int i) { return functions.get(i); }
         });
         functionList.addListSelectionListener(e -> {
-            this.selectedFunction = FunctionType.getFunctionByIndex(functionList.getSelectedIndex());
+            this.selectedFunction = PetriStatFunction.getFunctionByIndex(functionList.getSelectedIndex());
             functionTitle.setText(selectedFunction.getTitle());
             functionDescription.setText(selectedFunction.getDescription());
         });
@@ -122,7 +122,7 @@ public class SelectFunctionDialog extends javax.swing.JDialog {
     // End of variables declaration//GEN-END:variables
 
 
-    public FunctionType getSelectedFunction() {
+    public PetriStatFunction getSelectedFunction() {
         return selectedFunction;
     }
 }

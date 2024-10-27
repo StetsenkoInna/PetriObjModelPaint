@@ -4,29 +4,53 @@
  */
 package graphpresentation.statistic;
 
-import graphpresentation.statistic.enums.FunctionType;
+import PetriObj.ExceptionInvalidNetStructure;
+import PetriObj.ExceptionInvalidTimeDelay;
+import graphnet.GraphPetriNet;
+import graphpresentation.PetriNetsFrame;
+import graphpresentation.statistic.charts.ChartBuilderService;
+import graphpresentation.statistic.charts.LineChartBuilderService;
+import graphpresentation.statistic.dto.ChartConfigDto;
+import graphpresentation.statistic.enums.PetriStatFunction;
+import graphpresentation.statistic.formula.FormulaBuilderService;
+import graphpresentation.statistic.formula.FormulaBuilderServiceImpl;
+import javafx.embed.swing.JFXPanel;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * @author Andrii Kachmar
  */
 public class StatisticMonitorDialog extends javax.swing.JDialog {
+    private final ChartBuilderService lineChartBuilderService;
+    private final FormulaBuilderService formulaBuilderService;
+    private GraphPetriNet graphPetriNet;
+
     /**
      * Creates new form StatisticMonitorDialog
      */
-    public StatisticMonitorDialog(java.awt.Frame parent, boolean modal) {
+    public StatisticMonitorDialog(PetriNetsFrame parent, boolean modal) {
         super(parent, modal);
-        initComponents();
         this.parent = parent;
+        this.jfxPanel = new JFXPanel();
+        this.graphPetriNet = parent.getPetriNetsPanel().getGraphNet();
+        this.formulaBuilderService = new FormulaBuilderServiceImpl(graphPetriNet);
+
+        initComponents();
+
+        this.lineChartBuilderService = new LineChartBuilderService();
+        lineChartBuilderService.createChart(jfxPanel, new ChartConfigDto(
+                "Petri simulation statistic",
+                "Simulation time",
+                "Petri metric",
+                "Petri metric change"
+        ));
     }
+
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -101,13 +125,12 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         formulaInputField.setColumns(20);
         formulaInputField.setLineWrap(true);
         formulaInputField.setRows(5);
-        formulaInputField.setText("Enter your formula...");
         formulaInputField.setToolTipText("Enter your formula...");
         formulaInputField.setPreferredSize(new java.awt.Dimension(232, 60));
         formulaInputField.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
-                onFormulaFieldKeyEventPerformed(e);
+                onFormulaFieldChange(e);
             }
         });
         formulaPanel.setViewportView(formulaInputField);
@@ -118,18 +141,8 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         contentLayout.setTopComponent(formulaBarPanel);
 
         mainContentPanel.setLayout(new javax.swing.BoxLayout(mainContentPanel, javax.swing.BoxLayout.LINE_AXIS));
-
-        javax.swing.GroupLayout chartViewPanelLayout = new javax.swing.GroupLayout(chartViewPanel);
-        chartViewPanel.setLayout(chartViewPanelLayout);
-        chartViewPanelLayout.setHorizontalGroup(
-                chartViewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGap(0, 845, Short.MAX_VALUE)
-        );
-        chartViewPanelLayout.setVerticalGroup(
-                chartViewPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGap(0, 470, Short.MAX_VALUE)
-        );
-
+        chartViewPanel.setLayout(new BorderLayout());
+        chartViewPanel.add(jfxPanel, BorderLayout.CENTER);
         contentTabs.addTab("Chart view", chartViewPanel);
 
         javax.swing.GroupLayout tableViewPanelLayout = new javax.swing.GroupLayout(tableViewPanel);
@@ -156,11 +169,12 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
 
     private void formulaInfoBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_formulaInfoBtnActionPerformed
         SelectFunctionDialog selectFunctionDialog = new SelectFunctionDialog(this.parent, true);
+        selectFunctionDialog.setLocationRelativeTo(this);
         selectFunctionDialog.setVisible(true);
-        FunctionType selectedFunction = selectFunctionDialog.getSelectedFunction();
+        PetriStatFunction selectedFunction = selectFunctionDialog.getSelectedFunction();
         if (selectedFunction != null) {
-            String formula = selectedFunction.getFunctionName();
-            formulaInputField.setText(formula); //TODO BUILD FORMULA HERE
+            String formula = formulaBuilderService.updateFormula(formulaInputField.getText(), selectedFunction.getFunctionName());
+            formulaInputField.setText(formula);
         }
     }//GEN-LAST:event_formulaInfoBtnActionPerformed
 
@@ -168,7 +182,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         formulaInputField.setText("");
     }//GEN-LAST:event_clearFormulaBtnActionPerformed
 
-    private void onFormulaFieldKeyEventPerformed(KeyEvent e) {
+    private void onFormulaFieldChange(KeyEvent e) {
         if (formulaInputField.getText().trim().isEmpty()) {
             return;
         }
@@ -178,7 +192,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         } else if (e.getKeyCode() == KeyEvent.VK_DOWN && formulaSuggestionPopup.isVisible()) {
             formulaSuggestionPopup.requestFocusInWindow();
         } else if (e.getKeyCode() == KeyEvent.VK_ENTER && formulaSuggestionPopup.isVisible()) {
-            System.out.println(formulaSuggestionPopup.getComponent());
             formulaSuggestionPopup.setVisible(false);
         }
     }
@@ -186,18 +199,14 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     private void showFormulaSuggestions() {
         String input = formulaInputField.getText().trim();
         formulaSuggestionPopup.setVisible(false);
-        Pattern pattern = Pattern.compile(".*[+\\-*/(]([^+\\-*/()]*)$");
-        Matcher matcher = pattern.matcher(input);
-        String formulaPrefix = matcher.find() ? matcher.group(1) : input;
-        List<String> filteredSuggestions = FunctionType.getFunctionNames().stream()
-                .filter(s -> s.toLowerCase().startsWith(formulaPrefix.toLowerCase()))
-                .collect(Collectors.toList());
+        List<String> filteredSuggestions = formulaBuilderService.getSuggestions(input);
         if (!filteredSuggestions.isEmpty()) {
             formulaSuggestionPopup.removeAll();
             for (String suggestion : filteredSuggestions) {
                 JMenuItem item = new JMenuItem(suggestion);
                 item.addActionListener(e -> {
-                    formulaInputField.setText(suggestion); //TODO BUILD FORMULA HERE
+                    String formula = formulaBuilderService.updateFormula(formulaInputField.getText(), suggestion);
+                    formulaInputField.setText(formula);
                     formulaSuggestionPopup.setVisible(false);
                 });
                 formulaSuggestionPopup.add(item);
@@ -226,5 +235,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     private javax.swing.JPanel mainContentPanel;
     private javax.swing.JPanel tableViewPanel;
     private javax.swing.JPopupMenu formulaSuggestionPopup;
+    private final JFXPanel jfxPanel;
     // End of variables declaration//GEN-END:variables
 }

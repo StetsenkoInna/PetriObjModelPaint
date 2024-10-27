@@ -14,7 +14,7 @@ import graphreuse.GraphNetParametersFrame;
 import graphpresentation.undoable_edits.AddGraphElementEdit;
 
 import java.awt.*;
-import java.awt.event.InputEvent;
+import java.awt.event.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -37,10 +37,10 @@ import graphpresentation.actions.RewindAction;
 import graphpresentation.actions.RunNetAction;
 import graphpresentation.actions.RunOneEventAction;
 import graphpresentation.actions.StopSimulationAction;
+import javafx.application.Platform;
+import javafx.embed.swing.JFXPanel;
 
 import java.awt.Dialog.ModalityType;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.ObjectInputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -1555,8 +1555,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_netNameTextFieldActionPerformed
 
     private void openMonitorActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openMonitorActionPerformed
-        StatisticMonitorDialog dialog = new StatisticMonitorDialog(this, false);
-        dialog.setVisible(true);
+        if (statisticMonitorDialog == null) {
+            statisticMonitorDialog = new StatisticMonitorDialog(this, false);
+        }
+        statisticMonitorDialog.setLocationRelativeTo(this);
+        statisticMonitorDialog.setVisible(true);
     }//GEN-LAST:event_openMonitorActionPerformed
 
     private void openMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMenuItemActionPerformed
@@ -2171,4 +2174,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * can be interrupted if stop button is pressed
      */
     public Thread animationThread;
+
+    private StatisticMonitorDialog statisticMonitorDialog;
 }
