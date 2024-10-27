@@ -125,6 +125,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         formulaInputField.setColumns(20);
         formulaInputField.setLineWrap(true);
         formulaInputField.setRows(5);
+        formulaInputField.setFont(new Font("Consolas", Font.PLAIN, 14));
         formulaInputField.setToolTipText("Enter your formula...");
         formulaInputField.setPreferredSize(new java.awt.Dimension(232, 60));
         formulaInputField.addKeyListener(new KeyAdapter() {
@@ -183,27 +184,29 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     }//GEN-LAST:event_clearFormulaBtnActionPerformed
 
     private void onFormulaFieldChange(KeyEvent e) {
-        if (formulaInputField.getText().trim().isEmpty()) {
+        String formula = formulaInputField.getText().trim();
+        if (formula.isEmpty()) {
             return;
         }
-        this.selectedElements = formulaBuilderService.getSelectedElements(formulaInputField.getText());
-        char keyChar = e.getKeyChar();
-        if (Character.isLetterOrDigit(keyChar) || keyChar == KeyEvent.VK_BACK_SPACE) {
-            showFormulaSuggestions();
-        } else if (e.getKeyCode() == KeyEvent.VK_DOWN && formulaSuggestionPopup.isVisible()) {
-            formulaSuggestionPopup.requestFocusInWindow();
-        } else if (e.getKeyCode() == KeyEvent.VK_ENTER && formulaSuggestionPopup.isVisible()) {
-            formulaSuggestionPopup.setVisible(false);
-        }
+        this.selectedElements = formulaBuilderService.getSelectedPetriElementNames(formula);
+        List<String> suggestions = formulaBuilderService.getFormulaSuggestions(formula);
+        updateFormulaSuggestions(suggestions);
+
+//        char keyChar = e.getKeyChar();
+//        if (Character.isLetterOrDigit(keyChar) || keyChar == KeyEvent.VK_BACK_SPACE) {
+//            showFormulaSuggestions();
+//        } else if (e.getKeyCode() == KeyEvent.VK_DOWN && formulaSuggestionPopup.isVisible()) {
+//            formulaSuggestionPopup.requestFocusInWindow();
+//        } else if (e.getKeyCode() == KeyEvent.VK_ENTER && formulaSuggestionPopup.isVisible()) {
+//            formulaSuggestionPopup.setVisible(false);
+//        }
     }
 
-    private void showFormulaSuggestions() {
-        String input = formulaInputField.getText().trim();
+    private void updateFormulaSuggestions(List<String> suggestions) {
         formulaSuggestionPopup.setVisible(false);
-        List<String> filteredSuggestions = formulaBuilderService.getSuggestions(input);
-        if (!filteredSuggestions.isEmpty()) {
+        if (!suggestions.isEmpty()) {
             formulaSuggestionPopup.removeAll();
-            for (String suggestion : filteredSuggestions) {
+            for (String suggestion : suggestions) {
                 JMenuItem item = new JMenuItem(suggestion);
                 item.addActionListener(e -> {
                     String formula = formulaBuilderService.updateFormula(formulaInputField.getText(), suggestion);

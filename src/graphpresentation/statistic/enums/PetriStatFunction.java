@@ -33,13 +33,13 @@ public enum PetriStatFunction {
             "T_MAX",
             "Observed transition max MAX('T1')",
             "Returns observed maximum for selected transition",
-            FunctionType.POSITION_BASED
+            FunctionType.TRANSITION_BASED
     ),
     T_AVG(
             "T_AVG",
             "Observed transition average AVG('T1')",
             "Returns observed average for selected transition",
-            FunctionType.POSITION_BASED
+            FunctionType.TRANSITION_BASED
     );
 
     PetriStatFunction(String functionName, String title, String description, FunctionType functionType) {

@@ -7,13 +7,13 @@ import graphpresentation.statistic.dto.PetriElementStatisticDto;
 import graphpresentation.statistic.enums.FunctionType;
 import graphpresentation.statistic.enums.PetriStatFunction;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
+
 
 public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     private final GraphPetriNet graphPetriNet;
+    private static final List<PetriStatFunction> PETRI_STAT_FUNCTIONS = Arrays.asList(PetriStatFunction.values());
     private static final List<String> OPERATORS = Arrays.asList("+", "-", "*", "/");
 
     public FormulaBuilderServiceImpl(GraphPetriNet graphPetriNet) {
@@ -22,53 +22,49 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
 
     @Override
     public String updateFormula(String formula, String input) {
-        int lastOperatorIndex = findLastOperatorIndex(formula);
-        String lastPart = lastOperatorIndex == -1 ? formula : formula.substring(lastOperatorIndex + 1).trim();
-        if (lastPart.contains("(")) {
-            int lastOpenParenIndex = lastPart.lastIndexOf("(");
-            int closingParenIndex = lastPart.indexOf(")", lastOpenParenIndex);
-            if (closingParenIndex != -1) {
-                String prefix = formula.substring(0, lastOperatorIndex + 1).trim();
-                String updatedFunctionCall = lastPart.substring(0, lastOpenParenIndex + 1) + input + ")";
-                return prefix + updatedFunctionCall;
-            }
-        }
-
         return formula + input;
     }
 
     @Override
-    public List<String> getSuggestions(String input) {
-        List<String> suggestions = new ArrayList<>();
-        String trimmedInput = input.trim();
-        if (trimmedInput.isEmpty()) {
-            return suggestions;
+    public List<String> getFormulaSuggestions(String input) {
+        if (input == null || input.isEmpty()) {
+            return PetriStatFunction.getFunctionNames();
         }
+        String lastOperation = getLastOperation(input);
 
-
-        int lastOperatorIndex = findLastOperatorIndex(trimmedInput);
-        String lastPart = lastOperatorIndex == -1 ? trimmedInput : trimmedInput.substring(lastOperatorIndex + 1).trim();
-
-        if (lastPart.contains("(")) {
-            String functionName = lastPart.substring(0, lastPart.indexOf("(")).trim();
-            PetriStatFunction currentFunction = PetriStatFunction.findFunctionByName(functionName);
-            if (currentFunction != null) {
-                String argumentName = lastPart.substring(lastPart.indexOf("(") + 1).trim();
-                suggestions.addAll(getElementSuggestions(currentFunction, argumentName));
-            }
+        if (lastOperation.isEmpty()) {
+            return PetriStatFunction.filterFunctionsByName(input);
+        } else if (lastOperation.endsWith("(")) {
+            String functionName = lastOperation.substring(0, lastOperation.length() - 1);
+            String functionArgumentName = getFunctionArgumentName(lastOperation);
+            PetriStatFunction function = PetriStatFunction.findFunctionByName(functionName);
+            return function != null
+                    ? getElementSuggestions(function, functionArgumentName)
+                    : Collections.emptyList();
+        } else if (OPERATORS.contains(lastOperation)) {
+            return PetriStatFunction.getFunctionNames();
         } else {
-            if (lastPart.isEmpty()) {
-                suggestions.addAll(getOperatorSuggestions());
-            } else {
-                suggestions.addAll(PetriStatFunction.filterFunctionsByName(input));
-            }
+            return PetriStatFunction.getFunctionNames().stream()
+                    .filter(key -> key.toUpperCase().startsWith(lastOperation.toUpperCase()))
+                    .collect(Collectors.toList());
         }
+    }
 
-        return suggestions;
+    private String getLastOperation(String input) {
+        String trimmedInput = input.trim();
+        int lastOperatorIndex = Math.max(
+                trimmedInput.lastIndexOf('+'),
+                Math.max(trimmedInput.lastIndexOf('-'),
+                        Math.max(trimmedInput.lastIndexOf('*'),
+                                trimmedInput.lastIndexOf('/')))
+        );
+        return lastOperatorIndex >= 0
+                ? trimmedInput.substring(lastOperatorIndex + 1).trim()
+                : trimmedInput;
     }
 
     @Override
-    public List<String> getSelectedElements(String formula) {
+    public List<String> getSelectedPetriElementNames(String formula) {
         List<String> contents = new ArrayList<>();
         int openParenIndex = 0;
         while ((openParenIndex = formula.indexOf("(", openParenIndex)) != -1) {
@@ -90,7 +86,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
 
         for (String part : parts) {
             part = part.trim();
-            String elementName = getArgumentName(part);
+            String elementName = getFunctionArgumentName(part);
             PetriElementStatisticDto statistic = statistics.stream()
                     .filter(petriElementStatistic -> petriElementStatistic.getElementName().equals(elementName))
                     .findFirst().orElse(null);
@@ -113,39 +109,45 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         return result;
     }
 
-    private int findLastOperatorIndex(String input) {
-        int lastPlus = input.lastIndexOf("+");
-        int lastMinus = input.lastIndexOf("-");
-        int lastMultiply = input.lastIndexOf("*");
-        int lastDivide = input.lastIndexOf("/");
-        return Math.max(Math.max(lastPlus, lastMinus), Math.max(lastMultiply, lastDivide));
-    }
-
     private List<String> getElementSuggestions(PetriStatFunction petriStatFunction, String input) {
+        if (petriStatFunction == null) {
+            return new ArrayList<>();
+        }
+
         List<String> elements = new ArrayList<>();
+        List<String> placeNames = graphPetriNet.getGraphPetriPlaceList().stream()
+                .map(GraphPetriPlace::getName)
+                .collect(Collectors.toList());
+        List<String> transitionNames = graphPetriNet.getGraphPetriTransitionList().stream()
+                .map(GraphTransition::getName)
+                .collect(Collectors.toList());
         if (petriStatFunction.getFunctionType().equals(FunctionType.POSITION_BASED)) {
-            List<String> petriPlaceSuggestions = graphPetriNet.getGraphPetriPlaceList().stream()
-                    .map(GraphPetriPlace::getName)
-                    .filter(place -> place.toUpperCase().startsWith(input))
-                    .collect(Collectors.toList());
-            elements.addAll(petriPlaceSuggestions);
+            if (input != null) {
+                placeNames = placeNames.stream()
+                        .filter(name -> name.toUpperCase().startsWith(input.toUpperCase()))
+                        .collect(Collectors.toList());
+            }
+            elements.addAll(placeNames);
+        } else if (petriStatFunction.getFunctionType().equals(FunctionType.TRANSITION_BASED)) {
+            if (input != null) {
+                transitionNames = transitionNames.stream()
+                        .filter(name -> name.toUpperCase().startsWith(input.toUpperCase()))
+                        .collect(Collectors.toList());
+            }
+            elements.addAll(transitionNames);
         } else {
-            List<String> petriPlaceSuggestions = graphPetriNet.getGraphPetriTransitionList().stream()
-                    .map(GraphTransition::getName)
-                    .filter(place -> place.toUpperCase().startsWith(input))
-                    .collect(Collectors.toList());
-            elements.addAll(petriPlaceSuggestions);
+            elements.addAll(placeNames);
+            elements.addAll(transitionNames);
         }
         return elements;
     }
 
-    private List<String> getOperatorSuggestions() {
-        return Arrays.asList("+", "-", "*", "/");
-    }
-
-    private String getArgumentName(String part) {
-        int startIndex = part.indexOf("(") + 1;
-        int endIndex = part.indexOf(")", startIndex);
-        return part.substring(startIndex, endIndex).trim();
+    private String getFunctionArgumentName(String input) {
+        int openParenIndex = input.indexOf('(');
+        int closeParenIndex = input.lastIndexOf(')');
+        if (openParenIndex > 0 && closeParenIndex > openParenIndex) {
+            return input.substring(openParenIndex + 1, closeParenIndex).trim().toUpperCase();
+        }
+        return "";
     }
 }
