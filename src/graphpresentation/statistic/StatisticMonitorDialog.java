@@ -45,10 +45,10 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         initComponents();
 
         this.chartConfigDto = new ChartConfigDto(
-                "Petri simulation statistic",
+                "Petri statistic",
                 "Simulation time",
-                "Petri metric",
-                "Values"
+                "Metric",
+                true
         );
         this.lineChartBuilderService = new LineChartBuilderService();
         lineChartBuilderService.createChart(jfxPanel, chartConfigDto);
@@ -181,10 +181,21 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         exportCsvBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/export_csv_icon.png")));
         exportCsvBtn.addActionListener(this::onExportCsvPerformed);
 
+        scaleChartBtn = new JButton("Scale chart");
+        scaleChartBtn.setPreferredSize(new Dimension(100, 40));
+        scaleChartBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        scaleChartBtn.setVerticalAlignment(SwingConstants.CENTER);
+        scaleChartBtn.setContentAreaFilled(false);
+        scaleChartBtn.setToolTipText("Scale chart to original size");
+        scaleChartBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        scaleChartBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/scale_icon.png")));
+        scaleChartBtn.addActionListener(this::onScalePerformed);
+
         UIManager.put("MenuBar.background", Color.decode("#f4f4f4"));
         chartActionsBar.add(chartSettingsBtn);
         chartActionsBar.add(chartDownloadBtn);
         chartActionsBar.add(exportCsvBtn);
+        chartActionsBar.add(scaleChartBtn);
         chartActionsBar.setPreferredSize(new Dimension(100, 30));
 
         chartViewPanel.add(chartActionsBar, BorderLayout.NORTH);
@@ -203,7 +214,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
                         .addGap(0, 470, Short.MAX_VALUE)
         );
 
-        contentTabs.addTab("Table view", tableViewPanel);
+//        contentTabs.addTab("Table view", tableViewPanel);
 
         mainContentPanel.add(contentTabs);
 
@@ -234,15 +245,10 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         ChartSettingsDialog chartSettingsDialog = new ChartSettingsDialog(parent, true, chartConfigDto, lineChartBuilderService);
         chartSettingsDialog.setLocationRelativeTo(this);
         chartSettingsDialog.setVisible(true);
-        chartSettingsDialog.addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) {
-                ChartConfigDto configDto = chartSettingsDialog.getChartConfigDto();
-                if (configDto != null) {
-                    chartConfigDto = configDto;
-                }
-            }
-        });
+        ChartConfigDto configDto = chartSettingsDialog.getChartConfigDto();
+        if (configDto != null) {
+            chartConfigDto = configDto;
+        }
     }
 
     private void onChartDownloadPerformed(java.awt.event.ActionEvent evt) {
@@ -265,6 +271,11 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
             lineChartBuilderService.exportChartAsTable(fileName);
         }
     }
+
+    private void onScalePerformed(java.awt.event.ActionEvent evt) {
+        lineChartBuilderService.autoSizeChart();
+    }
+
 
     private void onFormulaFieldChange(KeyEvent e) {
         String formula = formulaInputField.getText().trim();
@@ -339,6 +350,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     private javax.swing.JButton chartSettingsBtn;
     private javax.swing.JButton chartDownloadBtn;
     private javax.swing.JButton exportCsvBtn;
+    private javax.swing.JButton scaleChartBtn;
     private javax.swing.JSplitPane contentLayout;
     private javax.swing.JTabbedPane contentTabs;
     private javax.swing.JPanel formulaActionsGroup;
@@ -368,12 +380,9 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         if (!isFormulaValid) {
             return;
         }
-        statistics.forEach(System.out::println);
         Number formulaValue = formulaBuilderService.calculateFormula(formulaInputField.getText(), statistics);
         if (formulaValue != null) {
-            System.out.println("Result value:" + formulaValue);
-            int currentSeriesId = lineChartBuilderService.getCurrentSeriesId();
-            lineChartBuilderService.appendData(currentSeriesId, new XYChart.Data<>(currentTime, formulaValue));
+            lineChartBuilderService.appendData(new XYChart.Data<>(currentTime, formulaValue));
         }
     }
 }

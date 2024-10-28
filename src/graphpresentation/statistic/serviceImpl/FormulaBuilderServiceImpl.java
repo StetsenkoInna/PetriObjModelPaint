@@ -208,9 +208,6 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             }
             functionMatcher.appendTail(numericExpression);
             result = ExpressionEvaluateUtil.evaluateExpression(numericExpression.toString());
-
-            System.out.println("IN FORMULA:" + formula);
-            System.out.println("OUT FORMULA:" + numericExpression);
         } catch (Exception e) {
             e.printStackTrace();
         }

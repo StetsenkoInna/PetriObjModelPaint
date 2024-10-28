@@ -7,11 +7,12 @@ import javafx.scene.chart.XYChart;
 public interface ChartBuilderService {
     void createChart(JFXPanel jfxPanel, ChartConfigDto configDto);
     void clearChart();
-    void appendData(Integer seriesId, XYChart.Data<Number, Number> data);
+    void appendData(XYChart.Data<Number, Number> data);
     void changeSeriesName(Integer seriesId, String name);
     void updateChartConfig(ChartConfigDto chartConfigDto);
     void exportChartAsImage(String directory);
     void exportChartAsTable(String directory);
+    void autoSizeChart();
     boolean isChartEmpty();
     int getCurrentSeriesId();
     void createSeries(String name);

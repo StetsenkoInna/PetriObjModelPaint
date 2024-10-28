@@ -1,16 +1,20 @@
 package graphpresentation.statistic.serviceImpl;
 
+import com.sun.javafx.charts.Legend;
 import graphpresentation.statistic.dto.ChartConfigDto;
 import graphpresentation.statistic.services.ChartBuilderService;
 import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.scene.Cursor;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.WritableImage;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.StackPane;
 
 import javax.imageio.ImageIO;
@@ -37,17 +41,73 @@ public class LineChartBuilderService implements ChartBuilderService {
         Platform.runLater(() -> {
             NumberAxis xAxis = new NumberAxis();
             NumberAxis yAxis = new NumberAxis();
+            xAxis.setAutoRanging(true);
+            yAxis.setAutoRanging(true);
             xAxis.setLabel(configDto.getxAxisTitle());
             yAxis.setLabel(configDto.getyAxisTitle());
 
             lineChart = new LineChart<>(xAxis, yAxis);
             lineChart.setTitle(configDto.getTitle());
+            createLineChartScroll(xAxis, yAxis);
 
             String cssFile = new File("src/graphpresentation/statistic/styles/line-chart.css").toURI().toString();
             lineChart.getStylesheets().add(cssFile);
 
             StackPane root = new StackPane(lineChart);
             jfxPanel.setScene(new Scene(root, 800, 600));
+        });
+    }
+
+    private void createLineChartScroll(NumberAxis xAxis, NumberAxis yAxis) {
+        lineChart.setOnScroll(event -> {
+            lineChart.getXAxis().setAutoRanging(false);
+            lineChart.getYAxis().setAutoRanging(false);
+
+            double zoomFactor = 0.1;
+            double xRange = xAxis.getUpperBound() - xAxis.getLowerBound();
+            double yRange = yAxis.getUpperBound() - yAxis.getLowerBound();
+            double deltaX = xRange * zoomFactor;
+            double deltaY = yRange * zoomFactor;
+
+            if (event.getDeltaY() > 0) {
+                xAxis.setLowerBound(xAxis.getLowerBound() + deltaX);
+                xAxis.setUpperBound(xAxis.getUpperBound() - deltaX);
+                yAxis.setLowerBound(yAxis.getLowerBound() + deltaY);
+                yAxis.setUpperBound(yAxis.getUpperBound() - deltaY);
+            } else if (event.getDeltaY() < 0) {
+                xAxis.setLowerBound(xAxis.getLowerBound() - deltaX);
+                xAxis.setUpperBound(xAxis.getUpperBound() + deltaX);
+                yAxis.setLowerBound(yAxis.getLowerBound() - deltaY);
+                yAxis.setUpperBound(yAxis.getUpperBound() + deltaY);
+            }
+        });
+
+        final double[] dragAnchorX = new double[1];
+        final double[] dragAnchorY = new double[1];
+
+        lineChart.setOnMousePressed(event -> {
+            if (event.isPrimaryButtonDown()) {
+                lineChart.setCursor(Cursor.MOVE);
+                dragAnchorX[0] = event.getX();
+                dragAnchorY[0] = event.getY();
+            }
+        });
+
+        lineChart.setOnMouseReleased(event -> lineChart.setCursor(Cursor.DEFAULT));
+
+        lineChart.setOnMouseDragged(event -> {
+            if (event.isPrimaryButtonDown()) {
+                double deltaX = (dragAnchorX[0] - event.getX()) * (xAxis.getUpperBound() - xAxis.getLowerBound()) / lineChart.getWidth();
+                double deltaY = (event.getY() - dragAnchorY[0]) * (yAxis.getUpperBound() - yAxis.getLowerBound()) / lineChart.getHeight(); // Invert Y movement
+
+                xAxis.setLowerBound(xAxis.getLowerBound() + deltaX);
+                xAxis.setUpperBound(xAxis.getUpperBound() + deltaX);
+                yAxis.setLowerBound(yAxis.getLowerBound() + deltaY);
+                yAxis.setUpperBound(yAxis.getUpperBound() + deltaY);
+
+                dragAnchorX[0] = event.getX();
+                dragAnchorY[0] = event.getY();
+            }
         });
     }
 
@@ -58,17 +118,19 @@ public class LineChartBuilderService implements ChartBuilderService {
     }
 
     @Override
-    public void appendData(Integer seriesId, XYChart.Data<Number, Number> data) {
+    public void appendData(XYChart.Data<Number, Number> data) {
         Platform.runLater(() -> {
-            XYChart.Series<Number, Number> series = lineChart.getData().get(seriesId);
+            XYChart.Series<Number, Number> series = lineChart.getData().get(currentSeriesId);
             series.getData().add(data);
-            XYChart.Data<Number, Number> dataPoint = series.getData().get(series.getData().size() - 1);
-            String tooltipMessage = chartConfigDto.getxAxisTitle() + ":" + dataPoint.getXValue() + "\n" +
-                    chartConfigDto.getyAxisTitle() + ":" + dataPoint.getYValue();
-            Tooltip tooltip = new Tooltip(tooltipMessage);
-            Tooltip.install(dataPoint.getNode(), tooltip);
-            dataPoint.getNode().setOnMouseEntered(event -> dataPoint.getNode().getStyleClass().add("onDataPointHover"));
-            dataPoint.getNode().setOnMouseExited(event -> dataPoint.getNode().getStyleClass().remove("onDataPointHover"));
+            if (chartConfigDto.getDisplayDataMarkers()) {
+                XYChart.Data<Number, Number> dataPoint = series.getData().get(series.getData().size() - 1);
+                String tooltipMessage = chartConfigDto.getxAxisTitle() + ":" + dataPoint.getXValue() + "\n" +
+                        chartConfigDto.getyAxisTitle() + ":" + dataPoint.getYValue();
+                Tooltip tooltip = new Tooltip(tooltipMessage);
+                Tooltip.install(dataPoint.getNode(), tooltip);
+                dataPoint.getNode().setOnMouseEntered(event -> dataPoint.getNode().getStyleClass().add("onDataPointHover"));
+                dataPoint.getNode().setOnMouseExited(event -> dataPoint.getNode().getStyleClass().remove("onDataPointHover"));
+            }
         });
     }
 
@@ -88,6 +150,7 @@ public class LineChartBuilderService implements ChartBuilderService {
             lineChart.setTitle(chartConfigDto.getTitle());
             lineChart.getXAxis().setLabel(chartConfigDto.getxAxisTitle());
             lineChart.getYAxis().setLabel(chartConfigDto.getyAxisTitle());
+            lineChart.setCreateSymbols(chartConfigDto.getDisplayDataMarkers());
         });
     }
 
@@ -108,8 +171,12 @@ public class LineChartBuilderService implements ChartBuilderService {
 
     @Override
     public void exportChartAsTable(String directory) {
+        File documentsFolder = new File(directory, chartConfigDto.getTitle());
+        if (!documentsFolder.exists()) {
+            documentsFolder.mkdirs();
+        }
         for (XYChart.Series<Number, Number> series : lineChart.getData()) {
-            String filePath = directory + "/" + chartConfigDto.getTitle() + "_" + series.getName() + ".csv";
+            String filePath = documentsFolder.getPath() + "/" + series.getName() + ".csv";
             try (FileWriter writer = new FileWriter(filePath)) {
                 writer.append(chartConfigDto.getxAxisTitle()).append(",")
                         .append(chartConfigDto.getyAxisTitle()).append("\n");
@@ -125,6 +192,16 @@ public class LineChartBuilderService implements ChartBuilderService {
         showMessageDialog(null, "Chart data successfully exported", "Chart data export", JOptionPane.PLAIN_MESSAGE);
     }
 
+    @Override
+    public void autoSizeChart() {
+        Platform.runLater(() -> {
+            lineChart.getXAxis().setAutoRanging(true);
+            lineChart.getYAxis().setAutoRanging(true);
+            lineChart.getXAxis().autosize();
+            lineChart.getYAxis().autosize();
+            lineChart.autosize();
+        });
+    }
 
     @Override
     public boolean isChartEmpty() {
@@ -139,10 +216,38 @@ public class LineChartBuilderService implements ChartBuilderService {
     @Override
     public void createSeries(String name) {
         Platform.runLater(() -> {
-            XYChart.Series<Number, Number> series = new XYChart.Series<>();
-            series.setName(name);
-            lineChart.getData().add(series);
             currentSeriesId++;
+            XYChart.Series<Number, Number> series = new XYChart.Series<>();
+            series.setName(name + "_" + currentSeriesId);
+            lineChart.getData().add(series);
+
+            Node legendNode = lineChart.getChildrenUnmodifiable()
+                    .stream()
+                    .filter(node -> node instanceof Legend)
+                    .findFirst()
+                    .orElse(null);
+            if (legendNode == null) {
+                return;
+            }
+            Legend legend = (Legend) legendNode;
+            for (Legend.LegendItem legendItem : legend.getItems()) {
+                XYChart.Series<Number, Number> dataSeries = lineChart.getData()
+                        .stream().filter(ser -> ser.getName().equals(legendItem.getText()))
+                        .findFirst()
+                        .orElse(null);
+                if (dataSeries == null) {
+                    continue;
+                }
+                legendItem.getSymbol().setCursor(Cursor.HAND);
+                legendItem.getSymbol().setOnMouseClicked(event -> {
+                    if (event.getButton() == MouseButton.PRIMARY) {
+                        dataSeries.getNode().setVisible(!dataSeries.getNode().isVisible());
+                        if (chartConfigDto.getDisplayDataMarkers()) {
+                            dataSeries.getData().forEach(dataPoint -> dataPoint.getNode().setVisible(dataSeries.getNode().isVisible()));
+                        }
+                    }
+                });
+            }
         });
     }
 }

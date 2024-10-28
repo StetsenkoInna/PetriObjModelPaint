@@ -4,13 +4,13 @@ public class ChartConfigDto {
     private String title;
     private String xAxisTitle;
     private String yAxisTitle;
-    private String seriesName;
+    private Boolean displayDataMarkers;
 
-    public ChartConfigDto(String title, String xAxisTitle, String yAxisTitle, String seriesName) {
+    public ChartConfigDto(String title, String xAxisTitle, String yAxisTitle, Boolean displayDataMarkers) {
         this.title = title;
         this.xAxisTitle = xAxisTitle;
         this.yAxisTitle = yAxisTitle;
-        this.seriesName = seriesName;
+        this.displayDataMarkers = displayDataMarkers;
     }
 
     public String getTitle() {
@@ -37,11 +37,11 @@ public class ChartConfigDto {
         this.yAxisTitle = yAxisTitle;
     }
 
-    public String getSeriesName() {
-        return seriesName;
+    public Boolean getDisplayDataMarkers() {
+        return displayDataMarkers;
     }
 
-    public void setSeriesName(String seriesName) {
-        this.seriesName = seriesName;
+    public void setDisplayDataMarkers(Boolean displayDataMarkers) {
+        this.displayDataMarkers = displayDataMarkers;
     }
 }

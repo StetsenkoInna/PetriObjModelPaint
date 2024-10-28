@@ -7,6 +7,8 @@ package graphpresentation.statistic;
 import graphpresentation.statistic.dto.ChartConfigDto;
 import graphpresentation.statistic.services.ChartBuilderService;
 
+import javax.swing.*;
+
 /**
  * @author kachm
  */
@@ -34,7 +36,7 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        selectFunctionPanel = new javax.swing.JPanel();
+        chartConfigPanel = new javax.swing.JPanel();
         chartNamePane = new javax.swing.JPanel();
         chartNameLabel = new javax.swing.JLabel();
         chartNameField = new javax.swing.JTextField();
@@ -44,17 +46,19 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         yAxisPane = new javax.swing.JPanel();
         yAxisLabel = new javax.swing.JLabel();
         yAxisNameField = new javax.swing.JTextField();
+        displayMarkersLabel = new javax.swing.JLabel();
+        displayMarkersPane = new javax.swing.JPanel();
         actionsPanel = new javax.swing.JPanel();
         filler1 = new javax.swing.Box.Filler(new java.awt.Dimension(0, 0), new java.awt.Dimension(0, 0), new java.awt.Dimension(32767, 0));
-        selectFunctionBtn = new javax.swing.JButton();
+        configChartConfigBtn = new javax.swing.JButton();
         cancelSelectionBtn = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Chart settings");
 
-        selectFunctionPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Chart settings"));
-        selectFunctionPanel.setPreferredSize(new java.awt.Dimension(200, 200));
-        selectFunctionPanel.setLayout(new java.awt.GridLayout(3, 0));
+        chartConfigPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Chart settings"));
+        chartConfigPanel.setPreferredSize(new java.awt.Dimension(200, 200));
+        chartConfigPanel.setLayout(new java.awt.GridLayout(4, 0));
 
         chartNamePane.setLayout(new java.awt.BorderLayout());
 
@@ -63,7 +67,7 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         chartNamePane.add(chartNameLabel, java.awt.BorderLayout.PAGE_START);
         chartNamePane.add(chartNameField, java.awt.BorderLayout.CENTER);
 
-        selectFunctionPanel.add(chartNamePane);
+        chartConfigPanel.add(chartNamePane);
 
         xAxisPane.setLayout(new java.awt.BorderLayout());
 
@@ -72,7 +76,7 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         xAxisPane.add(xAxisLabel, java.awt.BorderLayout.PAGE_START);
         xAxisPane.add(xAxisNameField, java.awt.BorderLayout.CENTER);
 
-        selectFunctionPanel.add(xAxisPane);
+        chartConfigPanel.add(xAxisPane);
 
         yAxisPane.setLayout(new java.awt.BorderLayout());
 
@@ -81,21 +85,30 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         yAxisPane.add(yAxisLabel, java.awt.BorderLayout.PAGE_START);
         yAxisPane.add(yAxisNameField, java.awt.BorderLayout.CENTER);
 
-        selectFunctionPanel.add(yAxisPane);
+        chartConfigPanel.add(yAxisPane);
 
-        getContentPane().add(selectFunctionPanel, java.awt.BorderLayout.CENTER);
+        displayMarkersLabel.setText("Display data markers");
+        markerCheckBox = new JCheckBox("Is marker displayed");
+        markerCheckBox.setSelected(chartConfigDto.getDisplayDataMarkers());
+        displayMarkersPane.setLayout(new java.awt.BorderLayout());
+        displayMarkersPane.add(displayMarkersLabel, java.awt.BorderLayout.PAGE_START);
+        displayMarkersPane.add(markerCheckBox, java.awt.BorderLayout.CENTER);
+
+        chartConfigPanel.add(displayMarkersPane);
+
+        getContentPane().add(chartConfigPanel, java.awt.BorderLayout.CENTER);
 
         actionsPanel.add(filler1);
 
-        selectFunctionBtn.setText("OK");
-        selectFunctionBtn.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        selectFunctionBtn.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        selectFunctionBtn.addActionListener(new java.awt.event.ActionListener() {
+        configChartConfigBtn.setText("OK");
+        configChartConfigBtn.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        configChartConfigBtn.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        configChartConfigBtn.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                selectFunctionBtnActionPerformed(evt);
+                confirmChartConfigPerformed(evt);
             }
         });
-        actionsPanel.add(selectFunctionBtn);
+        actionsPanel.add(configChartConfigBtn);
 
         cancelSelectionBtn.setText("Cancel");
         cancelSelectionBtn.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
@@ -112,12 +125,12 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void selectFunctionBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_selectFunctionBtnActionPerformed
+    private void confirmChartConfigPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_selectFunctionBtnActionPerformed
         chartConfigDto = new ChartConfigDto(
                 chartNameField.getText(),
                 xAxisNameField.getText(),
                 yAxisNameField.getText(),
-                ""
+                markerCheckBox.isSelected()
         );
         chartBuilderService.updateChartConfig(chartConfigDto);
         dispose();
@@ -136,14 +149,17 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
     private javax.swing.JLabel chartNameLabel;
     private javax.swing.JPanel chartNamePane;
     private javax.swing.Box.Filler filler1;
-    private javax.swing.JButton selectFunctionBtn;
-    private javax.swing.JPanel selectFunctionPanel;
+    private javax.swing.JButton configChartConfigBtn;
+    private javax.swing.JPanel chartConfigPanel;
     private javax.swing.JLabel xAxisLabel;
     private javax.swing.JTextField xAxisNameField;
     private javax.swing.JPanel xAxisPane;
     private javax.swing.JLabel yAxisLabel;
     private javax.swing.JTextField yAxisNameField;
     private javax.swing.JPanel yAxisPane;
+    private javax.swing.JPanel displayMarkersPane;
+    private javax.swing.JLabel displayMarkersLabel;
+    private javax.swing.JCheckBox markerCheckBox;
     // End of variables declaration//GEN-END:variables
 
 
