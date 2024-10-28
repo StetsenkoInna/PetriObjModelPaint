@@ -7,6 +7,10 @@ import javafx.scene.Scene;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.StackPane;
+
+import java.io.File;
 
 public class LineChartBuilderService implements ChartBuilderService {
     private final XYChart.Series<Number, Number> series;
@@ -29,9 +33,13 @@ public class LineChartBuilderService implements ChartBuilderService {
             lineChart.setTitle(configDto.getTitle());
 
             series.setName(configDto.getSeriesName());
-
             lineChart.getData().add(series);
-            jfxPanel.setScene(new Scene(lineChart, 800, 600));
+
+            String cssFile = new File("src/graphpresentation/statistic/styles/line-chart.css").toURI().toString();
+            lineChart.getStylesheets().add(cssFile);
+
+            StackPane root = new StackPane(lineChart);
+            jfxPanel.setScene(new Scene(root, 800, 600));
         });
     }
 
@@ -44,6 +52,13 @@ public class LineChartBuilderService implements ChartBuilderService {
     public void appendData(XYChart.Data<Number, Number> data) {
         Platform.runLater(() -> {
             series.getData().add(data);
+            XYChart.Data<Number, Number> dataPoint = series.getData().get(series.getData().size() - 1);
+            Tooltip tooltip = new Tooltip(
+                    "Modelling time: " + dataPoint.getXValue() + "\n" +
+                    "Observed value: " + dataPoint.getYValue());
+            Tooltip.install(dataPoint.getNode(), tooltip);
+            dataPoint.getNode().setOnMouseEntered(event -> dataPoint.getNode().getStyleClass().add("onDataPointHover"));
+            dataPoint.getNode().setOnMouseExited(event -> dataPoint.getNode().getStyleClass().remove("onDataPointHover"));
         });
     }
 

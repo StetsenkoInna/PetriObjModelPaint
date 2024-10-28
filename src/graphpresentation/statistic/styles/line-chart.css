@@ -1,0 +1,4 @@
+.onDataPointHover {
+    -fx-cursor: pointer;
+    -fx-background-color: ORANGE;
+}
