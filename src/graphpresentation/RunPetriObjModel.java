@@ -12,6 +12,7 @@ import PetriObj.PetriT;
 import graphpresentation.PetriNetsPanel;
 import graphpresentation.statistic.StatisticMonitorDialog;
 import graphpresentation.statistic.dto.PetriElementStatisticDto;
+import graphpresentation.statistic.services.StatisticMonitorService;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -26,7 +27,7 @@ public class RunPetriObjModel extends PetriObjModel{
     
     private JTextArea area; // specifies where simulation protokol is printed
     private List<String> statWatchList;
-    private StatisticMonitorDialog statMonitor;
+    private StatisticMonitorService statMonitor;
 
     public RunPetriObjModel(ArrayList<PetriSim> list, JTextArea area){
         super(list);

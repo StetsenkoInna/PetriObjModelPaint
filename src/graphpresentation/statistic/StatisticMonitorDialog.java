@@ -5,13 +5,14 @@
 package graphpresentation.statistic;
 
 import graphpresentation.PetriNetsFrame;
-import graphpresentation.statistic.services.charts.ChartBuilderService;
-import graphpresentation.statistic.services.charts.LineChartBuilderService;
+import graphpresentation.statistic.services.ChartBuilderService;
+import graphpresentation.statistic.serviceImpl.LineChartBuilderService;
 import graphpresentation.statistic.dto.ChartConfigDto;
 import graphpresentation.statistic.dto.PetriElementStatisticDto;
 import graphpresentation.statistic.enums.PetriStatFunction;
-import graphpresentation.statistic.services.formula.FormulaBuilderService;
-import graphpresentation.statistic.services.formula.FormulaBuilderServiceImpl;
+import graphpresentation.statistic.services.FormulaBuilderService;
+import graphpresentation.statistic.serviceImpl.FormulaBuilderServiceImpl;
+import graphpresentation.statistic.services.StatisticMonitorService;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.chart.XYChart;
 
@@ -25,7 +26,7 @@ import java.util.List;
 /**
  * @author Andrii Kachmar
  */
-public class StatisticMonitorDialog extends javax.swing.JDialog {
+public class StatisticMonitorDialog extends javax.swing.JDialog implements StatisticMonitorService {
     private final ChartBuilderService lineChartBuilderService;
     private final FormulaBuilderService formulaBuilderService;
     private List<String> selectedElements;
@@ -233,6 +234,15 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         ChartSettingsDialog chartSettingsDialog = new ChartSettingsDialog(parent, true, chartConfigDto, lineChartBuilderService);
         chartSettingsDialog.setLocationRelativeTo(this);
         chartSettingsDialog.setVisible(true);
+        chartSettingsDialog.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                ChartConfigDto configDto = chartSettingsDialog.getChartConfigDto();
+                if (configDto != null) {
+                    chartConfigDto = configDto;
+                }
+            }
+        });
     }
 
     private void onChartDownloadPerformed(java.awt.event.ActionEvent evt) {
@@ -241,13 +251,19 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         int option = fileChooser.showOpenDialog(this);
         if (option == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
-            String fileName = file.getAbsolutePath() + "/" + chartConfigDto.getTitle() + ".png";
-            lineChartBuilderService.downloadChart(fileName);
+            lineChartBuilderService.exportChartAsImage(file.getAbsolutePath());
         }
     }
 
     private void onExportCsvPerformed(java.awt.event.ActionEvent evt) {
-
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        int option = fileChooser.showOpenDialog(this);
+        if (option == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+            String fileName = file.getAbsolutePath();
+            lineChartBuilderService.exportChartAsTable(fileName);
+        }
     }
 
     private void onFormulaFieldChange(KeyEvent e) {
@@ -302,6 +318,19 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
                 BorderFactory.createEmptyBorder(5, 5, 5, 5)));
     }
 
+    public void onSimulationStart() {
+        formulaInputField.setEnabled(false);
+        formulaInfoBtn.setEnabled(false);
+        clearFormulaBtn.setEnabled(false);
+        lineChartBuilderService.createSeries(formulaInputField.getText());
+    }
+
+    public void onSimulationEnd() {
+        formulaInputField.setEnabled(true);
+        formulaInfoBtn.setEnabled(true);
+        clearFormulaBtn.setEnabled(true);
+    }
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private java.awt.Frame parent;
     private javax.swing.JPanel chartViewPanel;
@@ -324,14 +353,17 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     private final JFXPanel jfxPanel;
     // End of variables declaration//GEN-END:variables
 
+    @Override
     public List<String> getSelectedElementNames() {
         return selectedElements;
     }
 
+    @Override
     public boolean getIsFormulaValid() {
         return isFormulaValid;
     }
 
+    @Override
     public void sendStatistic(double currentTime, List<PetriElementStatisticDto> statistics) {
         if (!isFormulaValid) {
             return;
@@ -340,20 +372,8 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         Number formulaValue = formulaBuilderService.calculateFormula(formulaInputField.getText(), statistics);
         if (formulaValue != null) {
             System.out.println("Result value:" + formulaValue);
-            lineChartBuilderService.appendData(new XYChart.Data<>(currentTime, formulaValue));
+            int currentSeriesId = lineChartBuilderService.getCurrentSeriesId();
+            lineChartBuilderService.appendData(currentSeriesId, new XYChart.Data<>(currentTime, formulaValue));
         }
-    }
-
-    public void onSimulationStart() {
-        formulaInputField.setEnabled(false);
-        formulaInfoBtn.setEnabled(false);
-        clearFormulaBtn.setEnabled(false);
-        lineChartBuilderService.changeSeriesName(formulaInputField.getText());
-    }
-
-    public void onSimulationEnd() {
-        formulaInputField.setEnabled(true);
-        formulaInfoBtn.setEnabled(true);
-        clearFormulaBtn.setEnabled(true);
     }
 }

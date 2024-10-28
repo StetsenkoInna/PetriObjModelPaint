@@ -12,6 +12,7 @@ import PetriObj.PetriT;
 import PetriObj.StateTime;
 import graphpresentation.statistic.StatisticMonitorDialog;
 import graphpresentation.statistic.dto.PetriElementStatisticDto;
+import graphpresentation.statistic.services.StatisticMonitorService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +30,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
     private PetriNetsPanel panel;
     private JSlider delaySlider;
     private List<String> statWatchList;
-    private StatisticMonitorDialog statMonitor;
+    private StatisticMonitorService statMonitor;
     private ArrayList<AnimRunPetriSim> runlist = new ArrayList<>();
     
     /**

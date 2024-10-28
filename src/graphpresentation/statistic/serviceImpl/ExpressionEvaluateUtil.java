@@ -1,4 +1,4 @@
-package graphpresentation.statistic.services.formula;
+package graphpresentation.statistic.serviceImpl;
 
 import java.util.Stack;
 
