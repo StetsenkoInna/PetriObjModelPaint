@@ -1,4 +1,4 @@
-package graphpresentation.statistic.charts;
+package graphpresentation.statistic.services.charts;
 
 import graphpresentation.statistic.dto.ChartConfigDto;
 import javafx.embed.swing.JFXPanel;

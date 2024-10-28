@@ -1,4 +1,4 @@
-package graphpresentation.statistic.formula;
+package graphpresentation.statistic.services.formula;
 
 import graphpresentation.statistic.dto.PetriElementStatisticDto;
 

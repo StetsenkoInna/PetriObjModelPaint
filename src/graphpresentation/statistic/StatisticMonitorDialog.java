@@ -4,21 +4,19 @@
  */
 package graphpresentation.statistic;
 
-import graphnet.GraphPetriNet;
 import graphpresentation.PetriNetsFrame;
-import graphpresentation.statistic.charts.ChartBuilderService;
-import graphpresentation.statistic.charts.LineChartBuilderService;
+import graphpresentation.statistic.services.charts.ChartBuilderService;
+import graphpresentation.statistic.services.charts.LineChartBuilderService;
 import graphpresentation.statistic.dto.ChartConfigDto;
 import graphpresentation.statistic.dto.PetriElementStatisticDto;
 import graphpresentation.statistic.enums.PetriStatFunction;
-import graphpresentation.statistic.formula.FormulaBuilderService;
-import graphpresentation.statistic.formula.FormulaBuilderServiceImpl;
+import graphpresentation.statistic.services.formula.FormulaBuilderService;
+import graphpresentation.statistic.services.formula.FormulaBuilderServiceImpl;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.chart.XYChart;
 
 import javax.swing.*;
 import javax.swing.border.Border;
-import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
@@ -263,9 +261,18 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         return selectedElements;
     }
 
+    public boolean getIsFormulaValid() {
+        return isFormulaValid;
+    }
+
     public void sendStatistic(double currentTime, List<PetriElementStatisticDto> statistics) {
-        if (isFormulaValid) {
-            Number formulaValue = formulaBuilderService.calculateFormula(formulaInputField.getText(), statistics);
+        if (!isFormulaValid) {
+            return;
+        }
+        statistics.forEach(System.out::println);
+        Number formulaValue = formulaBuilderService.calculateFormula(formulaInputField.getText(), statistics);
+        if (formulaValue != null) {
+            System.out.println("Result value:" + formulaValue);
             lineChartBuilderService.appendData(new XYChart.Data<>(currentTime, formulaValue));
         }
     }

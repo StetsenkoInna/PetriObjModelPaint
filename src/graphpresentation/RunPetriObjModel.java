@@ -202,12 +202,13 @@ public class RunPetriObjModel extends PetriObjModel{
                             e.doStatistics((timeModeling - super.getCurrentTime()) / super.getSimulationTime());
                         }
                     }
-                    if (statWatchList != null && !statWatchList.isEmpty()) {
+                    if (statWatchList != null && !statWatchList.isEmpty() &&
+                            statMonitor != null && statMonitor.getIsFormulaValid()) {
                         elementStatistics.addAll(PetriElementStatisticDto.collectElementStatistic(e.getNet(), statWatchList));
                     }
                 }
             }
-            if (statMonitor != null && !elementStatistics.isEmpty()) {
+            if (statMonitor != null && !elementStatistics.isEmpty() && statMonitor.getIsFormulaValid()) {
                 statMonitor.sendStatistic(getCurrentTime(), elementStatistics);
             }
 

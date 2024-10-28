@@ -1,4 +1,4 @@
-package graphpresentation.statistic.formula;
+package graphpresentation.statistic.services.formula;
 
 import graphnet.GraphPetriNet;
 import graphnet.GraphPetriPlace;
@@ -9,6 +9,7 @@ import graphpresentation.statistic.enums.FunctionType;
 import graphpresentation.statistic.enums.PetriStatFunction;
 
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -16,7 +17,10 @@ import java.util.stream.Collectors;
 public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     private final PetriNetsFrame petriNetParent;
     private static final List<String> OPERATORS = Arrays.asList("+", "-", "*", "/");
-    private static final Pattern VALID_CHARACTERS_PATTERN = Pattern.compile("^[A-Za-z0-9_() +\\-*/\\u0400-\\u04FF]*$");
+    private static final Pattern VALID_CHARACTERS = Pattern.compile("^[A-Za-z0-9_.() +\\-*/\\u0400-\\u04FF]*$");
+    private static final Pattern FUNCTION_CALL_PATTERN = Pattern.compile("([A-Z_0-9]+)\\(([^()]*)\\)");
+    private static final Pattern DIVISION_BY_ZERO = Pattern.compile("/\\s*0(?!\\.[0-9])");
+
 
     public FormulaBuilderServiceImpl(PetriNetsFrame parent) {
         this.petriNetParent = parent;
@@ -38,7 +42,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             return PetriStatFunction.filterFunctionsByName(input);
         } else if (lastOperation.endsWith("(")) {
             String functionName = lastOperation.substring(0, lastOperation.length() - 1);
-            String functionArgumentName = getFunctionArgumentName(lastOperation);
+            String functionArgumentName = getFunctionArgument(lastOperation);
             PetriStatFunction function = PetriStatFunction.findFunctionByName(functionName);
             return function != null
                     ? getElementSuggestions(function, functionArgumentName)
@@ -86,13 +90,29 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         if (formula == null || formula.isEmpty()) {
             return false;
         }
-
-        if (!VALID_CHARACTERS_PATTERN.matcher(formula).matches() || !hasBalancedParentheses(formula)) {
+        if (!VALID_CHARACTERS.matcher(formula).matches()) {
+            return false;
+        }
+        if (!hasBalancedParentheses(formula)) {
             return false;
         }
 
-        String[] operations = formula.split("(?=[+\\-*/])|(?<=[+\\-*/])");
-        boolean isPreviousMathOperator = true;
+        char lastElement = formula.charAt(formula.length() - 1);
+        if (OPERATORS.contains(String.valueOf(lastElement))) {
+            return false;
+        }
+
+        if (DIVISION_BY_ZERO.matcher(formula).find()) {
+            return false;
+        }
+
+        return validateOperations(splitFormula(formula));
+    }
+
+    private boolean validateOperations(List<String> operations) {
+        if (OPERATORS.contains(operations.get(operations.size() - 1))) {
+            return false;
+        }
 
         for (String operation : operations) {
             operation = operation.trim();
@@ -101,8 +121,17 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             }
 
             if (OPERATORS.contains(operation)) {
-                isPreviousMathOperator = true;
                 continue;
+            }
+
+            if (operation.matches("^[0-9]+(\\.[0-9]+)?$")) {
+                continue;
+            }
+
+            if (operation.startsWith("(") && operation.endsWith(")")) {
+                String nestedFormula = removeOuterParentheses(operation);
+                List<String> nestedOperations = splitFormula(nestedFormula);
+                return validateOperations(nestedOperations);
             }
 
             if (!operation.endsWith("()") && !operation.contains("(")) {
@@ -113,54 +142,108 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
                 return false;
             }
 
-            String lastFunctionName = getLastFunctionName(operation);
+            String lastFunctionName = getOperationFunctionName(operation);
             PetriStatFunction function = PetriStatFunction.findFunctionByName(lastFunctionName);
-            if (function != null) {
-                String argument = getFunctionArgumentName(operation);
-                if (argument == null || argument.isEmpty() || !isValidArgument(function, argument)) {
-                    return false;
-                }
-                if (!isPreviousMathOperator) {
-                    return false;
-                }
-                isPreviousMathOperator = false;
-            } else {
+            if (function == null) {
+                return false;
+            }
+
+            String argument = getFunctionArgument(operation);
+            if (argument == null || argument.isEmpty() || !isValidArgumentElement(function, argument)) {
                 return false;
             }
         }
 
-        return !isPreviousMathOperator;
+        return true;
+    }
+
+    private List<String> splitFormula(String formula) {
+        List<String> operations = new ArrayList<>();
+        StringBuilder currentOperation = new StringBuilder();
+        int parenthesisDepth = 0;
+
+        for (char c : formula.toCharArray()) {
+            if (c == '(') {
+                parenthesisDepth++;
+            } else if (c == ')') {
+                parenthesisDepth--;
+            }
+
+            if ((OPERATORS.contains(String.valueOf(c)) && parenthesisDepth == 0) && currentOperation.length() > 0) {
+                operations.add(currentOperation.toString());
+                currentOperation = new StringBuilder();
+                operations.add(String.valueOf(c));
+            } else {
+                currentOperation.append(c);
+            }
+        }
+        if (currentOperation.length() > 0) {
+            operations.add(currentOperation.toString());
+        }
+        return operations;
+    }
+
+    private String removeOuterParentheses(String expression) {
+        while (expression.startsWith("(") && expression.endsWith(")") &&
+                hasBalancedParentheses(expression.substring(1, expression.length() - 1))) {
+            expression = expression.substring(1, expression.length() - 1);
+        }
+        return expression;
     }
 
     @Override
-    public Number calculateFormula(String formula, List<PetriElementStatisticDto> statistics) { //TODO REVIEW
-        double result = 0.0;
-        String[] parts = formula.split("\\+");
-
-        for (String part : parts) {
-            part = part.trim();
-            String elementName = getFunctionArgumentName(part);
-            PetriElementStatisticDto statistic = statistics.stream()
-                    .filter(petriElementStatistic -> petriElementStatistic.getElementName().equals(elementName))
-                    .findFirst().orElse(null);
-            if (statistic != null) {
-                if (part.startsWith(PetriStatFunction.P_MIN.getFunctionName())) {
-                    result += (int) statistic.getMin();
-                } else if (part.startsWith(PetriStatFunction.P_MAX.getFunctionName())) {
-                    result += (int) statistic.getMax();
-                } else if (part.startsWith(PetriStatFunction.P_AVG.getFunctionName())) {
-                    result += statistic.getAvg();
-                } else if (part.startsWith(PetriStatFunction.T_MIN.getFunctionName())) {
-                    result += (double) statistic.getMin();
-                } else if (part.startsWith(PetriStatFunction.T_MAX.getFunctionName())) {
-                    result += (double) statistic.getMax();
-                } else if (part.startsWith(PetriStatFunction.T_AVG.getFunctionName())) {
-                    result += statistic.getAvg();
+    public Number calculateFormula(String formula, List<PetriElementStatisticDto> statistics) {
+        Number result = null;
+        try {
+            Matcher functionMatcher = FUNCTION_CALL_PATTERN.matcher(formula);
+            StringBuffer numericExpression = new StringBuffer();
+            while (functionMatcher.find()) {
+                String functionName = functionMatcher.group(1);
+                String argument = functionMatcher.group(2);
+                Number functionValue = getFunctionValue(PetriStatFunction.findFunctionByName(functionName), argument, statistics);
+                if (functionValue != null) {
+                    functionMatcher.appendReplacement(numericExpression, functionValue.toString());
                 }
             }
+            functionMatcher.appendTail(numericExpression);
+            result = ExpressionEvaluateUtil.evaluateExpression(numericExpression.toString());
+
+            System.out.println("IN FORMULA:" + formula);
+            System.out.println("OUT FORMULA:" + numericExpression);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         return result;
     }
+
+    private Number getFunctionValue(PetriStatFunction function, String argumentName, List<PetriElementStatisticDto> statistics) {
+        if (function == null || argumentName == null || statistics == null || statistics.isEmpty()) {
+            return null;
+        }
+        PetriElementStatisticDto argumentStatistic = statistics.stream()
+                .filter(petriElementStatistic -> petriElementStatistic.getElementName().equals(argumentName))
+                .findFirst()
+                .orElse(null);
+        if (argumentStatistic == null) {
+            return null;
+        }
+        switch (function) {
+            case P_MIN:
+            case T_MIN: {
+                return argumentStatistic.getMin();
+            }
+            case P_MAX:
+            case T_MAX: {
+                return argumentStatistic.getMax();
+            }
+            case P_AVG:
+            case T_AVG: {
+                return argumentStatistic.getAvg();
+            }
+        }
+        return null;
+    }
+
 
     private List<String> getElementSuggestions(PetriStatFunction petriStatFunction, String input) {
         if (petriStatFunction == null) {
@@ -168,10 +251,10 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         }
 
         List<String> elements = new ArrayList<>();
-        List<String> placeNames = getGraphNet().getGraphPetriPlaceList().stream()
+        List<String> placeNames = getCurrentGraphNet().getGraphPetriPlaceList().stream()
                 .map(GraphPetriPlace::getName)
                 .collect(Collectors.toList());
-        List<String> transitionNames = getGraphNet().getGraphPetriTransitionList().stream()
+        List<String> transitionNames = getCurrentGraphNet().getGraphPetriTransitionList().stream()
                 .map(GraphTransition::getName)
                 .collect(Collectors.toList());
         if (petriStatFunction.getFunctionType().equals(FunctionType.POSITION_BASED)) {
@@ -195,7 +278,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         return elements;
     }
 
-    private String getFunctionArgumentName(String input) {
+    private String getFunctionArgument(String input) {
         int openParenIndex = input.indexOf('(');
         int closeParenIndex = input.lastIndexOf(')');
         if (openParenIndex > 0 && closeParenIndex > openParenIndex) {
@@ -204,13 +287,13 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         return null;
     }
 
-    private String getLastFunctionName(String token) {
-        if (token.endsWith("(")) {
-            return token.substring(0, token.length() - 1).trim();
+    private String getOperationFunctionName(String operation) {
+        if (operation.endsWith("(")) {
+            return operation.substring(0, operation.length() - 1).trim();
         }
-        int openParenIndex = token.indexOf('(');
+        int openParenIndex = operation.indexOf('(');
         if (openParenIndex > -1) {
-            return token.substring(0, openParenIndex).trim();
+            return operation.substring(0, openParenIndex).trim();
         }
         return null;
     }
@@ -230,21 +313,22 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         return stack.isEmpty();
     }
 
-    private boolean isValidArgument(PetriStatFunction function, String argument) {
-        List<String> elements;
+    private boolean isValidArgumentElement(PetriStatFunction function, String argument) {
+        GraphPetriNet net = getCurrentGraphNet();
+        List<String> elements = new ArrayList<>();
         if (function.getFunctionType() == FunctionType.POSITION_BASED) {
-            elements = getGraphNet().getGraphPetriPlaceList().stream()
+            elements = net.getGraphPetriPlaceList().stream()
                     .map(place -> place.getName().toUpperCase())
                     .collect(Collectors.toList());
-        } else {
-            elements = getGraphNet().getGraphPetriTransitionList().stream()
+        } else if (function.getFunctionType() == FunctionType.TRANSITION_BASED) {
+            elements = net.getGraphPetriTransitionList().stream()
                     .map(transition -> transition.getName().toUpperCase())
                     .collect(Collectors.toList());
         }
         return elements.contains(argument.toUpperCase());
     }
 
-    private GraphPetriNet getGraphNet() {
+    private GraphPetriNet getCurrentGraphNet() {
         return petriNetParent.getPetriNetsPanel().getGraphNet();
     }
 }
