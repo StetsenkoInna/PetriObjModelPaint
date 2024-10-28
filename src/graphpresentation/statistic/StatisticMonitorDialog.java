@@ -18,8 +18,8 @@ import javafx.scene.chart.XYChart;
 import javax.swing.*;
 import javax.swing.border.Border;
 import java.awt.*;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
+import java.awt.event.*;
+import java.io.File;
 import java.util.List;
 
 /**
@@ -30,6 +30,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     private final FormulaBuilderService formulaBuilderService;
     private List<String> selectedElements;
     private Boolean isFormulaValid;
+    private ChartConfigDto chartConfigDto;
 
 
     /**
@@ -42,13 +43,14 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         this.formulaBuilderService = new FormulaBuilderServiceImpl(parent);
         initComponents();
 
-        this.lineChartBuilderService = new LineChartBuilderService();
-        lineChartBuilderService.createChart(jfxPanel, new ChartConfigDto(
+        this.chartConfigDto = new ChartConfigDto(
                 "Petri simulation statistic",
                 "Simulation time",
                 "Petri metric",
-                "Petri metric change"
-        ));
+                "Values"
+        );
+        this.lineChartBuilderService = new LineChartBuilderService();
+        lineChartBuilderService.createChart(jfxPanel, chartConfigDto);
     }
 
 
@@ -72,6 +74,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         mainContentPanel = new javax.swing.JPanel();
         contentTabs = new javax.swing.JTabbedPane();
         chartViewPanel = new javax.swing.JPanel();
+        chartActionsBar = new javax.swing.JMenuBar();
         tableViewPanel = new javax.swing.JPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
@@ -124,14 +127,12 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
         formulaPanel.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
         formulaPanel.setPreferredSize(new java.awt.Dimension(234, 60));
 
-        formulaInputField.setColumns(20);
         formulaInputField.setLineWrap(true);
-        formulaInputField.setRows(5);
         formulaInputField.setBorder(BorderFactory.createCompoundBorder(formulaInputField.getBorder(),
                 BorderFactory.createEmptyBorder(5, 5, 5, 5)));
         formulaInputField.setFont(new Font("Consolas", Font.PLAIN, 14));
         formulaInputField.setToolTipText("Enter your formula...");
-        formulaInputField.setPreferredSize(new java.awt.Dimension(232, 60));
+        formulaInputField.setPreferredSize(new java.awt.Dimension(232, 20));
         formulaInputField.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
@@ -147,7 +148,47 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
 
         mainContentPanel.setLayout(new javax.swing.BoxLayout(mainContentPanel, javax.swing.BoxLayout.LINE_AXIS));
         chartViewPanel.setLayout(new BorderLayout());
+        chartViewPanel.setBackground(Color.decode("#f4f4f4"));
+
+        chartSettingsBtn = new JButton("Chart settings");
+        chartSettingsBtn.setPreferredSize(new Dimension(100, 40));
+        chartSettingsBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        chartSettingsBtn.setVerticalAlignment(SwingConstants.CENTER);
+        chartSettingsBtn.setContentAreaFilled(false);
+        chartSettingsBtn.setToolTipText("Chart settings");
+        chartSettingsBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        chartSettingsBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/settings_icon.png")));
+        chartSettingsBtn.addActionListener(this::onChartSettingOpenPerformed);
+
+        chartDownloadBtn = new JButton("Download chart");
+        chartDownloadBtn.setPreferredSize(new Dimension(100, 40));
+        chartDownloadBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        chartDownloadBtn.setVerticalAlignment(SwingConstants.CENTER);
+        chartDownloadBtn.setContentAreaFilled(false);
+        chartDownloadBtn.setToolTipText("Download chart");
+        chartDownloadBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        chartDownloadBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/download_icon.png")));
+        chartDownloadBtn.addActionListener(this::onChartDownloadPerformed);
+
+        exportCsvBtn = new JButton("Export csv");
+        exportCsvBtn.setPreferredSize(new Dimension(100, 40));
+        exportCsvBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        exportCsvBtn.setVerticalAlignment(SwingConstants.CENTER);
+        exportCsvBtn.setContentAreaFilled(false);
+        exportCsvBtn.setToolTipText("Export statistic in csv");
+        exportCsvBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        exportCsvBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/export_csv_icon.png")));
+        exportCsvBtn.addActionListener(this::onExportCsvPerformed);
+
+        UIManager.put("MenuBar.background", Color.decode("#f4f4f4"));
+        chartActionsBar.add(chartSettingsBtn);
+        chartActionsBar.add(chartDownloadBtn);
+        chartActionsBar.add(exportCsvBtn);
+        chartActionsBar.setPreferredSize(new Dimension(100, 30));
+
+        chartViewPanel.add(chartActionsBar, BorderLayout.NORTH);
         chartViewPanel.add(jfxPanel, BorderLayout.CENTER);
+
         contentTabs.addTab("Chart view", chartViewPanel);
 
         javax.swing.GroupLayout tableViewPanelLayout = new javax.swing.GroupLayout(tableViewPanel);
@@ -187,6 +228,27 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     private void clearFormulaBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clearFormulaBtnActionPerformed
         lineChartBuilderService.clearChart();
     }//GEN-LAST:event_clearFormulaBtnActionPerformed
+
+    private void onChartSettingOpenPerformed(java.awt.event.ActionEvent evt) {
+        ChartSettingsDialog chartSettingsDialog = new ChartSettingsDialog(parent, true, chartConfigDto, lineChartBuilderService);
+        chartSettingsDialog.setLocationRelativeTo(this);
+        chartSettingsDialog.setVisible(true);
+    }
+
+    private void onChartDownloadPerformed(java.awt.event.ActionEvent evt) {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        int option = fileChooser.showOpenDialog(this);
+        if (option == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+            String fileName = file.getAbsolutePath() + "/" + chartConfigDto.getTitle() + ".png";
+            lineChartBuilderService.downloadChart(fileName);
+        }
+    }
+
+    private void onExportCsvPerformed(java.awt.event.ActionEvent evt) {
+
+    }
 
     private void onFormulaFieldChange(KeyEvent e) {
         String formula = formulaInputField.getText().trim();
@@ -243,7 +305,11 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private java.awt.Frame parent;
     private javax.swing.JPanel chartViewPanel;
+    private javax.swing.JMenuBar chartActionsBar;
     private javax.swing.JButton clearFormulaBtn;
+    private javax.swing.JButton chartSettingsBtn;
+    private javax.swing.JButton chartDownloadBtn;
+    private javax.swing.JButton exportCsvBtn;
     private javax.swing.JSplitPane contentLayout;
     private javax.swing.JTabbedPane contentTabs;
     private javax.swing.JPanel formulaActionsGroup;
@@ -253,6 +319,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog {
     private javax.swing.JScrollPane formulaPanel;
     private javax.swing.JPanel mainContentPanel;
     private javax.swing.JPanel tableViewPanel;
+    private javax.swing.JLayeredPane chartContentPane;
     private javax.swing.JPopupMenu formulaSuggestionPopup;
     private final JFXPanel jfxPanel;
     // End of variables declaration//GEN-END:variables

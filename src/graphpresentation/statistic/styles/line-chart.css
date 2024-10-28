@@ -1,4 +1,4 @@
 .onDataPointHover {
-    -fx-cursor: pointer;
+    -fx-cursor: hand;
     -fx-background-color: ORANGE;
 }

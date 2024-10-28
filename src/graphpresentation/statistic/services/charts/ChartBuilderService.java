@@ -9,5 +9,7 @@ public interface ChartBuilderService {
     void clearChart();
     void appendData(XYChart.Data<Number, Number> data);
     void changeSeriesName(String name);
+    void updateChartConfig(ChartConfigDto chartConfigDto);
+    void downloadChart(String fileName);
     boolean isChartEmpty();
 }
