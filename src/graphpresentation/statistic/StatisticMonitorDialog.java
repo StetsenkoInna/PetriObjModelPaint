@@ -27,7 +27,7 @@ import java.util.List;
  * @author Andrii Kachmar
  */
 public class StatisticMonitorDialog extends javax.swing.JDialog implements StatisticMonitorService {
-    private final ChartBuilderService lineChartBuilderService;
+    private final ChartBuilderService chartBuilderService;
     private final FormulaBuilderService formulaBuilderService;
     private List<String> selectedElements;
     private Boolean isFormulaValid;
@@ -50,8 +50,8 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
                 "Metric",
                 true
         );
-        this.lineChartBuilderService = new LineChartBuilderService();
-        lineChartBuilderService.createChart(jfxPanel, chartConfigDto);
+        this.chartBuilderService = new LineChartBuilderService();
+        chartBuilderService.createChart(jfxPanel, chartConfigDto);
     }
 
 
@@ -76,6 +76,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         contentTabs = new javax.swing.JTabbedPane();
         chartViewPanel = new javax.swing.JPanel();
         chartActionsBar = new javax.swing.JMenuBar();
+        chartToolsBar = new javax.swing.JPanel();
         tableViewPanel = new javax.swing.JPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
@@ -151,37 +152,27 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         chartViewPanel.setLayout(new BorderLayout());
         chartViewPanel.setBackground(Color.decode("#f4f4f4"));
 
-        chartSettingsBtn = new JButton("Chart settings");
-        chartSettingsBtn.setPreferredSize(new Dimension(100, 40));
-        chartSettingsBtn.setHorizontalAlignment(SwingConstants.CENTER);
-        chartSettingsBtn.setVerticalAlignment(SwingConstants.CENTER);
-        chartSettingsBtn.setContentAreaFilled(false);
-        chartSettingsBtn.setToolTipText("Chart settings");
-        chartSettingsBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        chartSettingsBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/settings_icon.png")));
-        chartSettingsBtn.addActionListener(this::onChartSettingOpenPerformed);
+        dragChartBtn = new JToggleButton();
+        dragChartBtn.setPreferredSize(new Dimension(100, 40));
+        dragChartBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        dragChartBtn.setVerticalAlignment(SwingConstants.CENTER);
+        dragChartBtn.setContentAreaFilled(false);
+        dragChartBtn.setToolTipText("Drag chart content");
+        dragChartBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        dragChartBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/hand_icon.png")));
+        dragChartBtn.addActionListener(e -> {
+            if (dragChartBtn.isSelected()) {
+                dragChartBtn.setContentAreaFilled(true);
+                dragChartBtn.setBackground(Color.LIGHT_GRAY);
+                dragChartBtn.transferFocus();
+            } else {
+                dragChartBtn.setContentAreaFilled(false);
+            }
+            chartConfigDto.toggleDragAndZoomEnabled();
+            chartBuilderService.updateChartConfig(chartConfigDto);
+        });
 
-        chartDownloadBtn = new JButton("Download chart");
-        chartDownloadBtn.setPreferredSize(new Dimension(100, 40));
-        chartDownloadBtn.setHorizontalAlignment(SwingConstants.CENTER);
-        chartDownloadBtn.setVerticalAlignment(SwingConstants.CENTER);
-        chartDownloadBtn.setContentAreaFilled(false);
-        chartDownloadBtn.setToolTipText("Download chart");
-        chartDownloadBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        chartDownloadBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/download_icon.png")));
-        chartDownloadBtn.addActionListener(this::onChartDownloadPerformed);
-
-        exportCsvBtn = new JButton("Export csv");
-        exportCsvBtn.setPreferredSize(new Dimension(100, 40));
-        exportCsvBtn.setHorizontalAlignment(SwingConstants.CENTER);
-        exportCsvBtn.setVerticalAlignment(SwingConstants.CENTER);
-        exportCsvBtn.setContentAreaFilled(false);
-        exportCsvBtn.setToolTipText("Export statistic in csv");
-        exportCsvBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        exportCsvBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/export_csv_icon.png")));
-        exportCsvBtn.addActionListener(this::onExportCsvPerformed);
-
-        scaleChartBtn = new JButton("Scale chart");
+        scaleChartBtn = new JButton();
         scaleChartBtn.setPreferredSize(new Dimension(100, 40));
         scaleChartBtn.setHorizontalAlignment(SwingConstants.CENTER);
         scaleChartBtn.setVerticalAlignment(SwingConstants.CENTER);
@@ -191,13 +182,117 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         scaleChartBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/scale_icon.png")));
         scaleChartBtn.addActionListener(this::onScalePerformed);
 
-        UIManager.put("MenuBar.background", Color.decode("#f4f4f4"));
-        chartActionsBar.add(chartSettingsBtn);
-        chartActionsBar.add(chartDownloadBtn);
-        chartActionsBar.add(exportCsvBtn);
-        chartActionsBar.add(scaleChartBtn);
-        chartActionsBar.setPreferredSize(new Dimension(100, 30));
+        drawVerticalLineBtn = new JToggleButton();
+        drawVerticalLineBtn.setPreferredSize(new Dimension(100, 40));
+        drawVerticalLineBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        drawVerticalLineBtn.setVerticalAlignment(SwingConstants.CENTER);
+        drawVerticalLineBtn.setContentAreaFilled(false);
+        drawVerticalLineBtn.setToolTipText("Draw vertical line on chart");
+        drawVerticalLineBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        drawVerticalLineBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/draw_vertical_icon.png")));
+        drawVerticalLineBtn.addActionListener(e -> {
+            if (drawVerticalLineBtn.isSelected()) {
+                drawVerticalLineBtn.setContentAreaFilled(true);
+                drawVerticalLineBtn.setBackground(Color.LIGHT_GRAY);
+                drawVerticalLineBtn.transferFocus();
+            } else {
+                drawVerticalLineBtn.setContentAreaFilled(false);
+            }
+            chartConfigDto.toggleDrawVerticalLineEnabled();
+            chartBuilderService.updateChartConfig(chartConfigDto);
+        });
 
+        drawHorizontalLineBtn = new JToggleButton();
+        drawHorizontalLineBtn.setPreferredSize(new Dimension(100, 40));
+        drawHorizontalLineBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        drawHorizontalLineBtn.setVerticalAlignment(SwingConstants.CENTER);
+        drawHorizontalLineBtn.setContentAreaFilled(false);
+        drawHorizontalLineBtn.setToolTipText("Draw horizontal line on chart");
+        drawHorizontalLineBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        drawHorizontalLineBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/draw_horizontal_icon.png")));
+        drawHorizontalLineBtn.addActionListener(e -> {
+            if (drawHorizontalLineBtn.isSelected()) {
+                drawHorizontalLineBtn.setContentAreaFilled(true);
+                drawHorizontalLineBtn.setBackground(Color.LIGHT_GRAY);
+                drawHorizontalLineBtn.transferFocus();
+            } else {
+                drawHorizontalLineBtn.setContentAreaFilled(false);
+            }
+            chartConfigDto.toggleDrawHorizontalLineEnabled();
+            chartBuilderService.updateChartConfig(chartConfigDto);
+        });
+
+        clearDrawLineBtn = new JToggleButton();
+        clearDrawLineBtn.setPreferredSize(new Dimension(100, 40));
+        clearDrawLineBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        clearDrawLineBtn.setVerticalAlignment(SwingConstants.CENTER);
+        clearDrawLineBtn.setContentAreaFilled(false);
+        clearDrawLineBtn.setToolTipText("Clear chart drawings");
+        clearDrawLineBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        clearDrawLineBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/eraser_icon.png")));
+        clearDrawLineBtn.addActionListener(e -> {
+            if (clearDrawLineBtn.isSelected()) {
+                clearDrawLineBtn.setContentAreaFilled(true);
+                clearDrawLineBtn.setBackground(Color.LIGHT_GRAY);
+                clearDrawLineBtn.transferFocus();
+            } else {
+                clearDrawLineBtn.setContentAreaFilled(false);
+            }
+            chartConfigDto.toggleClearLineEnabled();
+            chartBuilderService.updateChartConfig(chartConfigDto);
+        });
+
+        chartDownloadBtn = new JButton();
+        chartDownloadBtn.setPreferredSize(new Dimension(100, 40));
+        chartDownloadBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        chartDownloadBtn.setVerticalAlignment(SwingConstants.CENTER);
+        chartDownloadBtn.setContentAreaFilled(false);
+        chartDownloadBtn.setToolTipText("Download chart as image");
+        chartDownloadBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        chartDownloadBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/download_icon.png")));
+        chartDownloadBtn.addActionListener(this::onChartDownloadPerformed);
+
+        exportCsvBtn = new JButton();
+        exportCsvBtn.setPreferredSize(new Dimension(100, 40));
+        exportCsvBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        exportCsvBtn.setVerticalAlignment(SwingConstants.CENTER);
+        exportCsvBtn.setContentAreaFilled(false);
+        exportCsvBtn.setToolTipText("Export statistic in csv");
+        exportCsvBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        exportCsvBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/export_csv_icon.png")));
+        exportCsvBtn.addActionListener(this::onExportCsvPerformed);
+
+        chartSettingsBtn = new JButton();
+        chartSettingsBtn.setPreferredSize(new Dimension(100, 40));
+        chartSettingsBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        chartSettingsBtn.setVerticalAlignment(SwingConstants.CENTER);
+        chartSettingsBtn.setContentAreaFilled(false);
+        chartSettingsBtn.setToolTipText("Chart settings");
+        chartSettingsBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        chartSettingsBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/settings_icon.png")));
+        chartSettingsBtn.addActionListener(this::onChartSettingOpenPerformed);
+
+        chartToolsBar.setBackground(Color.decode("#f4f4f4"));
+        chartToolsBar.setLayout(new BoxLayout(chartToolsBar, BoxLayout.Y_AXIS));
+        chartToolsBar.add(Box.createVerticalStrut(10));
+        chartToolsBar.setPreferredSize(new Dimension(40, 100));
+        chartToolsBar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0,1,0,0, Color.LIGHT_GRAY),
+                chartToolsBar.getBorder()
+        ));
+
+        chartToolsBar.add(dragChartBtn);
+        chartToolsBar.add(scaleChartBtn);
+        chartToolsBar.add(drawVerticalLineBtn);
+        chartToolsBar.add(drawHorizontalLineBtn);
+        chartToolsBar.add(clearDrawLineBtn);
+        chartToolsBar.add(getHorizontalSeparator());
+        chartToolsBar.add(chartDownloadBtn);
+        chartToolsBar.add(exportCsvBtn);
+        chartToolsBar.add(chartSettingsBtn);
+
+
+        chartViewPanel.add(chartToolsBar, BorderLayout.EAST);
         chartViewPanel.add(chartActionsBar, BorderLayout.NORTH);
         chartViewPanel.add(jfxPanel, BorderLayout.CENTER);
 
@@ -225,6 +320,12 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
+    private static JSeparator getHorizontalSeparator() {
+        JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
+        separator.setPreferredSize(new Dimension(100, 5));
+        return separator;
+    }
+
     private void formulaInfoBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_formulaInfoBtnActionPerformed
         SelectFunctionDialog selectFunctionDialog = new SelectFunctionDialog(this.parent, true);
         selectFunctionDialog.setLocationRelativeTo(this);
@@ -238,11 +339,11 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     }//GEN-LAST:event_formulaInfoBtnActionPerformed
 
     private void clearFormulaBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clearFormulaBtnActionPerformed
-        lineChartBuilderService.clearChart();
+        chartBuilderService.clearChart();
     }//GEN-LAST:event_clearFormulaBtnActionPerformed
 
     private void onChartSettingOpenPerformed(java.awt.event.ActionEvent evt) {
-        ChartSettingsDialog chartSettingsDialog = new ChartSettingsDialog(parent, true, chartConfigDto, lineChartBuilderService);
+        ChartSettingsDialog chartSettingsDialog = new ChartSettingsDialog(parent, true, chartConfigDto, chartBuilderService);
         chartSettingsDialog.setLocationRelativeTo(this);
         chartSettingsDialog.setVisible(true);
         ChartConfigDto configDto = chartSettingsDialog.getChartConfigDto();
@@ -257,7 +358,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         int option = fileChooser.showOpenDialog(this);
         if (option == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
-            lineChartBuilderService.exportChartAsImage(file.getAbsolutePath());
+            chartBuilderService.exportChartAsImage(file.getAbsolutePath());
         }
     }
 
@@ -268,14 +369,13 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         if (option == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
             String fileName = file.getAbsolutePath();
-            lineChartBuilderService.exportChartAsTable(fileName);
+            chartBuilderService.exportChartAsTable(fileName);
         }
     }
 
     private void onScalePerformed(java.awt.event.ActionEvent evt) {
-        lineChartBuilderService.autoSizeChart();
+        chartBuilderService.autoSizeChart();
     }
-
 
     private void onFormulaFieldChange(KeyEvent e) {
         String formula = formulaInputField.getText().trim();
@@ -333,7 +433,9 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         formulaInputField.setEnabled(false);
         formulaInfoBtn.setEnabled(false);
         clearFormulaBtn.setEnabled(false);
-        lineChartBuilderService.createSeries(formulaInputField.getText());
+        if (isFormulaValid) {
+            chartBuilderService.createSeries(formulaInputField.getText());
+        }
     }
 
     public void onSimulationEnd() {
@@ -351,6 +453,11 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     private javax.swing.JButton chartDownloadBtn;
     private javax.swing.JButton exportCsvBtn;
     private javax.swing.JButton scaleChartBtn;
+    private javax.swing.JPanel chartToolsBar;
+    private javax.swing.JToggleButton dragChartBtn;
+    private javax.swing.JToggleButton drawVerticalLineBtn;
+    private javax.swing.JToggleButton drawHorizontalLineBtn;
+    private javax.swing.JToggleButton clearDrawLineBtn;
     private javax.swing.JSplitPane contentLayout;
     private javax.swing.JTabbedPane contentTabs;
     private javax.swing.JPanel formulaActionsGroup;
@@ -382,7 +489,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         }
         Number formulaValue = formulaBuilderService.calculateFormula(formulaInputField.getText(), statistics);
         if (formulaValue != null) {
-            lineChartBuilderService.appendData(new XYChart.Data<>(currentTime, formulaValue));
+            chartBuilderService.appendData(new XYChart.Data<>(currentTime, formulaValue));
         }
     }
 }
