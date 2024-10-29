@@ -17,8 +17,7 @@ import graphpresentation.statistic.services.StatisticMonitorService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import javax.swing.JSlider;
-import javax.swing.JTextArea;
+import javax.swing.*;
 
 /**
  * 
@@ -112,7 +111,10 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                 }
             }
             if (statMonitor != null && !elementStatistics.isEmpty() && statMonitor.getIsFormulaValid()) {
-                statMonitor.sendStatistic(getCurrentTime(), elementStatistics);
+                double currentTime = getCurrentTime();
+                SwingUtilities.invokeLater(() -> {
+                    statMonitor.sendStatistic(currentTime, elementStatistics);
+                });
             }
 
             super.setCurrentTime(min); // просування часу

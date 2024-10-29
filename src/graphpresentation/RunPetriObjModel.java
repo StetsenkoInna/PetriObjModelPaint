@@ -16,8 +16,7 @@ import graphpresentation.statistic.services.StatisticMonitorService;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import javax.swing.JSlider;
-import javax.swing.JTextArea;
+import javax.swing.*;
 
 /**
  *
@@ -210,7 +209,10 @@ public class RunPetriObjModel extends PetriObjModel{
                 }
             }
             if (statMonitor != null && !elementStatistics.isEmpty() && statMonitor.getIsFormulaValid()) {
-                statMonitor.sendStatistic(getCurrentTime(), elementStatistics);
+                double currentTime = getCurrentTime();
+                SwingUtilities.invokeLater(() -> {
+                    statMonitor.sendStatistic(currentTime, elementStatistics);
+                });
             }
 
             super.setCurrentTime(min); // просування часу
