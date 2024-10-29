@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ChartDrawingConfig {
+    private final List<ChartAnnotationData> annotations = new ArrayList<>();
     private final List<ChartLineData> verticalLines = new ArrayList<>();
     private final List<ChartLineData> horizontalLines = new ArrayList<>();
 
@@ -13,5 +14,9 @@ public class ChartDrawingConfig {
 
     public List<ChartLineData> getVerticalLines() {
         return verticalLines;
+    }
+
+    public List<ChartAnnotationData> getAnnotations() {
+        return annotations;
     }
 }

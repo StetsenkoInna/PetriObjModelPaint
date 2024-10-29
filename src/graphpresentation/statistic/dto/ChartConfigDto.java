@@ -11,6 +11,7 @@ public class ChartConfigDto {
     private Boolean isDrawVerticalLineEnabled = false;
     private Boolean isDragEnabled = false;
     private Boolean clearLineEnabled = false;
+    private Boolean createLabelEnabled = false;
 
     public ChartConfigDto(String title, String xAxisTitle, String yAxisTitle, Boolean displayDataMarkers) {
         this.title = title;
@@ -81,6 +82,14 @@ public class ChartConfigDto {
 
     public void toggleClearLineEnabled() {
         clearLineEnabled = !clearLineEnabled;
+    }
+
+    public Boolean getCreateLabelEnabled() {
+        return createLabelEnabled;
+    }
+
+    public void toggleCreateLabelEnabled() {
+        createLabelEnabled = !createLabelEnabled;
     }
 
     @Override

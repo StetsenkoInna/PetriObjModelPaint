@@ -242,6 +242,26 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
             chartBuilderService.updateChartConfig(chartConfigDto);
         });
 
+        createLabelBtn = new JToggleButton();
+        createLabelBtn.setPreferredSize(new Dimension(100, 40));
+        createLabelBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        createLabelBtn.setVerticalAlignment(SwingConstants.CENTER);
+        createLabelBtn.setContentAreaFilled(false);
+        createLabelBtn.setToolTipText("Create text label on chart");
+        createLabelBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        createLabelBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/text_icon.png")));
+        createLabelBtn.addActionListener(e -> {
+            if (createLabelBtn.isSelected()) {
+                createLabelBtn.setContentAreaFilled(true);
+                createLabelBtn.setBackground(Color.LIGHT_GRAY);
+                createLabelBtn.transferFocus();
+            } else {
+                createLabelBtn.setContentAreaFilled(false);
+            }
+            chartConfigDto.toggleCreateLabelEnabled();
+            chartBuilderService.updateChartConfig(chartConfigDto);
+        });
+
         chartDownloadBtn = new JButton();
         chartDownloadBtn.setPreferredSize(new Dimension(100, 40));
         chartDownloadBtn.setHorizontalAlignment(SwingConstants.CENTER);
@@ -285,6 +305,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         chartToolsBar.add(scaleChartBtn);
         chartToolsBar.add(drawVerticalLineBtn);
         chartToolsBar.add(drawHorizontalLineBtn);
+        chartToolsBar.add(createLabelBtn);
         chartToolsBar.add(clearDrawLineBtn);
         chartToolsBar.add(getHorizontalSeparator());
         chartToolsBar.add(chartDownloadBtn);
@@ -453,6 +474,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     private javax.swing.JButton chartDownloadBtn;
     private javax.swing.JButton exportCsvBtn;
     private javax.swing.JButton scaleChartBtn;
+    private javax.swing.JToggleButton createLabelBtn;
     private javax.swing.JPanel chartToolsBar;
     private javax.swing.JToggleButton dragChartBtn;
     private javax.swing.JToggleButton drawVerticalLineBtn;
