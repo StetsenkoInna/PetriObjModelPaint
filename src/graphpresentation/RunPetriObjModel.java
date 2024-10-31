@@ -278,7 +278,9 @@ public class RunPetriObjModel extends PetriObjModel{
             }
             statisticMonitor.asyncStatisticSend(getCurrentTime(), statistic);
         }
-        statisticMonitor.shutdownStatisticUpdate();
+        if (isStatisticMonitorEnabled()) {
+            statisticMonitor.shutdownStatisticUpdate();
+        }
 
         area.append("\n Modeling results: \n");
 
@@ -326,11 +328,11 @@ public class RunPetriObjModel extends PetriObjModel{
     }
 
     private boolean isStatisticCollectionTime() {
-        return getCurrentTime() >= statisticMonitor.getDataCollectionStartTime() &&
-                getCurrentTime() - statisticMonitor.getLastStatisticCollectionTime() >= statisticMonitor.getDataCollectionStep();
+        return isStatisticMonitorEnabled() && (getCurrentTime() >= statisticMonitor.getDataCollectionStartTime() &&
+                getCurrentTime() - statisticMonitor.getLastStatisticCollectionTime() >= statisticMonitor.getDataCollectionStep());
     }
 
     private boolean isLastStatisticSegment() {
-        return super.getSimulationTime() - statisticMonitor.getLastStatisticCollectionTime() >= statisticMonitor.getDataCollectionStep();
+        return isStatisticMonitorEnabled() && super.getSimulationTime() - statisticMonitor.getLastStatisticCollectionTime() >= statisticMonitor.getDataCollectionStep();
     }
 }

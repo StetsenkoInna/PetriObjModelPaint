@@ -200,7 +200,9 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
             }
             statisticMonitor.asyncStatisticSend(getCurrentTime(), statistic);
         }
-        statisticMonitor.shutdownStatisticUpdate();
+        if (isStatisticMonitorEnabled()) {
+            statisticMonitor.shutdownStatisticUpdate();
+        }
 
 
         displayModellingResults();
@@ -305,10 +307,10 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
     }
 
     private boolean isLastStatisticSegment() {
-        return super.getSimulationTime() - statisticMonitor.getLastStatisticCollectionTime() >= statisticMonitor.getDataCollectionStep();
+        return isStatisticMonitorEnabled() && (super.getSimulationTime() - statisticMonitor.getLastStatisticCollectionTime() >= statisticMonitor.getDataCollectionStep());
     }
 
     private boolean isStatisticCollectionTime() {
-        return getCurrentTime() >= statisticMonitor.getDataCollectionStartTime();
+        return isStatisticMonitorEnabled() && (getCurrentTime() >= statisticMonitor.getDataCollectionStartTime());
     }
 }
