@@ -1,4 +1,4 @@
-package graphpresentation.statistic.dto;
+package graphpresentation.statistic.dto.data;
 
 import PetriObj.PetriNet;
 
@@ -44,18 +44,5 @@ public class PetriElementStatisticDto {
                 ", max=" + max +
                 ", avg=" + avg +
                 '}';
-    }
-
-    public static List<PetriElementStatisticDto> collectElementStatistic(PetriNet petriNet, List<String> statistisWatchList) {
-        List<PetriElementStatisticDto> petriStat = new ArrayList<>();
-        petriStat.addAll(Arrays.stream(petriNet.getListP())
-                .filter(petriP -> statistisWatchList.contains(petriP.getName()))
-                .map(petriP -> new PetriElementStatisticDto(petriP.getName(), petriP.getObservedMin(), petriP.getObservedMax(), petriP.getMean()))
-                .collect(Collectors.toList()));
-        petriStat.addAll(Arrays.stream(petriNet.getListT())
-                .filter(petriT -> statistisWatchList.contains(petriT.getName()))
-                .map(petriT -> new PetriElementStatisticDto(petriT.getName(), petriT.getObservedMin(), petriT.getObservedMax(), petriT.getMean()))
-                .collect(Collectors.toList()));
-        return petriStat;
     }
 }

@@ -1,6 +1,6 @@
 package graphpresentation.statistic.services;
 
-import graphpresentation.statistic.dto.PetriElementStatisticDto;
+import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
 
 import java.util.List;
 

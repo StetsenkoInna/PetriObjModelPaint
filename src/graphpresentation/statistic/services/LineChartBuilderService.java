@@ -1,10 +1,10 @@
-package graphpresentation.statistic.serviceImpl;
+package graphpresentation.statistic.services;
 
 import com.sun.javafx.charts.Legend;
-import graphpresentation.statistic.dto.ChartAnnotationData;
-import graphpresentation.statistic.dto.ChartConfigDto;
-import graphpresentation.statistic.dto.ChartDrawingConfig;
-import graphpresentation.statistic.dto.ChartLineData;
+import graphpresentation.statistic.dto.drawings.ChartAnnotationData;
+import graphpresentation.statistic.dto.configs.ChartConfigDto;
+import graphpresentation.statistic.dto.drawings.ChartDrawingConfig;
+import graphpresentation.statistic.dto.drawings.ChartLineData;
 import graphpresentation.statistic.services.ChartBuilderService;
 import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
@@ -346,6 +346,31 @@ public class LineChartBuilderService implements ChartBuilderService {
     public void clearChart() {
         currentSeriesId = -1;
         Platform.runLater(() -> lineChart.getData().clear());
+    }
+
+    @Override
+    public void clearDrawings() {
+        Platform.runLater(() -> {
+            List<ChartLineData> verticalLinesToRemove = new ArrayList<>(chartDrawing.getVerticalLines());
+            List<ChartLineData> horizontalLinesToRemove = new ArrayList<>(chartDrawing.getHorizontalLines());
+            List<ChartAnnotationData> annotationsForRemove = new ArrayList<>(chartDrawing.getAnnotations());
+
+            chartDrawing.getVerticalLines().removeAll(verticalLinesToRemove);
+            chartDrawing.getHorizontalLines().removeAll(horizontalLinesToRemove);
+            chartDrawing.getAnnotations().removeAll(annotationsForRemove);
+
+            List<Node> removeNodes = new ArrayList<>();
+            removeNodes.addAll(verticalLinesToRemove.stream()
+                    .map(ChartLineData::getLine)
+                    .collect(Collectors.toList()));
+            removeNodes.addAll(horizontalLinesToRemove.stream()
+                    .map(ChartLineData::getLine)
+                    .collect(Collectors.toList()));
+            removeNodes.addAll(annotationsForRemove.stream()
+                    .map(ChartAnnotationData::getNode)
+                    .collect(Collectors.toList()));
+            root.getChildren().removeAll(removeNodes);
+        });
     }
 
     @Override

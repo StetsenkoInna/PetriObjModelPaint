@@ -10,6 +10,7 @@ import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
 import graphpresentation.statistic.StatisticMonitorDialog;
+import graphpresentation.statistic.dto.data.StatisticMonitor;
 import graphreuse.GraphNetParametersFrame;
 import graphpresentation.undoable_edits.AddGraphElementEdit;
 
@@ -1715,8 +1716,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 m.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 m.setCurrentTime(Double.valueOf(timeStartField.getText()));
                 if (statisticMonitorDialog != null) {
-                    m.setStatMonitor(statisticMonitorDialog);
-                    m.setStatWatchList(statisticMonitorDialog.getSelectedElementNames());
+                    StatisticMonitor statisticMonitor = new StatisticMonitor(statisticMonitorDialog);
+                    m.setStatisticMonitor(statisticMonitor);
                 }
                 m.go(Double.valueOf(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
@@ -1776,8 +1777,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 model.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 model.setCurrentTime(Double.valueOf(timeStartField.getText()));
                 if (statisticMonitorDialog != null) {
-                    model.setStatMonitor(statisticMonitorDialog);
-                    model.setStatWatchList(statisticMonitorDialog.getSelectedElementNames());
+                    StatisticMonitor statisticMonitor = new StatisticMonitor(statisticMonitorDialog);
+                    model.setStatisticMonitor(statisticMonitor);
                 }
                 model.go(Double.valueOf(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(

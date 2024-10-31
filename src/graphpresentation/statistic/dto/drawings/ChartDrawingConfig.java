@@ -1,4 +1,4 @@
-package graphpresentation.statistic.dto;
+package graphpresentation.statistic.dto.drawings;
 
 import java.util.ArrayList;
 import java.util.List;

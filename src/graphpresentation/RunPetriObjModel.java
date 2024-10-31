@@ -9,13 +9,10 @@ import PetriObj.PetriObjModel;
 import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
-import graphpresentation.PetriNetsPanel;
-import graphpresentation.statistic.StatisticMonitorDialog;
-import graphpresentation.statistic.dto.PetriElementStatisticDto;
-import graphpresentation.statistic.services.StatisticMonitorService;
+import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
+import graphpresentation.statistic.dto.data.StatisticMonitor;
 
 import java.util.*;
-import java.util.stream.Collectors;
 import javax.swing.*;
 
 /**
@@ -25,8 +22,7 @@ import javax.swing.*;
 public class RunPetriObjModel extends PetriObjModel{
     
     private JTextArea area; // specifies where simulation protokol is printed
-    private List<String> statWatchList;
-    private StatisticMonitorService statMonitor;
+    private StatisticMonitor statisticMonitor;
 
     public RunPetriObjModel(ArrayList<PetriSim> list, JTextArea area){
         super(list);
@@ -192,7 +188,7 @@ public class RunPetriObjModel extends PetriObjModel{
                 }
             }
 
-            List<PetriElementStatisticDto> elementStatistics = new ArrayList<>();
+            List<PetriElementStatisticDto> currentStatistic = new ArrayList<>();
             if (super.isStatistics() == true) {
                 for (PetriSim e : super.getListObj()) {
                     if (min > 0) {
@@ -202,17 +198,14 @@ public class RunPetriObjModel extends PetriObjModel{
                             e.doStatistics((timeModeling - super.getCurrentTime()) / super.getSimulationTime());
                         }
                     }
-                    if (statWatchList != null && !statWatchList.isEmpty() &&
-                            statMonitor != null && statMonitor.getIsFormulaValid()) {
-                        elementStatistics.addAll(PetriElementStatisticDto.collectElementStatistic(e.getNet(), statWatchList));
+                    if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
+                        currentStatistic.addAll(statisticMonitor.getNetWatchListStatistic(e.getNet()));
                     }
                 }
             }
-            if (statMonitor != null && !elementStatistics.isEmpty() && statMonitor.getIsFormulaValid()) {
-                double currentTime = getCurrentTime();
-                SwingUtilities.invokeLater(() -> {
-                    statMonitor.sendStatistic(currentTime, elementStatistics);
-                });
+            if (!currentStatistic.isEmpty()) {
+                statisticMonitor.setLastStatisticCollectionTime(getCurrentTime());
+                statisticMonitor.asyncStatisticSend(getCurrentTime(), currentStatistic);
             }
 
             super.setCurrentTime(min); // просування часу
@@ -277,6 +270,16 @@ public class RunPetriObjModel extends PetriObjModel{
                 this.printMark();
             }
         }
+
+        if (isLastStatisticSegment()) {
+            List<PetriElementStatisticDto> statistic = new ArrayList<>();
+            for (PetriSim e : super.getListObj()) {
+                statistic.addAll(statisticMonitor.getNetWatchListStatistic(e.getNet()));
+            }
+            statisticMonitor.asyncStatisticSend(getCurrentTime(), statistic);
+        }
+        statisticMonitor.shutdownStatisticUpdate();
+
         area.append("\n Modeling results: \n");
 
         for (PetriSim e : super.getListObj()) {
@@ -292,8 +295,7 @@ public class RunPetriObjModel extends PetriObjModel{
         }
     }
 
-    
-     /**
+    /**
      * Prints the string in given JTextArea object
      *
      * @param info string for printing
@@ -315,11 +317,20 @@ public class RunPetriObjModel extends PetriObjModel{
         }
     }
 
-    public void setStatMonitor(StatisticMonitorDialog statMonitor) {
-        this.statMonitor = statMonitor;
+    public void setStatisticMonitor(StatisticMonitor statisticMonitor) {
+        this.statisticMonitor = statisticMonitor;
     }
 
-    public void setStatWatchList(List<String> statWatchList) {
-        this.statWatchList = statWatchList;
+    private boolean isStatisticMonitorEnabled() {
+        return statisticMonitor != null && statisticMonitor.isValidMonitor();
+    }
+
+    private boolean isStatisticCollectionTime() {
+        return getCurrentTime() >= statisticMonitor.getDataCollectionStartTime() &&
+                getCurrentTime() - statisticMonitor.getLastStatisticCollectionTime() >= statisticMonitor.getDataCollectionStep();
+    }
+
+    private boolean isLastStatisticSegment() {
+        return super.getSimulationTime() - statisticMonitor.getLastStatisticCollectionTime() >= statisticMonitor.getDataCollectionStep();
     }
 }

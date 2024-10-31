@@ -1,4 +1,4 @@
-package graphpresentation.statistic.dto;
+package graphpresentation.statistic.dto.drawings;
 
 import javafx.scene.layout.Pane;
 

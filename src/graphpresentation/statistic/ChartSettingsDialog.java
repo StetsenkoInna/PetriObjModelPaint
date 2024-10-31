@@ -4,7 +4,8 @@
  */
 package graphpresentation.statistic;
 
-import graphpresentation.statistic.dto.ChartConfigDto;
+import graphpresentation.statistic.dto.configs.ChartConfigDto;
+import graphpresentation.statistic.dto.configs.ChartDataCollectionConfigDto;
 import graphpresentation.statistic.services.ChartBuilderService;
 
 import javax.swing.*;
@@ -48,6 +49,9 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         yAxisNameField = new javax.swing.JTextField();
         displayMarkersLabel = new javax.swing.JLabel();
         displayMarkersPane = new javax.swing.JPanel();
+        chartUpdateFrequencyPane = new javax.swing.JPanel();
+        chartStartTimePane = new javax.swing.JPanel();
+        chartDataCollectionStepPane = new javax.swing.JPanel();
         actionsPanel = new javax.swing.JPanel();
         filler1 = new javax.swing.Box.Filler(new java.awt.Dimension(0, 0), new java.awt.Dimension(0, 0), new java.awt.Dimension(32767, 0));
         configChartConfigBtn = new javax.swing.JButton();
@@ -57,8 +61,8 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         setTitle("Chart settings");
 
         chartConfigPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Chart settings"));
-        chartConfigPanel.setPreferredSize(new java.awt.Dimension(200, 200));
-        chartConfigPanel.setLayout(new java.awt.GridLayout(4, 0));
+        chartConfigPanel.setPreferredSize(new java.awt.Dimension(250, 400));
+        chartConfigPanel.setLayout(new java.awt.GridLayout(7, 0));
 
         chartNamePane.setLayout(new java.awt.BorderLayout());
 
@@ -96,6 +100,33 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
 
         chartConfigPanel.add(displayMarkersPane);
 
+        chartUpdateFrequencyLabel = new JLabel("Data update frequency (s)");
+        chartUpdateFrequencyField = new JTextField();
+        chartUpdateFrequencyField.setText(chartConfigDto.getDataCollectionConfig().getDataUpdateFrequency().toString());
+        chartUpdateFrequencyPane.setLayout(new java.awt.BorderLayout());
+        chartUpdateFrequencyPane.add(chartUpdateFrequencyLabel, java.awt.BorderLayout.PAGE_START);
+        chartUpdateFrequencyPane.add(chartUpdateFrequencyField, java.awt.BorderLayout.CENTER);
+
+        chartConfigPanel.add(chartUpdateFrequencyPane);
+
+        chartStartTimeLabel = new JLabel("Data collection start time");
+        chartStartTimeField = new JTextField();
+        chartStartTimeField.setText(chartConfigDto.getDataCollectionConfig().getDataCollectionStartTime().toString());
+        chartStartTimePane.setLayout(new java.awt.BorderLayout());
+        chartStartTimePane.add(chartStartTimeLabel, java.awt.BorderLayout.PAGE_START);
+        chartStartTimePane.add(chartStartTimeField, java.awt.BorderLayout.CENTER);
+
+        chartConfigPanel.add(chartStartTimePane);
+
+        chartDataCollectionStepLabel = new JLabel("Data collection step");
+        chartDataCollectionStepField = new JTextField();
+        chartDataCollectionStepField.setText(chartConfigDto.getDataCollectionConfig().getDataCollectionStep().toString());
+        chartDataCollectionStepPane.setLayout(new java.awt.BorderLayout());
+        chartDataCollectionStepPane.add(chartDataCollectionStepLabel, java.awt.BorderLayout.PAGE_START);
+        chartDataCollectionStepPane.add(chartDataCollectionStepField, java.awt.BorderLayout.CENTER);
+
+        chartConfigPanel.add(chartDataCollectionStepPane);
+
         getContentPane().add(chartConfigPanel, java.awt.BorderLayout.CENTER);
 
         actionsPanel.add(filler1);
@@ -126,12 +157,17 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
     }// </editor-fold>//GEN-END:initComponents
 
     private void confirmChartConfigPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_selectFunctionBtnActionPerformed
-        chartConfigDto = new ChartConfigDto(
-                chartNameField.getText(),
-                xAxisNameField.getText(),
-                yAxisNameField.getText(),
-                markerCheckBox.isSelected()
-        );
+        chartConfigDto.setTitle(chartNameField.getText());
+        chartConfigDto.setxAxisTitle(xAxisNameField.getText());
+        chartConfigDto.setyAxisTitle(yAxisNameField.getText());
+        chartConfigDto.setDisplayDataMarkers(markerCheckBox.isSelected());
+        if (chartConfigDto.getDataCollectionConfig() == null) {
+            chartConfigDto.setDataCollectionConfig(new ChartDataCollectionConfigDto());
+        }
+        chartConfigDto.getDataCollectionConfig().setDataUpdateFrequency(chartUpdateFrequencyField.getText());
+        chartConfigDto.getDataCollectionConfig().setDataCollectionStep(chartDataCollectionStepField.getText());
+        chartConfigDto.getDataCollectionConfig().setDataCollectionStartTime(chartStartTimeField.getText());
+
         chartBuilderService.updateChartConfig(chartConfigDto);
         dispose();
     }//GEN-LAST:event_selectFunctionBtnActionPerformed
@@ -160,6 +196,16 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
     private javax.swing.JPanel displayMarkersPane;
     private javax.swing.JLabel displayMarkersLabel;
     private javax.swing.JCheckBox markerCheckBox;
+    private javax.swing.JPanel chartUpdateFrequencyPane;
+    private javax.swing.JLabel chartUpdateFrequencyLabel;
+    private javax.swing.JTextField chartUpdateFrequencyField;
+    private javax.swing.JPanel chartStartTimePane;
+    private javax.swing.JLabel chartStartTimeLabel;
+    private javax.swing.JTextField chartStartTimeField;
+    private javax.swing.JPanel chartDataCollectionStepPane;
+    private javax.swing.JLabel chartDataCollectionStepLabel;
+    private javax.swing.JTextField chartDataCollectionStepField;
+
     // End of variables declaration//GEN-END:variables
 
 

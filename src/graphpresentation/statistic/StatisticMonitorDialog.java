@@ -5,13 +5,14 @@
 package graphpresentation.statistic;
 
 import graphpresentation.PetriNetsFrame;
+import graphpresentation.statistic.dto.configs.ChartDataCollectionConfigDto;
 import graphpresentation.statistic.services.ChartBuilderService;
-import graphpresentation.statistic.serviceImpl.LineChartBuilderService;
-import graphpresentation.statistic.dto.ChartConfigDto;
-import graphpresentation.statistic.dto.PetriElementStatisticDto;
+import graphpresentation.statistic.services.LineChartBuilderService;
+import graphpresentation.statistic.dto.configs.ChartConfigDto;
+import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
 import graphpresentation.statistic.enums.PetriStatFunction;
 import graphpresentation.statistic.services.FormulaBuilderService;
-import graphpresentation.statistic.serviceImpl.FormulaBuilderServiceImpl;
+import graphpresentation.statistic.services.FormulaBuilderServiceImpl;
 import graphpresentation.statistic.services.StatisticMonitorService;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.chart.XYChart;
@@ -297,7 +298,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         chartToolsBar.add(Box.createVerticalStrut(10));
         chartToolsBar.setPreferredSize(new Dimension(40, 100));
         chartToolsBar.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0,1,0,0, Color.LIGHT_GRAY),
+                BorderFactory.createMatteBorder(0, 1, 0, 0, Color.LIGHT_GRAY),
                 chartToolsBar.getBorder()
         ));
 
@@ -361,6 +362,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
 
     private void clearFormulaBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clearFormulaBtnActionPerformed
         chartBuilderService.clearChart();
+        chartBuilderService.clearDrawings();
     }//GEN-LAST:event_clearFormulaBtnActionPerformed
 
     private void onChartSettingOpenPerformed(java.awt.event.ActionEvent evt) {
@@ -456,6 +458,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         clearFormulaBtn.setEnabled(false);
         if (isFormulaValid) {
             chartBuilderService.createSeries(formulaInputField.getText());
+
         }
     }
 
@@ -505,7 +508,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     }
 
     @Override
-    public void sendStatistic(double currentTime, List<PetriElementStatisticDto> statistics) {
+    public void appendChartStatistic(double currentTime, List<PetriElementStatisticDto> statistics) {
         if (!isFormulaValid) {
             return;
         }
@@ -513,5 +516,11 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         if (formulaValue != null) {
             chartBuilderService.appendData(new XYChart.Data<>(currentTime, formulaValue));
         }
+    }
+
+    @Override
+    public ChartDataCollectionConfigDto getChartDataCollectionConfig() {
+        ChartDataCollectionConfigDto configDto = chartConfigDto.getDataCollectionConfig();
+        return configDto != null ? configDto : new ChartDataCollectionConfigDto();
     }
 }

@@ -1,6 +1,4 @@
-package graphpresentation.statistic.dto;
-
-import java.util.Objects;
+package graphpresentation.statistic.dto.configs;
 
 public class ChartConfigDto {
     private String title;
@@ -12,12 +10,14 @@ public class ChartConfigDto {
     private Boolean isDragEnabled = false;
     private Boolean clearLineEnabled = false;
     private Boolean createLabelEnabled = false;
+    private ChartDataCollectionConfigDto dataCollectionConfig;
 
     public ChartConfigDto(String title, String xAxisTitle, String yAxisTitle, Boolean displayDataMarkers) {
         this.title = title;
         this.xAxisTitle = xAxisTitle;
         this.yAxisTitle = yAxisTitle;
         this.displayDataMarkers = displayDataMarkers;
+        this.dataCollectionConfig = new ChartDataCollectionConfigDto();
     }
 
     public String getTitle() {
@@ -92,16 +92,37 @@ public class ChartConfigDto {
         createLabelEnabled = !createLabelEnabled;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        ChartConfigDto configDto = (ChartConfigDto) o;
-        return Objects.equals(title, configDto.title) && Objects.equals(xAxisTitle, configDto.xAxisTitle) && Objects.equals(yAxisTitle, configDto.yAxisTitle) && Objects.equals(displayDataMarkers, configDto.displayDataMarkers) && Objects.equals(isDrawHorizontalLineEnabled, configDto.isDrawHorizontalLineEnabled) && Objects.equals(isDrawVerticalLineEnabled, configDto.isDrawVerticalLineEnabled) && Objects.equals(isDragEnabled, configDto.isDragEnabled) && Objects.equals(clearLineEnabled, configDto.clearLineEnabled);
+    public void setDrawHorizontalLineEnabled(Boolean drawHorizontalLineEnabled) {
+        isDrawHorizontalLineEnabled = drawHorizontalLineEnabled;
     }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(title, xAxisTitle, yAxisTitle, displayDataMarkers, isDrawHorizontalLineEnabled, isDrawVerticalLineEnabled, isDragEnabled, clearLineEnabled);
+    public void setDrawVerticalLineEnabled(Boolean drawVerticalLineEnabled) {
+        isDrawVerticalLineEnabled = drawVerticalLineEnabled;
     }
+
+    public Boolean getDragEnabled() {
+        return isDragEnabled;
+    }
+
+    public void setDragEnabled(Boolean dragEnabled) {
+        isDragEnabled = dragEnabled;
+    }
+
+    public void setClearLineEnabled(Boolean clearLineEnabled) {
+        this.clearLineEnabled = clearLineEnabled;
+    }
+
+    public void setCreateLabelEnabled(Boolean createLabelEnabled) {
+        this.createLabelEnabled = createLabelEnabled;
+    }
+
+    public ChartDataCollectionConfigDto getDataCollectionConfig() {
+        return dataCollectionConfig;
+    }
+
+    public void setDataCollectionConfig(ChartDataCollectionConfigDto dataCollectionConfig) {
+        this.dataCollectionConfig = dataCollectionConfig;
+    }
+
+
 }

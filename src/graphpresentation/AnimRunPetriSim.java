@@ -10,7 +10,6 @@ import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
 import PetriObj.StateTime;
-import graphpresentation.statistic.dto.PetriElementStatisticDto;
 
 import java.util.ArrayList;
 import java.util.Arrays;

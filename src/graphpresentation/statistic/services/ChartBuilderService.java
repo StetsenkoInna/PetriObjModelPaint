@@ -1,12 +1,13 @@
 package graphpresentation.statistic.services;
 
-import graphpresentation.statistic.dto.ChartConfigDto;
+import graphpresentation.statistic.dto.configs.ChartConfigDto;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.chart.XYChart;
 
 public interface ChartBuilderService {
     void createChart(JFXPanel jfxPanel, ChartConfigDto configDto);
     void clearChart();
+    void clearDrawings();
     void appendData(XYChart.Data<Number, Number> data);
     void changeSeriesName(Integer seriesId, String name);
     void updateChartConfig(ChartConfigDto chartConfigDto);

@@ -1,13 +1,12 @@
-package graphpresentation.statistic.serviceImpl;
+package graphpresentation.statistic.services;
 
 import graphnet.GraphPetriNet;
 import graphnet.GraphPetriPlace;
 import graphpresentation.GraphTransition;
 import graphpresentation.PetriNetsFrame;
-import graphpresentation.statistic.dto.PetriElementStatisticDto;
+import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
 import graphpresentation.statistic.enums.FunctionType;
 import graphpresentation.statistic.enums.PetriStatFunction;
-import graphpresentation.statistic.services.FormulaBuilderService;
 
 import java.util.*;
 import java.util.regex.Matcher;
