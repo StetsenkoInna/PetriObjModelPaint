@@ -383,7 +383,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
 
     private boolean isValidArgumentsElementAndNumber(PetriStatisticFunction function, String argument) {
         String[] args = argument.split(PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT_AND_NUMBER.getSeparator());
-        if (args.length < 2) {
+        if (args.length != 2) {
             return false;
         }
         String elementName = args[0];

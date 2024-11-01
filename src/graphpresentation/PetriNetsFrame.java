@@ -1347,6 +1347,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         statisticMenu.setText("Statistic");
 
         openMonitor.setText("Open monitor");
+        openMonitor.setMnemonic(KeyEvent.VK_M);
+        openMonitor.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, KeyEvent.CTRL_MASK | KeyEvent.ALT_MASK));
         openMonitor.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 openMonitorActionPerformed(evt);
@@ -1997,6 +1999,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartField.setEnabled(false);
         netNameTextField.setEnabled(false);
         leftMenuList.setEnabled(false);
+        statisticMenu.setEnabled(false);
         if (statisticMonitorDialog != null) {
             statisticMonitorDialog.onSimulationStart();
         }
@@ -2021,6 +2024,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartField.setEnabled(true);
         netNameTextField.setEnabled(true);
         leftMenuList.setEnabled(true);
+        statisticMenu.setEnabled(true);
         if (statisticMonitorDialog != null) {
             statisticMonitorDialog.onSimulationEnd();
         }
