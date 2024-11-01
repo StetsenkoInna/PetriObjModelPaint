@@ -5,7 +5,6 @@ import graphpresentation.statistic.dto.drawings.ChartAnnotationData;
 import graphpresentation.statistic.dto.configs.ChartConfigDto;
 import graphpresentation.statistic.dto.drawings.ChartDrawingConfig;
 import graphpresentation.statistic.dto.drawings.ChartLineData;
-import graphpresentation.statistic.services.ChartBuilderService;
 import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
 import javafx.embed.swing.SwingFXUtils;
@@ -380,14 +379,18 @@ public class LineChartBuilderService implements ChartBuilderService {
             series.getData().add(data);
             if (chartConfigDto.getDisplayDataMarkers()) {
                 XYChart.Data<Number, Number> dataPoint = series.getData().get(series.getData().size() - 1);
-                String tooltipMessage = chartConfigDto.getxAxisTitle() + ":" + dataPoint.getXValue() + "\n" +
-                        chartConfigDto.getyAxisTitle() + ":" + dataPoint.getYValue();
-                Tooltip tooltip = new Tooltip(tooltipMessage);
-                Tooltip.install(dataPoint.getNode(), tooltip);
-                dataPoint.getNode().setOnMouseEntered(event -> dataPoint.getNode().getStyleClass().add("onDataPointHover"));
-                dataPoint.getNode().setOnMouseExited(event -> dataPoint.getNode().getStyleClass().remove("onDataPointHover"));
+                createDataPointTooltip(dataPoint);
             }
         });
+    }
+
+    private void createDataPointTooltip(XYChart.Data<Number, Number> dataPoint) {
+        String tooltipMessage = chartConfigDto.getxAxisTitle() + ":" + dataPoint.getXValue() + "\n" +
+                chartConfigDto.getyAxisTitle() + ":" + dataPoint.getYValue();
+        Tooltip tooltip = new Tooltip(tooltipMessage);
+        Tooltip.install(dataPoint.getNode(), tooltip);
+        dataPoint.getNode().setOnMouseEntered(event -> dataPoint.getNode().getStyleClass().add("onDataPointHover"));
+        dataPoint.getNode().setOnMouseExited(event -> dataPoint.getNode().getStyleClass().remove("onDataPointHover"));
     }
 
     @Override
@@ -407,6 +410,13 @@ public class LineChartBuilderService implements ChartBuilderService {
             lineChart.getXAxis().setLabel(chartConfigDto.getxAxisTitle());
             lineChart.getYAxis().setLabel(chartConfigDto.getyAxisTitle());
             lineChart.setCreateSymbols(chartConfigDto.getDisplayDataMarkers());
+            if (chartConfigDto.getDisplayDataMarkers()) {
+                for (XYChart.Series<Number, Number> series : lineChart.getData()) {
+                    for (XYChart.Data<Number, Number> dataPoint : series.getData()) {
+                        createDataPointTooltip(dataPoint);
+                    }
+                }
+            }
             toggleCursor(chartConfigDto);
             verticalTooltipLine.setVisible(chartConfigDto.getDrawVerticalLineEnabled());
             horizontalTooltipLine.setVisible(chartConfigDto.getDrawHorizontalLineEnabled());

@@ -24,12 +24,12 @@ public class PetriElementStatisticDto {
         return elementName;
     }
 
-    public Number getMin() {
-        return min;
+    public Double getMin() {
+        return min.doubleValue();
     }
 
-    public Number getMax() {
-        return max;
+    public Double getMax() {
+        return max.doubleValue();
     }
 
     public Double getAvg() {

@@ -5,8 +5,7 @@ import graphnet.GraphPetriPlace;
 import graphpresentation.GraphTransition;
 import graphpresentation.PetriNetsFrame;
 import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
-import graphpresentation.statistic.enums.FunctionType;
-import graphpresentation.statistic.enums.PetriStatFunction;
+import graphpresentation.statistic.enums.PetriStatisticFunction;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -17,8 +16,8 @@ import java.util.stream.Collectors;
 public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     private final PetriNetsFrame petriNetParent;
     private static final List<String> OPERATORS = Arrays.asList("+", "-", "*", "/");
-    private static final Pattern VALID_CHARACTERS = Pattern.compile("^[A-Za-z0-9_.() +\\-*/\\u0400-\\u04FF]*$");
-    private static final Pattern FUNCTION_CALL_PATTERN = Pattern.compile("([A-Z_0-9]+)\\(([^()]*)\\)");
+    private static final Pattern VALID_CHARACTERS = Pattern.compile("^[A-Za-z0-9_.;() +\\-*/\\u0400-\\u04FF]*$");
+    private static final Pattern FUNCTION_CALL_PATTERN = Pattern.compile("([A-Z_0-9]+)\\(([^()]*?(?:;[^()]*?)*)\\)");
     private static final Pattern DIVISION_BY_ZERO = Pattern.compile("/\\s*0(?!\\.[0-9])");
 
 
@@ -34,23 +33,23 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     @Override
     public List<String> getFormulaSuggestions(String input) {
         if (input == null || input.isEmpty()) {
-            return PetriStatFunction.getFunctionNames();
+            return PetriStatisticFunction.getFunctionNames();
         }
         String lastOperation = getLastOperation(input);
 
         if (lastOperation.isEmpty()) {
-            return PetriStatFunction.filterFunctionsByName(input);
+            return PetriStatisticFunction.filterFunctionsByName(input);
         } else if (lastOperation.endsWith("(")) {
             String functionName = lastOperation.substring(0, lastOperation.length() - 1);
             String functionArgumentName = getFunctionArgument(lastOperation);
-            PetriStatFunction function = PetriStatFunction.findFunctionByName(functionName);
+            PetriStatisticFunction function = PetriStatisticFunction.findFunctionByName(functionName);
             return function != null
                     ? getElementSuggestions(function, functionArgumentName)
                     : Collections.emptyList();
         } else if (OPERATORS.contains(lastOperation)) {
-            return PetriStatFunction.getFunctionNames();
+            return PetriStatisticFunction.getFunctionNames();
         } else {
-            return PetriStatFunction.getFunctionNames().stream()
+            return PetriStatisticFunction.getFunctionNames().stream()
                     .filter(key -> key.toUpperCase().startsWith(lastOperation.toUpperCase()))
                     .collect(Collectors.toList());
         }
@@ -71,18 +70,15 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
 
     @Override
     public List<String> getSelectedPetriElementNames(String formula) {
-        List<String> contents = new ArrayList<>();
-        int openParenIndex = 0;
-        while ((openParenIndex = formula.indexOf("(", openParenIndex)) != -1) {
-            int closeParenIndex = formula.indexOf(")", openParenIndex);
-            if (closeParenIndex == -1) {
-                break;
+        List<String> elements = new ArrayList<>();
+        Matcher functionMatcher = FUNCTION_CALL_PATTERN.matcher(formula);
+        while (functionMatcher.find()) {
+            String argument = functionMatcher.group(2).trim();
+            if (!argument.isEmpty()) {
+                elements.addAll(Arrays.asList(argument.split(";")));
             }
-            String contentInsideParens = formula.substring(openParenIndex + 1, closeParenIndex).trim();
-            contents.add(contentInsideParens);
-            openParenIndex = closeParenIndex + 1;
         }
-        return contents;
+        return elements;
     }
 
     @Override
@@ -110,7 +106,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     }
 
     private boolean validateOperations(List<String> operations) {
-        if (OPERATORS.contains(operations.get(operations.size() - 1))) {
+        if (operations.isEmpty() || OPERATORS.contains(operations.get(operations.size() - 1))) {
             return false;
         }
 
@@ -143,13 +139,17 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             }
 
             String lastFunctionName = getOperationFunctionName(operation);
-            PetriStatFunction function = PetriStatFunction.findFunctionByName(lastFunctionName);
+            PetriStatisticFunction function = PetriStatisticFunction.findFunctionByName(lastFunctionName);
             if (function == null) {
                 return false;
             }
 
             String argument = getFunctionArgument(operation);
-            if (argument == null || argument.isEmpty() || !isValidArgumentElement(function, argument)) {
+            if (argument == null || argument.isEmpty() || (function.hasSeparator() && argument.endsWith(function.getArgumentType().getSeparator()))) {
+                return false;
+            }
+
+            if (!isValidFunctionArgument(function, argument)) {
                 return false;
             }
         }
@@ -200,50 +200,116 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             while (functionMatcher.find()) {
                 String functionName = functionMatcher.group(1);
                 String argument = functionMatcher.group(2);
-                Number functionValue = getFunctionValue(PetriStatFunction.findFunctionByName(functionName), argument, statistics);
+                Number functionValue = getFunctionValue(PetriStatisticFunction.findFunctionByName(functionName), argument, statistics);
                 if (functionValue != null) {
                     functionMatcher.appendReplacement(numericExpression, functionValue.toString());
                 }
             }
             functionMatcher.appendTail(numericExpression);
-            result = ExpressionEvaluateUtil.evaluateExpression(numericExpression.toString());
+            if (numericExpression.toString().matches("\\d+(\\.\\d+)?")) {
+                result = Double.parseDouble(numericExpression.toString());
+            } else {
+                result = ExpressionEvaluateUtil.evaluateExpression(numericExpression.toString());
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
         return result;
     }
 
-    private Number getFunctionValue(PetriStatFunction function, String argumentName, List<PetriElementStatisticDto> statistics) {
-        if (function == null || argumentName == null || statistics == null || statistics.isEmpty()) {
+    private Number getFunctionValue(PetriStatisticFunction function, String argument, List<PetriElementStatisticDto> statistics) {
+        if (function == null || argument == null || statistics == null || statistics.isEmpty()) {
             return null;
         }
-        PetriElementStatisticDto argumentStatistic = statistics.stream()
-                .filter(petriElementStatistic -> petriElementStatistic.getElementName().equals(argumentName))
-                .findFirst()
-                .orElse(null);
-        if (argumentStatistic == null) {
-            return null;
-        }
-        switch (function) {
-            case P_MIN:
-            case T_MIN: {
-                return argumentStatistic.getMin();
+
+        if (function.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT) {
+            PetriElementStatisticDto argumentStatistic = statistics.stream()
+                    .filter(petriElementStatistic -> petriElementStatistic.getElementName().equals(argument))
+                    .findFirst()
+                    .orElse(null);
+            if (argumentStatistic == null) {
+                return null;
             }
-            case P_MAX:
-            case T_MAX: {
-                return argumentStatistic.getMax();
+            switch (function) {
+                case P_MIN:
+                case T_MIN: {
+                    return argumentStatistic.getMin();
+                }
+                case P_MAX:
+                case T_MAX: {
+                    return argumentStatistic.getMax();
+                }
+                case P_AVG:
+                case T_AVG: {
+                    return argumentStatistic.getAvg();
+                }
             }
-            case P_AVG:
-            case T_AVG: {
-                return argumentStatistic.getAvg();
+        } else if (function.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.MULTIPLE_ELEMENT) {
+            List<String> args = Arrays.asList(argument.split(function.getArgumentType().getSeparator()));
+            List<PetriElementStatisticDto> argumentsStatistic = statistics.stream()
+                    .filter(petriElementStatistic -> args.contains(petriElementStatistic.getElementName()))
+                    .collect(Collectors.toList());
+            switch (function) {
+                case SUM_MIN: {
+                    return argumentsStatistic.stream()
+                            .mapToDouble(PetriElementStatisticDto::getMin)
+                            .sum();
+                }
+                case SUM_MAX: {
+                    return argumentsStatistic.stream()
+                            .mapToDouble(PetriElementStatisticDto::getMax)
+                            .sum();
+                }
+                case SUM_AVG: {
+                    return argumentsStatistic.stream()
+                            .mapToDouble(PetriElementStatisticDto::getAvg)
+                            .sum();
+                }
+                case AVG_MIN: {
+                    return argumentsStatistic.stream()
+                            .mapToDouble(PetriElementStatisticDto::getMin)
+                            .average().orElse(0.0);
+                }
+                case AVG_MAX: {
+                    return argumentsStatistic.stream()
+                            .mapToDouble(PetriElementStatisticDto::getMax)
+                            .average().orElse(0.0);
+                }
+                case AVG: {
+                    return argumentsStatistic.stream()
+                            .mapToDouble(PetriElementStatisticDto::getAvg)
+                            .average().orElse(0.0);
+                }
+            }
+        } else if (function.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT_AND_NUMBER) {
+            String[] args = argument.split(PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT_AND_NUMBER.getSeparator());
+            String elementName = args[0];
+            double functionArgument = Double.parseDouble(args[1]);
+            PetriElementStatisticDto argumentStatistic = statistics.stream()
+                    .filter(petriElementStatistic -> petriElementStatistic.getElementName().equals(elementName))
+                    .findFirst()
+                    .orElse(null);
+            if (argumentStatistic == null) {
+                return null;
+            }
+            switch (function) {
+                case POWER_MIN: {
+                    return Math.pow(argumentStatistic.getMin(), functionArgument);
+                }
+                case POWER_MAX: {
+                    return Math.pow(argumentStatistic.getMax(), functionArgument);
+                }
+                case POWER_AVG: {
+                    return Math.pow(argumentStatistic.getAvg(), functionArgument);
+                }
             }
         }
         return null;
     }
 
 
-    private List<String> getElementSuggestions(PetriStatFunction petriStatFunction, String input) {
-        if (petriStatFunction == null) {
+    private List<String> getElementSuggestions(PetriStatisticFunction petriStatisticFunction, String input) {
+        if (petriStatisticFunction == null) {
             return new ArrayList<>();
         }
 
@@ -254,14 +320,14 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         List<String> transitionNames = getCurrentGraphNet().getGraphPetriTransitionList().stream()
                 .map(GraphTransition::getName)
                 .collect(Collectors.toList());
-        if (petriStatFunction.getFunctionType().equals(FunctionType.POSITION_BASED)) {
+        if (petriStatisticFunction.getFunctionType().equals(PetriStatisticFunction.FunctionArgumentElementType.PLACE)) {
             if (input != null) {
                 placeNames = placeNames.stream()
                         .filter(name -> name.toUpperCase().startsWith(input.toUpperCase()))
                         .collect(Collectors.toList());
             }
             elements.addAll(placeNames);
-        } else if (petriStatFunction.getFunctionType().equals(FunctionType.TRANSITION_BASED)) {
+        } else if (petriStatisticFunction.getFunctionType().equals(PetriStatisticFunction.FunctionArgumentElementType.TRANSITION)) {
             if (input != null) {
                 transitionNames = transitionNames.stream()
                         .filter(name -> name.toUpperCase().startsWith(input.toUpperCase()))
@@ -310,17 +376,55 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         return stack.isEmpty();
     }
 
-    private boolean isValidArgumentElement(PetriStatFunction function, String argument) {
+    private boolean isValidArgumentsElement(PetriStatisticFunction function, String argument) {
+        String[] args = argument.split(function.getArgumentType().getSeparator());
+        return Arrays.stream(args).allMatch(param -> isValidArgumentElement(function, param));
+    }
+
+    private boolean isValidArgumentsElementAndNumber(PetriStatisticFunction function, String argument) {
+        String[] args = argument.split(PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT_AND_NUMBER.getSeparator());
+        if (args.length < 2) {
+            return false;
+        }
+        String elementName = args[0];
+        String functionArgument = args[1];
+        return isValidArgumentElement(function, elementName) && functionArgument.matches("\\d+(\\.\\d+)?");
+    }
+
+    private boolean isValidFunctionArgument(PetriStatisticFunction function, String argument) {
+        switch (function.getArgumentType()) {
+            case SINGLE_ELEMENT: {
+                return isValidArgumentElement(function, argument);
+            }
+            case MULTIPLE_ELEMENT: {
+                return isValidArgumentsElement(function, argument);
+            }
+            case SINGLE_ELEMENT_AND_NUMBER: {
+                return isValidArgumentsElementAndNumber(function, argument);
+            }
+        }
+        return false;
+    }
+
+    private boolean isValidArgumentElement(PetriStatisticFunction function, String argument) {
+        if (argument == null || argument.isEmpty()) {
+            return false;
+        }
         GraphPetriNet net = getCurrentGraphNet();
         List<String> elements = new ArrayList<>();
-        if (function.getFunctionType() == FunctionType.POSITION_BASED) {
-            elements = net.getGraphPetriPlaceList().stream()
-                    .map(place -> place.getName().toUpperCase())
-                    .collect(Collectors.toList());
-        } else if (function.getFunctionType() == FunctionType.TRANSITION_BASED) {
-            elements = net.getGraphPetriTransitionList().stream()
-                    .map(transition -> transition.getName().toUpperCase())
-                    .collect(Collectors.toList());
+        List<String> places = net.getGraphPetriPlaceList().stream()
+                .map(place -> place.getName().toUpperCase())
+                .collect(Collectors.toList());
+        List<String> transitions = net.getGraphPetriTransitionList().stream()
+                .map(transition -> transition.getName().toUpperCase())
+                .collect(Collectors.toList());
+        if (function.getFunctionType() == PetriStatisticFunction.FunctionArgumentElementType.PLACE) {
+            elements.addAll(places);
+        } else if (function.getFunctionType() == PetriStatisticFunction.FunctionArgumentElementType.TRANSITION) {
+            elements.addAll(transitions);
+        } else if (function.getFunctionType() == PetriStatisticFunction.FunctionArgumentElementType.ANY) {
+            elements.addAll(places);
+            elements.addAll(transitions);
         }
         return elements.contains(argument.toUpperCase());
     }

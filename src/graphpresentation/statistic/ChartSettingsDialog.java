@@ -9,6 +9,12 @@ import graphpresentation.statistic.dto.configs.ChartDataCollectionConfigDto;
 import graphpresentation.statistic.services.ChartBuilderService;
 
 import javax.swing.*;
+import javax.swing.border.Border;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 
 /**
  * @author kachm
@@ -38,6 +44,8 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
     private void initComponents() {
 
         chartConfigPanel = new javax.swing.JPanel();
+        chartSettingsPanel = new javax.swing.JPanel();
+        chartDataSettingsPanel = new javax.swing.JPanel();
         chartNamePane = new javax.swing.JPanel();
         chartNameLabel = new javax.swing.JLabel();
         chartNameField = new javax.swing.JTextField();
@@ -60,18 +68,27 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Chart settings");
 
-        chartConfigPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Chart settings"));
-        chartConfigPanel.setPreferredSize(new java.awt.Dimension(250, 400));
-        chartConfigPanel.setLayout(new java.awt.GridLayout(7, 0));
+        chartConfigPanel.setPreferredSize(new java.awt.Dimension(500, 250));
+        chartConfigPanel.setLayout(new java.awt.GridLayout(1, 2));
+
+        chartSettingsPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Chart display config"));
+        chartDataSettingsPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Data collection config"));
+
+        chartSettingsPanel.setLayout(new java.awt.GridLayout(4, 0));
+        chartDataSettingsPanel.setLayout(new java.awt.GridLayout(4, 0));
+
+        chartSettingsPanel.setPreferredSize(new java.awt.Dimension(250, 400));
+        chartDataSettingsPanel.setPreferredSize(new java.awt.Dimension(250, 400));
 
         chartNamePane.setLayout(new java.awt.BorderLayout());
 
         chartNameField.setText(chartConfigDto.getTitle());
+        chartNameField.setPreferredSize(new java.awt.Dimension(200, 25));
         chartNameLabel.setText("Chart name");
         chartNamePane.add(chartNameLabel, java.awt.BorderLayout.PAGE_START);
         chartNamePane.add(chartNameField, java.awt.BorderLayout.CENTER);
 
-        chartConfigPanel.add(chartNamePane);
+        chartSettingsPanel.add(chartNamePane);
 
         xAxisPane.setLayout(new java.awt.BorderLayout());
 
@@ -80,7 +97,7 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         xAxisPane.add(xAxisLabel, java.awt.BorderLayout.PAGE_START);
         xAxisPane.add(xAxisNameField, java.awt.BorderLayout.CENTER);
 
-        chartConfigPanel.add(xAxisPane);
+        chartSettingsPanel.add(xAxisPane);
 
         yAxisPane.setLayout(new java.awt.BorderLayout());
 
@@ -89,7 +106,7 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         yAxisPane.add(yAxisLabel, java.awt.BorderLayout.PAGE_START);
         yAxisPane.add(yAxisNameField, java.awt.BorderLayout.CENTER);
 
-        chartConfigPanel.add(yAxisPane);
+        chartSettingsPanel.add(yAxisPane);
 
         displayMarkersLabel.setText("Display data markers");
         markerCheckBox = new JCheckBox("Is marker displayed");
@@ -98,7 +115,7 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         displayMarkersPane.add(displayMarkersLabel, java.awt.BorderLayout.PAGE_START);
         displayMarkersPane.add(markerCheckBox, java.awt.BorderLayout.CENTER);
 
-        chartConfigPanel.add(displayMarkersPane);
+        chartSettingsPanel.add(displayMarkersPane);
 
         chartUpdateFrequencyLabel = new JLabel("Data update frequency (s)");
         chartUpdateFrequencyField = new JTextField();
@@ -107,7 +124,7 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         chartUpdateFrequencyPane.add(chartUpdateFrequencyLabel, java.awt.BorderLayout.PAGE_START);
         chartUpdateFrequencyPane.add(chartUpdateFrequencyField, java.awt.BorderLayout.CENTER);
 
-        chartConfigPanel.add(chartUpdateFrequencyPane);
+        chartDataSettingsPanel.add(chartUpdateFrequencyPane);
 
         chartStartTimeLabel = new JLabel("Data collection start time");
         chartStartTimeField = new JTextField();
@@ -116,7 +133,7 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         chartStartTimePane.add(chartStartTimeLabel, java.awt.BorderLayout.PAGE_START);
         chartStartTimePane.add(chartStartTimeField, java.awt.BorderLayout.CENTER);
 
-        chartConfigPanel.add(chartStartTimePane);
+        chartDataSettingsPanel.add(chartStartTimePane);
 
         chartDataCollectionStepLabel = new JLabel("Data collection step");
         chartDataCollectionStepField = new JTextField();
@@ -125,7 +142,10 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         chartDataCollectionStepPane.add(chartDataCollectionStepLabel, java.awt.BorderLayout.PAGE_START);
         chartDataCollectionStepPane.add(chartDataCollectionStepField, java.awt.BorderLayout.CENTER);
 
-        chartConfigPanel.add(chartDataCollectionStepPane);
+        chartDataSettingsPanel.add(chartDataCollectionStepPane);
+
+        chartConfigPanel.add(chartSettingsPanel);
+        chartConfigPanel.add(chartDataSettingsPanel);
 
         getContentPane().add(chartConfigPanel, java.awt.BorderLayout.CENTER);
 
@@ -164,13 +184,23 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         if (chartConfigDto.getDataCollectionConfig() == null) {
             chartConfigDto.setDataCollectionConfig(new ChartDataCollectionConfigDto());
         }
-        chartConfigDto.getDataCollectionConfig().setDataUpdateFrequency(chartUpdateFrequencyField.getText());
-        chartConfigDto.getDataCollectionConfig().setDataCollectionStep(chartDataCollectionStepField.getText());
-        chartConfigDto.getDataCollectionConfig().setDataCollectionStartTime(chartStartTimeField.getText());
+        if (isValidNumber(chartUpdateFrequencyField.getText())) {
+            chartConfigDto.getDataCollectionConfig().setDataUpdateFrequency(chartUpdateFrequencyField.getText());
+        }
+        if (isValidNumber(chartDataCollectionStepField.getText())) {
+            chartConfigDto.getDataCollectionConfig().setDataCollectionStep(chartDataCollectionStepField.getText());
+        }
+        if (isValidNumber(chartStartTimeField.getText())) {
+            chartConfigDto.getDataCollectionConfig().setDataCollectionStartTime(chartStartTimeField.getText());
+        }
 
         chartBuilderService.updateChartConfig(chartConfigDto);
         dispose();
     }//GEN-LAST:event_selectFunctionBtnActionPerformed
+
+    private boolean isValidNumber(String text) {
+        return text.matches("\\d+(\\.\\d+)?");
+    }
 
     private void cancelSelectionBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancelSelectionBtnActionPerformed
         chartConfigDto = null;
@@ -187,6 +217,8 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
     private javax.swing.Box.Filler filler1;
     private javax.swing.JButton configChartConfigBtn;
     private javax.swing.JPanel chartConfigPanel;
+    private javax.swing.JPanel chartSettingsPanel;
+    private javax.swing.JPanel chartDataSettingsPanel;
     private javax.swing.JLabel xAxisLabel;
     private javax.swing.JTextField xAxisNameField;
     private javax.swing.JPanel xAxisPane;

@@ -4,7 +4,7 @@
  */
 package graphpresentation.statistic;
 
-import graphpresentation.statistic.enums.PetriStatFunction;
+import graphpresentation.statistic.enums.PetriStatisticFunction;
 
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -15,7 +15,7 @@ import java.util.List;
  * @author kachm
  */
 public class SelectFunctionDialog extends javax.swing.JDialog {
-    private PetriStatFunction selectedFunction;
+    private PetriStatisticFunction selectedFunction;
 
     /**
      * Creates new form SelectFunctionDialog
@@ -54,12 +54,12 @@ public class SelectFunctionDialog extends javax.swing.JDialog {
         selectFunctionPanel.setLayout(new java.awt.BorderLayout());
 
         functionList.setModel(new javax.swing.AbstractListModel<String>() {
-            List<String> functions = PetriStatFunction.getFunctionNames();
+            List<String> functions = PetriStatisticFunction.getFunctionNames();
             public int getSize() { return functions.size(); }
             public String getElementAt(int i) { return functions.get(i); }
         });
         functionList.addListSelectionListener(e -> {
-            this.selectedFunction = PetriStatFunction.getFunctionByIndex(functionList.getSelectedIndex());
+            this.selectedFunction = PetriStatisticFunction.getFunctionByIndex(functionList.getSelectedIndex());
             functionTitle.setText(selectedFunction.getTitle());
             functionDescription.setText(selectedFunction.getDescription());
         });
@@ -129,7 +129,7 @@ public class SelectFunctionDialog extends javax.swing.JDialog {
     // End of variables declaration//GEN-END:variables
 
 
-    public PetriStatFunction getSelectedFunction() {
+    public PetriStatisticFunction getSelectedFunction() {
         return selectedFunction;
     }
 }

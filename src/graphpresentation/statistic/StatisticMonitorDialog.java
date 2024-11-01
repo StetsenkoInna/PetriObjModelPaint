@@ -10,7 +10,7 @@ import graphpresentation.statistic.services.ChartBuilderService;
 import graphpresentation.statistic.services.LineChartBuilderService;
 import graphpresentation.statistic.dto.configs.ChartConfigDto;
 import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
-import graphpresentation.statistic.enums.PetriStatFunction;
+import graphpresentation.statistic.enums.PetriStatisticFunction;
 import graphpresentation.statistic.services.FormulaBuilderService;
 import graphpresentation.statistic.services.FormulaBuilderServiceImpl;
 import graphpresentation.statistic.services.StatisticMonitorService;
@@ -352,7 +352,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         SelectFunctionDialog selectFunctionDialog = new SelectFunctionDialog(this.parent, true);
         selectFunctionDialog.setLocationRelativeTo(this);
         selectFunctionDialog.setVisible(true);
-        PetriStatFunction selectedFunction = selectFunctionDialog.getSelectedFunction();
+        PetriStatisticFunction selectedFunction = selectFunctionDialog.getSelectedFunction();
         if (selectedFunction != null) {
             String formula = formulaBuilderService.updateFormula(formulaInputField.getText(), selectedFunction.getFunctionName());
             formulaInputField.setText(formula);
@@ -405,7 +405,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         if (formula.isEmpty()) {
             return;
         }
-        this.selectedElements = formulaBuilderService.getSelectedPetriElementNames(formula);
         this.isFormulaValid = formulaBuilderService.isFormulaValid(formula);
 
         List<String> suggestions = formulaBuilderService.getFormulaSuggestions(formula);
@@ -447,18 +446,18 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     }
 
     private void updateFormulaField() {
-        Border border = BorderFactory.createLineBorder(isFormulaValid ? Color.GREEN : Color.RED, 2);
-        formulaInputField.setBorder(BorderFactory.createCompoundBorder(border,
+        formulaInputField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(isFormulaValid ? Color.GREEN : Color.RED, 2),
                 BorderFactory.createEmptyBorder(5, 5, 5, 5)));
     }
 
     public void onSimulationStart() {
+        this.selectedElements = formulaBuilderService.getSelectedPetriElementNames(formulaInputField.getText());
         formulaInputField.setEnabled(false);
         formulaInfoBtn.setEnabled(false);
         clearFormulaBtn.setEnabled(false);
         if (isFormulaValid) {
             chartBuilderService.createSeries(formulaInputField.getText());
-
         }
     }
 
