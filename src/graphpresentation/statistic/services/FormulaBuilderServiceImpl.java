@@ -7,6 +7,7 @@ import graphpresentation.PetriNetsFrame;
 import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
 import graphpresentation.statistic.enums.PetriStatisticFunction;
 
+import javax.swing.*;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,8 +31,37 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     }
 
     @Override
-    public String updateFormula(String formula, String input) {
-        return formula + input;
+    public String updateFormula(JTextArea formulaField, String input) {
+        String currentText = formulaField.getText();
+        int caretPosition = formulaField.getCaretPosition();
+
+        String textBeforeCaret = currentText.substring(0, caretPosition);
+        String textAfterCaret = currentText.substring(caretPosition);
+
+        int lastSpaceIndex = textBeforeCaret.lastIndexOf(' ');
+        int lastOpenParenIndex = textBeforeCaret.lastIndexOf('(');
+        int lastCloseParenIndex = textBeforeCaret.lastIndexOf(')');
+
+        String newFormula;
+        if (lastOpenParenIndex > lastSpaceIndex) {
+            if (lastCloseParenIndex > lastOpenParenIndex) {
+                newFormula = textBeforeCaret.substring(0, lastOpenParenIndex + 1) + input + textAfterCaret;
+            } else {
+                newFormula = textBeforeCaret + input + textAfterCaret;
+            }
+        } else {
+            newFormula = textBeforeCaret.substring(0, lastSpaceIndex + 1) + input + textAfterCaret;
+        }
+
+        formulaField.setText(newFormula);
+
+        if (lastOpenParenIndex > lastSpaceIndex) {
+            formulaField.setCaretPosition(lastOpenParenIndex + 1 + input.length());
+        } else {
+            formulaField.setCaretPosition(lastSpaceIndex + 1 + input.length());
+        }
+
+        return newFormula;
     }
 
     @Override
@@ -60,15 +90,19 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
 
     private String getLastOperation(String input) {
         String trimmedInput = input.trim();
-        int lastOperatorIndex = Math.max(
+        int lastOperatorIndex = getLastOperatorIndex(trimmedInput);
+        return lastOperatorIndex >= 0
+                ? trimmedInput.substring(lastOperatorIndex + 1).trim()
+                : trimmedInput;
+    }
+
+    private static int getLastOperatorIndex(String trimmedInput) {
+        return Math.max(
                 trimmedInput.lastIndexOf('+'),
                 Math.max(trimmedInput.lastIndexOf('-'),
                         Math.max(trimmedInput.lastIndexOf('*'),
                                 trimmedInput.lastIndexOf('/')))
         );
-        return lastOperatorIndex >= 0
-                ? trimmedInput.substring(lastOperatorIndex + 1).trim()
-                : trimmedInput;
     }
 
     @Override

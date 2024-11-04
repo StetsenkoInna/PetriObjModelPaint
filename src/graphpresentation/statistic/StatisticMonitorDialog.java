@@ -348,7 +348,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         selectFunctionDialog.setVisible(true);
         PetriStatisticFunction selectedFunction = selectFunctionDialog.getSelectedFunction();
         if (selectedFunction != null) {
-            String formula = formulaBuilderService.updateFormula(formulaInputField.getText(), selectedFunction.getFunctionName());
+            String formula = formulaBuilderService.updateFormula(formulaInputField, selectedFunction.getFunctionName());
             formulaInputField.setText(formula);
             onFormulaFieldChange(null);
         }
@@ -413,7 +413,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
             for (String suggestion : suggestions) {
                 JMenuItem item = new JMenuItem(suggestion);
                 item.addActionListener(e -> {
-                    String formula = formulaBuilderService.updateFormula(formulaInputField.getText(), suggestion);
+                    String formula = formulaBuilderService.updateFormula(formulaInputField, suggestion);
                     formulaInputField.setText(formula);
                     formulaSuggestionPopup.setVisible(false);
                 });
