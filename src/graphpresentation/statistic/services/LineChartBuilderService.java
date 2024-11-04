@@ -19,7 +19,9 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
@@ -40,13 +42,11 @@ import static javax.swing.JOptionPane.showMessageDialog;
 
 public class LineChartBuilderService implements ChartBuilderService {
     private ChartConfigDto chartConfigDto;
-    private ChartDrawingConfig chartDrawing;
-
+    private final ChartDrawingConfig chartDrawing;
     private Integer currentSeriesId;
     private LineChart<Number, Number> lineChart;
-    private AnchorPane root;
-    private Line horizontalTooltipLine;
-    private Line verticalTooltipLine;
+    private AnchorPane rootPane;
+
 
     public LineChartBuilderService() {
         this.currentSeriesId = -1;
@@ -71,7 +71,7 @@ public class LineChartBuilderService implements ChartBuilderService {
             String cssFile = new File("src/graphpresentation/statistic/styles/line-chart.css").toURI().toString();
             lineChart.getStylesheets().add(cssFile);
 
-            root = new AnchorPane(lineChart);
+            rootPane = new AnchorPane(lineChart);
             AnchorPane.setTopAnchor(lineChart, 0.0);
             AnchorPane.setBottomAnchor(lineChart, 0.0);
             AnchorPane.setLeftAnchor(lineChart, 0.0);
@@ -80,7 +80,7 @@ public class LineChartBuilderService implements ChartBuilderService {
             createOnChartScrollHandler(xAxis, yAxis);
             createOnChartMouseHandlers(xAxis, yAxis);
 
-            jfxPanel.setScene(new Scene(root, 800, 600));
+            jfxPanel.setScene(new Scene(rootPane, 800, 600));
         });
     }
 
@@ -135,10 +135,10 @@ public class LineChartBuilderService implements ChartBuilderService {
     }
 
     private void createLineDrawTooltip() {
-        horizontalTooltipLine = getTooltipLine();
-        verticalTooltipLine = getTooltipLine();
+        Line horizontalTooltipLine = getTooltipLine();
+        Line verticalTooltipLine = getTooltipLine();
 
-        root.getChildren().addAll(verticalTooltipLine, horizontalTooltipLine);
+        rootPane.getChildren().addAll(verticalTooltipLine, horizontalTooltipLine);
 
         lineChart.setOnMouseMoved(event -> {
             if (chartConfigDto.getDrawVerticalLineEnabled()) {
@@ -156,6 +156,9 @@ public class LineChartBuilderService implements ChartBuilderService {
                 horizontalTooltipLine.setVisible(true);
             }
         });
+
+        chartDrawing.setHorizontalTooltipLine(horizontalTooltipLine);
+        chartDrawing.setVerticalTooltipLine(verticalTooltipLine);
     }
 
     private Line getTooltipLine() {
@@ -172,13 +175,13 @@ public class LineChartBuilderService implements ChartBuilderService {
         if (chartConfigDto.getDrawVerticalLineEnabled()) {
             Line line = new Line();
             line.setVisible(false);
-            root.getChildren().add(line);
+            rootPane.getChildren().add(line);
             chartDrawing.getVerticalLines().add(new ChartLineData(line, xData, true));
         }
         if (chartConfigDto.getDrawHorizontalLineEnabled()) {
             Line line = new Line();
             line.setVisible(false);
-            root.getChildren().add(line);
+            rootPane.getChildren().add(line);
             chartDrawing.getHorizontalLines().add(new ChartLineData(line, yData, false));
         }
     }
@@ -209,7 +212,7 @@ public class LineChartBuilderService implements ChartBuilderService {
         removeNodes.addAll(annotationsForRemove.stream()
                 .map(ChartAnnotationData::getNode)
                 .collect(Collectors.toList()));
-        root.getChildren().removeAll(removeNodes);
+        rootPane.getChildren().removeAll(removeNodes);
     }
 
     private void createOnChartScrollHandler(NumberAxis xAxis, NumberAxis yAxis) {
@@ -243,6 +246,8 @@ public class LineChartBuilderService implements ChartBuilderService {
         double chartHeight = lineChart.getHeight();
         double chartWidth = lineChart.getWidth();
 
+        rootPane.getChildren().removeAll(chartDrawing.getHorizontalLineBox(), chartDrawing.getVerticalLineBox());
+
         for (ChartLineData lineData : chartDrawing.getVerticalLines()) {
             double xPos = lineChart.getXAxis().getDisplayPosition(lineData.getX());
             Line verticalLine = lineData.getLine();
@@ -255,6 +260,38 @@ public class LineChartBuilderService implements ChartBuilderService {
             verticalLine.getStrokeDashArray().addAll(10.0, 5.0);
             verticalLine.setId(lineData.getId());
             verticalLine.setVisible(true);
+
+            double selectableWidth = 20;
+            Rectangle selectableArea = new Rectangle(selectableWidth, chartHeight - 104);
+            selectableArea.setId("verticalLineBox");
+            selectableArea.setX(xPos - selectableWidth / 2);
+            selectableArea.setY(40);
+            selectableArea.setStroke(Color.TRANSPARENT);
+            selectableArea.setStrokeWidth(2);
+            selectableArea.setFill(Color.TRANSPARENT);
+            selectableArea.setVisible(true);
+            selectableArea.setCursor(Cursor.HAND);
+            selectableArea.setFocusTraversable(true);
+            selectableArea.setOnMouseClicked(event -> {
+                rootPane.getChildren().stream()
+                        .filter(node -> node instanceof Rectangle && node.getId().equals("verticalLineBox"))
+                        .forEach(node -> node.setVisible(false));
+                selectableArea.requestFocus();
+                selectableArea.setStroke(Color.LIGHTGRAY);
+                selectableArea.setVisible(true);
+                if (!rootPane.getChildren().contains(selectableArea)) {
+                    rootPane.getChildren().add(selectableArea);
+                }
+            });
+            selectableArea.setOnKeyPressed(event -> {
+                if (event.getCode() == KeyCode.DELETE) {
+                    chartDrawing.setVerticalLineBox(null);
+                    chartDrawing.getVerticalLines().remove(lineData);
+                    rootPane.getChildren().removeAll(selectableArea, verticalLine);
+                }
+            });
+            chartDrawing.setVerticalLineBox(selectableArea);
+            rootPane.getChildren().addAll(selectableArea);
         }
         for (ChartLineData lineData : chartDrawing.getHorizontalLines()) {
             double yPos = lineChart.getYAxis().getDisplayPosition(lineData.getY());
@@ -268,18 +305,50 @@ public class LineChartBuilderService implements ChartBuilderService {
             horizontalLine.getStrokeDashArray().addAll(10.0, 5.0);
             horizontalLine.setId(lineData.getId());
             horizontalLine.setVisible(true);
+
+            double selectableHeight = 20;
+            Rectangle selectableArea = new Rectangle(chartWidth - 76, selectableHeight);
+            selectableArea.setId("horizontalLineBox");
+            selectableArea.setX(63);
+            selectableArea.setY(yPos - selectableHeight / 2);
+            selectableArea.setStroke(Color.TRANSPARENT);
+            selectableArea.setStrokeWidth(2);
+            selectableArea.setFill(Color.TRANSPARENT);
+            selectableArea.setVisible(true);
+            selectableArea.setCursor(Cursor.HAND);
+            selectableArea.setFocusTraversable(true);
+            selectableArea.setOnMouseClicked(event -> {
+                rootPane.getChildren().stream()
+                        .filter(node -> node instanceof Rectangle && node.getId().equals("horizontalLineBox"))
+                        .forEach(node -> node.setVisible(false));
+                selectableArea.requestFocus();
+                selectableArea.setStroke(Color.LIGHTGRAY);
+                selectableArea.setVisible(true);
+                if (!rootPane.getChildren().contains(selectableArea)) {
+                    rootPane.getChildren().add(selectableArea);
+                }
+            });
+            selectableArea.setOnKeyPressed(event -> {
+                if (event.getCode() == KeyCode.DELETE) {
+                    chartDrawing.setHorizontalLineBox(null);
+                    chartDrawing.getHorizontalLines().remove(lineData);
+                    rootPane.getChildren().removeAll(selectableArea, horizontalLine);
+                }
+            });
+            chartDrawing.setHorizontalLineBox(selectableArea);
+            rootPane.getChildren().addAll(selectableArea);
         }
     }
 
     private void createTextAnnotation(double mouseX, double mouseY) {
         ChartAnnotationData annotationData = new ChartAnnotationData("Label", mouseX, mouseY);
+
         Text annotation = new Text(annotationData.getText());
         annotation.setId(annotationData.getId());
         annotation.setX(0);
         annotation.setY(0);
 
-        Rectangle border = new Rectangle(annotation.getBoundsInLocal().getWidth() + 10,
-                annotation.getBoundsInLocal().getHeight() + 10);
+        Rectangle border = new Rectangle(annotation.getBoundsInLocal().getWidth() + 10, annotation.getBoundsInLocal().getHeight() + 10);
         border.setStroke(Color.LIGHTGRAY);
         border.setFill(Color.TRANSPARENT);
         border.setVisible(false);
@@ -299,6 +368,7 @@ public class LineChartBuilderService implements ChartBuilderService {
             annotationPane.setMouseTransparent(chartConfigDto.getClearLineEnabled());
         });
         annotationPane.setOnMousePressed(event -> {
+            annotationPane.requestFocus();
             border.setVisible(true);
         });
         annotationPane.setOnMouseDragged(event -> {
@@ -307,8 +377,16 @@ public class LineChartBuilderService implements ChartBuilderService {
             annotationData.setX(event.getSceneX());
             annotationData.setY(event.getSceneY());
         });
-        annotationPane.setOnMouseReleased(event -> {
+
+        rootPane.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
             border.setVisible(false);
+        });
+
+        annotationPane.setOnKeyPressed(event -> {
+            if (event.getCode().equals(KeyCode.DELETE)) {
+                chartDrawing.getAnnotations().remove(annotationData);
+                rootPane.getChildren().remove(annotationPane);
+            }
         });
 
         annotation.setOnMouseClicked(event -> {
@@ -321,7 +399,7 @@ public class LineChartBuilderService implements ChartBuilderService {
             }
             if (event.isSecondaryButtonDown()) {
                 chartDrawing.getAnnotations().remove(annotationData);
-                root.getChildren().remove(annotationPane);
+                rootPane.getChildren().remove(annotationPane);
             }
         });
 
@@ -337,8 +415,14 @@ public class LineChartBuilderService implements ChartBuilderService {
             }
         });
 
+        annotation.textProperty().addListener((obs, oldText, newText) -> {
+            annotation.setText(newText);
+            border.setWidth(annotation.getBoundsInLocal().getWidth() + 10);
+            border.setHeight(annotation.getBoundsInLocal().getHeight() + 10);
+        });
+
         chartDrawing.getAnnotations().add(annotationData);
-        root.getChildren().add(annotationPane);
+        rootPane.getChildren().add(annotationPane);
     }
 
     @Override
@@ -368,7 +452,7 @@ public class LineChartBuilderService implements ChartBuilderService {
             removeNodes.addAll(annotationsForRemove.stream()
                     .map(ChartAnnotationData::getNode)
                     .collect(Collectors.toList()));
-            root.getChildren().removeAll(removeNodes);
+            rootPane.getChildren().removeAll(removeNodes);
         });
     }
 
@@ -418,8 +502,8 @@ public class LineChartBuilderService implements ChartBuilderService {
                 }
             }
             toggleCursor(chartConfigDto);
-            verticalTooltipLine.setVisible(chartConfigDto.getDrawVerticalLineEnabled());
-            horizontalTooltipLine.setVisible(chartConfigDto.getDrawHorizontalLineEnabled());
+            chartDrawing.getVerticalTooltipLine().setVisible(chartConfigDto.getDrawVerticalLineEnabled());
+            chartDrawing.getHorizontalTooltipLine().setVisible(chartConfigDto.getDrawHorizontalLineEnabled());
         });
     }
 
@@ -437,7 +521,7 @@ public class LineChartBuilderService implements ChartBuilderService {
     @Override
     public void exportChartAsImage(String directory) {
         Platform.runLater(() -> {
-            WritableImage image = root.snapshot(null, null);
+            WritableImage image = rootPane.snapshot(null, null);
             File file = new File(directory + "/" + chartConfigDto.getTitle() + ".png");
             try {
                 ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", file);
@@ -455,21 +539,27 @@ public class LineChartBuilderService implements ChartBuilderService {
         if (!documentsFolder.exists()) {
             documentsFolder.mkdirs();
         }
-        for (XYChart.Series<Number, Number> series : lineChart.getData()) {
-            String filePath = documentsFolder.getPath() + "/" + series.getName() + ".csv";
-            try (FileWriter writer = new FileWriter(filePath)) {
-                writer.append(chartConfigDto.getxAxisTitle()).append(",")
-                        .append(chartConfigDto.getyAxisTitle()).append("\n");
-                for (XYChart.Data<Number, Number> data : series.getData()) {
-                    writer.append(data.getXValue().toString()).append(",")
-                            .append(data.getYValue().toString()).append("\n");
+        long series_id = 1l;
+        try {
+            for (XYChart.Series<Number, Number> series : lineChart.getData()) {
+                String filePath = documentsFolder.getPath() + "/Series-" + series_id + ".csv";
+                try (FileWriter writer = new FileWriter(filePath)) {
+                    writer.append(chartConfigDto.getxAxisTitle()).append(",")
+                            .append(chartConfigDto.getyAxisTitle()).append("\n");
+                    for (XYChart.Data<Number, Number> data : series.getData()) {
+                        writer.append(data.getXValue().toString()).append(",")
+                                .append(data.getYValue().toString()).append("\n");
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
-                showMessageDialog(null, "Failed to export chart data", "Chart data export", JOptionPane.ERROR_MESSAGE);
+                series_id++;
             }
+            showMessageDialog(null, "Chart data successfully exported", "Chart data export", JOptionPane.PLAIN_MESSAGE);
+        } catch (Exception e) {
+            e.printStackTrace();
+            showMessageDialog(null, "Failed to export chart data", "Chart data export", JOptionPane.ERROR_MESSAGE);
         }
-        showMessageDialog(null, "Chart data successfully exported", "Chart data export", JOptionPane.PLAIN_MESSAGE);
     }
 
     @Override
