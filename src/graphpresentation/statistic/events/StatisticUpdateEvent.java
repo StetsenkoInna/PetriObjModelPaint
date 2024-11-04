@@ -3,6 +3,7 @@ package graphpresentation.statistic.events;
 import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
 
 import java.util.List;
+import java.util.Objects;
 
 public class StatisticUpdateEvent {
     private double currentTime;
@@ -40,5 +41,27 @@ public class StatisticUpdateEvent {
 
     public void setTermination(boolean termination) {
         isTermination = termination;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        StatisticUpdateEvent event = (StatisticUpdateEvent) o;
+        return Double.compare(currentTime, event.currentTime) == 0 && isTermination == event.isTermination && Objects.equals(statistic, event.statistic);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(currentTime, statistic, isTermination);
+    }
+
+    @Override
+    public String toString() {
+        return "StatisticUpdateEvent{" +
+                "currentTime=" + currentTime +
+                ", statistic=" + statistic +
+                ", isTermination=" + isTermination +
+                '}';
     }
 }

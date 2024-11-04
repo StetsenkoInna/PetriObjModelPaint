@@ -17,7 +17,7 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 
 /**
- * @author kachm
+ * @author Andrii Kachmar
  */
 public class ChartSettingsDialog extends javax.swing.JDialog {
     private ChartConfigDto chartConfigDto;
@@ -124,7 +124,7 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         chartUpdateFrequencyPane.add(chartUpdateFrequencyLabel, java.awt.BorderLayout.PAGE_START);
         chartUpdateFrequencyPane.add(chartUpdateFrequencyField, java.awt.BorderLayout.CENTER);
 
-        chartDataSettingsPanel.add(chartUpdateFrequencyPane);
+//        chartDataSettingsPanel.add(chartUpdateFrequencyPane);
 
         chartStartTimeLabel = new JLabel("Data collection start time");
         chartStartTimeField = new JTextField();

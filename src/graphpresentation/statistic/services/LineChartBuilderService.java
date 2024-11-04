@@ -40,6 +40,10 @@ import java.util.stream.Collectors;
 
 import static javax.swing.JOptionPane.showMessageDialog;
 
+/**
+ * Statistic line chart builder service
+ * @author Andrii Kachmar
+ */
 public class LineChartBuilderService implements ChartBuilderService {
     private ChartConfigDto chartConfigDto;
     private final ChartDrawingConfig chartDrawing;

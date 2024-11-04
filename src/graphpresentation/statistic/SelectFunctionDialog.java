@@ -11,8 +11,7 @@ import java.awt.event.WindowEvent;
 import java.util.List;
 
 /**
- *
- * @author kachm
+ * @author Andrii Kachmar
  */
 public class SelectFunctionDialog extends javax.swing.JDialog {
     private PetriStatisticFunction selectedFunction;
@@ -40,7 +39,7 @@ public class SelectFunctionDialog extends javax.swing.JDialog {
         functionInfoPanel = new javax.swing.JPanel();
         functionTitle = new javax.swing.JLabel();
         functionDescription = new javax.swing.JLabel();
-        jPanel1 = new javax.swing.JPanel();
+        buttonsPanel = new javax.swing.JPanel();
         filler1 = new javax.swing.Box.Filler(new java.awt.Dimension(0, 0), new java.awt.Dimension(0, 0), new java.awt.Dimension(32767, 0));
         selectFunctionBtn = new javax.swing.JButton();
         cancelSelectionBtn = new javax.swing.JButton();
@@ -82,21 +81,21 @@ public class SelectFunctionDialog extends javax.swing.JDialog {
 
         getContentPane().add(selectFunctionPanel, java.awt.BorderLayout.PAGE_START);
 
-        jPanel1.add(filler1);
+        buttonsPanel.add(filler1);
 
         selectFunctionBtn.setText("OK");
         selectFunctionBtn.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         selectFunctionBtn.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
         selectFunctionBtn.addActionListener(e -> dispose());
-        jPanel1.add(selectFunctionBtn);
+        buttonsPanel.add(selectFunctionBtn);
 
         cancelSelectionBtn.setText("Cancel");
         cancelSelectionBtn.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         cancelSelectionBtn.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
         cancelSelectionBtn.addActionListener(this::cancelSelectionBtnActionPerformed);
-        jPanel1.add(cancelSelectionBtn);
+        buttonsPanel.add(cancelSelectionBtn);
 
-        getContentPane().add(jPanel1, java.awt.BorderLayout.PAGE_END);
+        getContentPane().add(buttonsPanel, java.awt.BorderLayout.PAGE_END);
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -123,7 +122,7 @@ public class SelectFunctionDialog extends javax.swing.JDialog {
     private javax.swing.JList<String> functionList;
     private javax.swing.JScrollPane functionListPanel;
     private javax.swing.JLabel functionTitle;
-    private javax.swing.JPanel jPanel1;
+    private javax.swing.JPanel buttonsPanel;
     private javax.swing.JButton selectFunctionBtn;
     private javax.swing.JPanel selectFunctionPanel;
     // End of variables declaration//GEN-END:variables

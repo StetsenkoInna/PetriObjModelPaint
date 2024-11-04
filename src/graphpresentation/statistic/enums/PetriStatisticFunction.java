@@ -4,6 +4,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Enum which describes function that we could apply for petri net element statistic
+ *
+ * @author Andrii Kachmar
+ */
 public enum PetriStatisticFunction {
     P_MIN(
             "P_MIN",

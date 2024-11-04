@@ -5,6 +5,7 @@ import javafx.scene.shape.Rectangle;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class ChartDrawingConfig {
     private final List<ChartAnnotationData> annotations = new ArrayList<>();
@@ -57,5 +58,31 @@ public class ChartDrawingConfig {
 
     public void setHorizontalLineBox(Rectangle horizontalLineBox) {
         this.horizontalLineBox = horizontalLineBox;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ChartDrawingConfig that = (ChartDrawingConfig) o;
+        return Objects.equals(annotations, that.annotations) && Objects.equals(verticalLines, that.verticalLines) && Objects.equals(horizontalLines, that.horizontalLines) && Objects.equals(horizontalTooltipLine, that.horizontalTooltipLine) && Objects.equals(verticalTooltipLine, that.verticalTooltipLine) && Objects.equals(verticalLineBox, that.verticalLineBox) && Objects.equals(horizontalLineBox, that.horizontalLineBox);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(annotations, verticalLines, horizontalLines, horizontalTooltipLine, verticalTooltipLine, verticalLineBox, horizontalLineBox);
+    }
+
+    @Override
+    public String toString() {
+        return "ChartDrawingConfig{" +
+                "annotations=" + annotations +
+                ", verticalLines=" + verticalLines +
+                ", horizontalLines=" + horizontalLines +
+                ", horizontalTooltipLine=" + horizontalTooltipLine +
+                ", verticalTooltipLine=" + verticalTooltipLine +
+                ", verticalLineBox=" + verticalLineBox +
+                ", horizontalLineBox=" + horizontalLineBox +
+                '}';
     }
 }

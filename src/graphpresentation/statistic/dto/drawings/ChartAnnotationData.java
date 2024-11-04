@@ -67,4 +67,15 @@ public class ChartAnnotationData {
     public int hashCode() {
         return Objects.hash(id, text, x, y);
     }
+
+    @Override
+    public String toString() {
+        return "ChartAnnotationData{" +
+                "id='" + id + '\'' +
+                ", x=" + x +
+                ", y=" + y +
+                ", text='" + text + '\'' +
+                ", node=" + node +
+                '}';
+    }
 }

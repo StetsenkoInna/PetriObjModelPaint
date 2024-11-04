@@ -12,7 +12,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-
+/**
+ * Petri net formula builder service
+ *
+ * @author Andrii Kachmar
+ */
 public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     private final PetriNetsFrame petriNetParent;
     private static final List<String> OPERATORS = Arrays.asList("+", "-", "*", "/");

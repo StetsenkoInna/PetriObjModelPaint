@@ -415,6 +415,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         SaveMethodInNetLibrary = new javax.swing.JMenuItem();
         statisticMenu = new javax.swing.JMenu();
         openMonitor = new javax.swing.JMenuItem();
+        isStatisticMonitorEnabled = new javax.swing.JCheckBoxMenuItem();
         Animate = new javax.swing.JMenu();
         itemAnimateNet = new javax.swing.JMenuItem();
         itemAnimateEvent = new javax.swing.JMenuItem();
@@ -1354,7 +1355,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 openMonitorActionPerformed(evt);
             }
         });
+
+        isStatisticMonitorEnabled.setText("Monitor enabled");
+        isStatisticMonitorEnabled.setSelected(true);
+
         statisticMenu.add(openMonitor);
+        statisticMenu.add(isStatisticMonitorEnabled);
 
         petriNetsFrameMenuBar.add(statisticMenu);
 
@@ -1717,7 +1723,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         protocolTextArea); // Петрі-об"єктна модель, що складається з одного Петрі-об"єкта
                 m.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 m.setCurrentTime(Double.valueOf(timeStartField.getText()));
-                if (statisticMonitorDialog != null) {
+                if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
                     StatisticMonitor statisticMonitor = new StatisticMonitor(statisticMonitorDialog);
                     m.setStatisticMonitor(statisticMonitor);
                 }
@@ -1778,7 +1784,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
                 model.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 model.setCurrentTime(Double.valueOf(timeStartField.getText()));
-                if (statisticMonitorDialog != null) {
+                if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
                     StatisticMonitor statisticMonitor = new StatisticMonitor(statisticMonitorDialog);
                     model.setStatisticMonitor(statisticMonitor);
                 }
@@ -2000,7 +2006,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         netNameTextField.setEnabled(false);
         leftMenuList.setEnabled(false);
         statisticMenu.setEnabled(false);
-        if (statisticMonitorDialog != null) {
+        if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
             statisticMonitorDialog.onSimulationStart();
         }
     }
@@ -2025,7 +2031,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         netNameTextField.setEnabled(true);
         leftMenuList.setEnabled(true);
         statisticMenu.setEnabled(true);
-        if (statisticMonitorDialog != null) {
+        if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
             statisticMonitorDialog.onSimulationEnd();
         }
     }
@@ -2103,6 +2109,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JMenuItem openMenuItem;
     private javax.swing.JMenuItem openMethodMenuItem;
     private javax.swing.JMenuItem openMonitor;
+    private javax.swing.JCheckBoxMenuItem isStatisticMonitorEnabled;
     private javax.swing.JPanel petriNetDesign;
     private javax.swing.JPanel petriNetDesign1;
     private javax.swing.JPanel petriNetDesign2;

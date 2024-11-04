@@ -18,7 +18,6 @@ import javafx.embed.swing.JFXPanel;
 import javafx.scene.chart.XYChart;
 
 import javax.swing.*;
-import javax.swing.border.Border;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
@@ -69,12 +68,11 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         contentLayout = new javax.swing.JSplitPane();
         formulaBarPanel = new javax.swing.JPanel();
         formulaActionsGroup = new javax.swing.JPanel();
-        clearFormulaBtn = new javax.swing.JButton();
+        clearMonitorBtn = new javax.swing.JButton();
         formulaInfoBtn = new javax.swing.JButton();
         formulaPanel = new javax.swing.JScrollPane();
         formulaInputField = new javax.swing.JTextArea();
         mainContentPanel = new javax.swing.JPanel();
-        contentTabs = new javax.swing.JTabbedPane();
         chartViewPanel = new javax.swing.JPanel();
         chartActionsBar = new javax.swing.JMenuBar();
         chartToolsBar = new javax.swing.JPanel();
@@ -96,19 +94,19 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
 
         formulaActionsGroup.setLayout(new java.awt.GridBagLayout());
 
-        clearFormulaBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/reset_icon.png"))); // NOI18N
-        clearFormulaBtn.setContentAreaFilled(false);
-        clearFormulaBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        clearFormulaBtn.setPreferredSize(new java.awt.Dimension(40, 40));
-        clearFormulaBtn.setToolTipText("Clear chart");
-        clearFormulaBtn.addActionListener(new java.awt.event.ActionListener() {
+        clearMonitorBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/reset_icon.png"))); // NOI18N
+        clearMonitorBtn.setContentAreaFilled(false);
+        clearMonitorBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        clearMonitorBtn.setPreferredSize(new java.awt.Dimension(40, 40));
+        clearMonitorBtn.setToolTipText("Clear chart");
+        clearMonitorBtn.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 clearFormulaBtnActionPerformed(evt);
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTH;
-        formulaActionsGroup.add(clearFormulaBtn, gridBagConstraints);
+        formulaActionsGroup.add(clearMonitorBtn, gridBagConstraints);
 
         formulaInfoBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/fx_icon.png"))); // NOI18N
         formulaInfoBtn.setContentAreaFilled(false);
@@ -318,8 +316,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         chartViewPanel.add(chartActionsBar, BorderLayout.NORTH);
         chartViewPanel.add(jfxPanel, BorderLayout.CENTER);
 
-        contentTabs.addTab("Chart view", chartViewPanel);
-
         javax.swing.GroupLayout tableViewPanelLayout = new javax.swing.GroupLayout(tableViewPanel);
         tableViewPanel.setLayout(tableViewPanelLayout);
         tableViewPanelLayout.setHorizontalGroup(
@@ -331,9 +327,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
                         .addGap(0, 470, Short.MAX_VALUE)
         );
 
-//        contentTabs.addTab("Table view", tableViewPanel);
-
-        mainContentPanel.add(contentTabs);
+        mainContentPanel.add(chartViewPanel);
 
         contentLayout.setRightComponent(mainContentPanel);
 
@@ -410,16 +404,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         List<String> suggestions = formulaBuilderService.getFormulaSuggestions(formula);
         updateFormulaSuggestions(suggestions);
         updateFormulaField();
-
-
-//        char keyChar = e.getKeyChar();
-//        if (Character.isLetterOrDigit(keyChar) || keyChar == KeyEvent.VK_BACK_SPACE) {
-//            showFormulaSuggestions();
-//        } else if (e.getKeyCode() == KeyEvent.VK_DOWN && formulaSuggestionPopup.isVisible()) {
-//            formulaSuggestionPopup.requestFocusInWindow();
-//        } else if (e.getKeyCode() == KeyEvent.VK_ENTER && formulaSuggestionPopup.isVisible()) {
-//            formulaSuggestionPopup.setVisible(false);
-//        }
     }
 
     private void updateFormulaSuggestions(List<String> suggestions) {
@@ -455,7 +439,16 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         this.selectedElements = formulaBuilderService.getSelectedPetriElementNames(formulaInputField.getText());
         formulaInputField.setEnabled(false);
         formulaInfoBtn.setEnabled(false);
-        clearFormulaBtn.setEnabled(false);
+        clearMonitorBtn.setEnabled(false);
+        dragChartBtn.setEnabled(false);
+        drawVerticalLineBtn.setEnabled(false);
+        drawHorizontalLineBtn.setEnabled(false);
+        createLabelBtn.setEnabled(false);
+        clearMonitorBtn.setEnabled(false);
+        scaleChartBtn.setEnabled(false);
+        chartDownloadBtn.setEnabled(false);
+        chartSettingsBtn.setEnabled(false);
+        exportCsvBtn.setEnabled(false);
         if (isFormulaValid) {
             chartBuilderService.createSeries(formulaInputField.getText());
         }
@@ -464,14 +457,23 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     public void onSimulationEnd() {
         formulaInputField.setEnabled(true);
         formulaInfoBtn.setEnabled(true);
-        clearFormulaBtn.setEnabled(true);
+        clearMonitorBtn.setEnabled(true);
+        dragChartBtn.setEnabled(true);
+        drawVerticalLineBtn.setEnabled(true);
+        drawHorizontalLineBtn.setEnabled(true);
+        createLabelBtn.setEnabled(true);
+        clearMonitorBtn.setEnabled(true);
+        scaleChartBtn.setEnabled(true);
+        chartDownloadBtn.setEnabled(true);
+        chartSettingsBtn.setEnabled(true);
+        exportCsvBtn.setEnabled(true);
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private java.awt.Frame parent;
     private javax.swing.JPanel chartViewPanel;
     private javax.swing.JMenuBar chartActionsBar;
-    private javax.swing.JButton clearFormulaBtn;
+    private javax.swing.JButton clearMonitorBtn;
     private javax.swing.JButton chartSettingsBtn;
     private javax.swing.JButton chartDownloadBtn;
     private javax.swing.JButton exportCsvBtn;
@@ -483,7 +485,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     private javax.swing.JToggleButton drawHorizontalLineBtn;
     private javax.swing.JToggleButton clearDrawLineBtn;
     private javax.swing.JSplitPane contentLayout;
-    private javax.swing.JTabbedPane contentTabs;
     private javax.swing.JPanel formulaActionsGroup;
     private javax.swing.JPanel formulaBarPanel;
     private javax.swing.JButton formulaInfoBtn;
@@ -491,7 +492,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     private javax.swing.JScrollPane formulaPanel;
     private javax.swing.JPanel mainContentPanel;
     private javax.swing.JPanel tableViewPanel;
-    private javax.swing.JLayeredPane chartContentPane;
     private javax.swing.JPopupMenu formulaSuggestionPopup;
     private final JFXPanel jfxPanel;
     // End of variables declaration//GEN-END:variables

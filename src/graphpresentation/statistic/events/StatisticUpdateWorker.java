@@ -8,6 +8,11 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+/**
+ * Worker thread for processing statistic update requests
+ * Receives update events and pushes them to monitor dialog chart
+ * @author Andrii Kachmar
+ */
 public class StatisticUpdateWorker extends SwingWorker<Boolean, StatisticUpdateEvent> {
     private final BlockingQueue<StatisticUpdateEvent> eventsQueue;
     private final StatisticMonitorService monitorService;

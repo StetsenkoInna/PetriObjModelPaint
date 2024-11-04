@@ -3,6 +3,7 @@ package graphpresentation.statistic.dto.drawings;
 import javafx.scene.shape.Line;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 public class ChartLineData {
@@ -53,5 +54,29 @@ public class ChartLineData {
 
     public Line getLine() {
         return line;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ChartLineData that = (ChartLineData) o;
+        return Double.compare(x, that.x) == 0 && Double.compare(y, that.y) == 0 && isVertical == that.isVertical && Objects.equals(id, that.id) && Objects.equals(line, that.line);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, line, x, y, isVertical);
+    }
+
+    @Override
+    public String toString() {
+        return "ChartLineData{" +
+                "id='" + id + '\'' +
+                ", line=" + line +
+                ", x=" + x +
+                ", y=" + y +
+                ", isVertical=" + isVertical +
+                '}';
     }
 }

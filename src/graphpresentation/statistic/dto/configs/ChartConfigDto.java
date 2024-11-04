@@ -1,5 +1,7 @@
 package graphpresentation.statistic.dto.configs;
 
+import java.util.Objects;
+
 public class ChartConfigDto {
     private String title;
     private String xAxisTitle;
@@ -124,5 +126,32 @@ public class ChartConfigDto {
         this.dataCollectionConfig = dataCollectionConfig;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ChartConfigDto that = (ChartConfigDto) o;
+        return Objects.equals(title, that.title) && Objects.equals(xAxisTitle, that.xAxisTitle) && Objects.equals(yAxisTitle, that.yAxisTitle) && Objects.equals(displayDataMarkers, that.displayDataMarkers) && Objects.equals(isDrawHorizontalLineEnabled, that.isDrawHorizontalLineEnabled) && Objects.equals(isDrawVerticalLineEnabled, that.isDrawVerticalLineEnabled) && Objects.equals(isDragEnabled, that.isDragEnabled) && Objects.equals(clearLineEnabled, that.clearLineEnabled) && Objects.equals(createLabelEnabled, that.createLabelEnabled) && Objects.equals(dataCollectionConfig, that.dataCollectionConfig);
+    }
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(title, xAxisTitle, yAxisTitle, displayDataMarkers, isDrawHorizontalLineEnabled, isDrawVerticalLineEnabled, isDragEnabled, clearLineEnabled, createLabelEnabled, dataCollectionConfig);
+    }
+
+    @Override
+    public String toString() {
+        return "ChartConfigDto{" +
+                "title='" + title + '\'' +
+                ", xAxisTitle='" + xAxisTitle + '\'' +
+                ", yAxisTitle='" + yAxisTitle + '\'' +
+                ", displayDataMarkers=" + displayDataMarkers +
+                ", isDrawHorizontalLineEnabled=" + isDrawHorizontalLineEnabled +
+                ", isDrawVerticalLineEnabled=" + isDrawVerticalLineEnabled +
+                ", isDragEnabled=" + isDragEnabled +
+                ", clearLineEnabled=" + clearLineEnabled +
+                ", createLabelEnabled=" + createLabelEnabled +
+                ", dataCollectionConfig=" + dataCollectionConfig +
+                '}';
+    }
 }

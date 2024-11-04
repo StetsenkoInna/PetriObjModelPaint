@@ -5,6 +5,7 @@ import PetriObj.PetriNet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class PetriElementStatisticDto {
@@ -34,6 +35,19 @@ public class PetriElementStatisticDto {
 
     public Double getAvg() {
         return avg;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        PetriElementStatisticDto that = (PetriElementStatisticDto) o;
+        return Objects.equals(elementName, that.elementName) && Objects.equals(min, that.min) && Objects.equals(max, that.max) && Objects.equals(avg, that.avg);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(elementName, min, max, avg);
     }
 
     @Override

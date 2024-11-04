@@ -2,6 +2,11 @@ package graphpresentation.statistic.services;
 
 import java.util.Stack;
 
+/**
+ * Util to evaluate formula value from string expression
+ *
+ * @author Andrii Kachmar
+ */
 public class ExpressionEvaluateUtil {
     public static Number evaluateExpression(String expression) {
         char[] tokens = expression.toCharArray();
@@ -9,10 +14,10 @@ public class ExpressionEvaluateUtil {
         Stack<Character> operators = new Stack<>();
 
         for (int i = 0; i < tokens.length; i++) {
-            if (tokens[i] == ' ')
+            if (tokens[i] == ' ') {
                 continue;
-            if ((tokens[i] >= '0' && tokens[i] <= '9')
-                    || tokens[i] == '.') {
+            }
+            if ((tokens[i] >= '0' && tokens[i] <= '9') || tokens[i] == '.') {
                 StringBuilder sb = new StringBuilder();
                 while (i < tokens.length && (Character.isDigit(tokens[i]) || tokens[i] == '.')) {
                     sb.append(tokens[i]);
@@ -29,16 +34,9 @@ public class ExpressionEvaluateUtil {
                             values.pop()));
                 }
                 operators.pop();
-            } else if (tokens[i] == '+'
-                    || tokens[i] == '-'
-                    || tokens[i] == '*'
-                    || tokens[i] == '/') {
-                while (!operators.isEmpty()
-                        && hasPrecedence(tokens[i],
-                        operators.peek())) {
-                    values.push(applyOperator(
-                            operators.pop(), values.pop(),
-                            values.pop()));
+            } else if (tokens[i] == '+' || tokens[i] == '-' || tokens[i] == '*' || tokens[i] == '/') {
+                while (!operators.isEmpty() && hasPrecedence(tokens[i], operators.peek())) {
+                    values.push(applyOperator(operators.pop(), values.pop(), values.pop()));
                 }
                 operators.push(tokens[i]);
             }
@@ -51,8 +49,7 @@ public class ExpressionEvaluateUtil {
         return values.pop();
     }
 
-    private static boolean hasPrecedence(char operator1,
-                                         char operator2) {
+    private static boolean hasPrecedence(char operator1, char operator2) {
         if (operator2 == '(' || operator2 == ')') {
             return false;
         }
