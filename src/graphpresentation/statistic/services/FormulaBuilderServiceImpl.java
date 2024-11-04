@@ -35,27 +35,26 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     }
 
     @Override
-    public List<String> getFormulaSuggestions(String input) {
-        if (input == null || input.isEmpty()) {
+    public List<String> getFormulaSuggestions(String formula) {
+        if (formula == null || formula.isEmpty()) {
             return PetriStatisticFunction.getFunctionNames();
         }
-        String lastOperation = getLastOperation(input);
+        List<String> operators = splitFormula(formula);
+        String operation = operators.get(operators.size() - 1);
 
-        if (lastOperation.isEmpty()) {
-            return PetriStatisticFunction.filterFunctionsByName(input);
-        } else if (lastOperation.endsWith("(")) {
-            String functionName = lastOperation.substring(0, lastOperation.length() - 1);
-            String functionArgumentName = getFunctionArgument(lastOperation);
+        String functionName = getOperationFunctionName(operation);
+        String functionArgumentName = getFunctionArgument(operation);
+        if (operation.isEmpty()) {
+            return PetriStatisticFunction.filterFunctionsByName(formula);
+        } else if (functionName != null) {
             PetriStatisticFunction function = PetriStatisticFunction.findFunctionByName(functionName);
             return function != null
                     ? getElementSuggestions(function, functionArgumentName)
                     : Collections.emptyList();
-        } else if (OPERATORS.contains(lastOperation)) {
+        } else if (OPERATORS.contains(operation)) {
             return PetriStatisticFunction.getFunctionNames();
         } else {
-            return PetriStatisticFunction.getFunctionNames().stream()
-                    .filter(key -> key.toUpperCase().startsWith(lastOperation.toUpperCase()))
-                    .collect(Collectors.toList());
+            return PetriStatisticFunction.filterFunctionsByName(operation);
         }
     }
 
@@ -312,7 +311,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     }
 
 
-    private List<String> getElementSuggestions(PetriStatisticFunction petriStatisticFunction, String input) {
+    private List<String> getElementSuggestions(PetriStatisticFunction petriStatisticFunction, String argument) {
         if (petriStatisticFunction == null) {
             return new ArrayList<>();
         }
@@ -325,16 +324,16 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
                 .map(GraphTransition::getName)
                 .collect(Collectors.toList());
         if (petriStatisticFunction.getFunctionType().equals(PetriStatisticFunction.FunctionArgumentElementType.PLACE)) {
-            if (input != null) {
+            if (argument != null) {
                 placeNames = placeNames.stream()
-                        .filter(name -> name.toUpperCase().startsWith(input.toUpperCase()))
+                        .filter(name -> name.toUpperCase().startsWith(argument.toUpperCase()))
                         .collect(Collectors.toList());
             }
             elements.addAll(placeNames);
         } else if (petriStatisticFunction.getFunctionType().equals(PetriStatisticFunction.FunctionArgumentElementType.TRANSITION)) {
-            if (input != null) {
+            if (argument != null) {
                 transitionNames = transitionNames.stream()
-                        .filter(name -> name.toUpperCase().startsWith(input.toUpperCase()))
+                        .filter(name -> name.toUpperCase().startsWith(argument.toUpperCase()))
                         .collect(Collectors.toList());
             }
             elements.addAll(transitionNames);
@@ -350,6 +349,8 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         int closeParenIndex = input.lastIndexOf(')');
         if (openParenIndex > 0 && closeParenIndex > openParenIndex) {
             return input.substring(openParenIndex + 1, closeParenIndex).trim().toUpperCase();
+        } else if (openParenIndex > 0) {
+            return input.substring(openParenIndex + 1).trim().toUpperCase();
         }
         return null;
     }
