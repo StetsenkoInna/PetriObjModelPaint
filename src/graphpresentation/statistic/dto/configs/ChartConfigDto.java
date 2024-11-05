@@ -12,14 +12,14 @@ public class ChartConfigDto {
     private Boolean isDragEnabled = false;
     private Boolean clearLineEnabled = false;
     private Boolean createLabelEnabled = false;
-    private ChartDataCollectionConfigDto dataCollectionConfig;
+    private DataCollectionConfigDto dataCollectionConfig;
 
     public ChartConfigDto(String title, String xAxisTitle, String yAxisTitle, Boolean displayDataMarkers) {
         this.title = title;
         this.xAxisTitle = xAxisTitle;
         this.yAxisTitle = yAxisTitle;
         this.displayDataMarkers = displayDataMarkers;
-        this.dataCollectionConfig = new ChartDataCollectionConfigDto();
+        this.dataCollectionConfig = new DataCollectionConfigDto();
     }
 
     public String getTitle() {
@@ -118,11 +118,11 @@ public class ChartConfigDto {
         this.createLabelEnabled = createLabelEnabled;
     }
 
-    public ChartDataCollectionConfigDto getDataCollectionConfig() {
+    public DataCollectionConfigDto getDataCollectionConfig() {
         return dataCollectionConfig;
     }
 
-    public void setDataCollectionConfig(ChartDataCollectionConfigDto dataCollectionConfig) {
+    public void setDataCollectionConfig(DataCollectionConfigDto dataCollectionConfig) {
         this.dataCollectionConfig = dataCollectionConfig;
     }
 

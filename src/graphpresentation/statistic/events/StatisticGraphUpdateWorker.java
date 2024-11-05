@@ -13,11 +13,11 @@ import java.util.concurrent.LinkedBlockingQueue;
  * Receives update events and pushes them to monitor dialog chart
  * @author Andrii Kachmar
  */
-public class StatisticUpdateWorker extends SwingWorker<Boolean, StatisticUpdateEvent> {
+public class StatisticGraphUpdateWorker extends SwingWorker<Boolean, StatisticUpdateEvent> {
     private final BlockingQueue<StatisticUpdateEvent> eventsQueue;
     private final StatisticMonitorService monitorService;
 
-    public StatisticUpdateWorker(StatisticMonitorService monitorService) {
+    public StatisticGraphUpdateWorker(StatisticMonitorService monitorService) {
         this.eventsQueue = new LinkedBlockingQueue<>();
         this.monitorService = monitorService;
     }

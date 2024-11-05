@@ -2,18 +2,18 @@ package graphpresentation.statistic.dto.configs;
 
 import java.util.Objects;
 
-public class ChartDataCollectionConfigDto {
+public class DataCollectionConfigDto {
     private Double dataUpdateFrequency;
     private Double dataCollectionStartTime;
     private Double dataCollectionStep;
 
-    public ChartDataCollectionConfigDto() {
+    public DataCollectionConfigDto() {
         this.dataUpdateFrequency = 1.0;
         this.dataCollectionStartTime = 0.0;
         this.dataCollectionStep = 1.0;
     }
 
-    public ChartDataCollectionConfigDto(Double dataUpdateFrequency, Double dataCollectionStartTime, Double dataCollectionStep) {
+    public DataCollectionConfigDto(Double dataUpdateFrequency, Double dataCollectionStartTime, Double dataCollectionStep) {
         this.dataUpdateFrequency = dataUpdateFrequency;
         this.dataCollectionStartTime = dataCollectionStartTime;
         this.dataCollectionStep = dataCollectionStep;
@@ -47,7 +47,7 @@ public class ChartDataCollectionConfigDto {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        ChartDataCollectionConfigDto that = (ChartDataCollectionConfigDto) o;
+        DataCollectionConfigDto that = (DataCollectionConfigDto) o;
         return Objects.equals(dataUpdateFrequency, that.dataUpdateFrequency) && Objects.equals(dataCollectionStartTime, that.dataCollectionStartTime) && Objects.equals(dataCollectionStep, that.dataCollectionStep);
     }
 

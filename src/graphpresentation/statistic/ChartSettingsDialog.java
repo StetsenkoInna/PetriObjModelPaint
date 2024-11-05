@@ -5,16 +5,10 @@
 package graphpresentation.statistic;
 
 import graphpresentation.statistic.dto.configs.ChartConfigDto;
-import graphpresentation.statistic.dto.configs.ChartDataCollectionConfigDto;
+import graphpresentation.statistic.dto.configs.DataCollectionConfigDto;
 import graphpresentation.statistic.services.ChartBuilderService;
 
 import javax.swing.*;
-import javax.swing.border.Border;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import java.awt.*;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
 
 /**
  * @author Andrii Kachmar
@@ -182,7 +176,7 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         chartConfigDto.setyAxisTitle(yAxisNameField.getText());
         chartConfigDto.setDisplayDataMarkers(markerCheckBox.isSelected());
         if (chartConfigDto.getDataCollectionConfig() == null) {
-            chartConfigDto.setDataCollectionConfig(new ChartDataCollectionConfigDto());
+            chartConfigDto.setDataCollectionConfig(new DataCollectionConfigDto());
         }
         if (isValidNumber(chartUpdateFrequencyField.getText())) {
             chartConfigDto.getDataCollectionConfig().setDataUpdateFrequency(chartUpdateFrequencyField.getText());

@@ -1,20 +1,22 @@
 package graphpresentation.statistic.dto.data;
 
 
-import graphpresentation.statistic.events.StatisticUpdateWorker;
+import graphpresentation.statistic.events.StatisticGraphUpdateWorker;
 import graphpresentation.statistic.services.StatisticMonitorService;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 
 public final class StatisticGraphMonitor extends StatisticMonitor {
-    private final StatisticUpdateWorker statisticUpdateWorker;
+    private final StatisticGraphUpdateWorker statisticGraphUpdateWorker;
     private final StatisticMonitorService monitorService;
 
     public StatisticGraphMonitor(StatisticMonitorService monitorService) {
         super(monitorService.getSelectedElementNames(), monitorService.getChartDataCollectionConfig());
         this.monitorService = monitorService;
-        this.statisticUpdateWorker = new StatisticUpdateWorker(monitorService);
-        this.statisticUpdateWorker.execute();
+        this.statisticGraphUpdateWorker = new StatisticGraphUpdateWorker(monitorService);
+        this.statisticGraphUpdateWorker.execute();
     }
 
     public StatisticMonitorService getMonitorService() {
@@ -30,10 +32,10 @@ public final class StatisticGraphMonitor extends StatisticMonitor {
     }
 
     public void asyncStatisticSend(double currentTime, List<PetriElementStatisticDto> statistic) {
-        statisticUpdateWorker.publishEvent(currentTime, statistic);
+        statisticGraphUpdateWorker.publishEvent(currentTime, statistic);
     }
 
     public void shutdownStatisticUpdate() {
-        statisticUpdateWorker.publishTerminationEvent();
+        statisticGraphUpdateWorker.publishTerminationEvent();
     }
 }

@@ -5,7 +5,7 @@
 package graphpresentation.statistic;
 
 import graphpresentation.PetriNetsFrame;
-import graphpresentation.statistic.dto.configs.ChartDataCollectionConfigDto;
+import graphpresentation.statistic.dto.configs.DataCollectionConfigDto;
 import graphpresentation.statistic.services.ChartBuilderService;
 import graphpresentation.statistic.services.LineChartBuilderService;
 import graphpresentation.statistic.dto.configs.ChartConfigDto;
@@ -518,8 +518,8 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     }
 
     @Override
-    public ChartDataCollectionConfigDto getChartDataCollectionConfig() {
-        ChartDataCollectionConfigDto configDto = chartConfigDto.getDataCollectionConfig();
-        return configDto != null ? configDto : new ChartDataCollectionConfigDto();
+    public DataCollectionConfigDto getChartDataCollectionConfig() {
+        DataCollectionConfigDto configDto = chartConfigDto.getDataCollectionConfig();
+        return configDto != null ? configDto : new DataCollectionConfigDto();
     }
 }

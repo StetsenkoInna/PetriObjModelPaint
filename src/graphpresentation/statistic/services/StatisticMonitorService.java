@@ -1,6 +1,6 @@
 package graphpresentation.statistic.services;
 
-import graphpresentation.statistic.dto.configs.ChartDataCollectionConfigDto;
+import graphpresentation.statistic.dto.configs.DataCollectionConfigDto;
 import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
 
 import java.util.List;
@@ -12,5 +12,5 @@ public interface StatisticMonitorService {
 
     boolean getIsFormulaValid();
 
-    ChartDataCollectionConfigDto getChartDataCollectionConfig();
+    DataCollectionConfigDto getChartDataCollectionConfig();
 }

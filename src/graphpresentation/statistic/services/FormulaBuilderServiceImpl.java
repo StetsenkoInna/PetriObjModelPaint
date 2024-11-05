@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
  * @author Andrii Kachmar
  */
 public class FormulaBuilderServiceImpl implements FormulaBuilderService {
-    private final PetriNetsFrame petriNetParent;
+    private PetriNetsFrame petriNetParent;
     private static final List<String> OPERATORS = Arrays.asList("+", "-", "*", "/");
     private static final Pattern VALID_CHARACTERS = Pattern.compile("^[A-Za-z0-9_.;() +\\-*/\\u0400-\\u04FF]*$");
     private static final Pattern FUNCTION_CALL_PATTERN = Pattern.compile("([A-Z_0-9]+)\\(([^()]*?(?:;[^()]*?)*)\\)");
@@ -28,6 +28,10 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
 
     public FormulaBuilderServiceImpl(PetriNetsFrame parent) {
         this.petriNetParent = parent;
+    }
+
+    public FormulaBuilderServiceImpl() {
+
     }
 
     @Override
@@ -243,8 +247,10 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         }
 
         if (function.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT) {
+            Map.Entry<Integer, String> argumentEntry = getArgumentIdName(argument);
             PetriElementStatisticDto argumentStatistic = statistics.stream()
-                    .filter(petriElementStatistic -> petriElementStatistic.getElementName().equals(argument))
+                    .filter(petriElementStatistic -> petriElementStatistic.getElementName().equals(argumentEntry.getValue()) &&
+                            petriElementStatistic.getPetriObjId().equals(argumentEntry.getKey()))
                     .findFirst()
                     .orElse(null);
             if (argumentStatistic == null) {
@@ -265,9 +271,11 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
                 }
             }
         } else if (function.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.MULTIPLE_ELEMENT) {
-            List<String> args = Arrays.asList(argument.split(function.getArgumentType().getSeparator()));
+            List<Map.Entry<Integer, String>> entries = Arrays.asList(argument.split(function.getArgumentType().getSeparator())).stream()
+                    .map(this::getArgumentIdName)
+                    .collect(Collectors.toList());
             List<PetriElementStatisticDto> argumentsStatistic = statistics.stream()
-                    .filter(petriElementStatistic -> args.contains(petriElementStatistic.getElementName()))
+                    .filter(petriElementStatistic -> entries.contains(new AbstractMap.SimpleEntry<>(petriElementStatistic.getPetriObjId(), petriElementStatistic.getElementName())))
                     .collect(Collectors.toList());
             switch (function) {
                 case SUM_MIN: {
@@ -303,10 +311,11 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             }
         } else if (function.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT_AND_NUMBER) {
             String[] args = argument.split(PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT_AND_NUMBER.getSeparator());
-            String elementName = args[0];
+            Map.Entry<Integer, String> argumentEntry = getArgumentIdName(args[0]);
             double functionArgument = Double.parseDouble(args[1]);
             PetriElementStatisticDto argumentStatistic = statistics.stream()
-                    .filter(petriElementStatistic -> petriElementStatistic.getElementName().equals(elementName))
+                    .filter(petriElementStatistic -> petriElementStatistic.getElementName().equals(argumentEntry.getValue()) &&
+                            petriElementStatistic.getPetriObjId().equals(argumentEntry.getKey()))
                     .findFirst()
                     .orElse(null);
             if (argumentStatistic == null) {
@@ -359,6 +368,21 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             elements.addAll(transitionNames);
         }
         return elements;
+    }
+
+    private Map.Entry<Integer, String> getArgumentIdName(String argument) {
+        String argumentName;
+        int petriObjId;
+        Pattern pattern = Pattern.compile("(\\w+)\\[(\\d+)\\]");
+        Matcher matcher = pattern.matcher(argument);
+        if (matcher.matches()) {
+            argumentName = matcher.group(1);
+            petriObjId = Integer.parseInt(matcher.group(2));
+        } else {
+            petriObjId = 0;
+            argumentName = argument;
+        }
+        return new AbstractMap.SimpleEntry<>(petriObjId, argumentName);
     }
 
     private String getFunctionArgument(String input) {
@@ -433,6 +457,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             return false;
         }
         GraphPetriNet net = getCurrentGraphNet();
+
         List<String> elements = new ArrayList<>();
         List<String> places = net.getGraphPetriPlaceList().stream()
                 .map(place -> place.getName().toUpperCase())
@@ -452,6 +477,6 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     }
 
     private GraphPetriNet getCurrentGraphNet() {
-        return petriNetParent.getPetriNetsPanel().getGraphNet();
+        return petriNetParent != null ? petriNetParent.getPetriNetsPanel().getGraphNet() : null;
     }
 }

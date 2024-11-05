@@ -1,33 +1,48 @@
 package graphpresentation.statistic.dto.data;
 
 import PetriObj.PetriNet;
-import graphpresentation.statistic.dto.configs.ChartDataCollectionConfigDto;
-import graphpresentation.statistic.events.StatisticUpdateWorker;
-import graphpresentation.statistic.services.StatisticMonitorService;
+import graphpresentation.statistic.dto.configs.DataCollectionConfigDto;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class StatisticMonitor {
-    private final List<String> watchList;
-    private final ChartDataCollectionConfigDto dataCollectionConfig;
+    private Map<Integer, List<String>> watchMap;
+    private DataCollectionConfigDto dataCollectionConfig;
     private Double lastStatisticCollectionTime;
 
-    public StatisticMonitor(List<String> watchList, ChartDataCollectionConfigDto dataCollectionConfig) {
-        this.watchList = watchList;
-        this.dataCollectionConfig = dataCollectionConfig;
-        this.lastStatisticCollectionTime = dataCollectionConfig.getDataCollectionStartTime() - dataCollectionConfig.getDataCollectionStep();
+    public StatisticMonitor() {
 
     }
 
-    public List<String> getWatchList() {
-        return watchList;
+    public StatisticMonitor(Map<Integer, List<String>> watchMap, DataCollectionConfigDto dataCollectionConfig) {
+        this.watchMap = watchMap;
+        this.dataCollectionConfig = dataCollectionConfig;
+        this.lastStatisticCollectionTime = dataCollectionConfig.getDataCollectionStartTime() - dataCollectionConfig.getDataCollectionStep();
+    }
+
+    public StatisticMonitor(List<String> watchList, DataCollectionConfigDto dataCollectionConfig) {
+        this.watchMap = new HashMap<>();
+        this.watchMap.put(0, watchList);
+        this.dataCollectionConfig = dataCollectionConfig;
+        this.lastStatisticCollectionTime = dataCollectionConfig.getDataCollectionStartTime() - dataCollectionConfig.getDataCollectionStep();
+    }
+
+
+    public void setWatchMap(Map<Integer, List<String>> watchMap) {
+        this.watchMap = watchMap;
+    }
+
+    public void setDataCollectionConfig(DataCollectionConfigDto dataCollectionConfig) {
+        this.dataCollectionConfig = dataCollectionConfig;
+    }
+
+    public Map<Integer, List<String>> getWatchMap() {
+        return watchMap;
     }
 
     public boolean isValidWatchList() {
-        return watchList != null && !watchList.isEmpty();
+        return watchMap != null && !watchMap.isEmpty();
     }
 
     public Double getDataCollectionStartTime() {
@@ -46,15 +61,19 @@ public class StatisticMonitor {
         this.lastStatisticCollectionTime = lastStatisticCollectionTime;
     }
 
-    public List<PetriElementStatisticDto> getNetWatchListStatistic(PetriNet petriNet) {
+    public List<PetriElementStatisticDto> getNetWatchListStatistic(Integer petriObjId, PetriNet petriNet) {
+        if (!watchMap.containsKey(petriObjId)) {
+            return new ArrayList<>();
+        }
+        List<String> watchList = watchMap.get(petriObjId);
         List<PetriElementStatisticDto> petriStat = new ArrayList<>();
         petriStat.addAll(Arrays.stream(petriNet.getListP())
                 .filter(petriP -> watchList.contains(petriP.getName()))
-                .map(petriP -> new PetriElementStatisticDto(petriP.getName(), petriP.getObservedMin(), petriP.getObservedMax(), petriP.getMean()))
+                .map(petriP -> new PetriElementStatisticDto(petriObjId, petriP.getName(), petriP.getObservedMin(), petriP.getObservedMax(), petriP.getMean()))
                 .collect(Collectors.toList()));
         petriStat.addAll(Arrays.stream(petriNet.getListT())
                 .filter(petriT -> watchList.contains(petriT.getName()))
-                .map(petriT -> new PetriElementStatisticDto(petriT.getName(), petriT.getObservedMin(), petriT.getObservedMax(), petriT.getMean()))
+                .map(petriT -> new PetriElementStatisticDto(petriObjId, petriT.getName(), petriT.getObservedMin(), petriT.getObservedMax(), petriT.getMean()))
                 .collect(Collectors.toList()));
         return petriStat;
     }
