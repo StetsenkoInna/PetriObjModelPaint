@@ -10,7 +10,7 @@ import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
 import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
-import graphpresentation.statistic.dto.data.StatisticMonitor;
+import graphpresentation.statistic.dto.data.StatisticGraphMonitor;
 
 import java.util.*;
 import javax.swing.*;
@@ -22,7 +22,7 @@ import javax.swing.*;
 public class RunPetriObjModel extends PetriObjModel{
     
     private JTextArea area; // specifies where simulation protokol is printed
-    private StatisticMonitor statisticMonitor;
+    private StatisticGraphMonitor statisticGraphMonitor;
 
     public RunPetriObjModel(ArrayList<PetriSim> list, JTextArea area){
         super(list);
@@ -199,13 +199,13 @@ public class RunPetriObjModel extends PetriObjModel{
                         }
                     }
                     if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
-                        currentStatistic.addAll(statisticMonitor.getNetWatchListStatistic(e.getNet()));
+                        currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(e.getNet()));
                     }
                 }
             }
             if (!currentStatistic.isEmpty()) {
-                statisticMonitor.setLastStatisticCollectionTime(getCurrentTime());
-                statisticMonitor.asyncStatisticSend(getCurrentTime(), currentStatistic);
+                statisticGraphMonitor.setLastStatisticCollectionTime(getCurrentTime());
+                statisticGraphMonitor.asyncStatisticSend(getCurrentTime(), currentStatistic);
             }
 
             super.setCurrentTime(min); // просування часу
@@ -274,12 +274,12 @@ public class RunPetriObjModel extends PetriObjModel{
         if (isLastStatisticSegment()) {
             List<PetriElementStatisticDto> statistic = new ArrayList<>();
             for (PetriSim e : super.getListObj()) {
-                statistic.addAll(statisticMonitor.getNetWatchListStatistic(e.getNet()));
+                statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(e.getNet()));
             }
-            statisticMonitor.asyncStatisticSend(getCurrentTime(), statistic);
+            statisticGraphMonitor.asyncStatisticSend(getCurrentTime(), statistic);
         }
         if (isStatisticMonitorEnabled()) {
-            statisticMonitor.shutdownStatisticUpdate();
+            statisticGraphMonitor.shutdownStatisticUpdate();
         }
 
         area.append("\n Modeling results: \n");
@@ -319,20 +319,20 @@ public class RunPetriObjModel extends PetriObjModel{
         }
     }
 
-    public void setStatisticMonitor(StatisticMonitor statisticMonitor) {
-        this.statisticMonitor = statisticMonitor;
+    public void setStatisticMonitor(StatisticGraphMonitor statisticGraphMonitor) {
+        this.statisticGraphMonitor = statisticGraphMonitor;
     }
 
     private boolean isStatisticMonitorEnabled() {
-        return statisticMonitor != null && statisticMonitor.isValidMonitor();
+        return statisticGraphMonitor != null && statisticGraphMonitor.isValidMonitor();
     }
 
     private boolean isStatisticCollectionTime() {
-        return isStatisticMonitorEnabled() && (getCurrentTime() >= statisticMonitor.getDataCollectionStartTime() &&
-                getCurrentTime() - statisticMonitor.getLastStatisticCollectionTime() >= statisticMonitor.getDataCollectionStep());
+        return isStatisticMonitorEnabled() && (getCurrentTime() >= statisticGraphMonitor.getDataCollectionStartTime() &&
+                getCurrentTime() - statisticGraphMonitor.getLastStatisticCollectionTime() >= statisticGraphMonitor.getDataCollectionStep());
     }
 
     private boolean isLastStatisticSegment() {
-        return isStatisticMonitorEnabled() && super.getSimulationTime() - statisticMonitor.getLastStatisticCollectionTime() >= statisticMonitor.getDataCollectionStep();
+        return isStatisticMonitorEnabled() && super.getSimulationTime() - statisticGraphMonitor.getLastStatisticCollectionTime() >= statisticGraphMonitor.getDataCollectionStep();
     }
 }

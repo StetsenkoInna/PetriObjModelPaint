@@ -10,33 +10,24 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public final class StatisticMonitor {
-    private final StatisticUpdateWorker statisticUpdateWorker;
-    private final StatisticMonitorService monitorService;
+public class StatisticMonitor {
     private final List<String> watchList;
     private final ChartDataCollectionConfigDto dataCollectionConfig;
     private Double lastStatisticCollectionTime;
 
-    public StatisticMonitor(StatisticMonitorService monitorService) {
-        this.monitorService = monitorService;
-        this.watchList = monitorService.getSelectedElementNames();
-        this.dataCollectionConfig = monitorService.getChartDataCollectionConfig();
+    public StatisticMonitor(List<String> watchList, ChartDataCollectionConfigDto dataCollectionConfig) {
+        this.watchList = watchList;
+        this.dataCollectionConfig = dataCollectionConfig;
         this.lastStatisticCollectionTime = dataCollectionConfig.getDataCollectionStartTime() - dataCollectionConfig.getDataCollectionStep();
-        this.statisticUpdateWorker = new StatisticUpdateWorker(monitorService);
-        this.statisticUpdateWorker.execute();
-    }
 
-    public StatisticMonitorService getMonitorService() {
-        return monitorService;
     }
 
     public List<String> getWatchList() {
         return watchList;
     }
 
-    public boolean isValidMonitor() {
-        return monitorService != null && monitorService.getIsFormulaValid() &&
-                watchList != null && !watchList.isEmpty();
+    public boolean isValidWatchList() {
+        return watchList != null && !watchList.isEmpty();
     }
 
     public Double getDataCollectionStartTime() {
@@ -66,17 +57,5 @@ public final class StatisticMonitor {
                 .map(petriT -> new PetriElementStatisticDto(petriT.getName(), petriT.getObservedMin(), petriT.getObservedMax(), petriT.getMean()))
                 .collect(Collectors.toList()));
         return petriStat;
-    }
-
-    public void instantStatisticSend(double currentTime, List<PetriElementStatisticDto> statistic) {
-        monitorService.appendChartStatistic(currentTime, statistic);
-    }
-
-    public void asyncStatisticSend(double currentTime, List<PetriElementStatisticDto> statistic) {
-        statisticUpdateWorker.publishEvent(currentTime, statistic);
-    }
-
-    public void shutdownStatisticUpdate() {
-        statisticUpdateWorker.publishTerminationEvent();
     }
 }

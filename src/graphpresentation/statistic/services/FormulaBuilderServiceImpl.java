@@ -88,23 +88,6 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         }
     }
 
-    private String getLastOperation(String input) {
-        String trimmedInput = input.trim();
-        int lastOperatorIndex = getLastOperatorIndex(trimmedInput);
-        return lastOperatorIndex >= 0
-                ? trimmedInput.substring(lastOperatorIndex + 1).trim()
-                : trimmedInput;
-    }
-
-    private static int getLastOperatorIndex(String trimmedInput) {
-        return Math.max(
-                trimmedInput.lastIndexOf('+'),
-                Math.max(trimmedInput.lastIndexOf('-'),
-                        Math.max(trimmedInput.lastIndexOf('*'),
-                                trimmedInput.lastIndexOf('/')))
-        );
-    }
-
     @Override
     public List<String> getSelectedPetriElementNames(String formula) {
         List<String> elements = new ArrayList<>();

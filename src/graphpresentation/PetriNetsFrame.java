@@ -10,7 +10,7 @@ import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
 import graphpresentation.statistic.StatisticMonitorDialog;
-import graphpresentation.statistic.dto.data.StatisticMonitor;
+import graphpresentation.statistic.dto.data.StatisticGraphMonitor;
 import graphreuse.GraphNetParametersFrame;
 import graphpresentation.undoable_edits.AddGraphElementEdit;
 
@@ -1724,8 +1724,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 m.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 m.setCurrentTime(Double.valueOf(timeStartField.getText()));
                 if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
-                    StatisticMonitor statisticMonitor = new StatisticMonitor(statisticMonitorDialog);
-                    m.setStatisticMonitor(statisticMonitor);
+                    StatisticGraphMonitor statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog);
+                    m.setStatisticMonitor(statisticGraphMonitor);
                 }
                 m.go(Double.valueOf(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
@@ -1785,8 +1785,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 model.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 model.setCurrentTime(Double.valueOf(timeStartField.getText()));
                 if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
-                    StatisticMonitor statisticMonitor = new StatisticMonitor(statisticMonitorDialog);
-                    model.setStatisticMonitor(statisticMonitor);
+                    StatisticGraphMonitor statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog);
+                    model.setStatisticMonitor(statisticGraphMonitor);
                 }
                 model.go(Double.valueOf(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
