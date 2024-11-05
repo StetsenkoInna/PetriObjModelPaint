@@ -232,8 +232,10 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             functionMatcher.appendTail(numericExpression);
             if (numericExpression.toString().matches("\\d+(\\.\\d+)?")) {
                 result = Double.parseDouble(numericExpression.toString());
-            } else {
+            } else if (!numericExpression.toString().matches(".*[a-zA-Z].*")) {
                 result = ExpressionEvaluateUtil.evaluateExpression(numericExpression.toString());
+            } else {
+                result = null;
             }
         } catch (Exception e) {
             e.printStackTrace();

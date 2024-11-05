@@ -2,10 +2,7 @@ package graphpresentation.statistic.dto.data;
 
 import graphpresentation.statistic.dto.configs.DataCollectionConfigDto;
 import graphpresentation.statistic.events.StatisticConsoleUpdateWorker;
-import graphpresentation.statistic.services.FormulaBuilderService;
-import graphpresentation.statistic.services.FormulaBuilderServiceImpl;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -24,10 +21,11 @@ public class StatisticConsoleMonitor extends StatisticMonitor {
     public StatisticConsoleMonitor(String formula, Map<Integer, List<String>> watchMap, DataCollectionConfigDto configDto) {
         super(watchMap, configDto);
         this.formula = formula;
+        printStatisticHeader();
     }
 
     public boolean isValidMonitor() {
-        return true;
+        return isValidWatchList();
     }
 
     public void sendStatistic(double currentTime, List<PetriElementStatisticDto> statistic) {
@@ -43,5 +41,13 @@ public class StatisticConsoleMonitor extends StatisticMonitor {
             e.printStackTrace();
             executorService.shutdownNow();
         }
+    }
+
+    private void printStatisticHeader() {
+        System.out.printf("--------------------------------%n");
+        System.out.printf(" Calculated values              %n");
+        System.out.printf("--------------------------------%n");
+        System.out.printf("| %-10s | %-8s |%n", "TIME", "VALUE");
+        System.out.printf("--------------------------------%n");
     }
 }

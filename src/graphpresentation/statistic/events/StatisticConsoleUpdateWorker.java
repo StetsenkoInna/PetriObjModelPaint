@@ -22,6 +22,6 @@ public class StatisticConsoleUpdateWorker implements Runnable {
     @Override
     public void run() {
         Number result = formulaBuilderService.calculateFormula(formula, statisticDtos);
-        System.out.println(currentTime + "        |       " + result);
+        System.out.println(currentTime + ";" + result);
     }
 }
