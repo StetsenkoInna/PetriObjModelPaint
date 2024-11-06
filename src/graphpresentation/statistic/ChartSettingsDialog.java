@@ -118,8 +118,6 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         chartUpdateFrequencyPane.add(chartUpdateFrequencyLabel, java.awt.BorderLayout.PAGE_START);
         chartUpdateFrequencyPane.add(chartUpdateFrequencyField, java.awt.BorderLayout.CENTER);
 
-//        chartDataSettingsPanel.add(chartUpdateFrequencyPane);
-
         chartStartTimeLabel = new JLabel("Data collection start time");
         chartStartTimeField = new JTextField();
         chartStartTimeField.setText(chartConfigDto.getDataCollectionConfig().getDataCollectionStartTime().toString());
@@ -148,21 +146,13 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         configChartConfigBtn.setText("OK");
         configChartConfigBtn.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         configChartConfigBtn.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        configChartConfigBtn.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                confirmChartConfigPerformed(evt);
-            }
-        });
+        configChartConfigBtn.addActionListener(this::confirmChartConfigPerformed);
         actionsPanel.add(configChartConfigBtn);
 
         cancelSelectionBtn.setText("Cancel");
         cancelSelectionBtn.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         cancelSelectionBtn.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        cancelSelectionBtn.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                cancelSelectionBtnActionPerformed(evt);
-            }
-        });
+        cancelSelectionBtn.addActionListener(this::cancelSelectionBtnActionPerformed);
         actionsPanel.add(cancelSelectionBtn);
 
         getContentPane().add(actionsPanel, java.awt.BorderLayout.PAGE_END);
@@ -178,9 +168,6 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         if (chartConfigDto.getDataCollectionConfig() == null) {
             chartConfigDto.setDataCollectionConfig(new DataCollectionConfigDto());
         }
-//        if (isValidNumber(chartUpdateFrequencyField.getText())) {
-//            chartConfigDto.getDataCollectionConfig().setDataUpdateFrequency(chartUpdateFrequencyField.getText());
-//        }
         if (isValidNumber(chartDataCollectionStepField.getText())) {
             chartConfigDto.getDataCollectionConfig().setDataCollectionStep(chartDataCollectionStepField.getText());
         }

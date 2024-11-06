@@ -42,6 +42,7 @@ import static javax.swing.JOptionPane.showMessageDialog;
 
 /**
  * Statistic line chart builder service
+ *
  * @author Andrii Kachmar
  */
 public class LineChartBuilderService implements ChartBuilderService {
@@ -432,7 +433,14 @@ public class LineChartBuilderService implements ChartBuilderService {
     @Override
     public void clearChart() {
         currentSeriesId = -1;
-        Platform.runLater(() -> lineChart.getData().clear());
+        Platform.runLater(() -> {
+            lineChart.getData().clear();
+            NumberAxis xAxis = (NumberAxis) lineChart.getXAxis();
+            NumberAxis yAxis = (NumberAxis) lineChart.getYAxis();
+            xAxis.autosize();
+            yAxis.autosize();
+            lineChart.autosize();
+        });
     }
 
     @Override

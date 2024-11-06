@@ -16,6 +16,7 @@ public class StatisticMonitor {
         this.dataCollectionConfig = new DataCollectionConfigDto();
         this.lastStatisticCollectionTime = dataCollectionConfig.getDataCollectionStartTime() - dataCollectionConfig.getDataCollectionStep();
     }
+
     public StatisticMonitor(Map<Integer, List<String>> watchMap, DataCollectionConfigDto dataCollectionConfig) {
         this.watchMap = watchMap;
         this.dataCollectionConfig = dataCollectionConfig;

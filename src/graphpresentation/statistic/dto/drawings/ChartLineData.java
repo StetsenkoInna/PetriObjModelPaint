@@ -2,7 +2,6 @@ package graphpresentation.statistic.dto.drawings;
 
 import javafx.scene.shape.Line;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 

@@ -95,7 +95,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
 
         formulaActionsGroup.setLayout(new java.awt.GridBagLayout());
 
-        clearMonitorBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/reset_icon.png"))); // NOI18N
+        clearMonitorBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/reset_icon.png")));
         clearMonitorBtn.setContentAreaFilled(false);
         clearMonitorBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         clearMonitorBtn.setPreferredSize(new java.awt.Dimension(40, 40));
@@ -109,7 +109,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTH;
         formulaActionsGroup.add(clearMonitorBtn, gridBagConstraints);
 
-        formulaInfoBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/fx_icon.png"))); // NOI18N
+        formulaInfoBtn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/fx_icon.png")));
         formulaInfoBtn.setContentAreaFilled(false);
         formulaInfoBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         formulaInfoBtn.setPreferredSize(new java.awt.Dimension(40, 40));
@@ -450,6 +450,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         chartDownloadBtn.setEnabled(false);
         chartSettingsBtn.setEnabled(false);
         exportCsvBtn.setEnabled(false);
+        clearDrawLineBtn.setEnabled(false);
         if (isFormulaValid) {
             chartBuilderService.createSeries(formulaInputField.getText());
         }
@@ -468,6 +469,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         chartDownloadBtn.setEnabled(true);
         chartSettingsBtn.setEnabled(true);
         exportCsvBtn.setEnabled(true);
+        clearDrawLineBtn.setEnabled(true);
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

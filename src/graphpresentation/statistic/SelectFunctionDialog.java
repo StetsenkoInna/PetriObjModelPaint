@@ -70,7 +70,7 @@ public class SelectFunctionDialog extends javax.swing.JDialog {
         functionInfoPanel.setPreferredSize(new java.awt.Dimension(357, 50));
         functionInfoPanel.setLayout(new java.awt.GridLayout(2, 0));
 
-        functionTitle.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        functionTitle.setFont(new java.awt.Font("Segoe UI", 1, 12));
         functionTitle.setPreferredSize(new java.awt.Dimension(39, 5));
         functionInfoPanel.add(functionTitle);
 

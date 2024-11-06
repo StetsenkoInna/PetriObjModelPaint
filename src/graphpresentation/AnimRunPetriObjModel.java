@@ -103,7 +103,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                         }
                     }
                     if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
-                        int petriObjId = getListObj().indexOf(e);
+                        int petriObjId = getRunlist().indexOf(e);
                         currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(petriObjId, e.getNet()));
                     }
                 }
@@ -196,7 +196,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
 
         if (isLastStatisticSegment()) {
             List<PetriElementStatisticDto> statistic = new ArrayList<>();
-            for (PetriSim e : super.getListObj()) {
+            for (PetriSim e : getListObj()) {
                 int petriObjId = getListObj().indexOf(e);
                 statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(petriObjId, e.getNet()));
             }
@@ -308,11 +308,11 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
         return statisticGraphMonitor != null && statisticGraphMonitor.isValidMonitor();
     }
 
-    private boolean isLastStatisticSegment() {
-        return isStatisticMonitorEnabled() && (super.getSimulationTime() - statisticGraphMonitor.getLastStatisticCollectionTime() >= statisticGraphMonitor.getDataCollectionStep());
-    }
-
     private boolean isStatisticCollectionTime() {
         return isStatisticMonitorEnabled() && (getCurrentTime() >= statisticGraphMonitor.getDataCollectionStartTime());
+    }
+
+    private boolean isLastStatisticSegment() {
+        return isStatisticMonitorEnabled() && (getCurrentTime() - getSimulationTime() <= getSimulationTime());
     }
 }

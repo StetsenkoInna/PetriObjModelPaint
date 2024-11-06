@@ -335,6 +335,6 @@ public class RunPetriObjModel extends PetriObjModel{
     }
 
     private boolean isLastStatisticSegment() {
-        return isStatisticMonitorEnabled() && super.getSimulationTime() - statisticGraphMonitor.getLastStatisticCollectionTime() >= statisticGraphMonitor.getDataCollectionStep();
+        return isStatisticMonitorEnabled() && (getCurrentTime() - getSimulationTime() <= getSimulationTime());
     }
 }

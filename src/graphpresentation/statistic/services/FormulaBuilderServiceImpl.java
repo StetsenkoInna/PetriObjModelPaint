@@ -348,15 +348,16 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
 
 
     private List<String> getElementSuggestions(PetriStatisticFunction petriStatisticFunction, String argument) {
-        if (petriStatisticFunction == null) {
+        GraphPetriNet petriNet = getCurrentGraphNet();
+        if (petriStatisticFunction == null || petriNet == null) {
             return new ArrayList<>();
         }
 
         List<String> elements = new ArrayList<>();
-        List<String> placeNames = getCurrentGraphNet().getGraphPetriPlaceList().stream()
+        List<String> placeNames = petriNet.getGraphPetriPlaceList().stream()
                 .map(GraphPetriPlace::getName)
                 .collect(Collectors.toList());
-        List<String> transitionNames = getCurrentGraphNet().getGraphPetriTransitionList().stream()
+        List<String> transitionNames = petriNet.getGraphPetriTransitionList().stream()
                 .map(GraphTransition::getName)
                 .collect(Collectors.toList());
         if (petriStatisticFunction.getFunctionType().equals(PetriStatisticFunction.FunctionArgumentElementType.PLACE)) {

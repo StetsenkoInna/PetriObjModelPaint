@@ -17,10 +17,6 @@ public final class StatisticGraphMonitor extends StatisticMonitor {
         this.statisticGraphUpdateWorker.execute();
     }
 
-    public StatisticMonitorService getMonitorService() {
-        return monitorService;
-    }
-
     public boolean isValidMonitor() {
         return monitorService != null && monitorService.getIsFormulaValid() && super.isValidWatchList();
     }
