@@ -4,9 +4,12 @@
  */
 package PetriObj;
 
+import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
+import graphpresentation.statistic.dto.data.StatisticConsoleMonitor;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import javax.swing.JTextArea;
 
@@ -29,7 +32,8 @@ public class PetriObjModel implements Serializable, Cloneable  {
     private StateTime timeState;
     
     private String id; // unique number for server
-    
+
+    private StatisticConsoleMonitor statisticConsoleMonitor;
     
     public PetriObjModel(ArrayList<PetriSim> listObj) {
         this(listObj, new StateTime());
@@ -167,6 +171,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
              return;
             
              }*/
+            List<PetriElementStatisticDto> currentStatistic = new ArrayList<>();
             if (isStatistics() == true) {
                 for (PetriSim e : getListObj()) {
                    if (min > 0) {
@@ -175,10 +180,16 @@ public class PetriObjModel implements Serializable, Cloneable  {
                         else
                             e.doStatistics((this.getSimulationTime() - this.getCurrentTime()) / this.getSimulationTime()); 
                     }
-
+                    if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
+                        int petriObjId = getListObj().indexOf(e);
+                        currentStatistic.addAll(statisticConsoleMonitor.getNetWatchListStatistic(petriObjId, e.getNet()));
+                    }
                 }
             }
-
+            if (!currentStatistic.isEmpty()) {
+                statisticConsoleMonitor.setLastStatisticCollectionTime(getCurrentTime());
+                statisticConsoleMonitor.sendStatistic(getCurrentTime(), currentStatistic);
+            }
            this.setCurrentTime(min); // просування часу //3.12.2015
             
             if (isProtocolPrint() == true) {
@@ -260,9 +271,19 @@ public class PetriObjModel implements Serializable, Cloneable  {
                 }
             }
         }
+        if (isLastStatisticSegment()) {
+            List<PetriElementStatisticDto> statistic = new ArrayList<>();
+            for (PetriSim e : getListObj()) {
+                int petriObjId = getListObj().indexOf(e);
+                statistic.addAll(statisticConsoleMonitor.getNetWatchListStatistic(petriObjId, e.getNet()));
+            }
+            statisticConsoleMonitor.sendStatistic(getCurrentTime(), statistic);
+        }
+        if (isStatisticMonitorEnabled()) {
+            statisticConsoleMonitor.shutdownStatisticUpdate();
+        }
         getListObj().sort(PetriSim.getComparatorByNum()); // return the initial order in the list for a correct output of the results (in SMO test)
     }
-    
     
      
     /**
@@ -438,5 +459,21 @@ public class PetriObjModel implements Serializable, Cloneable  {
                                 li.getOther().getName()+".p["+ li.getNumPlaceOther()+"] ");
         }
     }
-    
+
+    public void setStatisticMonitor(StatisticConsoleMonitor statisticConsoleMonitor) {
+        this.statisticConsoleMonitor = statisticConsoleMonitor;
+    }
+
+    private boolean isStatisticMonitorEnabled() {
+        return statisticConsoleMonitor != null && statisticConsoleMonitor.isValidMonitor() && statisticConsoleMonitor.getMonitoringEnabled();
+    }
+
+    private boolean isStatisticCollectionTime() {
+        return isStatisticMonitorEnabled() && (getCurrentTime() >= statisticConsoleMonitor.getDataCollectionStartTime() &&
+                getCurrentTime() - statisticConsoleMonitor.getLastStatisticCollectionTime() >= statisticConsoleMonitor.getDataCollectionStep());
+    }
+
+    private boolean isLastStatisticSegment() {
+        return isStatisticMonitorEnabled() && getSimulationTime() - statisticConsoleMonitor.getLastStatisticCollectionTime() >= statisticConsoleMonitor.getDataCollectionStep();
+    }
 }
