@@ -27,6 +27,8 @@ public class StatisticConsoleMonitor extends StatisticMonitor {
         if (!formulaBuilderService.isFormulaValid(formula)) {
             throw new ArithmeticException("Entered statistic formula is not valid");
         }
+
+        printHeader();
     }
 
     public StatisticConsoleMonitor(String formula, DataCollectionConfigDto configDto) {
@@ -39,6 +41,8 @@ public class StatisticConsoleMonitor extends StatisticMonitor {
         if (!formulaBuilderService.isFormulaValid(formula)) {
             throw new ArithmeticException("Entered statistic formula=[" + formula + "] is not valid");
         }
+
+        printHeader();
     }
 
     public boolean isValidMonitor() {
@@ -53,13 +57,15 @@ public class StatisticConsoleMonitor extends StatisticMonitor {
 
     public void shutdownStatisticUpdate() {
         if (isDisplayValuesLive) {
+            System.out.println("Shutdown statistic monitoring...\n");
+            executorService.shutdown();
             try {
-                System.out.println("Shutdown statistic monitoring...");
-                executorService.awaitTermination(2L, TimeUnit.SECONDS);
-                executorService.shutdown();
+                if (!executorService.awaitTermination(10, TimeUnit.SECONDS)) {
+                    executorService.shutdownNow();
+                }
             } catch (InterruptedException e) {
-                e.printStackTrace();
                 executorService.shutdownNow();
+                Thread.currentThread().interrupt();
             }
         }
     }
@@ -70,5 +76,22 @@ public class StatisticConsoleMonitor extends StatisticMonitor {
 
     public void setDisplayValuesLive(Boolean displayValuesLive) {
         isDisplayValuesLive = displayValuesLive;
+    }
+
+    public void printHeader() {
+        if (isDisplayValuesLive) {
+            System.out.println(String.format("%-20s | %-20s", "Petri Object Index", "Watch Elements"));
+            System.out.println("-----------------------------------------------");
+            for (Map.Entry<Integer, List<String>> entry : getWatchMap().entrySet()) {
+                Integer index = entry.getKey();
+                List<String> watchElements = entry.getValue();
+                System.out.printf("%-20d | %-20s%n", index, watchElements);
+            }
+            System.out.println("-----------------------------------------------");
+            System.out.println();
+            System.out.println("-----------------------------------------------");
+            System.out.println(String.format("%-20s | %-20s", "Time", "Formula Value"));
+            System.out.println("-----------------------------------------------");
+        }
     }
 }

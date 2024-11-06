@@ -437,7 +437,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     }
 
     public void onSimulationStart() {
-        this.elementsWatchMap = formulaBuilderService.getFormulaElementsWatchMap(formulaInputField.getText());
+        elementsWatchMap = formulaBuilderService.getFormulaElementsWatchMap(formulaInputField.getText());
         formulaInputField.setEnabled(false);
         formulaInfoBtn.setEnabled(false);
         clearMonitorBtn.setEnabled(false);

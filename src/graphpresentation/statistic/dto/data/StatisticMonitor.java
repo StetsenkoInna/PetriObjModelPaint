@@ -31,7 +31,6 @@ public class StatisticMonitor {
 
 
     public void setWatchMap(Map<Integer, List<String>> watchMap) {
-        System.out.println("watchMap:" + watchMap);
         this.watchMap = watchMap;
     }
 

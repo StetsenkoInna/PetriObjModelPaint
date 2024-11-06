@@ -244,8 +244,6 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
                 result = Double.parseDouble(numericExpression.toString());
             } else if (!numericExpression.toString().matches(".*[a-zA-Z].*")) {
                 result = ExpressionEvaluateUtil.evaluateExpression(numericExpression.toString());
-            } else {
-                result = null;
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -468,7 +466,9 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             return false;
         }
         GraphPetriNet net = getCurrentGraphNet();
-
+        if (net == null) {
+            return false;
+        }
         List<String> elements = new ArrayList<>();
         List<String> places = net.getGraphPetriPlaceList().stream()
                 .map(place -> place.getName().toUpperCase())
