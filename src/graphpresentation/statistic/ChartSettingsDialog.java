@@ -178,9 +178,9 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         if (chartConfigDto.getDataCollectionConfig() == null) {
             chartConfigDto.setDataCollectionConfig(new DataCollectionConfigDto());
         }
-        if (isValidNumber(chartUpdateFrequencyField.getText())) {
-            chartConfigDto.getDataCollectionConfig().setDataUpdateFrequency(chartUpdateFrequencyField.getText());
-        }
+//        if (isValidNumber(chartUpdateFrequencyField.getText())) {
+//            chartConfigDto.getDataCollectionConfig().setDataUpdateFrequency(chartUpdateFrequencyField.getText());
+//        }
         if (isValidNumber(chartDataCollectionStepField.getText())) {
             chartConfigDto.getDataCollectionConfig().setDataCollectionStep(chartDataCollectionStepField.getText());
         }

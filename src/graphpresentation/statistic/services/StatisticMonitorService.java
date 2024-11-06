@@ -4,11 +4,12 @@ import graphpresentation.statistic.dto.configs.DataCollectionConfigDto;
 import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
 
 import java.util.List;
+import java.util.Map;
 
 public interface StatisticMonitorService {
     void appendChartStatistic(double currentTime, List<PetriElementStatisticDto> statistics);
 
-    List<String> getSelectedElementNames();
+    Map<Integer, List<String>> getElementsWatchMap();
 
     boolean getIsFormulaValid();
 

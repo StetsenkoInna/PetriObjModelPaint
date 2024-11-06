@@ -23,9 +23,6 @@ public class DataCollectionConfigDto {
         return dataUpdateFrequency != null ? dataUpdateFrequency : 1;
     }
 
-    public void setDataUpdateFrequency(String dataUpdateFrequency) {
-        this.dataUpdateFrequency = Double.valueOf(dataUpdateFrequency);
-    }
 
     public Double getDataCollectionStartTime() {
         return dataCollectionStartTime != null ? dataCollectionStartTime : 0;
@@ -41,6 +38,14 @@ public class DataCollectionConfigDto {
 
     public void setDataCollectionStep(String dataCollectionStep) {
         this.dataCollectionStep = Double.valueOf(dataCollectionStep);
+    }
+
+    public void setDataCollectionStartTime(Double dataCollectionStartTime) {
+        this.dataCollectionStartTime = dataCollectionStartTime;
+    }
+
+    public void setDataCollectionStep(Double dataCollectionStep) {
+        this.dataCollectionStep = dataCollectionStep;
     }
 
     @Override

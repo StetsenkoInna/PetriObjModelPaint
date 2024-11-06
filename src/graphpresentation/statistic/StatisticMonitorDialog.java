@@ -22,6 +22,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Andrii Kachmar
@@ -29,7 +30,7 @@ import java.util.List;
 public class StatisticMonitorDialog extends javax.swing.JDialog implements StatisticMonitorService {
     private final ChartBuilderService chartBuilderService;
     private final FormulaBuilderService formulaBuilderService;
-    private List<String> selectedElements;
+    private Map<Integer, List<String>> elementsWatchMap;
     private Boolean isFormulaValid;
     private ChartConfigDto chartConfigDto;
 
@@ -436,7 +437,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     }
 
     public void onSimulationStart() {
-        this.selectedElements = formulaBuilderService.getSelectedPetriElementNames(formulaInputField.getText());
+        this.elementsWatchMap = formulaBuilderService.getFormulaElementsWatchMap(formulaInputField.getText());
         formulaInputField.setEnabled(false);
         formulaInfoBtn.setEnabled(false);
         clearMonitorBtn.setEnabled(false);
@@ -497,8 +498,8 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     // End of variables declaration//GEN-END:variables
 
     @Override
-    public List<String> getSelectedElementNames() {
-        return selectedElements;
+    public Map<Integer, List<String>> getElementsWatchMap() {
+        return elementsWatchMap;
     }
 
     @Override

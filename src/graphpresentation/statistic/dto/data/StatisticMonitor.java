@@ -12,9 +12,10 @@ public class StatisticMonitor {
     private Double lastStatisticCollectionTime;
 
     public StatisticMonitor() {
-
+        this.watchMap = new HashMap<>();
+        this.dataCollectionConfig = new DataCollectionConfigDto();
+        this.lastStatisticCollectionTime = dataCollectionConfig.getDataCollectionStartTime() - dataCollectionConfig.getDataCollectionStep();
     }
-
     public StatisticMonitor(Map<Integer, List<String>> watchMap, DataCollectionConfigDto dataCollectionConfig) {
         this.watchMap = watchMap;
         this.dataCollectionConfig = dataCollectionConfig;
@@ -30,11 +31,13 @@ public class StatisticMonitor {
 
 
     public void setWatchMap(Map<Integer, List<String>> watchMap) {
+        System.out.println("watchMap:" + watchMap);
         this.watchMap = watchMap;
     }
 
     public void setDataCollectionConfig(DataCollectionConfigDto dataCollectionConfig) {
         this.dataCollectionConfig = dataCollectionConfig;
+        this.lastStatisticCollectionTime = dataCollectionConfig.getDataCollectionStartTime() - dataCollectionConfig.getDataCollectionStep();
     }
 
     public Map<Integer, List<String>> getWatchMap() {
