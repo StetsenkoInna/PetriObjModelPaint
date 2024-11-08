@@ -1,6 +1,4 @@
-/dist/
 .idea/
 PetriObjModelPaint.iml
 build/
 target/
-./nbproject/private/
