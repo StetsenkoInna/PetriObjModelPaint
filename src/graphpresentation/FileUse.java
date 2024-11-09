@@ -54,9 +54,9 @@ import utils.Utils;
  */
 public class FileUse {
 
-    private final String PATTERN = ".pns";
+    private static final String PATTERN = ".pns";
     
-    public String openFile(PetriNetsPanel panel, JFrame frame) throws ExceptionInvalidNetStructure {
+    public static String openFile(PetriNetsPanel panel, JFrame frame) throws ExceptionInvalidNetStructure {
         String pnetName = "";
         FileDialog fdlg;
         fdlg = new FileDialog(frame, "Open a file ",
@@ -122,11 +122,11 @@ public class FileUse {
         return pnetName.substring(0, pnetName.length());
     }
 
-    public void newWorksheet(PetriNetsPanel panel) {
+    public static void newWorksheet(PetriNetsPanel panel) {
         panel.setNullPanel();
     }
 
-    public void saveGraphNetAs(PetriNetsPanel panel, JFrame frame) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+    public static void saveGraphNetAs(PetriNetsPanel panel, JFrame frame) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         FileDialog fdlg;
         fdlg = new FileDialog(frame,
                 "Save Graph Petri net as...",
@@ -157,7 +157,7 @@ public class FileUse {
         }
     }
 
-    public void saveGraphNetAs(GraphPetriNet net, JFrame frame) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+    public static void saveGraphNetAs(GraphPetriNet net, JFrame frame) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         FileDialog fdlg;
         fdlg = new FileDialog(frame,
                 "Save Graph Petri net as...",
@@ -189,7 +189,7 @@ public class FileUse {
         }
     }
 
-    public void savePetriNetAs(PetriNetsPanel panel, JFrame frame) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+    public static void savePetriNetAs(PetriNetsPanel panel, JFrame frame) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         FileDialog fdlg;
         fdlg = new FileDialog(frame,
                 "Save Petri net as...",
@@ -221,7 +221,7 @@ public class FileUse {
         }
     }
 
-    public boolean saveGraphNet(GraphPetriNet pnet, String name) throws ExceptionInvalidNetStructure {  // saving graph in the same folder as project
+    public static boolean saveGraphNet(GraphPetriNet pnet, String name) throws ExceptionInvalidNetStructure {  // saving graph in the same folder as project
         FileOutputStream fos = null;
         ObjectOutputStream oos = null;
         if (name.equalsIgnoreCase("")) {
@@ -255,7 +255,7 @@ public class FileUse {
         return true;
     }
 
-    public GraphPetriNet generateGraphNetBySimpleNet(PetriNetsPanel panel,PetriNet net, Point paneCenter) { // added by Katya 16.10.2016
+    public static GraphPetriNet generateGraphNetBySimpleNet(PetriNetsPanel panel,PetriNet net, Point paneCenter) { // added by Katya 16.10.2016
     	GraphPetriNet currentNet = panel.getGraphNet();
     	List<GraphElement> choosenElements = panel.getChoosenElements();
     	choosenElements.clear();
@@ -593,7 +593,7 @@ public class FileUse {
     }
 
     @Deprecated
-    public PetriNet convertMethodToPetriNet(String methodText) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay { // added by Katya 16.10.2016
+    public static PetriNet convertMethodToPetriNet(String methodText) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay { // added by Katya 16.10.2016
         System.out.println(methodText);
 
         ArrayList<PetriP> d_P = new ArrayList<>();
@@ -774,7 +774,7 @@ public class FileUse {
         return net;
     }
 
-    public String openMethod(PetriNetsPanel panel, String methodFullName, JFrame frame) throws ExceptionInvalidNetStructure { // added by Katya 16.10.2016
+    public static String openMethod(PetriNetsPanel panel, String methodFullName, JFrame frame) throws ExceptionInvalidNetStructure { // added by Katya 16.10.2016
         String methodName = methodFullName.substring(0, methodFullName.indexOf("(")); // modified by Katya 22.11.2016 (till the "try" block)
         String paramsString = methodFullName.substring(methodFullName.indexOf("(") + 1);
         paramsString = paramsString.substring(0, paramsString.length() - 1);
@@ -842,7 +842,7 @@ public class FileUse {
         return code;
     }*/
 
-    private String generateArgumentsString(PetriNet net) { // added by Katya 08.12.2016
+    private static String generateArgumentsString(PetriNet net) { // added by Katya 08.12.2016
         String str = "";
         for (PetriP petriPlace : net.getListP()) {
             if (petriPlace.markIsParam()) {
@@ -883,7 +883,7 @@ public class FileUse {
         return str;
     }
 
-    public void saveNetAsMethod(GraphPetriNet pnet, JTextArea area) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+    public static void saveNetAsMethod(GraphPetriNet pnet, JTextArea area) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         PetriNet net;
         if (pnet.getPetriNet() == null) {
             pnet.createPetriNet("Untitled");
@@ -969,7 +969,7 @@ public class FileUse {
         area.append("}");
     }
 
-    public void saveMethodInNetLibrary(JTextArea area) {  //added by Inna 20.05.2013
+    public static void saveMethodInNetLibrary(JTextArea area) {  //added by Inna 20.05.2013
         try {
 
             Path path = FileSystems.getDefault().getPath(
