@@ -1,14 +1,10 @@
-package LibNet;
-
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.io.File;
-import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.file.*;
 import java.util.Arrays;
 
 public class DynamicJavaExecution {
@@ -70,7 +66,6 @@ public class DynamicJavaExecution {
         URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] { new File("").toURI().toURL() });
         Class<?> loadedClass = Class.forName(className, true, classLoader);
 
-        // Create an instance, cast it to Greeter, and close the ClassLoader
         Object greeter = loadedClass.getDeclaredConstructor().newInstance();
         classLoader.close();  // Close the ClassLoader after loading
 
