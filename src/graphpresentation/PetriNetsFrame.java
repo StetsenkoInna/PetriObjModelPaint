@@ -1460,7 +1460,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 getPetriNetsPanel().getGraphNet().changeLocation(center);
 
                 String methodFullName = (String) leftMenuList.getSelectedValue();
-                String pnetName = fileUse.openMethod(getPetriNetsPanel(),
+                String pnetName = FileUse.openMethod(getPetriNetsPanel(),
                         methodFullName, PetriNetsFrame.this);
                 if (pnetName != null) {
                     netNameTextField.setText(pnetName);
@@ -1544,13 +1544,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     private void openMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMenuItemActionPerformed
         try {
-            fileUse.newWorksheet(getPetriNetsPanel());
+            FileUse.newWorksheet(getPetriNetsPanel());
             timeStartField.setText(String.valueOf(0));
 
             netNameTextField.setText("Untitled");
             protocolTextArea.setText("---------Events protocol----------");
             statisticsTextArea.setText("---------STATISTICS---------");
-            String pnetName = fileUse.openFile(getPetriNetsPanel(), this);
+            String pnetName = FileUse.openFile(getPetriNetsPanel(), this);
             if (pnetName != null) {
                 netNameTextField.setText(pnetName);
             }
@@ -1561,7 +1561,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }// GEN-LAST:event_openMenuItemActionPerformed
 
     private void newMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_newMenuItemActionPerformed
-        fileUse.newWorksheet(getPetriNetsPanel());
+        FileUse.newWorksheet(getPetriNetsPanel());
         timeStartField.setText(String.valueOf(0));
 
         netNameTextField.setText("Untitled");
@@ -1571,7 +1571,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         try {
             getPetriNetsPanel().getGraphNet().createPetriNet(
                     netNameTextField.getText()); // added by Inna
-            fileUse.saveNetAsMethod(getPetriNetsPanel().getGraphNet(),
+            FileUse.saveNetAsMethod(getPetriNetsPanel().getGraphNet(),
                     statisticsTextArea);
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
@@ -1584,7 +1584,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         GraphPetriNet net = getPetriNetsPanel().getGraphNet();
         if (net != null) {
             try {
-                if (!fileUse.saveGraphNet(net, netNameTextField.getText()
+                if (!FileUse.saveGraphNet(net, netNameTextField.getText()
                         .trim())) {
                     System.out.println("Graph net was not saved");
                 }
@@ -1598,7 +1598,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     private void SavePetriNetAsActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_SavePetriNetAsActionPerformed
         try {
-            fileUse.savePetriNetAs(getPetriNetsPanel(), this);
+            FileUse.savePetriNetAs(getPetriNetsPanel(), this);
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
                     null, ex);
@@ -1607,7 +1607,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     private void jMenuItem2ActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_jMenuItem2ActionPerformed
         try {
-            fileUse.saveGraphNetAs(getPetriNetsPanel(), this);
+            FileUse.saveGraphNetAs(getPetriNetsPanel(), this);
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
                     null, ex);
@@ -1617,7 +1617,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void SaveMethodInNetLibraryActionPerformed(
             java.awt.event.ActionEvent evt) {// GEN-FIRST:event_SaveMethodInNetLibraryActionPerformed
         if (statisticsTextArea.getText().contains("{")) {
-            fileUse.saveMethodInNetLibrary(statisticsTextArea);
+            FileUse.saveMethodInNetLibrary(statisticsTextArea);
             this.UpdateNetLibraryMethodsCombobox();
         }
 
@@ -1897,7 +1897,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void openMethodMenuItemActionPerformed(
             java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMethodMenuItemActionPerformed
         //!Не! очищаємо поле, тепер мережа додається до попередньої
-        //fileUse.newWorksheet(petriNetsPanel);
+        //FileUse.newWorksheet(petriNetsPanel);
         timeStartField.setText(String.valueOf(0));
 
         //netNameTextField.setText("Untitled");
@@ -1925,7 +1925,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 this.getPetriNetsPanel().getGraphNet().changeLocation(center);
 
                 String methodFullName = dialogPanel.getFieldText();
-                String pnetName = fileUse.openMethod(getPetriNetsPanel(),
+                String pnetName = FileUse.openMethod(getPetriNetsPanel(),
                         methodFullName, that);
                 if (pnetName != null) {
                     netNameTextField.setText(pnetName);

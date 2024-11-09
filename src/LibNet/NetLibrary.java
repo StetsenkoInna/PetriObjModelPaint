@@ -453,24 +453,4 @@ public class NetLibrary {
 
 		return d_Net;
 	}
-
-
-public static PetriNet CreateNetUntitled() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
-	ArrayList<PetriP> d_P = new ArrayList<>();
-	ArrayList<PetriT> d_T = new ArrayList<>();
-	ArrayList<ArcIn> d_In = new ArrayList<>();
-	ArrayList<ArcOut> d_Out = new ArrayList<>();
-	d_P.add(new PetriP("P1",0));
-	d_P.add(new PetriP("P2",0));
-	d_T.add(new PetriT("T1",0.0));
-	d_In.add(new ArcIn(d_P.get(0),d_T.get(0),1));
-	d_Out.add(new ArcOut(d_T.get(0),d_P.get(1),1));
-	PetriNet d_Net = new PetriNet("Untitled",d_P,d_T,d_In,d_Out);
-	PetriP.initNext();
-	PetriT.initNext();
-	ArcIn.initNext();
-	ArcOut.initNext();
-
-	return d_Net;
-}
 }
