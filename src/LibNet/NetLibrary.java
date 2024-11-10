@@ -1,5 +1,6 @@
 package LibNet;
 
+import LibNetUtils.NetLibraryMethod;
 import PetriObj.ArcIn;
 import PetriObj.ArcOut;
 import PetriObj.ExceptionInvalidNetStructure;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Random;
 
 public class NetLibrary {
+
 
     /**
      * Creates Petri net that describes the dynamics of system of the mass
@@ -121,6 +123,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetTest3() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -143,6 +146,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetGenerator2(double d) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -164,6 +168,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetThread3() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -241,6 +246,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetFriend() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         double delay = 100.0;
         double x = 0.00000001;
@@ -332,6 +338,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetTestInfArc() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -356,6 +363,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetTestStatistics() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -384,6 +392,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetTask(double a) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -407,6 +416,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetGeneratorInf() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -431,6 +441,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetSimple() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -449,6 +460,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNet() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -462,6 +474,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetUntitled() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -476,6 +489,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetUntitledHappy() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -496,6 +510,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetNewFeature() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -518,6 +533,7 @@ public class NetLibrary {
         return d_Net;
     }
 
+    @NetLibraryMethod
     public static PetriNet CreateNetUntitled2222() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
@@ -541,4 +557,10 @@ public class NetLibrary {
         ArcOut.initNext();
         return d_Net;
     }
+
+    @NetLibraryMethod
+    public static void mmmmm() {
+
+    }
+
 }

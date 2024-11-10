@@ -4,7 +4,7 @@
  */
 package graphpresentation;
 
-import LibNet.NetLibraryManager;
+import LibNetUtils.NetLibraryManager;
 import PetriObj.ExceptionInvalidNetStructure;
 import PetriObj.ExceptionInvalidTimeDelay;
 import PetriObj.PetriP;

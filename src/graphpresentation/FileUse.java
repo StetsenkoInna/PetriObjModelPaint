@@ -1,6 +1,6 @@
 package graphpresentation;
 
-import LibNet.NetLibraryManager;
+import LibNetUtils.NetLibraryManager;
 import PetriObj.ExceptionInvalidNetStructure;
 import PetriObj.PetriNet;
 import PetriObj.PetriP;
@@ -20,12 +20,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.RandomAccessFile;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.awt.Point;
@@ -33,7 +30,6 @@ import java.awt.Point;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
-import javax.swing.JScrollPane;
 
 import graphnet.GraphArcIn;
 import graphnet.GraphArcOut;
@@ -43,11 +39,7 @@ import graphnet.GraphPetriNet;
 import java.awt.Component;
 
 import java.awt.geom.Point2D;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
 import java.util.Objects;
-
-import utils.Utils;
 
 /**
  *

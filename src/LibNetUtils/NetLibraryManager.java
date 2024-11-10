@@ -1,6 +1,8 @@
-package LibNet;
+package LibNetUtils;
 
 import PetriObj.PetriNet;
+
+import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
@@ -9,11 +11,16 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.*;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.ArrayList;
 import java.util.stream.Stream;
 
 import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParseResult;
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
 
 public class NetLibraryManager {
 
@@ -54,9 +61,9 @@ public class NetLibraryManager {
             InvocationTargetException,
             IllegalAccessException
     {
-        final var method = Arrays.stream(loadedClass.getMethods())
+        final Optional<Method> method = Arrays.stream(loadedClass.getMethods())
                 .filter((m) -> m.getName().equals(methodName)).findFirst();
-        if (method.isEmpty()) {
+        if (!method.isPresent()) {
             throw new MethodNotFound("No method with name \"" + methodName + "\" found");
         }
         return (PetriNet) method.get().invoke(null);
@@ -69,7 +76,7 @@ public class NetLibraryManager {
     }
 
     private void compileAndLoadClass() throws Exception {
-        final var compiler = ToolProvider.getSystemJavaCompiler();
+        final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 
         if (compiler.run(null, null, null, "-classpath", JAVA_CLASSPATH, DESTINATION_PATH.toString()) != 0) {
             throw new AssertionError("NetLib compilation error");
@@ -96,16 +103,16 @@ public class NetLibraryManager {
         Files.createDirectories(DESTINATION_PATH.getParent());
         Files.copy(SOURCE_PATH, DESTINATION_PATH, StandardCopyOption.REPLACE_EXISTING);
 
-        final var libNetFile = new File(DESTINATION_PATH.toString());
-        final var parseResult = javaParser.parse(libNetFile);
+        final File libNetFile = new File(DESTINATION_PATH.toString());
+        final ParseResult<CompilationUnit> parseResult = javaParser.parse(libNetFile);
         if (!parseResult.isSuccessful()) {
             System.out.println("Failed to parse libNetFile!");
             throw new Exception(parseResult.getProblem(0).getVerboseMessage());
         }
 
-        final var compilationUnit = parseResult.getResult().get();
+        final CompilationUnit compilationUnit = parseResult.getResult().get();
         compilationUnit.removePackageDeclaration();
-        final var netLibClass = compilationUnit.getClassByName(LIBRARY_NAME)
+        final ClassOrInterfaceDeclaration netLibClass = compilationUnit.getClassByName(LIBRARY_NAME)
                 .orElseThrow(() -> new Exception(LIBRARY_NAME + " class not found!"));
         netLibClass.setName(DYNAMIC_LIBRARY_NAME);
 
@@ -120,30 +127,31 @@ public class NetLibraryManager {
             final Stream<String> methodNames
     ) throws Exception {
 
-        final var libNetFile = new File(SOURCE_PATH.toString());
-        final var parseResult = javaParser.parse(libNetFile);
+        final File libNetFile = new File(SOURCE_PATH.toString());
+        final ParseResult<CompilationUnit> parseResult = javaParser.parse(libNetFile);
         if (!parseResult.isSuccessful()) {
             System.out.println("Failed to parse libNetFile!");
             throw new Exception(parseResult.getProblem(0).getVerboseMessage());
         }
 
-        final var compilationUnit = parseResult.getResult().get();
-        final var netLibClass = compilationUnit.getClassByName(LIBRARY_NAME)
+        final CompilationUnit compilationUnit = parseResult.getResult().get();
+        final ClassOrInterfaceDeclaration netLibClass = compilationUnit.getClassByName(LIBRARY_NAME)
                 .orElseThrow(() -> new Exception(LIBRARY_NAME + " class not found!"));
 
-        final var methodParseResult = javaParser.parseMethodDeclaration(methodText);
+        final ParseResult<MethodDeclaration> methodParseResult = javaParser.parseMethodDeclaration(methodText);
+
         if (!methodParseResult.isSuccessful()) {
-            System.out.println("Failed to parse method text!");
+            System.out.println("Failed to parse methodDeclaration text!");
             throw new Exception(methodParseResult.getProblem(0).getVerboseMessage());
         }
 
-        final var method = methodParseResult.getResult().get();
+        final MethodDeclaration methodDeclaration = methodParseResult.getResult().get();
 
-        if (methodNames.anyMatch((m) -> m.equals(method.getName().asString()))) {
+        if (methodNames.anyMatch((m) -> m.equals(methodDeclaration.getName().asString()))) {
             throw new Exception("Method with such name already exists");
         }
 
-        netLibClass.addMember(method);
+        netLibClass.addMember(methodDeclaration);
 
         try (FileWriter writer = new FileWriter(libNetFile)) {
             writer.write(compilationUnit.toString());
