@@ -1,5 +1,3 @@
-package LibNet;
-
 import PetriObj.ArcIn;
 import PetriObj.ArcOut;
 import PetriObj.ExceptionInvalidNetStructure;
@@ -10,7 +8,7 @@ import PetriObj.PetriT;
 import java.util.ArrayList;
 import java.util.Random;
 
-public class NetLibrary {
+public class NetLibraryDynamic {
 
     /**
      * Creates Petri net that describes the dynamics of system of the mass

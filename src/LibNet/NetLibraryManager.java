@@ -1,12 +1,6 @@
 package LibNet;
 
-
-import com.github.javaparser.ParseResult;
-import com.github.javaparser.Problem;
-import graphpresentation.PetriNetsFrame;
-
-import javax.swing.*;
-import javax.tools.JavaCompiler;
+import PetriObj.PetriNet;
 import javax.tools.ToolProvider;
 import java.io.*;
 import java.lang.reflect.Method;
@@ -14,96 +8,133 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.*;
 import java.util.Arrays;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.ArrayList;
 import java.util.stream.Stream;
 
 import com.github.javaparser.JavaParser;
-import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
-import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.Modifier;
 
 public class NetLibraryManager {
 
-    private static final String LIB_NET_NAME = "NetLibrary";
-    private static final String LIB_NET_PATH = FileSystems.getDefault()
-            .getPath(System.getProperty("user.dir"),"src", "LibNet", "NetLibrary.java")
-            .toString();
-
-    private final static String LIB_NET_DEFAULT_BODY =
-"""
-package LibNet;
-import PetriObj.ExceptionInvalidNetStructure;
-import PetriObj.PetriNet;
-import PetriObj.PetriP;
-import PetriObj.PetriT;
-import PetriObj.ArcIn;
-import PetriObj.ArcOut;
-import java.util.ArrayList;
-public class NetLibrary {
-
-}
-""";
-
+    // Static fields for paths and constant strings
+    private static final String LIBRARY_NAME = "NetLibrary";
+    private static final String DYNAMIC_LIBRARY_NAME = "NetLibraryDynamic";
+    private static final String PACKAGE_NAME = "LibNet";
+    private static final Path SOURCE_PATH = Paths.get("src", PACKAGE_NAME, LIBRARY_NAME + ".java");
+    private static final Path DESTINATION_PATH = Paths.get(DYNAMIC_LIBRARY_NAME, DYNAMIC_LIBRARY_NAME + ".java");
+    private static final String JAVA_CLASSPATH = System.getProperty("java.class.path");
+    private static final Path PROJECT_ROOT = Paths.get(System.getProperty("user.dir"));
+    private static final Path DESTINATION_DIRECTORY = PROJECT_ROOT.resolve(DYNAMIC_LIBRARY_NAME);
 
     private final JavaParser javaParser = new JavaParser();
-    private Class<?> netLibraryClass;
+    private Class<?> loadedClass;
+    private URLClassLoader classLoader;
 
-    public NetLibraryManager() {
-
+    public NetLibraryManager() throws Exception {
+        createNetLibraryDynamic();
+        compileAndLoadClass();
     }
 
-    public void addMethod(final String methodText) {
-
+    public void addMethod(final String methodText) throws Exception {
+        writeNewMethod(javaParser, methodText, getMethodNamesStream(loadedClass));
+        createNetLibraryDynamic();
+        compileAndLoadClass();
     }
 
-    public void callMethod(final String methodName) {
-
+    public PetriNet callMethod(final String methodName) throws Exception {
+        final var method = Arrays.stream(loadedClass.getMethods())
+                .filter((m) -> m.getName().equals(methodName)).findFirst();
+        if (method.isEmpty()) {
+            throw new Exception("No method with name \"" + methodName + "\" found");
+        }
+        return (PetriNet) method.get().invoke(null);
     }
 
-    public Stream<String> getMethodNames() {
-        return Arrays.stream(netLibraryClass.getMethods()).map(Method::getName);
+    public ArrayList<String> getMethodNamesArrayList() {
+        return getMethodNamesStream(loadedClass)
+                .filter((name) -> name.startsWith("CreateNet"))
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
+    private void compileAndLoadClass() throws Exception {
+        final var compiler = ToolProvider.getSystemJavaCompiler();
 
+        if (compiler.run(null, null, null, "-classpath", JAVA_CLASSPATH, DESTINATION_PATH.toString()) != 0) {
+            throw new AssertionError("NetLib compilation error");
+        }
 
-    private static void writeNewMethod(final JavaParser javaParser, final String methodText) throws IOException {
-        final File libNetFile = new File(LIB_NET_PATH, "rw");
-        final ParseResult<CompilationUnit> parseResult = javaParser.parse(libNetFile);
+        if (classLoader != null) {
+            classLoader.close();
+        }
+
+        classLoader = URLClassLoader.newInstance(new URL[]{DESTINATION_DIRECTORY.toUri().toURL()});
+        loadedClass = Class.forName(DYNAMIC_LIBRARY_NAME, true, classLoader);
+    }
+
+    private static Stream<String> getMethodNamesStream(final Class<?> cls) {
+        return Arrays.stream(cls.getMethods()).map(Method::getName);
+    }
+
+    private void createNetLibraryDynamic() throws Exception {
+        if (Files.exists(DESTINATION_PATH)) {
+            Files.delete(DESTINATION_PATH);
+            System.out.println("Existing destination file deleted.");
+        }
+
+        Files.createDirectories(DESTINATION_PATH.getParent());
+        Files.copy(SOURCE_PATH, DESTINATION_PATH, StandardCopyOption.REPLACE_EXISTING);
+
+        final var libNetFile = new File(DESTINATION_PATH.toString());
+        final var parseResult = javaParser.parse(libNetFile);
         if (!parseResult.isSuccessful()) {
             System.out.println("Failed to parse libNetFile!");
-            throw new RuntimeException(parseResult.getProblem(0).getVerboseMessage());
+            throw new Exception(parseResult.getProblem(0).getVerboseMessage());
         }
+
         final var compilationUnit = parseResult.getResult().get();
-        final ClassOrInterfaceDeclaration netLibClass = compilationUnit.getClassByName(LIB_NET_NAME)
-                .orElseThrow(() -> new RuntimeException("NetLibrary class not found!"));
+        compilationUnit.removePackageDeclaration();
+        final var netLibClass = compilationUnit.getClassByName(LIBRARY_NAME)
+                .orElseThrow(() -> new Exception(LIBRARY_NAME + " class not found!"));
+        netLibClass.setName(DYNAMIC_LIBRARY_NAME);
+
+        try (FileWriter writer = new FileWriter(libNetFile)) {
+            writer.write(compilationUnit.toString());
+        }
+    }
+
+    private static void writeNewMethod(
+            final JavaParser javaParser,
+            final String methodText,
+            final Stream<String> methodNames
+    ) throws Exception {
+
+        final var libNetFile = new File(SOURCE_PATH.toString());
+        final var parseResult = javaParser.parse(libNetFile);
+        if (!parseResult.isSuccessful()) {
+            System.out.println("Failed to parse libNetFile!");
+            throw new Exception(parseResult.getProblem(0).getVerboseMessage());
+        }
+
+        final var compilationUnit = parseResult.getResult().get();
+        final var netLibClass = compilationUnit.getClassByName(LIBRARY_NAME)
+                .orElseThrow(() -> new Exception(LIBRARY_NAME + " class not found!"));
+
         final var methodParseResult = javaParser.parseMethodDeclaration(methodText);
         if (!methodParseResult.isSuccessful()) {
             System.out.println("Failed to parse method text!");
-            throw new RuntimeException(methodParseResult.getProblem(0).getVerboseMessage());
-        }
-        netLibClass.addMember(methodParseResult.getResult().get());
-        FileWriter writer = new FileWriter(libNetFile);
-        writer.write(compilationUnit.toString());
-        writer.close();
-    }
-
-    private static Class<?> compileAndLoadClass(final String className, final File sourceFile) throws Exception {
-        // Compile the code with the classpath set to the current runtime
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        String classpath = System.getProperty("java.class.path");
-        if (compiler.run(null, null, null, "-classpath", classpath, sourceFile.getPath()) != 0) {
-            System.out.println("Compilation failed.");
-            return null;
+            throw new Exception(methodParseResult.getProblem(0).getVerboseMessage());
         }
 
-        // Load the compiled class with a new ClassLoader
-        URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] { new File("").toURI().toURL() });
-        Class<?> loadedClass = Class.forName(className, true, classLoader);
+        final var method = methodParseResult.getResult().get();
 
-        classLoader.close();
+        if (methodNames.anyMatch((m) -> m.equals(method.getName().asString()))) {
+            throw new Exception("Method with such name already exists");
+        }
 
-        return loadedClass;
+        netLibClass.addMember(method);
+
+        try (FileWriter writer = new FileWriter(libNetFile)) {
+            writer.write(compilationUnit.toString());
+        }
     }
 }

@@ -4,6 +4,7 @@
  */
 package graphpresentation;
 
+import LibNet.NetLibraryManager;
 import PetriObj.ExceptionInvalidNetStructure;
 import PetriObj.ExceptionInvalidTimeDelay;
 import PetriObj.PetriP;
@@ -13,17 +14,13 @@ import graphreuse.GraphNetParametersFrame;
 import graphpresentation.undoable_edits.AddGraphElementEdit;
 
 import java.awt.*;
-import java.awt.event.InputEvent;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 
 import javax.swing.*;
 
@@ -41,8 +38,6 @@ import java.awt.Dialog.ModalityType;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.ObjectInputStream;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
 import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEditSupport;
 
@@ -104,46 +99,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public final RunOneEventAction runOneEventAction = animationContols.runOneEventAction;
     public final AnimateEventAction animateEventAction = animationContols.animateEventAction; 
 
-    private void UpdateNetLibraryMethodsCombobox() { // added by Katya
-        // 27.11.2016
-        ArrayList<String> methodNamesList = new ArrayList<>();
-        FileInputStream fis = null;
-        try {
-            String libraryText = "";
-            Path path = FileSystems.getDefault().getPath(
-                    System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
-            String pathNetLibrary = path.toString();
-            fis = new FileInputStream(pathNetLibrary);  // edit by Inna 29.09.2018
-            int content;
-            while ((content = fis.read()) != -1) {
-                libraryText += (char) content;
-            }
-            Pattern pattern = Pattern.compile(Pattern
-                    .quote("public static PetriNet CreateNet")
-                    + "(\\w+\\([^\\)]*\\))"
-                    + Pattern.quote(" throws"));
-            Matcher matcher = pattern.matcher(libraryText);
-            while (matcher.find()) {
-                methodNamesList.add("CreateNet" + matcher.group(1));
-            }
-        } catch (FileNotFoundException e) {
-            System.out.println("Method not found");
-        } catch (IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
-                    null, ex);
-        } finally {
-            try {
-                if (fis != null) {
-                    fis.close();
-                }
-            } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(
-                        Level.SEVERE, null, ex);
-            }
-        }
-        Collections.sort(methodNamesList, String.CASE_INSENSITIVE_ORDER);
+    private final NetLibraryManager netLibraryClassLoader = new NetLibraryManager();
+
+    private void UpdateNetLibraryMethodsCombobox() {
         leftMenuListModel.clear();
-        for (String name : methodNamesList) {
+        final var methodNamesList = netLibraryClassLoader.getMethodNamesArrayList();
+        for (final var name : methodNamesList) {
             leftMenuListModel.addElement(name);
         }
         dialogPanel.setComboOptions(methodNamesList);
@@ -152,7 +113,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     /**
      * Creates new form PetriNetsFrame
      */
-    public PetriNetsFrame() {
+    public PetriNetsFrame() throws Exception {
         initComponents();
         this.UpdateNetLibraryMethodsCombobox();
         timer = new Timer(250, new ActionListener() {
@@ -1617,7 +1578,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void SaveMethodInNetLibraryActionPerformed(
             java.awt.event.ActionEvent evt) {// GEN-FIRST:event_SaveMethodInNetLibraryActionPerformed
         if (statisticsTextArea.getText().contains("{")) {
-            FileUse.saveMethodInNetLibrary(statisticsTextArea);
+            try {
+                netLibraryClassLoader.addMethod(statisticsTextArea.getText());
+            } catch (final Exception ex) {
+                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+            }
             this.UpdateNetLibraryMethodsCombobox();
         }
 
@@ -2013,7 +1978,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         java.awt.EventQueue.invokeLater(new Runnable() {
             @Override
             public void run() {
-                new PetriNetsFrame().setVisible(true);
+                try {
+                    new PetriNetsFrame().setVisible(true);
+                } catch (Exception e) {
+                    throw new AssertionError(e);
+                }
             }
         });
 
@@ -2119,7 +2088,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JMenuItem undoMenuItem;
     // End of variables declaration//GEN-END:variables
     private static PetriNetsPanel petriNetsPanel;
-    private FileUse fileUse = new FileUse();
     private ErrorFrame errorFrame = new ErrorFrame();
     private DefaultListModel<String> leftMenuListModel = new DefaultListModel<>();
     /*private javax.swing.JButton consistBtn;

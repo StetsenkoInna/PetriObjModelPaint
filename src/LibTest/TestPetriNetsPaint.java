@@ -33,7 +33,11 @@ public class TestPetriNetsPaint {
         java.awt.EventQueue.invokeLater(new Runnable() {
             @Override
             public void run() {
-                new PetriNetsFrame().setVisible(true);
+                try {
+                    new PetriNetsFrame().setVisible(true);
+                } catch (Exception e) {
+                    throw new AssertionError(e);
+                }
             }
         });
 

@@ -255,6 +255,343 @@ public class FileUse {
         return true;
     }
 
+    public GraphPetriNet generateGraphNetBySimpleNet(PetriNetsPanel panel, PetriNet net, Point paneCenter) { // added by Katya 16.10.2016
+        GraphPetriNet currentNet = panel.getGraphNet();
+        List<GraphElement> choosenElements = panel.getChoosenElements();
+        choosenElements.clear();
+        ArrayList<GraphPetriPlace> grPlaces = currentNet.getGraphPetriPlaceList();
+        ArrayList<GraphPetriTransition> grTransitions = currentNet.getGraphPetriTransitionList();
+        ArrayList<GraphArcIn> grArcIns = currentNet.getGraphArcInList();
+        ArrayList<GraphArcOut> grArcOuts = currentNet.getGraphArcOutList();
+
+        ArrayList<PetriP> availPetriPlaces = new ArrayList<>(Arrays.asList(net.getListP())); // modified by Katya 20.11.2016 (including the "while" and 1st "for" loop)
+        ArrayList<PetriT> availPetriTrans = new ArrayList<>(Arrays.asList(net.getListT()));
+        ArrayList<VerticalSet> sets = new ArrayList<>();
+
+        // first transition
+        PetriT firstTran = availPetriTrans.removeFirst();
+        VerticalSet firstSet = new VerticalSet(false);
+        firstSet.AddElement(firstTran);
+        sets.add(firstSet);
+
+        while (!availPetriPlaces.isEmpty() || !availPetriTrans.isEmpty()) {
+            // step
+            VerticalSet lastSet = null;
+            int lastSetIndex = 0;
+            for (VerticalSet set : sets) {
+                if (!set.GetReadyStatus()) {
+                    lastSet = set;
+                    lastSetIndex = sets.indexOf(lastSet);
+                    break;
+                }
+            }
+            if (lastSet == null) {
+                break;
+            }
+            if (lastSet.IsForPlaces()) {
+                // new transitions
+                ArrayList<PetriT> inTrans = new ArrayList<>();
+                for (ArcOut outArc : net.getArcOut()) {
+                    for (PetriMainElement placeElem : lastSet.GetElements()) {
+                        PetriP place = (PetriP) placeElem;
+                        if (place.getNumber() == outArc.getNumP()) {
+                            for (PetriT tran : availPetriTrans) {
+                                if (tran.getNumber() == outArc.getNumT()) {
+                                    inTrans.add(tran);
+                                }
+                            }
+                        }
+                    }
+                }
+                ArrayList<PetriT> outTrans = new ArrayList<>();
+                for (ArcIn inArc : net.getArcIn()) {
+                    for (PetriMainElement placeElem : lastSet.GetElements()) {
+                        PetriP place = (PetriP) placeElem;
+                        if (place.getNumber() == inArc.getNumP()) {
+                            for (PetriT tran : availPetriTrans) {
+                                if (!inTrans.contains(tran) && !outTrans.contains(tran) && tran.getNumber() == inArc.getNumT()) { // modified by Katya 08.12.2016
+                                    outTrans.add(tran);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!inTrans.isEmpty()) {
+                    if (lastSetIndex == 0) {
+                        sets.add(0, new VerticalSet(!lastSet.IsForPlaces()));
+                        lastSetIndex = 1;
+                    }
+                }
+                if (!outTrans.isEmpty()) {
+                    if (sets.size() == (lastSetIndex + 1)) {
+                        sets.add(new VerticalSet(!lastSet.IsForPlaces()));
+                    }
+                }
+
+                for (PetriT tran : inTrans) {
+                    sets.get(lastSetIndex - 1).AddElement(tran);
+                    sets.get(lastSetIndex - 1).SetAsNotReady();
+                    availPetriTrans.remove(tran);
+                }
+                for (PetriT tran : outTrans) {
+                    sets.get(lastSetIndex + 1).AddElement(tran);
+                    sets.get(lastSetIndex + 1).SetAsNotReady();
+                    availPetriTrans.remove(tran);
+                }
+            } else {
+                // new places
+                ArrayList<PetriP> inPlaces = new ArrayList<>();
+                for (ArcIn inArc : net.getArcIn()) {
+                    for (PetriMainElement tranElem : lastSet.GetElements()) {
+                        PetriT tran = (PetriT) tranElem;
+                        if (tran.getNumber() == inArc.getNumT()) {
+                            for (PetriP place : availPetriPlaces) {
+                                if (place.getNumber() == inArc.getNumP()) {
+                                    inPlaces.add(place);
+                                }
+                            }
+                        }
+                    }
+                }
+                ArrayList<PetriP> outPlaces = new ArrayList<>();
+                for (ArcOut outArc : net.getArcOut()) {
+                    for (PetriMainElement tranElem : lastSet.GetElements()) {
+                        PetriT tran = (PetriT) tranElem;
+                        if (tran.getNumber() == outArc.getNumT()) {
+                            for (PetriP place : availPetriPlaces) {
+                                if (!inPlaces.contains(place) && !outPlaces.contains(place) && place.getNumber() == outArc.getNumP()) { // modified by Katya 08.12.2016
+                                    outPlaces.add(place);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!inPlaces.isEmpty()) {
+                    if (lastSetIndex == 0) {
+                        sets.add(0, new VerticalSet(!lastSet.IsForPlaces()));
+                        lastSetIndex = 1;
+                    }
+                }
+                if (!outPlaces.isEmpty()) {
+                    if (sets.size() == (lastSetIndex + 1)) {
+                        sets.add(new VerticalSet(!lastSet.IsForPlaces()));
+                    }
+                }
+
+                for (PetriP place : inPlaces) {
+                    sets.get(lastSetIndex - 1).AddElement(place);
+                    sets.get(lastSetIndex - 1).SetAsNotReady();
+                    availPetriPlaces.remove(place);
+                }
+                for (PetriP place : outPlaces) {
+                    sets.get(lastSetIndex + 1).AddElement(place);
+                    sets.get(lastSetIndex + 1).SetAsNotReady();
+                    availPetriPlaces.remove(place);
+                }
+            }
+
+            lastSet.SetAsReady();
+        }
+
+        double x = 0, y = 0;
+
+        boolean hasLoops = false; // "hasLoops" added by Katya 04.12.2016
+        firstSet = sets.get(0);
+        VerticalSet lastSet = sets.get(sets.size() - 1);
+        if (!Objects.equals(lastSet.IsForPlaces(), firstSet.IsForPlaces())) {
+            VerticalSet setWithPlaces = firstSet.IsForPlaces() ? firstSet : lastSet;
+            VerticalSet setWithTrans = firstSet.IsForPlaces() ? lastSet : firstSet;
+            for (ArcIn arc : net.getArcIn()) {
+                boolean isInSetWithPlaces = false;
+                boolean isInSetWithTrans = false;
+                for (PetriMainElement placeElem : setWithPlaces.GetElements()) {
+                    PetriP place = (PetriP)placeElem;
+                    if (place.getNumber() == arc.getNumP()) {
+                        isInSetWithPlaces = true;
+                        break;
+                    }
+                }
+                for (PetriMainElement tranElem : setWithTrans.GetElements()) {
+                    PetriT tran = (PetriT)tranElem;
+                    if (tran.getNumber() == arc.getNumT()) {
+                        isInSetWithTrans = true;
+                        break;
+                    }
+                }
+                if (isInSetWithPlaces && isInSetWithTrans) {
+                    hasLoops = true;
+                    break;
+                }
+            }
+            if (!hasLoops) {
+                for (ArcOut arc : net.getArcOut()) {
+                    boolean isInSetWithPlaces = false;
+                    boolean isInSetWithTrans = false;
+                    for (PetriMainElement placeElem : setWithPlaces.GetElements()) {
+                        PetriP place = (PetriP)placeElem;
+                        if (place.getNumber() == arc.getNumP()) {
+                            isInSetWithPlaces = true;
+                            break;
+                        }
+                    }
+                    for (PetriMainElement tranElem : setWithTrans.GetElements()) {
+                        PetriT tran = (PetriT)tranElem;
+                        if (tran.getNumber() == arc.getNumT()) {
+                            isInSetWithTrans = true;
+                            break;
+                        }
+                    }
+                    if (isInSetWithPlaces && isInSetWithTrans) {
+                        hasLoops = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!hasLoops) {
+            for (VerticalSet set : sets) {
+                ArrayList<PetriMainElement> elements = set.GetElements();
+                int size = elements.size();
+                x += 80;
+                y = ((size % 2) == 0) ? (- (size / 2 * 80) - 40) : (- (size / 2 * 80) - 80);
+                for (PetriMainElement elem : elements) {
+                    y += 80;
+                    if (set.IsForPlaces()) {
+                        PetriP place = (PetriP)elem;
+                        GraphPetriPlace grPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
+                        grPlace.setNewCoordinates(new Point2D.Double(x, y));
+                        grPlaces.add(grPlace);
+                        //choosenElements.add(grPlace);
+                    } else {
+                        PetriT tran = (PetriT)elem;
+                        GraphPetriTransition grTran = new GraphPetriTransition(tran, PetriNetsPanel.getIdElement());
+                        grTran.setNewCoordinates(new Point2D.Double(x, y));
+                        grTransitions.add(grTran);
+                        //choosenElements.add(grTran);
+                    }
+                }
+            }
+        } else {
+            int numberOfSets = sets.size();
+            int numberOfFirstGroupSets = numberOfSets / 2;
+            for (int i = 0; i < numberOfFirstGroupSets; i++) {
+                VerticalSet set = sets.get(i);
+                ArrayList<PetriMainElement> elements = set.GetElements();
+                int size = elements.size();
+                x += 80;
+                y = ((size % 2) == 0) ? (- (size / 2 * 80) - 40) : (- (size / 2 * 80) - 80);
+                for (PetriMainElement elem : elements) {
+                    y += 80;
+                    if (set.IsForPlaces()) {
+                        PetriP place = (PetriP)elem;
+                        GraphPetriPlace grPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
+                        grPlace.setNewCoordinates(new Point2D.Double(x, y));
+                        grPlaces.add(grPlace);
+                        //choosenElements.add(grPlace);
+                    } else {
+                        PetriT tran = (PetriT)elem;
+                        GraphPetriTransition grTran = new GraphPetriTransition(tran, PetriNetsPanel.getIdElement());
+                        grTran.setNewCoordinates(new Point2D.Double(x, y));
+                        grTransitions.add(grTran);
+                        //choosenElements.add(grTran);
+                    }
+                }
+            }
+            x += 80;
+
+            for (int i = numberOfFirstGroupSets; i < numberOfSets; i++) {
+                VerticalSet set = sets.get(i);
+                ArrayList<PetriMainElement> elements = set.GetElements();
+                int size = elements.size();
+                x -= 80;
+                y = ((size % 2) == 0) ? (- (size / 2 * 80) - 40) : (- (size / 2 * 80) - 80);
+                y += 160;
+
+                for (PetriMainElement elem : elements) {
+                    y += 80;
+                    if (set.IsForPlaces()) {
+                        PetriP place = (PetriP)elem;
+                        GraphPetriPlace grPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
+                        grPlace.setNewCoordinates(new Point2D.Double(x, y));
+                        grPlaces.add(grPlace);
+                        //choosenElements.add(grPlace);
+                    } else {
+                        PetriT tran = (PetriT)elem;
+                        GraphPetriTransition grTran = new GraphPetriTransition(tran, PetriNetsPanel.getIdElement());
+                        grTran.setNewCoordinates(new Point2D.Double(x, y));
+                        grTransitions.add(grTran);
+                        // choosenElements.add(grTran);
+                    }
+                }
+            }
+        }
+
+        for (ArcIn inArc : net.getArcIn()) {
+            GraphArcIn grInArc = new GraphArcIn(inArc);
+            GraphPetriTransition endTransition = null;
+            for (GraphPetriTransition grTran : grTransitions) {
+                if (grTran.getNumber() == inArc.getNumT()) {
+                    endTransition = grTran;
+                }
+            }
+            GraphPetriPlace beginPlace = null;
+            for (GraphPetriPlace grPlace : grPlaces) {
+                if (grPlace.getNumber() == inArc.getNumP()) {
+                    beginPlace = grPlace;
+                }
+            }
+            grInArc.settingNewArc(beginPlace);
+            grInArc.finishSettingNewArc(endTransition);
+            grInArc.setPetriElements(); // added by Katya 04.12.2016 (this line and the next two)
+            grInArc.changeBorder();
+            grInArc.updateCoordinates();
+            grArcIns.add(grInArc);
+        }
+
+        for (ArcOut outArc : net.getArcOut()) {
+            GraphArcOut grOutArc = new GraphArcOut(outArc);
+            GraphPetriTransition beginTransition = null;
+            for (GraphPetriTransition grTran : grTransitions) {
+                if (grTran.getNumber() == outArc.getNumT()) {
+                    beginTransition = grTran;
+                }
+            }
+            GraphPetriPlace endPlace = null;
+            for (GraphPetriPlace grPlace : grPlaces) {
+                if (grPlace.getNumber() == outArc.getNumP()) {
+                    endPlace = grPlace;
+                }
+            }
+            grOutArc.settingNewArc(beginTransition);
+            grOutArc.finishSettingNewArc(endPlace);
+            grOutArc.setPetriElements(); // added by Katya 04.12.2016 (this line and the next two)
+            grOutArc.changeBorder();
+            grOutArc.updateCoordinates();
+            grArcOuts.add(grOutArc);
+        }
+
+        // added by Katya 04.12.2016
+        for (GraphArcOut arcOut : grArcOuts) {
+            for (GraphArcIn arcIn : grArcIns) {
+                int inBeginId = ((GraphPetriPlace)arcIn.getBeginElement()).getId();
+                int inEndId = ((GraphPetriTransition)arcIn.getEndElement()).getId();
+                int outBeginId = ((GraphPetriTransition)arcOut.getBeginElement()).getId();
+                int outEndId = ((GraphPetriPlace)arcOut.getEndElement()).getId();
+                if (inBeginId == outEndId && inEndId == outBeginId) {
+                    arcIn.twoArcs(arcOut);
+                    arcIn.updateCoordinates();
+                }
+            }
+        }
+        GraphPetriNet graphNet = new GraphPetriNet(net, grPlaces, grTransitions, grArcIns, grArcOuts);
+
+        graphNet.changeLocation(paneCenter);
+        return graphNet;
+    }
+
     public static String openMethod(PetriNetsPanel panel, String methodFullName, JFrame frame) throws ExceptionInvalidNetStructure { // added by Katya 16.10.2016
 //        String methodName = methodFullName.substring(0, methodFullName.indexOf("(")); // modified by Katya 22.11.2016 (till the "try" block)
 //        String paramsString = methodFullName.substring(methodFullName.indexOf("(") + 1);
@@ -321,7 +658,6 @@ public class FileUse {
     /*private String preProcessMethod(String code) {
         return code;
     }*/
-
     private static String generateArgumentsString(PetriNet net) { // added by Katya 08.12.2016
         StringBuilder str = new StringBuilder();
         for (PetriP petriPlace : net.getListP()) {
@@ -448,56 +784,4 @@ public class FileUse {
 
         area.append("}");
     }
-
-    public static void saveMethodInNetLibrary(JTextArea area) {  //added by Inna 20.05.2013
-        try {
-
-            Path path = FileSystems.getDefault().getPath(
-                    System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
-            String pathNetLibrary = path.toString(); //added by Inna 29.09.2018
-
-            RandomAccessFile f = new RandomAccessFile(pathNetLibrary, "rw");
-            // System.out.println("The path of Library of nets is\t"+path.toString());
-
-            long n = f.length();
-            if (n == 0) {
-                f.writeBytes("package LibNet;\n"
-                        +"import PetriObj.ExceptionInvalidNetStructure;\n"
-                        + "import PetriObj.PetriNet;\n"
-                        + "import PetriObj.PetriP;\n"
-                        + "import PetriObj.PetriT;\n"
-                        + "import PetriObj.ArcIn;\n"
-                        + "import PetriObj.ArcOut;\n"
-                        + "import java.util.ArrayList;\n"
-                        + "public class NetLibrary {\n\n"
-                        + "}");
-                n = f.length();
-            }
-
-            n -= 1;
-            f.seek(n);
-
-            String c = f.readLine();
-            while (c != null && !c.contains("}") && n > 0) {
-                //   System.out.println("n= "+n+ ",   line= "+c);
-                n -= 1;
-                f.seek(n);
-                c = f.readLine();
-            }
-
-            if (n > 0) {
-                f.seek(n - 1);
-                String s  = area.getText() + "\n" + c;
-                f.write(s.getBytes());
-
-                JOptionPane.showMessageDialog(area, "Method was successfully added. See in class NetLibrary.");
-            } else {
-                JOptionPane.showMessageDialog(area, "symbol '}' doesn't find in file NetLibrary.java");
-            }
-            f.close();
-        } catch (IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    }
-    
 }
