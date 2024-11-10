@@ -3,6 +3,7 @@ package LibNet;
 import PetriObj.PetriNet;
 import javax.tools.ToolProvider;
 import java.io.*;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -41,11 +42,22 @@ public class NetLibraryManager {
         compileAndLoadClass();
     }
 
-    public PetriNet callMethod(final String methodName) throws Exception {
+    public static class MethodNotFound extends Exception {
+        MethodNotFound(final String methodName) {
+            super(methodName);
+        }
+    }
+
+    public PetriNet callMethod(
+            final String methodName
+    ) throws MethodNotFound,
+            InvocationTargetException,
+            IllegalAccessException
+    {
         final var method = Arrays.stream(loadedClass.getMethods())
                 .filter((m) -> m.getName().equals(methodName)).findFirst();
         if (method.isEmpty()) {
-            throw new Exception("No method with name \"" + methodName + "\" found");
+            throw new MethodNotFound("No method with name \"" + methodName + "\" found");
         }
         return (PetriNet) method.get().invoke(null);
     }

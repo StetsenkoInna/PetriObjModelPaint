@@ -1,5 +1,6 @@
 package graphpresentation;
 
+import LibNet.NetLibraryManager;
 import PetriObj.ExceptionInvalidNetStructure;
 import PetriObj.PetriNet;
 import PetriObj.PetriP;
@@ -255,7 +256,7 @@ public class FileUse {
         return true;
     }
 
-    public GraphPetriNet generateGraphNetBySimpleNet(PetriNetsPanel panel, PetriNet net, Point paneCenter) { // added by Katya 16.10.2016
+    public static GraphPetriNet generateGraphNetBySimpleNet(PetriNetsPanel panel, PetriNet net, Point paneCenter) { // added by Katya 16.10.2016
         GraphPetriNet currentNet = panel.getGraphNet();
         List<GraphElement> choosenElements = panel.getChoosenElements();
         choosenElements.clear();
@@ -592,61 +593,25 @@ public class FileUse {
         return graphNet;
     }
 
-    public static String openMethod(PetriNetsPanel panel, String methodFullName, JFrame frame) throws ExceptionInvalidNetStructure { // added by Katya 16.10.2016
-//        String methodName = methodFullName.substring(0, methodFullName.indexOf("(")); // modified by Katya 22.11.2016 (till the "try" block)
-//        String paramsString = methodFullName.substring(methodFullName.indexOf("(") + 1);
-//        paramsString = paramsString.substring(0, paramsString.length() - 1);
-        String pnetName = "";
-//        FileInputStream fis = null;
-//        try {
-//            String libraryText = "";
-//            Path path = FileSystems.getDefault().getPath(System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
-//            String pathNetLibrary = path.toString();
-//            fis = new FileInputStream(pathNetLibrary); // modified by Katya 23.10.2016, by Inna 29.09.2018
-//
-//            int content;
-//            while ((content = fis.read()) != -1) {
-//		libraryText += (char) content;
-//            }
-//            String methodBeginning = "public static PetriNet " + methodName + "("; // modified by Katya 20.11.2016
-//            String methodEnding = "return d_Net;";
-//            String methodText = "";
-//
-//            Pattern pattern = Pattern.compile(Pattern.quote(methodBeginning) + Pattern.quote(paramsString) + Pattern.quote(")") + "([[^}]^\\r]*)" + Pattern.quote(methodEnding)); // modified by Katya 22.11.2016
-//            Matcher matcher = pattern.matcher(libraryText);
-//            if(matcher.find()){
-//                 methodText = methodBeginning + paramsString + ")" + matcher.group(1) + methodEnding + "}"; // modified by Katya 22.11.2016
-//            } else {
-//                System.out.println("Method not found  FileNotFoundException");
-//                throw new FileNotFoundException();
-//            }
-//            PetriNetsFrame petriNetsFrame = (PetriNetsFrame)frame;
-//            JScrollPane pane = petriNetsFrame.GetPetriNetPanelScrollPane();
-//            Point paneCenter = new Point(pane.getLocation().x+pane.getBounds().width/2, pane.getLocation().y+pane.getBounds().height/2);
-//            // TODO
-//            GraphPetriNet net = generateGraphNetBySimpleNet(panel ,convertMethodToPetriNet(methodText), paneCenter);
-//            // System.out.println("num of p: "+net.getGraphPetriPlaceList().size());
-//            panel.addGraphNet(net);
-//            pnetName = net.getPetriNet().getName();
-//            panel.repaint();
-//        } catch (FileNotFoundException e) {
-//            System.out.println("Method not found");
-//
-//        } catch (IOException ex) {
-//            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-//        } catch (ExceptionInvalidTimeDelay ex) {
-//            Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, null, ex);
-//        } finally {
-//            try {
-//                if (fis != null) {
-//                    fis.close();
-//                }
-//            } catch (IOException ex) {
-//                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-//            }
-//        }
-        return pnetName.substring(0, pnetName.length());
-        // return netName;
+    public static String openMethod(
+            final PetriNetsPanel panel,
+            final String methodFullName,
+            final JFrame frame,
+            final NetLibraryManager netLibraryManager
+    ) throws ExceptionInvalidNetStructure {
+        var pnetName = "";
+        try {
+            final var petriNetsFrame = (PetriNetsFrame)frame;
+            final var pane = petriNetsFrame.GetPetriNetPanelScrollPane();
+            final var panelCenter = new Point(pane.getLocation().x + pane.getBounds().width / 2, pane.getLocation().y + pane.getBounds().height / 2);
+            final var net = generateGraphNetBySimpleNet(panel, netLibraryManager.callMethod(methodFullName), panelCenter);
+            panel.addGraphNet(net);
+            pnetName = net.getPetriNet().getName();
+            panel.repaint();
+        } catch (final Exception exception) {
+            Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, null, exception);
+        }
+        return pnetName;
     }
     
     /**

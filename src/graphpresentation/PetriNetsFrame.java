@@ -1420,9 +1420,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         + petriNetPanelScrollPane.getBounds().height / 2);
                 getPetriNetsPanel().getGraphNet().changeLocation(center);
 
-                String methodFullName = (String) leftMenuList.getSelectedValue();
-                String pnetName = FileUse.openMethod(getPetriNetsPanel(),
-                        methodFullName, PetriNetsFrame.this);
+                final String methodFullName = (String) leftMenuList.getSelectedValue();
+                final String pnetName = FileUse.openMethod(getPetriNetsPanel(), methodFullName, PetriNetsFrame.this, netLibraryClassLoader);
                 if (pnetName != null) {
                     netNameTextField.setText(pnetName);
                 }
@@ -1891,7 +1890,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
                 String methodFullName = dialogPanel.getFieldText();
                 String pnetName = FileUse.openMethod(getPetriNetsPanel(),
-                        methodFullName, that);
+                        methodFullName, that, netLibraryClassLoader);
                 if (pnetName != null) {
                     netNameTextField.setText(pnetName);
                 }
