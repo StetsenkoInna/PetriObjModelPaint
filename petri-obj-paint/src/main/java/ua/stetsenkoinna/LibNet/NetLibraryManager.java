@@ -12,6 +12,7 @@ import java.net.URLClassLoader;
 import java.nio.file.*;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.ArrayList;
 import java.util.stream.Stream;
@@ -25,28 +26,36 @@ import ua.stetsenkoinna.annotation.NetLibraryMethod;
 
 public class NetLibraryManager {
 
-    // Static fields for paths and constant strings
-    private static final String LIBRARY_NAME = "NetLibrary";
-    private static final String DYNAMIC_LIBRARY_NAME = "NetLibraryDynamic";
-    private static final String PACKAGE_NAME = "LibNet";
-    private static final Path SOURCE_PATH = Paths.get("src", PACKAGE_NAME, LIBRARY_NAME + ".java");
-    private static final Path DESTINATION_PATH = Paths.get(DYNAMIC_LIBRARY_NAME, DYNAMIC_LIBRARY_NAME + ".java");
+    private static final String NET_LIBRARY_DYNAMIC_NAME = NetLibrary.class.getSimpleName().concat("Dynamic");
     private static final String JAVA_CLASSPATH = System.getProperty("java.class.path");
-    private static final Path PROJECT_ROOT = Paths.get(System.getProperty("user.dir"));
-    private static final Path DESTINATION_DIRECTORY = PROJECT_ROOT.resolve(DYNAMIC_LIBRARY_NAME);
 
-    private final JavaParser javaParser = new JavaParser();
+    private final Path netLibDynTempPath = Paths.get(
+            Files.createTempDirectory(NET_LIBRARY_DYNAMIC_NAME)
+                .resolve(NET_LIBRARY_DYNAMIC_NAME)
+                    .toString()
+                    .concat(".java")
+    );
+    private final Path netLibrarySourceFile;
     private Class<?> loadedClass;
     private URLClassLoader classLoader;
 
     public NetLibraryManager() throws Exception {
-//        createNetLibraryDynamic();
-//        compileAndLoadClass();
+        final Properties properties = new Properties();
+        properties.load(getClass().getClassLoader().getResourceAsStream("application.properties"));
+        final Path source_dir = Paths.get(properties.getProperty("project.basedir"), "src", "main", "java");
+        netLibrarySourceFile = Paths.get(
+                Arrays.stream(NetLibrary.class.getName().split("[.]"))
+                        .reduce(source_dir, Path::resolve, Path::resolve)
+                        .toString()
+                        .concat(".java")
+        );
+        updateNetLibraryDynamic(netLibrarySourceFile, netLibDynTempPath);
+        compileAndLoadClass();
     }
 
     public void addMethod(final String methodText) throws Exception {
-        writeNewMethod(javaParser, methodText, getMethodNamesStream(loadedClass));
-        createNetLibraryDynamic();
+        writeNewMethod(netLibrarySourceFile, methodText, getMethodNamesStream(loadedClass));
+        updateNetLibraryDynamic(netLibrarySourceFile, netLibDynTempPath);
         compileAndLoadClass();
     }
 
@@ -80,7 +89,7 @@ public class NetLibraryManager {
     private void compileAndLoadClass() throws Exception {
         final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 
-        if (compiler.run(null, null, null, "-classpath", JAVA_CLASSPATH, DESTINATION_PATH.toString()) != 0) {
+        if (compiler.run(null, null, null, "-classpath", JAVA_CLASSPATH, netLibDynTempPath.toString()) != 0) {
             throw new AssertionError("NetLib compilation error");
         }
 
@@ -88,24 +97,21 @@ public class NetLibraryManager {
             classLoader.close();
         }
 
-        classLoader = URLClassLoader.newInstance(new URL[]{DESTINATION_DIRECTORY.toUri().toURL()});
-        loadedClass = Class.forName(DYNAMIC_LIBRARY_NAME, true, classLoader);
+        classLoader = URLClassLoader.newInstance(new URL[]{netLibDynTempPath.getParent().toUri().toURL()});
+        loadedClass = Class.forName(NET_LIBRARY_DYNAMIC_NAME, true, classLoader);
     }
 
     private static Stream<String> getMethodNamesStream(final Class<?> cls) {
         return Arrays.stream(cls.getMethods()).map(Method::getName);
     }
 
-    private void createNetLibraryDynamic() throws Exception {
-        if (Files.exists(DESTINATION_PATH)) {
-            Files.delete(DESTINATION_PATH);
-            System.out.println("Existing destination file deleted.");
-        }
-
-        Files.createDirectories(DESTINATION_PATH.getParent());
-        Files.copy(SOURCE_PATH, DESTINATION_PATH, StandardCopyOption.REPLACE_EXISTING);
-
-        final File libNetFile = new File(DESTINATION_PATH.toString());
+    private static void updateNetLibraryDynamic(
+            final Path netLibrarySourceFile,
+            final Path netLibDynTempPath
+    ) throws Exception {
+        Files.copy(netLibrarySourceFile, netLibDynTempPath, StandardCopyOption.REPLACE_EXISTING);
+        final File libNetFile = new File(netLibDynTempPath.toString());
+        final JavaParser javaParser = new JavaParser();
         final ParseResult<CompilationUnit> parseResult = javaParser.parse(libNetFile);
         if (!parseResult.isSuccessful()) {
             System.out.println("Failed to parse libNetFile!");
@@ -114,9 +120,9 @@ public class NetLibraryManager {
 
         final CompilationUnit compilationUnit = parseResult.getResult().get();
         compilationUnit.removePackageDeclaration();
-        final ClassOrInterfaceDeclaration netLibClass = compilationUnit.getClassByName(LIBRARY_NAME)
-                .orElseThrow(() -> new Exception(LIBRARY_NAME + " class not found!"));
-        netLibClass.setName(DYNAMIC_LIBRARY_NAME);
+        final ClassOrInterfaceDeclaration netLibClass = compilationUnit.getClassByName(NetLibrary.class.getSimpleName())
+                .orElseThrow(() -> new Exception(NetLibrary.class.getSimpleName().concat(" class not found!")));
+        netLibClass.setName(NET_LIBRARY_DYNAMIC_NAME);
 
         try (FileWriter writer = new FileWriter(libNetFile)) {
             writer.write(compilationUnit.toString());
@@ -124,12 +130,12 @@ public class NetLibraryManager {
     }
 
     private static void writeNewMethod(
-            final JavaParser javaParser,
+            final Path netLibrarySourceFile,
             final String methodText,
             final Stream<String> methodNames
     ) throws Exception {
-
-        final File libNetFile = new File(SOURCE_PATH.toString());
+        final File libNetFile = new File(netLibrarySourceFile.toString());
+        final JavaParser javaParser = new JavaParser();
         final ParseResult<CompilationUnit> parseResult = javaParser.parse(libNetFile);
         if (!parseResult.isSuccessful()) {
             System.out.println("Failed to parse libNetFile!");
@@ -137,8 +143,8 @@ public class NetLibraryManager {
         }
 
         final CompilationUnit compilationUnit = parseResult.getResult().get();
-        final ClassOrInterfaceDeclaration netLibClass = compilationUnit.getClassByName(LIBRARY_NAME)
-                .orElseThrow(() -> new Exception(LIBRARY_NAME + " class not found!"));
+        final ClassOrInterfaceDeclaration netLibClass = compilationUnit.getClassByName(NetLibrary.class.getSimpleName())
+                .orElseThrow(() -> new Exception(NetLibrary.class.getSimpleName() + " class not found!"));
 
         final ParseResult<MethodDeclaration> methodParseResult = javaParser.parseMethodDeclaration(methodText);
 

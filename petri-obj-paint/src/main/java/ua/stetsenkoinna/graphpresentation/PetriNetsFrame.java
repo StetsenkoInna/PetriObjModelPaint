@@ -115,7 +115,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      */
     public PetriNetsFrame() throws Exception {
         initComponents();
-//        this.UpdateNetLibraryMethodsCombobox();
+        this.UpdateNetLibraryMethodsCombobox();
         timer = new Timer(250, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent ae) {
