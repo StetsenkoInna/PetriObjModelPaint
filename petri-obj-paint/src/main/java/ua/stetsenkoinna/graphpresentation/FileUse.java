@@ -287,7 +287,7 @@ public class FileUse {
                         PetriP place = (PetriP) placeElem;
                         if (place.getNumber() == outArc.getNumP()) {
                             for (PetriT tran : availPetriTrans) {
-                                if (tran.getNumber() == outArc.getNumT()) {
+                                if (!inTrans.contains(tran) && tran.getNumber() == outArc.getNumT()) {
                                     inTrans.add(tran);
                                 }
                             }
@@ -338,7 +338,7 @@ public class FileUse {
                         PetriT tran = (PetriT) tranElem;
                         if (tran.getNumber() == inArc.getNumT()) {
                             for (PetriP place : availPetriPlaces) {
-                                if (place.getNumber() == inArc.getNumP()) {
+                                if (!inPlaces.contains(place) && place.getNumber() == inArc.getNumP()) {
                                     inPlaces.add(place);
                                 }
                             }
