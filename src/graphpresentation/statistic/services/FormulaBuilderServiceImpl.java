@@ -35,37 +35,63 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     }
 
     @Override
-    public String updateFormula(JTextArea formulaField, String input) {
-        String currentText = formulaField.getText();
-        int caretPosition = formulaField.getCaretPosition();
+    public String updateFormula(String formula, String input) {
+        List<String> operators = splitFormula(formula);
 
-        String textBeforeCaret = currentText.substring(0, caretPosition);
-        String textAfterCaret = currentText.substring(caretPosition);
+        String lastOperator = operators.get(operators.size() - 1);
 
-        int lastSpaceIndex = textBeforeCaret.lastIndexOf(' ');
-        int lastOpenParenIndex = textBeforeCaret.lastIndexOf('(');
-        int lastCloseParenIndex = textBeforeCaret.lastIndexOf(')');
+        if (formula.endsWith(")")) {
+            operators.add(input);
+            return String.join("", operators);
+        }
+        if (OPERATORS.contains(lastOperator)) {
+            operators.add(input + "(");
+            return String.join("", operators);
+        }
 
-        String newFormula;
-        if (lastOpenParenIndex > lastSpaceIndex) {
-            if (lastCloseParenIndex > lastOpenParenIndex) {
-                newFormula = textBeforeCaret.substring(0, lastOpenParenIndex + 1) + input + textAfterCaret;
-            } else {
-                newFormula = textBeforeCaret + input + textAfterCaret;
+        StringBuilder operator = new StringBuilder();
+        String lastFunctionName = getOperationFunctionName(lastOperator);
+        if (lastFunctionName == null) {
+            String resultFunctionName = lastOperator + input.substring(lastOperator.length());
+            operator.append(resultFunctionName).append("(");
+        } else {
+            PetriStatisticFunction func = PetriStatisticFunction.findFunctionByName(lastFunctionName);
+            if (func.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT) {
+                String functionArgument = Optional.ofNullable(getFunctionArgument(lastOperator)).orElse("");
+                String resultArgumentName = functionArgument + input.substring(functionArgument.length());
+                operator.append(func.getFunctionName()).append("(").append(resultArgumentName).append(")");
+            } else if (func.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT_AND_NUMBER) {
+                String functionArgument = Optional.ofNullable(getFunctionArgument(lastOperator)).orElse("");
+                String resultArgumentName = functionArgument + input.substring(functionArgument.length());
+                operator.append(func.getFunctionName()).append("(").append(resultArgumentName).append(";");
+            } else if (func.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.MULTIPLE_ELEMENT) {
+                String functionArgument = Optional.ofNullable(getFunctionArgument(lastOperator)).orElse("");
+                if (functionArgument.isEmpty()) {
+                    operator.append(func.getFunctionName()).append("(").append(input).append(";");
+                } else if (!functionArgument.contains(";")) {
+                    String resultArgumentName = functionArgument + input.substring(functionArgument.length());
+                    operator.append(func.getFunctionName()).append("(").append(resultArgumentName).append(";");
+                } else {
+                    List<String> args = new ArrayList<>(Arrays.asList(functionArgument.split(";")));
+                    int separatorIndex = functionArgument.lastIndexOf(";");
+                    String lastArgument = separatorIndex != -1 && separatorIndex + 1 < input.length() ?
+                            functionArgument.substring(separatorIndex + 1).trim()
+                            : null;
+                    if (lastArgument == null) {
+                        args.add(input);
+                    } else {
+                        String resultArgumentName = lastArgument + input.substring(lastArgument.length());
+                        args.set(args.size() - 1, resultArgumentName);
+                    }
+                    String allArgs = String.join(";", args);
+                    operator.append(func.getFunctionName()).append("(").append(allArgs).append(";");
+                }
             }
-        } else {
-            newFormula = textBeforeCaret.substring(0, lastSpaceIndex + 1) + input + textAfterCaret;
         }
 
-        formulaField.setText(newFormula);
 
-        if (lastOpenParenIndex > lastSpaceIndex) {
-            formulaField.setCaretPosition(lastOpenParenIndex + 1 + input.length());
-        } else {
-            formulaField.setCaretPosition(lastSpaceIndex + 1 + input.length());
-        }
-
-        return newFormula;
+        operators.set(operators.size() - 1, operator.toString());
+        return String.join("", operators).toUpperCase();
     }
 
     @Override
@@ -73,23 +99,46 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         if (formula == null || formula.isEmpty()) {
             return PetriStatisticFunction.getFunctionNames();
         }
-        List<String> operators = splitFormula(formula);
-        String operation = operators.get(operators.size() - 1);
-
-        String functionName = getOperationFunctionName(operation);
-        String functionArgumentName = getFunctionArgument(operation);
-        if (operation.isEmpty()) {
-            return PetriStatisticFunction.filterFunctionsByName(formula);
-        } else if (functionName != null) {
-            PetriStatisticFunction function = PetriStatisticFunction.findFunctionByName(functionName);
-            return function != null
-                    ? getElementSuggestions(function, functionArgumentName)
-                    : Collections.emptyList();
-        } else if (OPERATORS.contains(operation)) {
-            return PetriStatisticFunction.getFunctionNames();
-        } else {
-            return PetriStatisticFunction.filterFunctionsByName(operation);
+        if (formula.endsWith(")")) {
+            return OPERATORS;
         }
+
+        List<String> suggestions = new ArrayList<>();
+        List<String> operators = splitFormula(formula);
+
+        String lastOperator = operators.get(operators.size() - 1);
+        if (OPERATORS.contains(lastOperator)) {
+            return PetriStatisticFunction.getFunctionNames();
+        }
+
+        String lastFunctionName = getOperationFunctionName(lastOperator);
+        if (lastFunctionName == null) {
+            return PetriStatisticFunction.filterFunctionsByName(lastOperator);
+        } else {
+            PetriStatisticFunction func = PetriStatisticFunction.findFunctionByName(lastFunctionName);
+            if (func.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT) {
+                String functionArgument = Optional.ofNullable(getFunctionArgument(lastOperator)).orElse("");
+                return getElementSuggestions(func, functionArgument);
+            } else if (func.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT_AND_NUMBER) {
+                String functionArgument = Optional.ofNullable(getFunctionArgument(lastOperator)).orElse("");
+                if (functionArgument.contains(";")) {
+                    return new ArrayList<>();
+                }
+                return getElementSuggestions(func, functionArgument);
+            } else if (func.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.MULTIPLE_ELEMENT) {
+                String functionArgument = Optional.ofNullable(getFunctionArgument(lastOperator)).orElse("");
+                if (!functionArgument.contains(";")) {
+                    return getElementSuggestions(func, functionArgument);
+                } else {
+                    int separatorIndex = functionArgument.lastIndexOf(";");
+                    String lastArgument = separatorIndex != -1 ?
+                            functionArgument.substring(separatorIndex + 1).trim()
+                            : null;
+                    return getElementSuggestions(func, lastArgument);
+                }
+            }
+        }
+        return suggestions;
     }
 
     @Override
