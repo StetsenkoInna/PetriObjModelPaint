@@ -54,6 +54,9 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         chartUpdateFrequencyPane = new javax.swing.JPanel();
         chartStartTimePane = new javax.swing.JPanel();
         chartDataCollectionStepPane = new javax.swing.JPanel();
+        numberOfSeriesPane = new javax.swing.JPanel();
+        numberOfSeriesLabel = new javax.swing.JLabel();
+        numberOfSeriesField = new javax.swing.JTextField();
         actionsPanel = new javax.swing.JPanel();
         filler1 = new javax.swing.Box.Filler(new java.awt.Dimension(0, 0), new java.awt.Dimension(0, 0), new java.awt.Dimension(32767, 0));
         configChartConfigBtn = new javax.swing.JButton();
@@ -136,6 +139,15 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
 
         chartDataSettingsPanel.add(chartDataCollectionStepPane);
 
+        numberOfSeriesLabel = new JLabel("Number of runs");
+        numberOfSeriesField = new JTextField();
+        numberOfSeriesField.setText(chartConfigDto.getDataCollectionConfig().getNumberOfRuns().toString());
+        numberOfSeriesPane.setLayout(new java.awt.BorderLayout());
+        numberOfSeriesPane.add(numberOfSeriesLabel, java.awt.BorderLayout.PAGE_START);
+        numberOfSeriesPane.add(numberOfSeriesField, java.awt.BorderLayout.CENTER);
+
+        chartDataSettingsPanel.add(numberOfSeriesPane);
+
         chartConfigPanel.add(chartSettingsPanel);
         chartConfigPanel.add(chartDataSettingsPanel);
 
@@ -174,7 +186,9 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
         if (isValidNumber(chartStartTimeField.getText())) {
             chartConfigDto.getDataCollectionConfig().setDataCollectionStartTime(chartStartTimeField.getText());
         }
-
+        if (isValidNumber(numberOfSeriesField.getText())) {
+            chartConfigDto.getDataCollectionConfig().setNumberOfRuns(numberOfSeriesField.getText());
+        }
         chartBuilderService.updateChartConfig(chartConfigDto);
         dispose();
     }//GEN-LAST:event_selectFunctionBtnActionPerformed
@@ -218,6 +232,9 @@ public class ChartSettingsDialog extends javax.swing.JDialog {
     private javax.swing.JPanel chartDataCollectionStepPane;
     private javax.swing.JLabel chartDataCollectionStepLabel;
     private javax.swing.JTextField chartDataCollectionStepField;
+    private javax.swing.JPanel numberOfSeriesPane;
+    private javax.swing.JLabel numberOfSeriesLabel;
+    private javax.swing.JTextField numberOfSeriesField;
 
     // End of variables declaration//GEN-END:variables
 

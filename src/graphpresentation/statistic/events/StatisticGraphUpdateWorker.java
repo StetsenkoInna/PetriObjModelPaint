@@ -4,38 +4,54 @@ import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
 import graphpresentation.statistic.services.StatisticMonitorService;
 
 import javax.swing.*;
+import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.*;
 
 /**
  * Worker thread for processing statistic update requests
  * Receives update events and pushes them to monitor dialog chart
+ *
  * @author Andrii Kachmar
  */
 public class StatisticGraphUpdateWorker extends SwingWorker<Boolean, StatisticUpdateEvent> {
     private final BlockingQueue<StatisticUpdateEvent> eventsQueue;
     private final StatisticMonitorService monitorService;
+    private final CountDownLatch workerStateLatch;
+
+    public StatisticGraphUpdateWorker(StatisticMonitorService monitorService, CountDownLatch workerStateLatch) {
+        this.eventsQueue = new SynchronousQueue<>(true);
+        this.monitorService = monitorService;
+        this.workerStateLatch = workerStateLatch;
+    }
 
     public StatisticGraphUpdateWorker(StatisticMonitorService monitorService) {
-        this.eventsQueue = new LinkedBlockingQueue<>();
+        this.eventsQueue = new SynchronousQueue<>(true);
         this.monitorService = monitorService;
+        this.workerStateLatch = null;
     }
 
     @Override
     protected Boolean doInBackground() throws Exception {
-        while (!isCancelled()) {
-            StatisticUpdateEvent event = eventsQueue.take();
-            if (event.isTermination()) {
-                break;
+        try {
+            while (!isCancelled()) {
+                StatisticUpdateEvent event = eventsQueue.take();
+                if (event.isTermination()) {
+                    break;
+                }
+                publish(event);
             }
-            publish(event);
+        } finally {
+            if (workerStateLatch != null) {
+                workerStateLatch.countDown();
+            }
         }
         return true;
     }
 
     @Override
     protected void process(List<StatisticUpdateEvent> chunks) {
+        chunks.sort(Comparator.comparing(StatisticUpdateEvent::getCurrentTime));
         for (StatisticUpdateEvent event : chunks) {
             monitorService.appendChartStatistic(event.getCurrentTime(), event.getStatistic());
         }

@@ -22,6 +22,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -1724,7 +1725,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 m.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 m.setCurrentTime(Double.valueOf(timeStartField.getText()));
                 if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
-                    StatisticGraphMonitor statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog);
+                    statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog, new CountDownLatch(1));
                     m.setStatisticMonitor(statisticGraphMonitor);
                 }
                 m.go(Double.valueOf(timeModelingTextField.getText()));
@@ -1740,6 +1741,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 // 3.06.2013
                 getPetriNetsPanel().repaint(); // додано 19.11.2012,
                 // можливо не потрібно?
+
+                if (statisticGraphMonitor != null) {
+                    try {
+                        statisticGraphMonitor.getWorkerStateLatch().await();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                        Thread.currentThread().interrupt();
+                    }
+                }
             }
             //  }
             // }
@@ -1986,6 +1996,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         return petriNetPanelScrollPane;
     }
 
+    public Integer getNumberOfRuns() {
+        int numberOfRuns = 1;
+        if (statisticMonitorDialog != null && statisticMonitorDialog.getIsFormulaValid()) {
+            numberOfRuns = statisticMonitorDialog.getChartDataCollectionConfig().getNumberOfRuns();
+        }
+        return numberOfRuns;
+    }
+
     public void disableInput() {
         save.setEnabled(false);
         editMenu.setEnabled(false);
@@ -2201,4 +2219,5 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public Thread animationThread;
 
     private StatisticMonitorDialog statisticMonitorDialog;
+    private StatisticGraphMonitor statisticGraphMonitor;
 }

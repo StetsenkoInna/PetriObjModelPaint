@@ -46,9 +46,9 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         initComponents();
 
         this.chartConfigDto = new ChartConfigDto(
-                "Petri statistic",
+                "Petri net statistics",
                 "Simulation time",
-                "Metric",
+                "Formula value",
                 true
         );
         this.chartBuilderService = new LineChartBuilderService();
