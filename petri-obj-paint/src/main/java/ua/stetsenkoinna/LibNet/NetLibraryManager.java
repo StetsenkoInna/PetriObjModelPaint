@@ -154,6 +154,7 @@ public class NetLibraryManager {
         }
 
         final MethodDeclaration methodDeclaration = methodParseResult.getResult().get();
+        methodDeclaration.addAnnotation(NetLibraryMethod.class);
 
         if (methodNames.anyMatch((m) -> m.equals(methodDeclaration.getName().asString()))) {
             throw new Exception("Method with such name already exists");
