@@ -103,8 +103,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                         }
                     }
                     if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
-                        int petriObjId = getRunlist().indexOf(e);
-                        currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(petriObjId, e.getNet()));
+                        currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
                     }
                 }
             }
@@ -197,8 +196,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
         if (isLastStatisticSegment()) {
             List<PetriElementStatisticDto> statistic = new ArrayList<>();
             for (PetriSim e : getListObj()) {
-                int petriObjId = getListObj().indexOf(e);
-                statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(petriObjId, e.getNet()));
+                statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
             }
             statisticGraphMonitor.asyncStatisticSend(getCurrentTime(), statistic);
         }

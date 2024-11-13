@@ -24,7 +24,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     private static final Pattern VALID_CHARACTERS = Pattern.compile("^[A-Za-z0-9_.;() +\\-*/\\u0400-\\u04FF]*$");
     private static final Pattern FUNCTION_CALL_PATTERN = Pattern.compile("([A-Z_0-9]+)\\(([^()]*?(?:;[^()]*?)*)\\)");
     private static final Pattern DIVISION_BY_ZERO = Pattern.compile("/\\s*0(?!\\.[0-9])");
-    private static final Pattern ARGUMENT_WITH_ID_PATTERN = Pattern.compile("O(\\d+)\\.([A-Za-z\\u0400-\\u04FF]\\w*)");
+    private static final Pattern ARGUMENT_WITH_ID_PATTERN = Pattern.compile( "^O(\\d+)\\.(.+)$");
 
     public FormulaBuilderServiceImpl(PetriNetsFrame parent) {
         this.petriNetParent = parent;

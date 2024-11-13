@@ -181,7 +181,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
                             e.doStatistics((this.getSimulationTime() - this.getCurrentTime()) / this.getSimulationTime()); 
                     }
                     if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
-                        int petriObjId = getListObj().indexOf(e);
+                        int petriObjId = e.getNumObj();
                         currentStatistic.addAll(statisticConsoleMonitor.getNetWatchListStatistic(petriObjId, e.getNet()));
                     }
                 }
@@ -272,12 +272,13 @@ public class PetriObjModel implements Serializable, Cloneable  {
             }
         }
         if (isLastStatisticSegment()) {
+            double time = getCurrentTime() - getSimulationTime() <= getSimulationTime() ? getCurrentTime() : getSimulationTime();
             List<PetriElementStatisticDto> statistic = new ArrayList<>();
             for (PetriSim e : getListObj()) {
-                int petriObjId = getListObj().indexOf(e);
+                int petriObjId = e.getNumObj();
                 statistic.addAll(statisticConsoleMonitor.getNetWatchListStatistic(petriObjId, e.getNet()));
             }
-            statisticConsoleMonitor.sendStatistic(getCurrentTime(), statistic);
+            statisticConsoleMonitor.sendStatistic(time, statistic);
         }
         if (isStatisticMonitorEnabled()) {
             statisticConsoleMonitor.shutdownStatisticUpdate();
@@ -474,7 +475,6 @@ public class PetriObjModel implements Serializable, Cloneable  {
     }
 
     private boolean isLastStatisticSegment() {
-        return isStatisticMonitorEnabled() && (getCurrentTime() - getSimulationTime() <= getSimulationTime()) &&
-                statisticConsoleMonitor.getDataCollectionStartTime() <= getSimulationTime();
+        return isStatisticMonitorEnabled() && statisticConsoleMonitor.getDataCollectionStartTime() <= getSimulationTime();
     }
 }
