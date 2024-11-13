@@ -12,19 +12,16 @@ public final class StatisticGraphMonitor extends StatisticMonitor {
     private final StatisticMonitorService monitorService;
     private final CountDownLatch workerStateLatch;
 
-    public StatisticGraphMonitor(StatisticMonitorService monitorService) {
+    public StatisticGraphMonitor(StatisticMonitorService monitorService, boolean enableSignalling) {
         super(monitorService.getElementsWatchMap(), monitorService.getChartDataCollectionConfig());
         this.monitorService = monitorService;
-        this.workerStateLatch = null;
-        this.statisticGraphUpdateWorker = new StatisticGraphUpdateWorker(monitorService);
-        this.statisticGraphUpdateWorker.execute();
-    }
-
-    public StatisticGraphMonitor(StatisticMonitorService monitorService, CountDownLatch workerStateLatch) {
-        super(monitorService.getElementsWatchMap(), monitorService.getChartDataCollectionConfig());
-        this.monitorService = monitorService;
-        this.workerStateLatch = workerStateLatch;
-        this.statisticGraphUpdateWorker = new StatisticGraphUpdateWorker(monitorService, workerStateLatch);
+        if (enableSignalling) {
+            this.workerStateLatch = new CountDownLatch(1);
+            this.statisticGraphUpdateWorker = new StatisticGraphUpdateWorker(monitorService, this.workerStateLatch);
+        } else {
+            this.workerStateLatch = null;
+            this.statisticGraphUpdateWorker = new StatisticGraphUpdateWorker(monitorService);
+        }
         this.statisticGraphUpdateWorker.execute();
     }
 

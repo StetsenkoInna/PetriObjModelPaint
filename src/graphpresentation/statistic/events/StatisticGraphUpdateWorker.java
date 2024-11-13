@@ -18,6 +18,7 @@ public class StatisticGraphUpdateWorker extends SwingWorker<Boolean, StatisticUp
     private final BlockingQueue<StatisticUpdateEvent> eventsQueue;
     private final StatisticMonitorService monitorService;
     private final CountDownLatch workerStateLatch;
+    private Boolean isWorking;
 
     public StatisticGraphUpdateWorker(StatisticMonitorService monitorService, CountDownLatch workerStateLatch) {
         this.eventsQueue = new SynchronousQueue<>(true);
@@ -34,6 +35,7 @@ public class StatisticGraphUpdateWorker extends SwingWorker<Boolean, StatisticUp
     @Override
     protected Boolean doInBackground() throws Exception {
         try {
+            this.isWorking = true;
             while (!isCancelled()) {
                 StatisticUpdateEvent event = eventsQueue.take();
                 if (event.isTermination()) {
@@ -42,9 +44,7 @@ public class StatisticGraphUpdateWorker extends SwingWorker<Boolean, StatisticUp
                 publish(event);
             }
         } finally {
-            if (workerStateLatch != null) {
-                workerStateLatch.countDown();
-            }
+            this.isWorking = false;
         }
         return true;
     }
@@ -54,6 +54,9 @@ public class StatisticGraphUpdateWorker extends SwingWorker<Boolean, StatisticUp
         chunks.sort(Comparator.comparing(StatisticUpdateEvent::getCurrentTime));
         for (StatisticUpdateEvent event : chunks) {
             monitorService.appendChartStatistic(event.getCurrentTime(), event.getStatistic());
+        }
+        if (workerStateLatch != null && !isWorking) {
+            workerStateLatch.countDown();
         }
     }
 

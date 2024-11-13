@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -1725,7 +1726,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 m.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 m.setCurrentTime(Double.valueOf(timeStartField.getText()));
                 if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
-                    statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog, new CountDownLatch(1));
+                    statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog, true);
                     m.setStatisticMonitor(statisticGraphMonitor);
                 }
                 m.go(Double.valueOf(timeModelingTextField.getText()));
@@ -1744,7 +1745,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
                 if (statisticGraphMonitor != null) {
                     try {
-                        statisticGraphMonitor.getWorkerStateLatch().await();
+                        statisticGraphMonitor.getWorkerStateLatch().await(3, TimeUnit.SECONDS);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                         Thread.currentThread().interrupt();
@@ -1795,7 +1796,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 model.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 model.setCurrentTime(Double.valueOf(timeStartField.getText()));
                 if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
-                    StatisticGraphMonitor statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog);
+                    StatisticGraphMonitor statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog, false);
                     model.setStatisticMonitor(statisticGraphMonitor);
                 }
                 model.go(Double.valueOf(timeModelingTextField.getText()));

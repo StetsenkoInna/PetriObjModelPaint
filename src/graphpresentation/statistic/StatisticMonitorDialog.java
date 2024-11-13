@@ -31,7 +31,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     private final ChartBuilderService chartBuilderService;
     private final FormulaBuilderService formulaBuilderService;
     private Map<Integer, List<String>> elementsWatchMap;
-    private Boolean isFormulaValid;
+    private Boolean isFormulaValid = false;
     private ChartConfigDto chartConfigDto;
 
 

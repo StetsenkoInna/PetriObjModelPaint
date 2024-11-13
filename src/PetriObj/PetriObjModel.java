@@ -474,6 +474,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
     }
 
     private boolean isLastStatisticSegment() {
-        return isStatisticMonitorEnabled() && (getCurrentTime() - getSimulationTime() <= getSimulationTime());
+        return isStatisticMonitorEnabled() && (getCurrentTime() - getSimulationTime() <= getSimulationTime()) &&
+                statisticConsoleMonitor.getDataCollectionStartTime() <= getSimulationTime();
     }
 }

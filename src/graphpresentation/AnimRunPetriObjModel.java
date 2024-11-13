@@ -313,6 +313,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
     }
 
     private boolean isLastStatisticSegment() {
-        return isStatisticMonitorEnabled() && (getCurrentTime() - getSimulationTime() <= getSimulationTime());
+        return isStatisticMonitorEnabled() && (getCurrentTime() - getSimulationTime() <= getSimulationTime()) &&
+                statisticGraphMonitor.getDataCollectionStartTime() <= getSimulationTime();
     }
 }

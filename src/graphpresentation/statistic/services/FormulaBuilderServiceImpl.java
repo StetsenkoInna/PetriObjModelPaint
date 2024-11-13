@@ -91,7 +91,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
 
 
         operators.set(operators.size() - 1, operator.toString());
-        return String.join("", operators).toUpperCase();
+        return String.join("", operators);
     }
 
     @Override
@@ -448,9 +448,9 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         int openParenIndex = input.indexOf('(');
         int closeParenIndex = input.lastIndexOf(')');
         if (openParenIndex > 0 && closeParenIndex > openParenIndex) {
-            return input.substring(openParenIndex + 1, closeParenIndex).trim().toUpperCase();
+            return input.substring(openParenIndex + 1, closeParenIndex).trim();
         } else if (openParenIndex > 0) {
-            return input.substring(openParenIndex + 1).trim().toUpperCase();
+            return input.substring(openParenIndex + 1).trim();
         }
         return null;
     }
