@@ -58,7 +58,6 @@ public class StatisticConsoleMonitor extends StatisticMonitor {
     public void shutdownStatisticUpdate() {
         if (isMonitoringEnabled) {
             executorService.shutdown();
-            System.out.println("Shutdown statistic monitoring...\n");
             try {
                 if (!executorService.awaitTermination(10, TimeUnit.SECONDS)) {
                     executorService.shutdownNow();
