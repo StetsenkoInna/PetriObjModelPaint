@@ -83,6 +83,7 @@ public class NetLibraryManager {
         return Arrays.stream(loadedClass.getMethods())
                 .filter((m) -> m.isAnnotationPresent(NetLibraryMethod.class))
                 .map(Method::getName)
+                .sorted()
                 .collect(Collectors.toCollection(ArrayList::new));
     }
 
