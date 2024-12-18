@@ -9,17 +9,21 @@ import PetriObj.ExceptionInvalidTimeDelay;
 import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
+import graphpresentation.statistic.StatisticMonitorDialog;
+import graphpresentation.statistic.dto.data.StatisticGraphMonitor;
 import graphreuse.GraphNetParametersFrame;
 import graphpresentation.undoable_edits.AddGraphElementEdit;
 
 import java.awt.*;
-import java.awt.event.InputEvent;
+import java.awt.event.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -38,8 +42,6 @@ import graphpresentation.actions.RunOneEventAction;
 import graphpresentation.actions.StopSimulationAction;
 
 import java.awt.Dialog.ModalityType;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.ObjectInputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -413,6 +415,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         SavePetriNetAs = new javax.swing.JMenuItem();
         SaveNetAsMethod = new javax.swing.JMenuItem();
         SaveMethodInNetLibrary = new javax.swing.JMenuItem();
+        statisticMenu = new javax.swing.JMenu();
+        openMonitor = new javax.swing.JMenuItem();
+        isStatisticMonitorEnabled = new javax.swing.JCheckBoxMenuItem();
         Animate = new javax.swing.JMenu();
         itemAnimateNet = new javax.swing.JMenuItem();
         itemAnimateEvent = new javax.swing.JMenuItem();
@@ -552,7 +557,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartLabel.getAccessibleContext().setAccessibleName("Time");
 
         petriNetsFrameToolBar.setBorder(null);
-        petriNetsFrameToolBar.setFloatable(false);
         petriNetsFrameToolBar.setRollover(true);
         petriNetsFrameToolBar.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
         petriNetsFrameToolBar.setMargin(new java.awt.Insets(0, 10, 0, 10));
@@ -744,7 +748,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         jTabbedPane1.addTab("Net designer", petriNetDesign);
 
         petriNetsFrameToolBar1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
-        petriNetsFrameToolBar1.setFloatable(false);
         petriNetsFrameToolBar1.setRollover(true);
         petriNetsFrameToolBar1.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
         petriNetsFrameToolBar1.setMargin(new java.awt.Insets(0, 10, 0, 10));
@@ -978,7 +981,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         jTabbedPane1.addTab("Model designer", petriNetDesign1);
 
         petriNetsFrameToolBar2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
-        petriNetsFrameToolBar2.setFloatable(false);
         petriNetsFrameToolBar2.setRollover(true);
         petriNetsFrameToolBar2.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
         petriNetsFrameToolBar2.setMargin(new java.awt.Insets(0, 10, 0, 10));
@@ -1345,6 +1347,25 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         petriNetsFrameMenuBar.add(save);
 
+        statisticMenu.setText("Statistic");
+
+        openMonitor.setText("Open monitor");
+        openMonitor.setMnemonic(KeyEvent.VK_M);
+        openMonitor.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, KeyEvent.CTRL_MASK | KeyEvent.ALT_MASK));
+        openMonitor.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                openMonitorActionPerformed(evt);
+            }
+        });
+
+        isStatisticMonitorEnabled.setText("Monitor enabled");
+        isStatisticMonitorEnabled.setSelected(true);
+
+        statisticMenu.add(openMonitor);
+        statisticMenu.add(isStatisticMonitorEnabled);
+
+        petriNetsFrameMenuBar.add(statisticMenu);
+
         Animate.setAction(animateEventAction);
         Animate.setText("Animate");
         Animate.setMargin(new java.awt.Insets(0, 10, 0, 10));
@@ -1542,6 +1563,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_netNameTextFieldActionPerformed
 
+    private void openMonitorActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openMonitorActionPerformed
+        if (statisticMonitorDialog == null) {
+            statisticMonitorDialog = new StatisticMonitorDialog(this, false);
+        }
+        statisticMonitorDialog.setSize(600, 600);
+        statisticMonitorDialog.setLocationRelativeTo(this);
+        statisticMonitorDialog.setVisible(true);
+    }//GEN-LAST:event_openMonitorActionPerformed
+
     private void openMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMenuItemActionPerformed
         try {
             fileUse.newWorksheet(getPetriNetsPanel());
@@ -1695,6 +1725,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         protocolTextArea); // Петрі-об"єктна модель, що складається з одного Петрі-об"єкта
                 m.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 m.setCurrentTime(Double.valueOf(timeStartField.getText()));
+                if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
+                    statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog, true);
+                    m.setStatisticMonitor(statisticGraphMonitor);
+                }
                 m.go(Double.valueOf(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
                         statisticsTextArea);
@@ -1708,6 +1742,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 // 3.06.2013
                 getPetriNetsPanel().repaint(); // додано 19.11.2012,
                 // можливо не потрібно?
+
+                if (statisticGraphMonitor != null) {
+                    try {
+                        statisticGraphMonitor.getWorkerStateLatch().await(3, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                        Thread.currentThread().interrupt();
+                    }
+                }
             }
             //  }
             // }
@@ -1749,9 +1792,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         speedSlider); // Петрі-об"єктна модель, що складається з одного Петріз-об"єкта
                 
                 animationModel = model;
-                
+
                 model.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                 model.setCurrentTime(Double.valueOf(timeStartField.getText()));
+                if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
+                    StatisticGraphMonitor statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog, false);
+                    model.setStatisticMonitor(statisticGraphMonitor);
+                }
                 model.go(Double.valueOf(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
                         statisticsTextArea);
@@ -1950,6 +1997,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         return petriNetPanelScrollPane;
     }
 
+    public Integer getNumberOfRuns() {
+        int numberOfRuns = 1;
+        if (statisticMonitorDialog != null && statisticMonitorDialog.getIsFormulaValid()) {
+            numberOfRuns = statisticMonitorDialog.getChartDataCollectionConfig().getNumberOfRuns();
+        }
+        return numberOfRuns;
+    }
+
     public void disableInput() {
         save.setEnabled(false);
         editMenu.setEnabled(false);
@@ -1969,6 +2024,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartField.setEnabled(false);
         netNameTextField.setEnabled(false);
         leftMenuList.setEnabled(false);
+        statisticMenu.setEnabled(false);
+        if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
+            statisticMonitorDialog.onSimulationStart();
+        }
     }
 
     public void enableInput() {
@@ -1990,6 +2049,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartField.setEnabled(true);
         netNameTextField.setEnabled(true);
         leftMenuList.setEnabled(true);
+        statisticMenu.setEnabled(true);
+        if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
+            statisticMonitorDialog.onSimulationEnd();
+        }
     }
 
     /**
@@ -2064,6 +2127,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton newTransitionButton2;
     private javax.swing.JMenuItem openMenuItem;
     private javax.swing.JMenuItem openMethodMenuItem;
+    private javax.swing.JMenuItem openMonitor;
+    private javax.swing.JCheckBoxMenuItem isStatisticMonitorEnabled;
     private javax.swing.JPanel petriNetDesign;
     private javax.swing.JPanel petriNetDesign1;
     private javax.swing.JPanel petriNetDesign2;
@@ -2097,6 +2162,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton skipForwardAnimationButton;
     private javax.swing.JLabel speedLabel;
     private javax.swing.JSlider speedSlider;
+    private javax.swing.JMenu statisticMenu;
     private javax.swing.JScrollPane statisticsScrollPane;
     private javax.swing.JScrollPane statisticsScrollPane1;
     private javax.swing.JScrollPane statisticsScrollPane2;
@@ -2152,4 +2218,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * can be interrupted if stop button is pressed
      */
     public Thread animationThread;
+
+    private StatisticMonitorDialog statisticMonitorDialog;
+    private StatisticGraphMonitor statisticGraphMonitor;
 }

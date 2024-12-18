@@ -9,12 +9,11 @@ import PetriObj.PetriObjModel;
 import PetriObj.PetriP;
 import PetriObj.PetriSim;
 import PetriObj.PetriT;
-import graphpresentation.PetriNetsPanel;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Random;
-import javax.swing.JSlider;
-import javax.swing.JTextArea;
+import graphpresentation.statistic.dto.data.PetriElementStatisticDto;
+import graphpresentation.statistic.dto.data.StatisticGraphMonitor;
+
+import java.util.*;
+import javax.swing.*;
 
 /**
  *
@@ -23,7 +22,8 @@ import javax.swing.JTextArea;
 public class RunPetriObjModel extends PetriObjModel{
     
     private JTextArea area; // specifies where simulation protokol is printed
-  
+    private StatisticGraphMonitor statisticGraphMonitor;
+
     public RunPetriObjModel(ArrayList<PetriSim> list, JTextArea area){
         super(list);
         this.area = area;
@@ -187,6 +187,8 @@ public class RunPetriObjModel extends PetriObjModel{
                     min = e.getTimeMin();
                 }
             }
+
+            List<PetriElementStatisticDto> currentStatistic = new ArrayList<>();
             if (super.isStatistics() == true) {
                 for (PetriSim e : super.getListObj()) {
                     if (min > 0) {
@@ -196,7 +198,14 @@ public class RunPetriObjModel extends PetriObjModel{
                             e.doStatistics((timeModeling - super.getCurrentTime()) / super.getSimulationTime());
                         }
                     }
+                    if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
+                        currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
+                    }
                 }
+            }
+            if (!currentStatistic.isEmpty()) {
+                statisticGraphMonitor.setLastStatisticCollectionTime(getCurrentTime());
+                statisticGraphMonitor.asyncStatisticSend(getCurrentTime(), currentStatistic);
             }
 
             super.setCurrentTime(min); // просування часу
@@ -261,6 +270,19 @@ public class RunPetriObjModel extends PetriObjModel{
                 this.printMark();
             }
         }
+
+        if (isLastStatisticSegment()) {
+            double time = getCurrentTime() - getSimulationTime() <= getSimulationTime() ? getCurrentTime() : getSimulationTime();
+            List<PetriElementStatisticDto> statistic = new ArrayList<>();
+            for (PetriSim e : super.getListObj()) {
+                statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
+            }
+            statisticGraphMonitor.asyncStatisticSend(time, statistic);
+        }
+        if (isStatisticMonitorEnabled()) {
+            statisticGraphMonitor.shutdownStatisticUpdate();
+        }
+
         area.append("\n Modeling results: \n");
 
         for (PetriSim e : super.getListObj()) {
@@ -276,8 +298,7 @@ public class RunPetriObjModel extends PetriObjModel{
         }
     }
 
-    
-     /**
+    /**
      * Prints the string in given JTextArea object
      *
      * @param info string for printing
@@ -297,5 +318,22 @@ public class RunPetriObjModel extends PetriObjModel{
                 e.printMark(area);
             }
         }
+    }
+
+    public void setStatisticMonitor(StatisticGraphMonitor statisticGraphMonitor) {
+        this.statisticGraphMonitor = statisticGraphMonitor;
+    }
+
+    private boolean isStatisticMonitorEnabled() {
+        return statisticGraphMonitor != null && statisticGraphMonitor.isValidMonitor();
+    }
+
+    private boolean isStatisticCollectionTime() {
+        return isStatisticMonitorEnabled() && (getCurrentTime() >= statisticGraphMonitor.getDataCollectionStartTime() &&
+                getCurrentTime() - statisticGraphMonitor.getLastStatisticCollectionTime() >= statisticGraphMonitor.getDataCollectionStep());
+    }
+
+    private boolean isLastStatisticSegment() {
+        return isStatisticMonitorEnabled() && statisticGraphMonitor.getDataCollectionStartTime() <= getSimulationTime();
     }
 }
