@@ -1,6 +1,5 @@
-/dist/
 .idea/
 PetriObjModelPaint.iml
 build/
 target/
-./nbproject/private/
+NetLibraryDynamic/NetLibraryDynamic.class
