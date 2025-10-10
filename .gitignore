@@ -4,3 +4,4 @@ PetriObjModelPaint.iml
 build/
 target/
 ./nbproject/private/
+dependency-reduced-pom.xml

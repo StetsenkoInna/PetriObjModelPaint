@@ -2,8 +2,8 @@ package graphpresentation.actions;
 
 import graphpresentation.AnimationControls;
 import java.awt.event.ActionEvent;
+import java.util.Objects;
 import javax.swing.AbstractAction;
-import static javax.swing.Action.SHORT_DESCRIPTION;
 import javax.swing.ImageIcon;
 
 /**
@@ -13,12 +13,9 @@ import javax.swing.ImageIcon;
 public class PlayPauseAction extends AbstractAction {
     
     private final AnimationControls controls;
-    
-    private static String PLAY_DESCRIPTION = "Start net animation";
-    private static String PAUSE_DESCRIPTION = "Pause animation";
-    
-    private final ImageIcon playIcon = new ImageIcon(getClass().getResource("icons/play.png"));
-    private final ImageIcon pauseIcon = new ImageIcon(getClass().getResource("icons/pause.png"));
+
+    private final ImageIcon playIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("icons/play.png")));
+    private final ImageIcon pauseIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("icons/pause.png")));
     
     public PlayPauseAction(AnimationControls controls) {
         this.controls = controls;
@@ -36,6 +33,7 @@ public class PlayPauseAction extends AbstractAction {
      */
     public void switchToPauseButton() {
         putValue(LARGE_ICON_KEY, pauseIcon);
+        String PAUSE_DESCRIPTION = "Pause animation";
         putValue(SHORT_DESCRIPTION, PAUSE_DESCRIPTION);
     }
     
@@ -45,6 +43,7 @@ public class PlayPauseAction extends AbstractAction {
      */
     public void switchToPlayButton() {
         putValue(LARGE_ICON_KEY, playIcon);
+        String PLAY_DESCRIPTION = "Start net animation";
         putValue(SHORT_DESCRIPTION, PLAY_DESCRIPTION);
     }
     

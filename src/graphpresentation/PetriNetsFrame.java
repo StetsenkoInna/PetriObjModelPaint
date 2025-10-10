@@ -22,7 +22,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -98,13 +97,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
     
     /* ACTIONS */
-    private final AnimationControls animationContols = new AnimationControls(this);
-    private final RunNetAction runNetAction = animationContols.runNetAction;
-    public final RewindAction rewindAction = animationContols.rewindAction;
-    public final StopSimulationAction stopSimulationAction = animationContols.stopSimulationAction;
-    public final PlayPauseAction playPauseAction = animationContols.playPauseAction;
-    public final RunOneEventAction runOneEventAction = animationContols.runOneEventAction;
-    public final AnimateEventAction animateEventAction = animationContols.animateEventAction; 
+    private final AnimationControls animationControls = new AnimationControls(this);
+    private final RunNetAction runNetAction = animationControls.runNetAction;
+    public final RewindAction rewindAction = animationControls.rewindAction;
+    public final StopSimulationAction stopSimulationAction = animationControls.stopSimulationAction;
+    public final PlayPauseAction playPauseAction = animationControls.playPauseAction;
+    public final RunOneEventAction runOneEventAction = animationControls.runOneEventAction;
+    public final AnimateEventAction animateEventAction = animationControls.animateEventAction;
 
     private void UpdateNetLibraryMethodsCombobox() { // added by Katya
         // 27.11.2016
