@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="testNet" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <name>
+      <text>Test Petri Net</text>
+    </name>
+
+    <!-- Places -->
+    <place id="p1">
+      <name>
+        <text>Place 1</text>
+      </name>
+      <initialMarking>
+        <text>2</text>
+      </initialMarking>
+      <graphics>
+        <position x="100" y="100"/>
+      </graphics>
+    </place>
+
+    <place id="p2">
+      <name>
+        <text>Place 2</text>
+      </name>
+      <initialMarking>
+        <text>0</text>
+      </initialMarking>
+      <graphics>
+        <position x="300" y="100"/>
+      </graphics>
+    </place>
+
+    <!-- Transitions -->
+    <transition id="t1">
+      <name>
+        <text>Transition 1</text>
+      </name>
+      <toolspecific tool="PetriObjModel" version="1.0">
+        <timeDelay>1.5</timeDelay>
+        <priority>1</priority>
+        <probability>0.8</probability>
+      </toolspecific>
+      <graphics>
+        <position x="200" y="100"/>
+      </graphics>
+    </transition>
+
+    <!-- Arcs -->
+    <arc id="arc1" source="p1" target="t1">
+      <inscription>
+        <text>1</text>
+      </inscription>
+    </arc>
+
+    <arc id="arc2" source="t1" target="p2">
+      <inscription>
+        <text>1</text>
+      </inscription>
+    </arc>
+
+  </net>
+</pnml>
