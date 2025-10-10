@@ -7,7 +7,7 @@
     <parent>
         <groupId>ua.stetsenkoinna</groupId>
         <artifactId>PetriObjModelPaint</artifactId>
-        <version>1.0-SNAPSHOT</version>
+        <version>1.1</version>
     </parent>
 
     <artifactId>petri-obj-paint</artifactId>
@@ -32,7 +32,14 @@
         <dependency>
             <groupId>ua.stetsenkoinna</groupId>
             <artifactId>lib-net-annotations</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>1.1</version>
+        </dependency>
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -63,10 +70,31 @@
                         <path>
                             <groupId>ua.stetsenkoinna</groupId>
                             <artifactId>lib-net-annotations</artifactId>
-                            <version>1.0-SNAPSHOT</version>
+                            <version>1.1</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.2.4</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>ua.stetsenkoinna.graphpresentation.PetriNetsFrame</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

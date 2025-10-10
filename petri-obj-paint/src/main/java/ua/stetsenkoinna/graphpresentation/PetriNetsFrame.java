@@ -10,6 +10,9 @@ import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.PetriObj.PetriP;
 import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.PetriObj.PetriT;
+import ua.stetsenkoinna.PetriObj.PetriNet;
+import ua.stetsenkoinna.PetriObj.ArcIn;
+import ua.stetsenkoinna.PetriObj.ArcOut;
 import ua.stetsenkoinna.graphreuse.GraphNetParametersFrame;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
 
@@ -27,12 +30,16 @@ import javax.swing.*;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
+import ua.stetsenkoinna.graphnet.GraphArcIn;
+import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphpresentation.actions.AnimateEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.PlayPauseAction;
 import ua.stetsenkoinna.graphpresentation.actions.RewindAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunNetAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunOneEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
+import ua.stetsenkoinna.pnml.PnmlUtils;
+import ua.stetsenkoinna.pnml.ImportResult;
 
 import java.awt.Dialog.ModalityType;
 import java.awt.event.ActionEvent;
@@ -363,6 +370,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         openMenuItem = new javax.swing.JMenuItem();
         newMenuItem = new javax.swing.JMenuItem();
         openMethodMenuItem = new javax.swing.JMenuItem();
+        importPnmlMenuItem = new javax.swing.JMenuItem();
         editMenu = new javax.swing.JMenu();
         editNetParameters = new javax.swing.JMenuItem();
         centerLocationOfGraphNet = new javax.swing.JMenuItem();
@@ -374,6 +382,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         SavePetriNetAs = new javax.swing.JMenuItem();
         SaveNetAsMethod = new javax.swing.JMenuItem();
         SaveMethodInNetLibrary = new javax.swing.JMenuItem();
+        exportPnmlMenuItem = new javax.swing.JMenuItem();
         Animate = new javax.swing.JMenu();
         itemAnimateNet = new javax.swing.JMenuItem();
         itemAnimateEvent = new javax.swing.JMenuItem();
@@ -1211,6 +1220,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         fileMenu.add(openMethodMenuItem);
 
+        fileMenu.addSeparator();
+
+        importPnmlMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_I, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        importPnmlMenuItem.setText("Import PNML");
+        importPnmlMenuItem.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                importPnmlMenuItemActionPerformed(evt);
+            }
+        });
+        fileMenu.add(importPnmlMenuItem);
+
         petriNetsFrameMenuBar.add(fileMenu);
 
         editMenu.setText("Edit");
@@ -1303,6 +1323,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         });
         save.add(SaveMethodInNetLibrary);
+
+        save.addSeparator();
+
+        exportPnmlMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_P, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        exportPnmlMenuItem.setText("Export to PNML");
+        exportPnmlMenuItem.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                exportPnmlMenuItemActionPerformed(evt);
+            }
+        });
+        save.add(exportPnmlMenuItem);
 
         petriNetsFrameMenuBar.add(save);
 
@@ -2032,6 +2063,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton newTransitionButton2;
     private javax.swing.JMenuItem openMenuItem;
     private javax.swing.JMenuItem openMethodMenuItem;
+    private javax.swing.JMenuItem importPnmlMenuItem;
+    private javax.swing.JMenuItem exportPnmlMenuItem;
     private javax.swing.JPanel petriNetDesign;
     private javax.swing.JPanel petriNetDesign1;
     private javax.swing.JPanel petriNetDesign2;
@@ -2101,7 +2134,220 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public static UndoableEditSupport getUndoSupport() {
         return undoSupport;
     }
-    
+
+    private void importPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
+        System.out.println("Starting PNML import...");
+        ImportResult importResult = PnmlUtils.importFromFile(this);
+        if (importResult != null) {
+            try {
+                PetriNet importedNet = importResult.getPetriNet();
+                System.out.println("PetriNet imported successfully, converting to GraphPetriNet...");
+                System.out.println("Net: " + importedNet.getName() + ", Places: " + importedNet.getListP().length +
+                                 ", Transitions: " + importedNet.getListT().length);
+
+                // Convert PetriNet to GraphPetriNet with coordinates and display it
+                GraphPetriNet graphNet = convertPetriNetToGraphPetriNet(importedNet, importResult);
+                System.out.println("GraphPetriNet created successfully, setting to panel...");
+
+                // Use addGraphNet instead of setGraphNet for proper initialization
+                petriNetsPanel.addGraphNet(graphNet);
+                System.out.println("GraphPetriNet added to panel, updating coordinates...");
+
+                // Update coordinates for all arcs to ensure proper display
+                updateArcCoordinates(graphNet);
+
+                netNameTextField.setText(importedNet.getName() != null ? importedNet.getName() : "Imported Net");
+
+                // Force UI update
+                petriNetsPanel.revalidate();
+                petriNetsPanel.repaint();
+                System.out.println("PNML import completed successfully!");
+
+            } catch (Exception e) {
+                System.err.println("Error during import process:");
+                e.printStackTrace();
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "Error displaying imported net:\n" + e.getMessage(),
+                        "Display Error",
+                        javax.swing.JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            System.out.println("Import cancelled or failed at file parsing stage.");
+        }
+    }
+
+    private void exportPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
+        try {
+            if (petriNetsPanel.getGraphNet() != null) {
+                PetriNet petriNet = convertGraphPetriNetToPetriNet(petriNetsPanel.getGraphNet());
+                petriNet.setName(netNameTextField.getText());
+                // Export with coordinates from GraphPetriNet
+                PnmlUtils.exportToFile(petriNet, this, petriNetsPanel.getGraphNet());
+            } else {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                        "No Petri net to export",
+                        "Export Error",
+                        javax.swing.JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (Exception e) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Error exporting net:\n" + e.getMessage(),
+                    "Export Error",
+                    javax.swing.JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
+    }
+
+    private GraphPetriNet convertPetriNetToGraphPetriNet(PetriNet petriNet) throws ExceptionInvalidNetStructure {
+        return convertPetriNetToGraphPetriNet(petriNet, null);
+    }
+
+    private GraphPetriNet convertPetriNetToGraphPetriNet(PetriNet petriNet, ImportResult importResult) throws ExceptionInvalidNetStructure {
+        try {
+            // Reset counters to avoid conflicts with existing elements
+            PetriP.initNext();
+            PetriT.initNext();
+            ArcIn.initNext();
+            ArcOut.initNext();
+
+            // Create lists for graph elements
+            ArrayList<GraphPetriPlace> graphPlaces = new ArrayList<>();
+            ArrayList<GraphPetriTransition> graphTransitions = new ArrayList<>();
+            ArrayList<GraphArcIn> graphArcIns = new ArrayList<>();
+            ArrayList<GraphArcOut> graphArcOuts = new ArrayList<>();
+
+            // Convert places with proper constructor and coordinates
+            for (int i = 0; i < petriNet.getListP().length; i++) {
+                PetriP place = petriNet.getListP()[i];
+                GraphPetriPlace graphPlace = new GraphPetriPlace(place, i);
+
+                // Use imported coordinates if available, otherwise use default positioning
+                java.awt.geom.Point2D.Double coordinates = null;
+                if (importResult != null) {
+                    coordinates = importResult.getPlaceCoordinates(place.getNumber());
+                }
+                if (coordinates == null) {
+                    coordinates = new java.awt.geom.Point2D.Double(100 + i * 120, 100);
+                }
+                graphPlace.setNewCoordinates(coordinates);
+                graphPlaces.add(graphPlace);
+            }
+
+            // Convert transitions with proper constructor and coordinates
+            for (int i = 0; i < petriNet.getListT().length; i++) {
+                PetriT transition = petriNet.getListT()[i];
+                GraphPetriTransition graphTransition = new GraphPetriTransition(transition, i);
+
+                // Use imported coordinates if available, otherwise use default positioning
+                java.awt.geom.Point2D.Double coordinates = null;
+                if (importResult != null) {
+                    coordinates = importResult.getTransitionCoordinates(transition.getNumber());
+                }
+                if (coordinates == null) {
+                    coordinates = new java.awt.geom.Point2D.Double(100 + i * 120, 250);
+                }
+                graphTransition.setNewCoordinates(coordinates);
+                graphTransitions.add(graphTransition);
+            }
+
+            // Convert input arcs (Place -> Transition)
+            for (ArcIn arcIn : petriNet.getArcIn()) {
+                GraphArcIn graphArcIn = new GraphArcIn(arcIn);
+
+                // Find corresponding GraphPetriPlace and GraphPetriTransition
+                GraphPetriPlace sourcePlace = findGraphPlaceByNumber(graphPlaces, arcIn.getNumP());
+                GraphPetriTransition targetTransition = findGraphTransitionByNumber(graphTransitions, arcIn.getNumT());
+
+                if (sourcePlace != null && targetTransition != null) {
+                    // Initialize the arc properly
+                    graphArcIn.settingNewArc(sourcePlace);
+                    graphArcIn.finishSettingNewArc(targetTransition);
+                }
+
+                graphArcIns.add(graphArcIn);
+            }
+
+            // Convert output arcs (Transition -> Place)
+            for (ArcOut arcOut : petriNet.getArcOut()) {
+                GraphArcOut graphArcOut = new GraphArcOut(arcOut);
+
+                // Find corresponding GraphPetriTransition and GraphPetriPlace
+                GraphPetriTransition sourceTransition = findGraphTransitionByNumber(graphTransitions, arcOut.getNumT());
+                GraphPetriPlace targetPlace = findGraphPlaceByNumber(graphPlaces, arcOut.getNumP());
+
+                if (sourceTransition != null && targetPlace != null) {
+                    // Initialize the arc properly
+                    graphArcOut.settingNewArc(sourceTransition);
+                    graphArcOut.finishSettingNewArc(targetPlace);
+                }
+
+                graphArcOuts.add(graphArcOut);
+            }
+
+            // Create GraphPetriNet using the existing PetriNet and graph elements
+            GraphPetriNet graphNet = new GraphPetriNet(petriNet, graphPlaces, graphTransitions, graphArcIns, graphArcOuts);
+
+            return graphNet;
+        } catch (Exception e) {
+            throw new ExceptionInvalidNetStructure("Error converting PetriNet to GraphPetriNet: " + e.getMessage());
+        }
+    }
+
+    private PetriNet convertGraphPetriNetToPetriNet(GraphPetriNet graphPetriNet) throws ExceptionInvalidTimeDelay {
+        return graphPetriNet.getPetriNet();
+    }
+
+    /**
+     * Find GraphPetriPlace by its number
+     */
+    private GraphPetriPlace findGraphPlaceByNumber(ArrayList<GraphPetriPlace> places, int number) {
+        for (GraphPetriPlace place : places) {
+            if (place.getPetriPlace().getNumber() == number) {
+                return place;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Find GraphPetriTransition by its number
+     */
+    private GraphPetriTransition findGraphTransitionByNumber(ArrayList<GraphPetriTransition> transitions, int number) {
+        for (GraphPetriTransition transition : transitions) {
+            if (transition.getPetriTransition().getNumber() == number) {
+                return transition;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Update coordinates for all arcs in the GraphPetriNet
+     */
+    private void updateArcCoordinates(GraphPetriNet graphNet) {
+        System.out.println("Updating arc coordinates...");
+
+        // Update input arcs (Place -> Transition)
+        for (GraphArcIn arcIn : graphNet.getGraphArcInList()) {
+            try {
+                arcIn.updateCoordinates();
+            } catch (Exception e) {
+                System.err.println("Error updating input arc coordinates: " + e.getMessage());
+            }
+        }
+
+        // Update output arcs (Transition -> Place)
+        for (GraphArcOut arcOut : graphNet.getGraphArcOutList()) {
+            try {
+                arcOut.updateCoordinates();
+            } catch (Exception e) {
+                System.err.println("Error updating output arc coordinates: " + e.getMessage());
+            }
+        }
+
+        System.out.println("Arc coordinates updated successfully.");
+    }
+
     /**
      * A petri-object model that is used for displaying animation
      * and can be paused an unpaused
