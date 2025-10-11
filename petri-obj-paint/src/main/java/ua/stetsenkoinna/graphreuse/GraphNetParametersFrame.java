@@ -7,7 +7,6 @@ package ua.stetsenkoinna.graphreuse;
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.graphpresentation.FileUse;
-import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -174,7 +173,7 @@ public class GraphNetParametersFrame extends javax.swing.JFrame {
 		
 		setTitle("Edit net parameters");
 		
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 
         saveAsButton.setText("Save as");
         saveAsButton.addActionListener(new java.awt.event.ActionListener() {

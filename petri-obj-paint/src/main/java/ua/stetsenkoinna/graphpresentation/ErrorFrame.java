@@ -16,7 +16,9 @@ public class ErrorFrame extends javax.swing.JFrame {
     public ErrorFrame() {
         initComponents();
         this.setLocationRelativeTo(null);
-
+        this.setSize(500, 200);
+        this.setResizable(false);
+        this.setTitle("Error");
     }
 
     /**
@@ -29,9 +31,10 @@ public class ErrorFrame extends javax.swing.JFrame {
     private void initComponents() {
 
         okButton = new javax.swing.JButton();
-        errorTextField = new javax.swing.JTextField();
+        errorScrollPane = new javax.swing.JScrollPane();
+        errorTextArea = new javax.swing.JTextArea();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 
         okButton.setText("Ok");
         okButton.addActionListener(new java.awt.event.ActionListener() {
@@ -40,30 +43,33 @@ public class ErrorFrame extends javax.swing.JFrame {
             }
         });
 
-        errorTextField.setEditable(false);
-        errorTextField.setBackground(new java.awt.Color(240, 240, 240));
-        errorTextField.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
-        errorTextField.setHorizontalAlignment(javax.swing.JTextField.CENTER);
-        errorTextField.setBorder(null);
+        errorTextArea.setEditable(false);
+        errorTextArea.setBackground(new java.awt.Color(240, 240, 240));
+        errorTextArea.setFont(new java.awt.Font("Tahoma", 0, 12)); // NOI18N
+        errorTextArea.setLineWrap(true);
+        errorTextArea.setWrapStyleWord(true);
+        errorTextArea.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        errorScrollPane.setViewportView(errorTextArea);
+        errorScrollPane.setBorder(null);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(errorTextField, javax.swing.GroupLayout.Alignment.TRAILING)
+            .addComponent(errorScrollPane, javax.swing.GroupLayout.Alignment.TRAILING)
             .addGroup(layout.createSequentialGroup()
-                .addGap(165, 165, 165)
-                .addComponent(okButton, javax.swing.GroupLayout.PREFERRED_SIZE, 107, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(175, Short.MAX_VALUE))
+                .addGap(200, 200, 200)
+                .addComponent(okButton, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(200, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(errorTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 58, Short.MAX_VALUE)
-                .addGap(26, 26, 26)
+                .addComponent(errorScrollPane, javax.swing.GroupLayout.DEFAULT_SIZE, 120, Short.MAX_VALUE)
+                .addGap(15, 15, 15)
                 .addComponent(okButton)
-                .addGap(24, 24, 24))
+                .addGap(15, 15, 15))
         );
 
         pack();
@@ -74,10 +80,11 @@ public class ErrorFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_okButtonActionPerformed
 
     public void setErrorMessage(String message) {
-        errorTextField.setText("Error: " + message);
+        errorTextArea.setText("Error: " + message);
     }
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JTextField errorTextField;
+    private javax.swing.JScrollPane errorScrollPane;
+    private javax.swing.JTextArea errorTextArea;
     private javax.swing.JButton okButton;
     // End of variables declaration//GEN-END:variables
 }

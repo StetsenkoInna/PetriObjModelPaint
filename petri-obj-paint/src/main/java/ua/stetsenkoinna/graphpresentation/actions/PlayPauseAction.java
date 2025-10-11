@@ -15,8 +15,8 @@ public class PlayPauseAction extends AbstractAction {
     
     private final AnimationControls controls;
 
-    private final ImageIcon playIcon = new ImageIcon(Objects.requireNonNull(ResourcePathConfig.getResource(getClass(), ResourcePathConfig.getActionIconPath(ResourcePathConfig.PLAY_ICON))));
-    private final ImageIcon pauseIcon = new ImageIcon(Objects.requireNonNull(ResourcePathConfig.getResource(getClass(), ResourcePathConfig.getActionIconPath(ResourcePathConfig.PAUSE_ICON))));
+    private final ImageIcon playIcon = new ImageIcon(Objects.requireNonNull(ResourcePathConfig.getResource(getClass(), ResourcePathConfig.getIconPath(ResourcePathConfig.PLAY_ICON))));
+    private final ImageIcon pauseIcon = new ImageIcon(Objects.requireNonNull(ResourcePathConfig.getResource(getClass(), ResourcePathConfig.getIconPath(ResourcePathConfig.PAUSE_ICON))));
     
     public PlayPauseAction(AnimationControls controls) {
         this.controls = controls;

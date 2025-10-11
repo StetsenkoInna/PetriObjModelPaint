@@ -53,7 +53,7 @@ public class SetArc extends javax.swing.JFrame {
         okButton = new javax.swing.JButton();
         cancelButton = new javax.swing.JButton();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Link parameters");
 
         setTiePanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Basic parameters"));

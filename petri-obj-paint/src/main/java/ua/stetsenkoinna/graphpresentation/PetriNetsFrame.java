@@ -1693,7 +1693,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         return false;
         }
         if (getPetriNetsPanel().getGraphNet().hasParameters() == true) { // addedn by Katya 08.12.2016
-                errorFrame.setErrorMessage(" Petri Net has parameters. Provide specific values for them first.");
+                errorFrame.setErrorMessage("The Petri Net contains unspecified parameters that must be configured before simulation can begin. Please open the 'Edit Net Parameters' dialog (Ctrl+E) to provide specific values for all parameters, or ensure all transition delays and place markings are properly defined.");
                 errorFrame.setVisible(true);
                 return false;
         }

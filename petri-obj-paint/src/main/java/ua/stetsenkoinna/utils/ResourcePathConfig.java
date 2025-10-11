@@ -12,9 +12,8 @@ import java.net.URL;
 public class ResourcePathConfig {
 
     // Base paths for different resource types
-    private static final String ICONS_BASE_PATH = "/ua/stetsenkoinna/utils/";
-    private static final String ACTION_ICONS_BASE_PATH = "/ua/stetsenkoinna/graphpresentation/actions/icons/";
-    private static final String PNS_FILES_BASE_PATH = "/ua/stetsenkoinna/utils/pns/";
+    private static final String ICONS_BASE_PATH = "/ua/stetsenkoinna/img/";
+    private static final String PNS_FILES_BASE_PATH = "/ua/stetsenkoinna/pns/";
     private static final String STYLES_BASE_PATH = "/ua/stetsenkoinna/graphpresentation/statistic/styles/";
 
     // Icon file names
@@ -46,15 +45,6 @@ public class ResourcePathConfig {
      */
     public static String getIconPath(String iconFileName) {
         return ICONS_BASE_PATH + iconFileName;
-    }
-
-    /**
-     * Get the full resource path for an action icon file
-     * @param iconFileName the action icon file name
-     * @return the full resource path
-     */
-    public static String getActionIconPath(String iconFileName) {
-        return ACTION_ICONS_BASE_PATH + iconFileName;
     }
 
     /**
