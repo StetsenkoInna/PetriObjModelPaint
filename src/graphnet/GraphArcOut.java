@@ -75,9 +75,20 @@ public class GraphArcOut extends GraphArc implements Serializable {
                     : Integer.toString(arc.getQuantity());
             this.getAvgLine().setLocation((this.getGraphElement().getX1() + this.getGraphElement().getX2()) / 2, (this.getGraphElement().getY1() + this.getGraphElement().getY2()) / 2);
             g2.drawLine((int) this.getAvgLine().getX() + 5, (int) this.getAvgLine().getY() - 5, (int) this.getAvgLine().getX() - 5, (int) this.getAvgLine().getY() + 5);
-            g2.drawString(quantityString, (float) this.getAvgLine().getX(), (float) this.getAvgLine().getY() - 7);
+
+            // shift two arcs
+            float textX = (float) this.getAvgLine().getX();
+            float textY = (float) this.getAvgLine().getY() - 7;
+            if (this.isFirstArc()) {
+                textX -= 10; // left shift for the first arc
+                textY -= 5;  // upper shift
+            } else if (this.isSecondArc()) {
+                textX += 10; // right shift for the second arc
+                textY += 5;  // down shift
+            }
+            g2.drawString(quantityString, textX, textY);
         }
-        if(this.isFirstArc()||this.isSecondArc()){ // важливо для правильної відмальовки після запуску мережі   
+        if(this.isFirstArc()||this.isSecondArc()){
             this.updateCoordinates();
         }
     }
@@ -87,13 +98,13 @@ public class GraphArcOut extends GraphArc implements Serializable {
     }
 
     public static ArrayList<ArcOut> getArcOutList() {  // added by Inna 1.11.2012
-
         ArrayList<ArcOut> arrayTieOut = new ArrayList<>();
         for (GraphArcOut e : graphArcOutList) {
             arrayTieOut.add(e.getArcOut());
         }
         return arrayTieOut;
     }
+
 //    public static void setTieOutList(ArrayList<TieOut> TieOutList) {
 //        TieOut.tieOutList = TieOutList;
 //    }
@@ -103,9 +114,7 @@ public class GraphArcOut extends GraphArc implements Serializable {
     }
 
     public static void addGraphTieOutList(List<GraphArcOut> tieOut) { // added by Olha 14/11/2012
-        for (GraphArcOut to : tieOut) {
-            graphArcOutList.add(to);
-        }
+        graphArcOutList.addAll(tieOut);
     }
 
     @Override
@@ -117,5 +126,4 @@ public class GraphArcOut extends GraphArc implements Serializable {
     public void setQuantity(int i) {
         arc.setQuantity(i);
     }
-
 }
