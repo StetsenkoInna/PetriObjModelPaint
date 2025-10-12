@@ -72,22 +72,19 @@ public class GraphTransition extends GraphElement{
 
     @Override
     public void setNewCoordinates(Point2D p){
-        graphElement.setFrame(p.getX() - getWidth() / 2, p.getY() - getHeight() / 2, getWidth(), getHeight());
+        graphElement.setFrame(p.getX() - (double) getWidth() / 2, p.getY() - (double) getHeight() / 2, getWidth(), getHeight());
     }
 
    
     @Override
     public boolean isGraphElement(Point2D p){
-        if (graphElement.contains(p) || new Line2D.Double(new Point2D.Double(graphElement.getMaxX(),graphElement.getMinY()),new Point2D.Double(graphElement.getMinX(),graphElement.getMaxY())).ptSegDist(p)<getWidth()*2) {
-            return true;
-        }
-        return false;
+        return graphElement.contains(p) || new Line2D.Double(new Point2D.Double(graphElement.getMaxX(), graphElement.getMinY()), new Point2D.Double(graphElement.getMinX(), graphElement.getMaxY())).ptSegDist(p) < getWidth() * 2;
     }
 
   
     @Override
     public Point2D getGraphElementCenter(){
-        return new Point2D.Double(graphElement.getX() + getWidth() / 2, graphElement.getY() + getHeight() / 2);
+        return new Point2D.Double(graphElement.getX() + (double) getWidth() / 2, graphElement.getY() + (double) getHeight() / 2);
     }
 
    
@@ -99,7 +96,7 @@ public class GraphTransition extends GraphElement{
     
     @Override
     public  int getBorder() {
-        return getDefaultwidth()/2; // /2 is added, july 2023
+        return getDefaultWidth()/2; // /2 is added, july 2023
     }
 
     public RoundRectangle2D getGraphElement() {
@@ -110,11 +107,7 @@ public class GraphTransition extends GraphElement{
         this.graphElement = graphElement;
     }
 
-    public static int getDefaultwidth() {
+    public static int getDefaultWidth() {
         return defaultWidth;
     }
-
-    
-    
-    
 }

@@ -20,7 +20,8 @@ import java.util.List;
 public class GraphArcOut extends GraphArc implements Serializable {
 
     private static ArrayList<GraphArcOut> graphArcOutList = new ArrayList<>();  // added by Olha 24.09.12, cjrrect by Inna 28.11.2012
-    private ArcOut arc;
+
+    private final ArcOut arc;
 
     public GraphArcOut() { // додано Олею 28.09.12 для створення тимчасової дуги (тільки для промальовки) 
         super();
@@ -87,9 +88,6 @@ public class GraphArcOut extends GraphArc implements Serializable {
                 textY += 5;  // down shift
             }
             g2.drawString(quantityString, textX, textY);
-        }
-        if(this.isFirstArc()||this.isSecondArc()){
-            this.updateCoordinates();
         }
     }
 

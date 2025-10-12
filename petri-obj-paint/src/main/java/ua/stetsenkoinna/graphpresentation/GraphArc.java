@@ -47,8 +47,7 @@ public class GraphArc implements Serializable {
         if (e != null) { //add by Inna 26.01.2013
             setBeginElement(e);
             graphElement = new Line2D.Double(0, 0, 0, 0);
-        } else
-         ;
+        }
     }
 
     //setting end element
@@ -69,15 +68,13 @@ public class GraphArc implements Serializable {
     public void setBeginElement(GraphElement e) {
         if (e != null) {   //add by Inna 26.01.2013
             beginElement = e;
-        } else
-            ;
+        }
     }
 
     public void setEndElement(GraphElement e) {
         if (e != null) {  //add by Inna 26.01.2013
             endElement = e;
-        } else ;
-
+        }
     }
 
     public boolean isGraphElement(Point2D p) {
@@ -171,6 +168,7 @@ public class GraphArc implements Serializable {
         }  
      }
      */
+
     // використовуємо векторні операції для розрахунку координат  
     public void changeBorder() {
         double x, y, r, rr, yy, xx, dy, dx, k, b;
@@ -191,7 +189,8 @@ public class GraphArc implements Serializable {
         dx = x - xx;
         double arcLength = Math.sqrt(dy * dy + dx * dx);
 
-        double halfH = GraphTransition.getHeight() / 2;
+        double halfH = (double) GraphTransition.getHeight() / 2;
+
 //        rr = rr / arcLength;
 //        xx = xx + rr * dx;
 //        yy = yy + rr * dy;
@@ -205,7 +204,7 @@ public class GraphArc implements Serializable {
                 xx = xx + rr * dx;
                 yy = yy + rr * dy;
             } else { // cross line with rectangle
-                double halfW = ((GraphTransition) beginElement).getWidth() / 2;
+                double halfW = (double) ((GraphTransition) beginElement).getWidth() / 2;
 
                 if (xx<x) {
                     xx = xx + halfW;
@@ -218,7 +217,7 @@ public class GraphArc implements Serializable {
                 x = x + r * dx;
                 y = y + r * dy;
             } else { // cross line with rectangle
-                double halfW = ((GraphTransition) endElement).getWidth() / 2;
+                double halfW = (double) ((GraphTransition) endElement).getWidth() / 2;
 
                 if (xx<x) {
                     x = x - halfW;
@@ -248,29 +247,24 @@ public class GraphArc implements Serializable {
                 yy = yy + rr * dy;
             } else { // the begin element is rectangle  
 
-                 double halfW = ((GraphTransition) beginElement).getWidth() / 2;
+                 double halfW = (double) ((GraphTransition) beginElement).getWidth() / 2;
                 // 4 точки перетину з 4 прямими, а яка з них - вирішуємо через перетин
                 // з точками перетину ще біда...не вийшло
+                Point2D.Double p1;
+                Point2D.Double p2;
                 if(Math.abs(k) <= halfH/halfW){ // halfH/halfW тангенс кута діагоналі прямокутника, з яким перетинаємо лінію
-                    Point2D.Double p1 = new Point2D.Double(xx - halfW, b + k * (xx - halfW));
-                    Point2D.Double p2 = new Point2D.Double(xx + halfW, b + k * (xx + halfW));
-                    if(p1.distance(endCenter)<p2.distance(endCenter)){
-                        xx = p1.x;
-                        yy = p1.y;
-                    } else {
-                        xx= p2.x;
-                        yy = p2.y;
-                    }
+                    p1 = new Point2D.Double(xx - halfW, b + k * (xx - halfW));
+                    p2 = new Point2D.Double(xx + halfW, b + k * (xx + halfW));
                 } else {
-                    Point2D.Double p1 = new Point2D.Double((yy - halfH - b) / k, yy - halfH);
-                    Point2D.Double p2 =  new Point2D.Double((yy + halfH - b) / k, yy + halfH);
-                    if(p1.distance(endCenter)<p2.distance(endCenter)){
-                        xx = p1.x;
-                        yy = p1.y;
-                    } else {
-                        xx= p2.x;
-                        yy = p2.y;
-                    }
+                    p1 = new Point2D.Double((yy - halfH - b) / k, yy - halfH);
+                    p2 = new Point2D.Double((yy + halfH - b) / k, yy + halfH);
+                }
+                if(p1.distance(endCenter)<p2.distance(endCenter)){
+                    xx = p1.x;
+                    yy = p1.y;
+                } else {
+                    xx= p2.x;
+                    yy = p2.y;
                 }
             }
 
@@ -280,30 +274,25 @@ public class GraphArc implements Serializable {
                 y = y - r * dy;
             } else {// the end element is rectangle 
 
-             double halfW = ((GraphTransition) endElement).getWidth() / 2;
+             double halfW = (double) ((GraphTransition) endElement).getWidth() / 2;
                 // 4 точки перетину з 4 прямими, а яка з них - вирішуємо через перетин
                 // з точками перетину ще біда...не вийшло
+                Point2D.Double p1;
+                Point2D.Double p2;
                 if(Math.abs(k) <= halfH/halfW){ // halfH/halfW тангенс кута діагоналі прямокутника, з яким перетинаємо лінію
-                    Point2D.Double p1 = new Point2D.Double(x - halfW, b + k * (x - halfW));
-                    Point2D.Double p2 = new Point2D.Double(x + halfW, b + k * (x + halfW));
-                    if(p1.distance(beginCenter)<p2.distance(beginCenter)){
-                        x = p1.x;
-                        y = p1.y;
-                    } else {
-                        x= p2.x;
-                        y = p2.y;
-                    }
+                    p1 = new Point2D.Double(x - halfW, b + k * (x - halfW));
+                    p2 = new Point2D.Double(x + halfW, b + k * (x + halfW));
                 } else {
-                    Point2D.Double p1 = new Point2D.Double((y - halfH - b) / k, y - halfH);
-                    Point2D.Double p2 =  new Point2D.Double((y + halfH - b) / k, y + halfH);
-                    if(p1.distance(beginCenter)<p2.distance(beginCenter)){
-                        x = p1.x;
-                        y = p1.y;
-                    } else {
-                        x= p2.x;
-                        y = p2.y;
-                    }
-                }             
+                    p1 = new Point2D.Double((y - halfH - b) / k, y - halfH);
+                    p2 = new Point2D.Double((y + halfH - b) / k, y + halfH);
+                }
+                if(p1.distance(beginCenter)<p2.distance(beginCenter)){
+                    x = p1.x;
+                    y = p1.y;
+                } else {
+                    x= p2.x;
+                    y = p2.y;
+                }
             }
 
             double slide = 8; // зсув дуги у разі двох дуг

@@ -15,7 +15,7 @@ public class TestPetriNetsPaint {
     /**
      * @param args the command line arguments
      */
-    public static void main(String args[]) {
+    public static void main(String[] args) {
 
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager
@@ -30,12 +30,7 @@ public class TestPetriNetsPaint {
                     .log(java.util.logging.Level.SEVERE, null, ex);
         }
 		/* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                new PetriNetsFrame().setVisible(true);
-            }
-        });
+        java.awt.EventQueue.invokeLater(() -> new PetriNetsFrame().setVisible(true));
 
     }
 }

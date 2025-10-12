@@ -21,8 +21,9 @@ import java.util.List;
  */
 public class GraphArcIn extends GraphArc implements Serializable {
 
-    private static ArrayList<GraphArcIn> graphArcInList = new ArrayList<>(); // added by Olha 24.09.12, cjrrect by Inna 28.11.2012
-    private ArcIn arc;
+    private final ArcIn arc;
+
+    private static ArrayList<GraphArcIn> graphArcInList = new ArrayList<>(); // added by Olha 24.09.12, moderated by Inna 28.11.2012
   
     public GraphArcIn() { // додано Олею 28.09.12 для створення тимчасової дуги (тільки для промальовки)  
         super();
@@ -51,8 +52,7 @@ public class GraphArcIn extends GraphArc implements Serializable {
         arc.setNumT(super.getEndElement().getNumber());
         arc.setNameP(super.getBeginElement().getName());
         arc.setNameT(super.getEndElement().getName());
-      
-     
+
         addElementToArrayList(); //// added by Olha 24.09.12
     }
 
@@ -94,9 +94,6 @@ public class GraphArcIn extends GraphArc implements Serializable {
                 textY += 5;  // down shift
             }
             g2.drawString(quantityString, textX, textY);
-        }
-        if(this.isFirstArc()||this.isSecondArc()){
-            this.updateCoordinates();
         }
     }
     
