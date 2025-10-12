@@ -724,16 +724,6 @@ public class GraphPetriNet implements Cloneable, Serializable {
  
     // 11.01.13 промальовка мережі винесена в окремий метод by Inna
     public void paintGraphPetriNet(Graphics2D g2, Graphics g) { // edited 26.07.2018 by Inna
-        if (!graphArcOutList.isEmpty()) {
-            for (GraphArcOut a : graphArcOutList) {
-              a.drawGraphElement(g2);
-            }
-        }
-        if (!graphArcInList.isEmpty()) {
-            for (GraphArcIn a : graphArcInList) {
-               a.drawGraphElement(g2);
-            }
-        }
         if (!graphPetriPlaceList.isEmpty()) {
             for (GraphPetriPlace e : graphPetriPlaceList) {
                e.drawGraphElement(g2);
@@ -744,6 +734,17 @@ public class GraphPetriNet implements Cloneable, Serializable {
                 e.drawGraphElement(g2);
             }
         }
+        if (!graphArcOutList.isEmpty()) {
+            for (GraphArcOut a : graphArcOutList) {   
+              a.drawGraphElement(g2);
+            }
+        }
+        if (!graphArcInList.isEmpty()) {
+            for (GraphArcIn a : graphArcInList) {
+               a.drawGraphElement(g2);
+            }
+        }
+        
     }
 
 }

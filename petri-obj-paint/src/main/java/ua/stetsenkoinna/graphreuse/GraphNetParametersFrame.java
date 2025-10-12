@@ -18,6 +18,7 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableColumn;
 
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
+import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
 
 import java.awt.*;
@@ -172,7 +173,7 @@ public class GraphNetParametersFrame extends javax.swing.JFrame {
 		
 		setTitle("Edit net parameters");
 		
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 
         saveAsButton.setText("Save as");
         saveAsButton.addActionListener(new java.awt.event.ActionListener() {

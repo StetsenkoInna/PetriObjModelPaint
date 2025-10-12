@@ -1,10 +1,15 @@
 package ua.stetsenkoinna.graphpresentation.undoable_edits;
 
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
+import ua.stetsenkoinna.graphnet.GraphArcIn;
+import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
+import ua.stetsenkoinna.graphnet.GraphPetriPlace;
+import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphpresentation.GraphElement;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
-
+import java.awt.Color;
+import java.util.List;
 import javax.swing.undo.AbstractUndoableEdit;
 
 /**

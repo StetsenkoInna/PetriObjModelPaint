@@ -7,8 +7,11 @@ package ua.stetsenkoinna.graphnet;
 import ua.stetsenkoinna.PetriObj.PetriP;
 import ua.stetsenkoinna.graphpresentation.GraphPlace;
 
+import java.awt.Color;
 import java.awt.Graphics2D;
 import java.io.Serializable;
+
+import javax.swing.JTextField;
 
 /**
  *

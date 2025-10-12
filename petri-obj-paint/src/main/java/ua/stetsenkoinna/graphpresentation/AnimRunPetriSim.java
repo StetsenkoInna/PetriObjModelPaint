@@ -10,7 +10,11 @@ import ua.stetsenkoinna.PetriObj.PetriP;
 import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.PetriObj.StateTime;
+
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
 
@@ -329,5 +333,4 @@ public class AnimRunPetriSim extends PetriSim {
     public boolean isHalted() {
         return halted;
     }
-    
 }

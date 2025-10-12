@@ -276,18 +276,24 @@ public class AnimationControls {
                 "runNet");
         
         saveCurrentNetState();
-        
+        int numberOfRuns = frame.getNumberOfRuns();
         Thread t = new Thread(() -> {
-            try {
-                frame.disableInput();
-                frame.timer.start();
-                frame.runNet();
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                frame.enableInput();
-                frame.timer.stop();
-                setState(AnimationControls.State.SAVED_STATE_EXISTS);
+            for (int i = 0; i < numberOfRuns; i++) {
+                try {
+                    frame.disableInput();
+                    frame.timer.start();
+                    frame.runNet();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    frame.enableInput();
+                    frame.timer.stop();
+                    setState(AnimationControls.State.SAVED_STATE_EXISTS);
+                }
+                if (i + 1 != numberOfRuns) {
+                    rewindButtonPressed();
+                    saveCurrentNetState();
+                }
             }
 
         });  

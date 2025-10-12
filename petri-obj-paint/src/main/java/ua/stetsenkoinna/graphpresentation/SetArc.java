@@ -12,10 +12,6 @@ package ua.stetsenkoinna.graphpresentation;
 
 import ua.stetsenkoinna.PetriObj.*;
 import ua.stetsenkoinna.graphnet.*;
-import ua.stetsenkoinna.PetriObj.ArcIn;
-import ua.stetsenkoinna.PetriObj.ArcOut;
-import ua.stetsenkoinna.graphnet.GraphArcIn;
-import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.utils.Utils;
 
 import javax.swing.*;
@@ -57,7 +53,7 @@ public class SetArc extends javax.swing.JFrame {
         okButton = new javax.swing.JButton();
         cancelButton = new javax.swing.JButton();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Link parameters");
 
         setTiePanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Basic parameters"));

@@ -10,32 +10,36 @@ import ua.stetsenkoinna.PetriObj.PetriP;
 import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.PetriObj.StateTime;
+import ua.stetsenkoinna.graphpresentation.statistic.dto.data.PetriElementStatisticDto;
+import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonitor;
+
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
-import javax.swing.JSlider;
-import javax.swing.JTextArea;
+import javax.swing.*;
 
 /**
- * 
+ *
  * @author Inna
  */
 public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
-    
+
     private JTextArea area; // specifies where simulation protokol is printed
     private PetriNetsPanel panel;
     private JSlider delaySlider;
+    private StatisticGraphMonitor statisticGraphMonitor;
     private ArrayList<AnimRunPetriSim> runlist = new ArrayList<>();
-    
+
     /**
      * Whether the simulation is paused (by pressing pause button)
      */
     private volatile boolean paused = false;
-    
+
     /**
      * Whether the simulation should completely stop immediately
      */
     private volatile boolean halted = false;
-       
+
     public AnimRunPetriObjModel(ArrayList<PetriSim> list,
                                 JTextArea area,
                                 PetriNetsPanel panel,
@@ -50,14 +54,14 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
         }
         super.setTimeState(s); // edit 25.07.2018  It's very important for correct statistics but building of project get error...very strange
         super.setListObj(list); // edit 25.07.2018 May be it's not important 
-        
+
     }
-    
-    
-    
-    
-    
-   
+
+
+
+
+
+
     @Override
     public void go(double timeModeling) { //виведення протоколу подій та результатів моделювання у об"єкт класу JTextArea
         area.setText(" Events protocol ");
@@ -87,6 +91,8 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                     min = e.getTimeMin();
                 }
             }
+
+            List<PetriElementStatisticDto> currentStatistic = new ArrayList<>();
             if (super.isStatistics() == true) {
                 for (AnimRunPetriSim e : getRunlist()) {
                     if (min > 0) {
@@ -96,7 +102,14 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                             e.doStatistics((timeModeling - super.getCurrentTime()) / super.getSimulationTime());
                         }
                     }
+                    if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
+                        currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
+                    }
                 }
+            }
+            if (!currentStatistic.isEmpty()) {
+                statisticGraphMonitor.setLastStatisticCollectionTime(getCurrentTime());
+                statisticGraphMonitor.asyncStatisticSend(getCurrentTime(), currentStatistic);
             }
 
             super.setCurrentTime(min); // просування часу
@@ -153,7 +166,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                 }
                 super.printInfo("Markers leave transitions:", area);
                 super.printMark(area);
-                
+
                 /* pausing/unpausing support between input and output */
                 /*if (paused) {
                     synchronized(this) {
@@ -165,10 +178,10 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                     }
                 } */
                 /* end of pausing/unpausing support */
-                
+
                 super.getListObj().sort(PetriSim.getComparatorByPriority());
                 for (AnimRunPetriSim e : getRunlist()) {
-                        e.input(); //вхід маркерів в переходи Петрі-об'єкта 
+                        e.input(); //вхід маркерів в переходи Петрі-об'єкта
                         /* support for early termination of the simulation */
                         if (isHalted()) {
                             return;
@@ -179,11 +192,22 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                 super.printMark(area);
             }
         }
-        
-        
+
+        if (isLastStatisticSegment()) {
+            List<PetriElementStatisticDto> statistic = new ArrayList<>();
+            for (PetriSim e : getListObj()) {
+                statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
+            }
+            statisticGraphMonitor.asyncStatisticSend(getCurrentTime(), statistic);
+        }
+        if (isStatisticMonitorEnabled()) {
+            statisticGraphMonitor.shutdownStatisticUpdate();
+        }
+
+
         displayModellingResults();
     }
-    
+
     private void displayModellingResults() {
         area.append("\n Modeling results: \n");
         for (AnimRunPetriSim e : getRunlist()) {
@@ -212,12 +236,12 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
     public void setRunlist(ArrayList<AnimRunPetriSim> runlist) {
         this.runlist = runlist;
     }
-    
+
      /**
      * Prints the string in given JTextArea object
      *
      * @param info string for printing
-     * 
+     *
      */
     public void printInfo(String info){
         if(isProtocolPrint() == true)
@@ -225,7 +249,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
     }
     /**
      * Prints the quantity for each position of Petri net
-     ** 
+     **
      */
     public void printMark(){
         if (isProtocolPrint() == true) {
@@ -234,7 +258,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
             }
         }
     }
-    
+
     /**
      * Pause or unpause the simulation
      */
@@ -244,14 +268,14 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
             petriObject.setPaused(isPaused);
         }
     }
-    
+
     /**
      * @return Whether the animation is paused or not
      */
     public boolean isPaused() {
         return paused;
     }
-    
+
     /**
      * Send a signal to the simulation that it should stop ASAP.
      * It wouldn't be possible to continue this simulation after that.
@@ -266,11 +290,28 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
             petriObject.halt();
         }
     }
-    
+
     /**
-     * @return whether the simulation received the signal to halt 
+     * @return whether the simulation received the signal to halt
      */
     public boolean isHalted() {
         return halted;
+    }
+
+    public void setStatisticMonitor(StatisticGraphMonitor statisticGraphMonitor) {
+        this.statisticGraphMonitor = statisticGraphMonitor;
+    }
+
+    private boolean isStatisticMonitorEnabled() {
+        return statisticGraphMonitor != null && statisticGraphMonitor.isValidMonitor();
+    }
+
+    private boolean isStatisticCollectionTime() {
+        return isStatisticMonitorEnabled() && (getCurrentTime() >= statisticGraphMonitor.getDataCollectionStartTime());
+    }
+
+    private boolean isLastStatisticSegment() {
+        return isStatisticMonitorEnabled() && (getCurrentTime() - getSimulationTime() <= getSimulationTime()) &&
+                statisticGraphMonitor.getDataCollectionStartTime() <= getSimulationTime();
     }
 }

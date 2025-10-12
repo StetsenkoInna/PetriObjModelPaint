@@ -9,7 +9,7 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
-import java.awt.geom.Rectangle2D;
+import java.awt.geom.RoundRectangle2D;
 
 /**
  *
@@ -17,10 +17,11 @@ import java.awt.geom.Rectangle2D;
  */
 public class GraphTransition extends GraphElement{
     private static int height = 50;
-    private static final int defaultWidth = 5;
-    private int width = 5;
+    private static final int defaultWidth = 19;
+    private int width = 19;
 
-
+  private RoundRectangle2D graphElement=
+                new RoundRectangle2D.Double(0,0, getWidth(), getHeight(),6,6);
 
     /**
      * @return the height
@@ -49,21 +50,23 @@ public class GraphTransition extends GraphElement{
     public void setWidth(int aWidth) {
         width = aWidth;
     }
-    private Rectangle2D graphElement=new Rectangle2D.Double(0,0, getWidth(), getHeight());
+  
 
 
     public GraphTransition(){
-        super.setLineWidth(5);
+        super.setLineWidth(3);
         super.setColor(Color.BLACK);
     }
   
     @Override
     public void drawGraphElement(Graphics2D g2) {
-    	graphElement.setRect(graphElement.getX(), graphElement.getY(), getWidth(), getHeight());
+    	graphElement.setRoundRect(graphElement.getX(), graphElement.getY(), getWidth(), getHeight(),6,6);
         g2.setStroke(new BasicStroke(getLineWidth()));
         g2.setColor(getColor());
         g2.draw(graphElement);
+        g2.setColor(Color.WHITE);
         g2.fill(graphElement);
+        g2.setColor(getColor());
    }
    
 
@@ -96,14 +99,14 @@ public class GraphTransition extends GraphElement{
     
     @Override
     public  int getBorder() {
-        return getDefaultwidth();
+        return getDefaultwidth()/2; // /2 is added, july 2023
     }
 
-    public Rectangle2D getGraphElement() {
+    public RoundRectangle2D getGraphElement() {
         return graphElement;
     }
 
-    public void setGraphElement(Rectangle2D graphElement) {
+    public void setGraphElement(RoundRectangle2D graphElement) {
         this.graphElement = graphElement;
     }
 

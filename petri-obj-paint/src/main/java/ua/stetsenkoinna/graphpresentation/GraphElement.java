@@ -13,53 +13,54 @@ import java.io.Serializable;
  *
  * @author Ольга
  */
-public class GraphElement implements Serializable{
-    
+public class GraphElement implements Serializable {
+
     private int lineWidth; //replaced from subclasses
     private Color color;  // replaced from subclasses
 
-    
-    public void drawGraphElement(Graphics2D g2){
-        
+    public void drawGraphElement(Graphics2D g2) {
+
     }
-    
+
     public void setNewCoordinates(Point2D p) {
-        
+
     }
-    
-     public boolean isGraphElement(Point2D p) {
-         return false;
-     }
-     
-      public Point2D getGraphElementCenter() {
+
+    public boolean isGraphElement(Point2D p) {
+        return false;
+    }
+
+    public Point2D getGraphElementCenter() {
         return null;
     }
-      
-      public String getType() {
+
+    public String getType() {
         return null;
     }
-      
-       public  int getBorder() {
+
+    public int getBorder() {
         return 0;
     }
-       public int getId(){
-           return 0;
-       }
-     /*  public  void addElementToArrayList(){
+
+    public int getId() {
+        return 0;
+    }
+    /*  public  void addElementToArrayList(){
            
        }*/
-       public String getName(){
-           return null;
-       }
-       public int getNumber(){
-           return 0;
-       }
-       
-       public void resize(){
-           
-       }
-       
-     /**
+    public String getName() {
+        return null;
+    }
+
+    public int getNumber() {
+        return 0;
+    }
+
+    public void resize() {
+
+    }
+
+    /**
      * @return the lineWidth
      */
     public int getLineWidth() {

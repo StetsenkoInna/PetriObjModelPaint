@@ -87,7 +87,7 @@ public class GraphReUseFrame extends javax.swing.JFrame {
         arcOutScrollPane = new javax.swing.JScrollPane();
         saveButton = new javax.swing.JButton();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 
         saveAsButton.setText("Зберегти як");
         saveAsButton.addActionListener(new java.awt.event.ActionListener() {

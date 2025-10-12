@@ -7,7 +7,7 @@ import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
 import javax.swing.undo.AbstractUndoableEdit;
 
 /**
- * Represents an undoable & redoable action of deleting an arc from the graph
+ * Represents an undoable & redoable action of deleting an GraphArcOut from the graph
  * @author Leonid
  */
 public class DeleteArcEdit extends AbstractUndoableEdit {

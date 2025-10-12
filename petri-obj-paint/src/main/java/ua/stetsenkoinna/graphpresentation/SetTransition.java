@@ -10,7 +10,6 @@
  */
 package ua.stetsenkoinna.graphpresentation;
 
-import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.PetriObj.*;
 import java.awt.*;

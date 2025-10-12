@@ -10,6 +10,7 @@ PetriObjModelPaint is the project of Petri-object simulation technique implement
 
 - **Visual Petri Net Editor**: Create and edit Petri nets with intuitive drag-and-drop interface
 - **PNML Support**: Import and export Petri nets in standard PNML format (ISO/IEC 15909)
+- **Statistics Module**: Advanced simulation statistics and charting capabilities
 - **Simulation**: Run and animate Petri net simulations
 - **Net Library**: Built-in library of common Petri net patterns
 - **Extensible**: Support for custom net components and annotations
@@ -92,6 +93,7 @@ PetriObjModelPaint/
 │   │   │   ├── PetriObj/      # Core Petri net objects
 │   │   │   ├── graphnet/      # Graphical net components
 │   │   │   ├── graphpresentation/ # UI components
+│   │   │   │   └── statistic/ # Statistics and charting module
 │   │   │   └── pnml/          # PNML import/export
 │   │   └── resources/
 │   └── target/                # Build output

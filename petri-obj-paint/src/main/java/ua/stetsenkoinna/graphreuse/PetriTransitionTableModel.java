@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import javax.swing.table.AbstractTableModel;
 
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
+import ua.stetsenkoinna.graphpresentation.GraphTransition;
 import ua.stetsenkoinna.utils.Utils;
 
 /**
