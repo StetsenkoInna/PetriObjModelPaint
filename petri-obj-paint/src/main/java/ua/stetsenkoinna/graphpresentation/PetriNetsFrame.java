@@ -14,6 +14,15 @@ import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonit
 import ua.stetsenkoinna.graphreuse.GraphNetParametersFrame;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
 import ua.stetsenkoinna.utils.ResourcePathConfig;
+import ua.stetsenkoinna.pnml.PnmlParser;
+import ua.stetsenkoinna.pnml.PnmlGenerator;
+import ua.stetsenkoinna.PetriObj.PetriNet;
+import ua.stetsenkoinna.PetriObj.ArcIn;
+import ua.stetsenkoinna.PetriObj.ArcOut;
+import ua.stetsenkoinna.graphnet.GraphPetriPlace;
+import ua.stetsenkoinna.graphnet.GraphPetriTransition;
+import ua.stetsenkoinna.graphnet.GraphArcIn;
+import ua.stetsenkoinna.graphnet.GraphArcOut;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -32,8 +41,6 @@ import java.util.regex.Matcher;
 import javax.swing.*;
 
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
-import ua.stetsenkoinna.graphnet.GraphPetriPlace;
-import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphpresentation.actions.AnimateEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.PlayPauseAction;
 import ua.stetsenkoinna.graphpresentation.actions.RewindAction;
@@ -1248,6 +1255,20 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         fileMenu.add(openMethodMenuItem);
 
+        // Add separator
+        fileMenu.addSeparator();
+
+        // Import PNML menu item
+        importPnmlMenuItem = new javax.swing.JMenuItem();
+        importPnmlMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_I, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        importPnmlMenuItem.setText("Import PNML");
+        importPnmlMenuItem.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                importPnmlMenuItemActionPerformed(evt);
+            }
+        });
+        fileMenu.add(importPnmlMenuItem);
+
         petriNetsFrameMenuBar.add(fileMenu);
 
         editMenu.setText("Edit");
@@ -1340,6 +1361,20 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         });
         save.add(SaveMethodInNetLibrary);
+
+        // Add separator
+        save.addSeparator();
+
+        // Export PNML menu item
+        exportPnmlMenuItem = new javax.swing.JMenuItem();
+        exportPnmlMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_X, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        exportPnmlMenuItem.setText("Export PNML");
+        exportPnmlMenuItem.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                exportPnmlMenuItemActionPerformed(evt);
+            }
+        });
+        save.add(exportPnmlMenuItem);
 
         petriNetsFrameMenuBar.add(save);
 
@@ -1981,6 +2016,203 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         dialog.setVisible(true);
     }// GEN-LAST:event_openMethodMenuItemActionPerformed
 
+    private void importPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
+        try {
+            javax.swing.JFileChooser fileChooser = new javax.swing.JFileChooser();
+            fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PNML files (*.pnml)", "pnml"));
+            fileChooser.setDialogTitle("Import PNML File");
+
+            int result = fileChooser.showOpenDialog(this);
+            if (result == javax.swing.JFileChooser.APPROVE_OPTION) {
+                java.io.File selectedFile = fileChooser.getSelectedFile();
+
+                // Parse PNML file
+                PnmlParser parser = new PnmlParser();
+                PetriNet petriNet = parser.parse(selectedFile);
+
+                // Create empty GraphPetriNet and manually add elements
+                GraphPetriNet graphNet = new GraphPetriNet();
+
+                // Create GraphPetriPlace objects from PetriP objects
+                for (PetriP place : petriNet.getListP()) {
+                    GraphPetriPlace graphPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
+
+                    // Set coordinates if available
+                    java.awt.geom.Point2D.Double coords = parser.getPlaceCoordinates(place.getNumber());
+                    if (coords != null) {
+                        graphPlace.setNewCoordinates(new java.awt.geom.Point2D.Double(coords.x, coords.y));
+                    } else {
+                        // Set default coordinates
+                        graphPlace.setNewCoordinates(new java.awt.geom.Point2D.Double(100 + place.getNumber() * 100, 100));
+                    }
+
+                    graphNet.getGraphPetriPlaceList().add(graphPlace);
+                }
+
+                // Create GraphPetriTransition objects from PetriT objects
+                for (PetriT transition : petriNet.getListT()) {
+                    GraphPetriTransition graphTransition = new GraphPetriTransition(transition, PetriNetsPanel.getIdElement());
+
+                    // Set coordinates if available
+                    java.awt.geom.Point2D.Double coords = parser.getTransitionCoordinates(transition.getNumber());
+                    if (coords != null) {
+                        graphTransition.setNewCoordinates(new java.awt.geom.Point2D.Double(coords.x, coords.y));
+                    } else {
+                        // Set default coordinates
+                        graphTransition.setNewCoordinates(new java.awt.geom.Point2D.Double(100 + transition.getNumber() * 100, 200));
+                    }
+
+                    graphNet.getGraphPetriTransitionList().add(graphTransition);
+                }
+
+                // Create GraphArcIn objects from ArcIn objects
+                for (ArcIn arcIn : petriNet.getArcIn()) {
+                    GraphPetriPlace beginPlace = null;
+                    GraphPetriTransition endTransition = null;
+
+                    // Find corresponding graph elements
+                    for (GraphPetriPlace gp : graphNet.getGraphPetriPlaceList()) {
+                        if (gp.getPetriPlace().getNumber() == arcIn.getNumP()) {
+                            beginPlace = gp;
+                            break;
+                        }
+                    }
+
+                    for (GraphPetriTransition gt : graphNet.getGraphPetriTransitionList()) {
+                        if (gt.getPetriTransition().getNumber() == arcIn.getNumT()) {
+                            endTransition = gt;
+                            break;
+                        }
+                    }
+
+                    if (beginPlace != null && endTransition != null) {
+                        GraphArcIn graphArcIn = new GraphArcIn(arcIn);
+                        graphArcIn.settingNewArc(beginPlace);
+                        graphArcIn.setEndElement(endTransition);
+                        graphArcIn.setPetriElements();
+                        graphArcIn.updateCoordinates();
+                        graphNet.getGraphArcInList().add(graphArcIn);
+                    }
+                }
+
+                // Create GraphArcOut objects from ArcOut objects
+                for (ArcOut arcOut : petriNet.getArcOut()) {
+                    GraphPetriTransition beginTransition = null;
+                    GraphPetriPlace endPlace = null;
+
+                    // Find corresponding graph elements
+                    for (GraphPetriTransition gt : graphNet.getGraphPetriTransitionList()) {
+                        if (gt.getPetriTransition().getNumber() == arcOut.getNumT()) {
+                            beginTransition = gt;
+                            break;
+                        }
+                    }
+
+                    for (GraphPetriPlace gp : graphNet.getGraphPetriPlaceList()) {
+                        if (gp.getPetriPlace().getNumber() == arcOut.getNumP()) {
+                            endPlace = gp;
+                            break;
+                        }
+                    }
+
+                    if (beginTransition != null && endPlace != null) {
+                        GraphArcOut graphArcOut = new GraphArcOut(arcOut);
+                        graphArcOut.settingNewArc(beginTransition);
+                        graphArcOut.setEndElement(endPlace);
+                        graphArcOut.setPetriElements();
+                        graphArcOut.updateCoordinates();
+                        graphNet.getGraphArcOutList().add(graphArcOut);
+                    }
+                }
+
+                // Set the imported net
+                getPetriNetsPanel().setGraphNet(graphNet);
+
+                // Update UI
+                if (petriNet.getName() != null && !petriNet.getName().isEmpty()) {
+                    netNameTextField.setText(petriNet.getName());
+                } else {
+                    netNameTextField.setText(selectedFile.getName().replaceFirst("[.][^.]+$", ""));
+                }
+                timeStartField.setText("0");
+                protocolTextArea.setText("---------Events protocol----------");
+                statisticsTextArea.setText("---------STATISTICS---------");
+
+                getPetriNetsPanel().repaint();
+
+                javax.swing.JOptionPane.showMessageDialog(this,
+                    "PNML file imported successfully!\nPlaces: " + petriNet.getListP().length +
+                    ", Transitions: " + petriNet.getListT().length +
+                    "\nInput arcs: " + petriNet.getArcIn().length +
+                    ", Output arcs: " + petriNet.getArcOut().length,
+                    "Import Complete",
+                    javax.swing.JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (Exception ex) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                "Error importing PNML file: " + ex.getMessage(),
+                "Import Error",
+                javax.swing.JOptionPane.ERROR_MESSAGE);
+            java.util.logging.Logger.getLogger(PetriNetsFrame.class.getName()).log(
+                java.util.logging.Level.SEVERE, null, ex);
+        }
+    }
+
+    private void exportPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
+        try {
+            if (getPetriNetsPanel().getGraphNet() == null) {
+                javax.swing.JOptionPane.showMessageDialog(this,
+                    "No Petri net to export. Please create or load a net first.",
+                    "Export Error",
+                    javax.swing.JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            javax.swing.JFileChooser fileChooser = new javax.swing.JFileChooser();
+            fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PNML files (*.pnml)", "pnml"));
+            fileChooser.setDialogTitle("Export to PNML File");
+            fileChooser.setSelectedFile(new java.io.File(netNameTextField.getText() + ".pnml"));
+
+            int result = fileChooser.showSaveDialog(this);
+            if (result == javax.swing.JFileChooser.APPROVE_OPTION) {
+                java.io.File selectedFile = fileChooser.getSelectedFile();
+
+                // Ensure file has .pnml extension
+                if (!selectedFile.getName().toLowerCase().endsWith(".pnml")) {
+                    selectedFile = new java.io.File(selectedFile.getAbsolutePath() + ".pnml");
+                }
+
+                // Create PetriNet from GraphPetriNet
+                getPetriNetsPanel().getGraphNet().createPetriNet(netNameTextField.getText());
+                PetriNet petriNet = getPetriNetsPanel().getGraphNet().getPetriNet();
+
+                if (petriNet == null) {
+                    javax.swing.JOptionPane.showMessageDialog(this,
+                        "Unable to create Petri net for export. Please check your net structure.",
+                        "Export Error",
+                        javax.swing.JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                // Generate PNML file
+                PnmlGenerator generator = new PnmlGenerator();
+                generator.generate(petriNet, selectedFile, getPetriNetsPanel().getGraphNet());
+
+                javax.swing.JOptionPane.showMessageDialog(this,
+                    "PNML file exported successfully to:\n" + selectedFile.getAbsolutePath(),
+                    "Export Complete",
+                    javax.swing.JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (Exception ex) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                "Error exporting PNML file: " + ex.getMessage(),
+                "Export Error",
+                javax.swing.JOptionPane.ERROR_MESSAGE);
+            java.util.logging.Logger.getLogger(PetriNetsFrame.class.getName()).log(
+                java.util.logging.Level.SEVERE, null, ex);
+        }
+    }
+
     public String getNameNet() {
         return netNameTextField.getText();
     }
@@ -2179,6 +2411,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JLabel timeStartLabel1;
     private javax.swing.JLabel timeStartLabel2;
     private javax.swing.JMenuItem undoMenuItem;
+    private javax.swing.JMenuItem importPnmlMenuItem;
+    private javax.swing.JMenuItem exportPnmlMenuItem;
     // End of variables declaration//GEN-END:variables
     private static PetriNetsPanel petriNetsPanel;
     private FileUse fileUse = new FileUse();
