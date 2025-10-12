@@ -15,6 +15,7 @@ import ua.stetsenkoinna.PetriObj.ArcIn;
 import ua.stetsenkoinna.PetriObj.ArcOut;
 import ua.stetsenkoinna.graphreuse.GraphNetParametersFrame;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
+import ua.stetsenkoinna.utils.ResourcePathConfig;
 
 import java.awt.*;
 import java.io.File;
@@ -236,22 +237,24 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         btn.setBorder(null);
         btn.setMargin(new Insets(0, 0, 0, 0));
         btn.setContentAreaFilled(false);
-        btn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/ua/stetsenkoinna/utils/" + title + ".png")));
+        btn.setIcon(new javax.swing.ImageIcon(ResourcePathConfig.getResource(getClass(), ResourcePathConfig.getIconPath(title + ".png"))));
 
         return btn;
     }
 
     private void ptrnButtonActionPerformed(java.awt.event.ActionEvent evt, String fileName) {
-        FileInputStream fis = null;
         ObjectInputStream ois = null;
         try {
             //System.out.println(new File(".").getCanonicalPath() + "\\src\\main\\resources\\" + fileName + ".pns");
-            fis = new FileInputStream(new File(".").getCanonicalPath() + "\\src\\utils\\" + fileName + ".pns");
-
-            ois = new ObjectInputStream(fis);
-            GraphPetriNet net = ((GraphPetriNet) ois.readObject()).clone();  //
-            getPetriNetsPanel().addGraphNet(net); //
-            ois.close();
+            java.io.InputStream inputStream = ResourcePathConfig.getResourceAsStream(getClass(), ResourcePathConfig.getPnsFilePath(fileName + ".pns"));
+            if (inputStream != null) {
+                ois = new ObjectInputStream(inputStream);
+                GraphPetriNet net = ((GraphPetriNet) ois.readObject()).clone();  //
+                getPetriNetsPanel().addGraphNet(net); //
+                ois.close();
+            } else {
+                System.out.println("Resource file not found: " + fileName + ".pns");
+            }
 
             getPetriNetsPanel().repaint();
 
@@ -263,18 +266,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
-                fis.close();
+                if (ois != null) {
+                    ois.close();
+                }
             } catch (IOException ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (NullPointerException e) {
-
-            }
-            try {
-                ois.close();
-            } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (NullPointerException e) {
-
             }
         }
     }

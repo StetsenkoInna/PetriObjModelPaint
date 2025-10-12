@@ -1,6 +1,7 @@
 package ua.stetsenkoinna.graphpresentation.actions;
 
 import ua.stetsenkoinna.graphpresentation.AnimationControls;
+import ua.stetsenkoinna.utils.ResourcePathConfig;
 import java.awt.event.ActionEvent;
 import java.util.Objects;
 import javax.swing.AbstractAction;
@@ -17,8 +18,8 @@ public class PlayPauseAction extends AbstractAction {
     private static String PLAY_DESCRIPTION = "Start net animation";
     private static String PAUSE_DESCRIPTION = "Pause animation";
 
-    private final ImageIcon playIcon = new ImageIcon(Objects.requireNonNull(getClass().getClassLoader().getResource("icons/play.png")));
-    private final ImageIcon pauseIcon = new ImageIcon(Objects.requireNonNull(getClass().getClassLoader().getResource("icons/pause.png")));
+    private final ImageIcon playIcon = new ImageIcon(Objects.requireNonNull(ResourcePathConfig.getResource(getClass(), ResourcePathConfig.getIconPath(ResourcePathConfig.PLAY_ICON))));
+    private final ImageIcon pauseIcon = new ImageIcon(Objects.requireNonNull(ResourcePathConfig.getResource(getClass(), ResourcePathConfig.getIconPath(ResourcePathConfig.PAUSE_ICON))));
     
     public PlayPauseAction(AnimationControls controls) {
         this.controls = controls;
