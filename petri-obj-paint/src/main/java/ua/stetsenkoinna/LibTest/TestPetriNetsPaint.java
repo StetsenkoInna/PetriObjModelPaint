@@ -30,7 +30,11 @@ public class TestPetriNetsPaint {
                     .log(java.util.logging.Level.SEVERE, null, ex);
         }
 		/* Create and display the form */
-        java.awt.EventQueue.invokeLater(() -> new PetriNetsFrame().setVisible(true));
+        java.awt.EventQueue.invokeLater(() -> {
+            PetriNetsFrame frame = new PetriNetsFrame();
+            frame.setExtendedState(javax.swing.JFrame.MAXIMIZED_BOTH);
+            frame.setVisible(true);
+        });
 
     }
 }
