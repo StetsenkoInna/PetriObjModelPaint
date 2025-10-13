@@ -252,10 +252,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetPanelScrollPane.setViewportView(petriNetsPanel);
 
         this.setLocation(50, 50);
-
-        this.setExtendedState(JFrame.MAXIMIZED_BOTH / 2);
         this.setTitle("Discrete Event Simulation System ");
         this.setSize(1000, 700);
+
+        // Set fullscreen mode - should be called after setSize
+        this.setExtendedState(JFrame.MAXIMIZED_BOTH);
         
         undoSupport.addUndoableEditListener((event) -> {
             undoManager.addEdit(event.getEdit());
