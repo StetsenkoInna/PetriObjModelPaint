@@ -357,4 +357,54 @@ public class PetriNet implements Cloneable, Serializable {
         return false;
     }
 
+    /**
+     * Gets a detailed list of all unspecified parameters in the Petri net
+     * @return ArrayList of strings describing each unspecified parameter
+     */
+    public ArrayList<String> getUnspecifiedParameters() {
+        ArrayList<String> unspecifiedParams = new ArrayList<>();
+
+        // Check places for unspecified markings
+        for (PetriP petriPlace : ListP) {
+            if (petriPlace.markIsParam()) {
+                unspecifiedParams.add("Place '" + petriPlace.getName() + "' - marking not specified");
+            }
+        }
+
+        // Check transitions for unspecified parameters
+        for (PetriT petriTran : ListT) {
+            if (petriTran.distributionIsParam()) {
+                unspecifiedParams.add("Transition '" + petriTran.getName() + "' - distribution not specified");
+            }
+            if (petriTran.parametrIsParam()) {
+                unspecifiedParams.add("Transition '" + petriTran.getName() + "' - delay parameter not specified");
+            }
+            if (petriTran.priorityIsParam()) {
+                unspecifiedParams.add("Transition '" + petriTran.getName() + "' - priority not specified");
+            }
+            if (petriTran.probabilityIsParam()) {
+                unspecifiedParams.add("Transition '" + petriTran.getName() + "' - probability not specified");
+            }
+        }
+
+        // Check input arcs for unspecified parameters
+        for (ArcIn arcIn : getListIn()) {
+            if (arcIn.infIsParam()) {
+                unspecifiedParams.add("Input Arc '" + arcIn.getNameP() + " -> " + arcIn.getNameT() + "' - inhibitor parameter not specified");
+            }
+            if (arcIn.kIsParam()) {
+                unspecifiedParams.add("Input Arc '" + arcIn.getNameP() + " -> " + arcIn.getNameT() + "' - weight not specified");
+            }
+        }
+
+        // Check output arcs for unspecified parameters
+        for (ArcOut arcOut : getListOut()) {
+            if (arcOut.kIsParam()) {
+                unspecifiedParams.add("Output Arc '" + arcOut.getNameT() + " -> " + arcOut.getNameP() + "' - weight not specified");
+            }
+        }
+
+        return unspecifiedParams;
+    }
+
 }

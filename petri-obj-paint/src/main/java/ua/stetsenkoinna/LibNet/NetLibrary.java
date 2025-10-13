@@ -499,6 +499,7 @@ public static PetriNet CreateNetThread3() throws ExceptionInvalidNetStructure, E
 	return d_Net;
 }*/
 
+@HiddenFromUI
 public static PetriNet CreateNetFriend() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	double delay = 100.0;
         double x=0.00000001;

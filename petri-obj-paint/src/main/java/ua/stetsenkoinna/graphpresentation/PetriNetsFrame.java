@@ -1788,7 +1788,20 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         return false;
         }
         if (getPetriNetsPanel().getGraphNet().hasParameters()) { // addedn by Katya 08.12.2016
-                errorFrame.setErrorMessage("The Petri Net contains unspecified parameters that must be configured before simulation can begin. Please open the 'Edit Net Parameters' dialog (Ctrl+E) to provide specific values for all parameters, or ensure all transition delays and place markings are properly defined.");
+                // Get the detailed list of unspecified parameters
+                ArrayList<String> unspecifiedParams = getPetriNetsPanel().getGraphNet().getPetriNet().getUnspecifiedParameters();
+
+                StringBuilder errorMessage = new StringBuilder();
+                errorMessage.append("The Petri Net contains unspecified parameters that must be configured before simulation can begin.\n\n");
+                errorMessage.append("Unspecified parameters:\n");
+
+                for (int i = 0; i < unspecifiedParams.size(); i++) {
+                    errorMessage.append("• ").append(unspecifiedParams.get(i)).append("\n");
+                }
+
+                errorMessage.append("\nPlease open the 'Edit Net Parameters' dialog (Ctrl+E) to provide specific values for all parameters, or ensure all transition delays and place markings are properly defined.");
+
+                errorFrame.setErrorMessage(errorMessage.toString());
                 errorFrame.setVisible(true);
                 return false;
         }
