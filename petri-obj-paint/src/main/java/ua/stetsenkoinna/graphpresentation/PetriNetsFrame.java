@@ -991,68 +991,48 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         petriNetsFrameToolBar2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
         petriNetsFrameToolBar2.setRollover(true);
-        petriNetsFrameToolBar2.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
+        petriNetsFrameToolBar2.setFont(new java.awt.Font("Arial", Font.PLAIN, 12)); // NOI18N
         petriNetsFrameToolBar2.setMargin(new java.awt.Insets(0, 10, 0, 10));
 
-        newPlaceButton2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newPlaceButton2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         newPlaceButton2.setText("Petri-object");
         newPlaceButton2.setToolTipText("");
         newPlaceButton2.setFocusable(false);
         newPlaceButton2.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newPlaceButton2.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newPlaceButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newPlaceButton2ActionPerformed(evt);
-            }
-        });
+        newPlaceButton2.addActionListener(this::newPlaceButton2ActionPerformed);
         petriNetsFrameToolBar2.add(newPlaceButton2);
 
-        newTransitionButton2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newTransitionButton2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         newTransitionButton2.setText("Petri-object class");
         newTransitionButton2.setFocusable(false);
         newTransitionButton2.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newTransitionButton2.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newTransitionButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newTransitionButton2ActionPerformed(evt);
-            }
-        });
+        newTransitionButton2.addActionListener(evt -> newTransitionButton2ActionPerformed(evt));
         petriNetsFrameToolBar2.add(newTransitionButton2);
 
-        newArcButton2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newArcButton2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         newArcButton2.setText("Tie");
         newArcButton2.setFocusable(false);
         newArcButton2.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newArcButton2.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newArcButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newArcButton2ActionPerformed(evt);
-            }
-        });
+        newArcButton2.addActionListener(this::newArcButton2ActionPerformed);
         petriNetsFrameToolBar2.add(newArcButton2);
 
-        runPetriNetButton2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        runPetriNetButton2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         runPetriNetButton2.setText("Run model");
         runPetriNetButton2.setFocusable(false);
         runPetriNetButton2.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         runPetriNetButton2.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        runPetriNetButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                runPetriNetButton2ActionPerformed(evt);
-            }
-        });
+        runPetriNetButton2.addActionListener(this::runPetriNetButton2ActionPerformed);
         petriNetsFrameToolBar2.add(runPetriNetButton2);
 
-        runEventButton2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        runEventButton2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         runEventButton2.setText("Run event");
         runEventButton2.setFocusable(false);
         runEventButton2.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         runEventButton2.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        runEventButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                runEventButton2ActionPerformed(evt);
-            }
-        });
+        runEventButton2.addActionListener(this::runEventButton2ActionPerformed);
         petriNetsFrameToolBar2.add(runEventButton2);
 
         petriNetsFrameSplitPane2.setDividerSize(3);
@@ -1073,7 +1053,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         modelingResultsPanel2.setBorder(new javax.swing.border.MatteBorder(null));
         modelingResultsPanel2.setForeground(new java.awt.Color(255, 255, 255));
         modelingResultsPanel2.setAutoscrolls(true);
-        modelingResultsPanel2.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
+        modelingResultsPanel2.setFont(new java.awt.Font("Tahoma", Font.BOLD, 11)); // NOI18N
         modelingResultsPanel2.setMaximumSize(new java.awt.Dimension(2147483647, 2147483647));
         modelingResultsPanel2.setRequestFocusEnabled(false);
 
@@ -1082,7 +1062,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         protokolScrollPane2.setAutoscrolls(true);
 
-        protokolTextArea2.setFont(new java.awt.Font("Tahoma", 0, 10)); // NOI18N
+        protokolTextArea2.setFont(new java.awt.Font("Tahoma", Font.PLAIN, 10)); // NOI18N
         protokolTextArea2.setText("-------------- Events protokol ---------------");
         protokolTextArea2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
         protokolTextArea2.setMinimumSize(new java.awt.Dimension(100, 100));
@@ -1090,7 +1070,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         modelingResultsSplitPane2.setLeftComponent(protokolScrollPane2);
 
-        statisticsTextArea2.setFont(new java.awt.Font("Tahoma", 0, 10)); // NOI18N
+        statisticsTextArea2.setFont(new java.awt.Font("Tahoma", Font.PLAIN, 10)); // NOI18N
         statisticsTextArea2.setText("--------------- STATISTICS ----------------");
         statisticsTextArea2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
         statisticsTextArea2.setName(""); // NOI18N
@@ -1100,40 +1080,32 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         modelingParametersPanel2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
 
-        netNameLabel2.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        netNameLabel2.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         netNameLabel2.setText("Model name");
         netNameLabel2.setMinimumSize(new java.awt.Dimension(0, 0));
 
-        netNameTextField2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        netNameTextField2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         netNameTextField2.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         netNameTextField2.setText("Untitled");
         netNameTextField2.setCaretPosition(1);
         netNameTextField2.setMinimumSize(new java.awt.Dimension(0, 0));
-        netNameTextField2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                netNameTextField2ActionPerformed(evt);
-            }
-        });
+        netNameTextField2.addActionListener(this::netNameTextField2ActionPerformed);
 
         timeStartLabel2.setBackground(new java.awt.Color(192, 192, 192));
-        timeStartLabel2.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        timeStartLabel2.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         timeStartLabel2.setText("Time start");
 
-        timeStartField2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        timeStartField2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         timeStartField2.setHorizontalAlignment(javax.swing.JTextField.LEFT);
         timeStartField2.setText("0");
         timeStartField2.setMinimumSize(new java.awt.Dimension(0, 0));
-        timeStartField2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                timeStartField2ActionPerformed(evt);
-            }
-        });
+        timeStartField2.addActionListener(this::timeStartField2ActionPerformed);
 
         timeModelingLabel2.setBackground(new java.awt.Color(247, 247, 247));
-        timeModelingLabel2.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        timeModelingLabel2.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         timeModelingLabel2.setText("Time modeling");
 
-        timeModelingTextField2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        timeModelingTextField2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         timeModelingTextField2.setHorizontalAlignment(javax.swing.JTextField.LEFT);
         timeModelingTextField2.setText("1000");
         timeModelingTextField2.setCaretPosition(1);
@@ -1236,20 +1208,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         openMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_O, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         openMenuItem.setText("Open");
-        openMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                openMenuItemActionPerformed(evt);
-            }
-        });
+        openMenuItem.addActionListener(this::openMenuItemActionPerformed);
         fileMenu.add(openMenuItem);
 
         newMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_N, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         newMenuItem.setText("New");
-        newMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newMenuItemActionPerformed(evt);
-            }
-        });
+        newMenuItem.addActionListener(this::newMenuItemActionPerformed);
         fileMenu.add(newMenuItem);
 
         openMethodMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.CTRL_DOWN_MASK));
@@ -2140,6 +2104,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
                 // Set the imported net
                 getPetriNetsPanel().setGraphNet(graphNet);
+
+                // Fix overlapping arcs (important for nets with bidirectional connections)
+                graphNet.fixOverlappingArcs();
 
                 // Update UI
                 if (petriNet.getName() != null && !petriNet.getName().isEmpty()) {

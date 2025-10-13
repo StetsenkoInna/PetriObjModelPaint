@@ -673,13 +673,38 @@ public class GraphPetriNet implements Cloneable, Serializable {
         if (!graphPetriPlaceList.isEmpty()) {
             for (GraphPetriPlace e : graphPetriPlaceList) {
                 e.setColor(Color.BLACK); // edited 26.07.2018
-                
+
             }
         }
         if (!graphPetriTransitionList.isEmpty()) {
             for (GraphPetriTransition e : graphPetriTransitionList) {
                e.setColor(Color.BLACK); // edited 26.07.2018
-                
+
+            }
+        }
+    }
+
+    /**
+     * Detects and fixes overlapping arcs between the same elements going in opposite directions
+     * This method should be called after importing PNML or creating a net to prevent arc overlap
+     */
+    public void fixOverlappingArcs() {
+        // Check for overlapping arcs and apply twoArcs logic to separate them
+        for (GraphArcOut arcOut : graphArcOutList) {
+            for (GraphArcIn arcIn : graphArcInList) {
+                // Check if arcs connect the same elements in opposite directions
+                int inBeginId = arcIn.getBeginElement().getId();
+                int inEndId = arcIn.getEndElement().getId();
+                int outBeginId = arcOut.getBeginElement().getId();
+                int outEndId = arcOut.getEndElement().getId();
+
+                // If input arc goes from place to transition and output arc goes from same transition to same place
+                if (inBeginId == outEndId && inEndId == outBeginId) {
+                    // Apply two arcs logic to separate them visually
+                    arcIn.twoArcs(arcOut);
+                    arcIn.updateCoordinates();
+                    arcOut.updateCoordinates();
+                }
             }
         }
     }
