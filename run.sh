@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "Starting PetriObjModelPaint application..."
-java -jar "petri-obj-paint/target/petri-obj-paint-1.1.jar"
+java -jar "petri-obj-paint/target/petri-obj-paint-1.2.0.jar"
 
 if [ $? -ne 0 ]; then
     echo

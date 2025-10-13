@@ -1694,23 +1694,23 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         errorFrame.setVisible(true);
                         return false;
         }
-        if (getPetriNetsPanel().getGraphNet().hasParameters()) { // addedn by Katya 08.12.2016
-                // Get the detailed list of unspecified parameters
-                ArrayList<String> unspecifiedParams = getPetriNetsPanel().getGraphNet().getPetriNet().getUnspecifiedParameters();
+        if (getPetriNetsPanel().getGraphNet().hasParameters()) { // added by Katya 08.12.2016
+            // Get the detailed list of unspecified parameters
+            ArrayList<String> unspecifiedParams = getPetriNetsPanel().getGraphNet().getPetriNet().getUnspecifiedParameters();
 
-                StringBuilder errorMessage = new StringBuilder();
-                errorMessage.append("The Petri Net contains unspecified parameters that must be configured before simulation can begin.\n\n");
-                errorMessage.append("Unspecified parameters:\n");
+            StringBuilder errorMessage = new StringBuilder();
+            errorMessage.append("The Petri Net contains unspecified parameters that must be configured before simulation can begin.\n\n");
+            errorMessage.append("Unspecified parameters:\n");
 
-                for (int i = 0; i < unspecifiedParams.size(); i++) {
-                    errorMessage.append("• ").append(unspecifiedParams.get(i)).append("\n");
-                }
+            for (String unspecifiedParam : unspecifiedParams) {
+                errorMessage.append("• ").append(unspecifiedParam).append("\n");
+            }
 
-                errorMessage.append("\nPlease open the 'Edit Net Parameters' dialog (Ctrl+E) to provide specific values for all parameters, or ensure all transition delays and place markings are properly defined.");
+            errorMessage.append("\nPlease open the 'Edit Net Parameters' dialog (Ctrl+E) to provide specific values for all parameters, or ensure all transition delays and place markings are properly defined.");
 
-                errorFrame.setErrorMessage(errorMessage.toString());
-                errorFrame.setVisible(true);
-                return false;
+            errorFrame.setErrorMessage(errorMessage.toString());
+            errorFrame.setVisible(true);
+            return false;
         }
         return true;
     }
@@ -1744,9 +1744,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 getPetriNetsPanel().getGraphNet().printStatistics(
                         statisticsTextArea);
                 // перетворення у потрібний формат ...
-                double d = m.getCurrentTime(); // added
+//                double d = m.getCurrentTime(); // added
 
-                Double dd = 100.0 * (m.getCurrentTime() - (int) d); // десяткова частина
+//                Double dd = 100.0 * (m.getCurrentTime() - (int) d); // десяткова частина
 
                 //timeStartField.setText(String.valueOf(d.intValue()
                 //		+ "." + dd.intValue())); // added by Inna
@@ -1758,7 +1758,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     try {
                         statisticGraphMonitor.getWorkerStateLatch().await(3, TimeUnit.SECONDS);
                     } catch (InterruptedException e) {
-                        e.printStackTrace();
+                        System.out.println(e.getMessage());
                         Thread.currentThread().interrupt();
                     }
                 }
@@ -1858,16 +1858,16 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                             Double.parseDouble(timeModelingTextField.getText()));
 
                     petriSim.setTimeCurr(
-                            Double.valueOf(timeStartField.getText()));
+                            Double.parseDouble(timeStartField.getText()));
 
-                    // System.out.println("in the begining we have such state of net places:");
+                    // System.out.println("in the beginning we have such state of net places:");
                     petriSim.printMark();
                     petriSim.step();
                     // System.out.println("at the result we have such state of net places:");
                     petriSim.printMark(protocolTextArea);
 
-                    Double d = new Double(petriSim.getCurrentTime()); // added by
-                    Double dd = new Double(100.0 * (petriSim.getCurrentTime() - d.intValue()));
+                    double d = petriSim.getCurrentTime(); // added by
+//                    Double dd = 100.0 * (petriSim.getCurrentTime() - (int) d);
                     //timeStartField.setText(String.valueOf(d.intValue() + "."
                     //		+ dd.intValue() // перетворення у цілий формат, але
                     // тоді здається що час
@@ -1909,7 +1909,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                             Double.parseDouble(timeModelingTextField.getText()));
 
                     object.setTimeCurr(
-                            Double.valueOf(timeStartField.getText()));
+                            Double.parseDouble(timeStartField.getText()));
 
                     // System.out.println("in the begining we have such state of net places:");
                     object.printMark();
