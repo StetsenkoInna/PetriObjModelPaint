@@ -26,7 +26,6 @@ import java.io.ObjectOutputStream;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.logging.Level;
@@ -43,18 +42,12 @@ import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
-import java.awt.Component;
+import ua.stetsenkoinna.utils.Utils;
 
 import java.awt.geom.Point2D;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedList;
 import java.util.Objects;
-import net.openhft.compiler.CompilerUtils;
-
-import ua.stetsenkoinna.utils.Utils;
 
 /**
  *
@@ -72,13 +65,34 @@ public class FileUse {
         fdlg = new FileDialog(frame, "Open a file ",
                 FileDialog.LOAD);
         fdlg.setVisible(true);
-        FileInputStream fis = null;
-        ObjectInputStream ois = null;
-        try {
+
+        if (fdlg.getFile() == null) {
+            return null; // User cancelled the dialog
+        }
+
+        try (FileInputStream fis = new FileInputStream(fdlg.getDirectory() + fdlg.getFile());
+             ObjectInputStream ois = new ObjectInputStream(fis)) {
+
             // System.out.println("Opening file '" + fdlg.getDirectory() + fdlg.getFile() + "'");
-            fis = new FileInputStream(fdlg.getDirectory() + fdlg.getFile());
-            ois = new ObjectInputStream(fis);
-            GraphPetriNet net = ((GraphPetriNet) ois.readObject()).clone();
+            Object loadedObject = ois.readObject();
+
+            GraphPetriNet net;
+
+            // Check if the loaded object is GraphPetriNet or PetriNet
+            if (loadedObject instanceof GraphPetriNet) {
+                net = ((GraphPetriNet) loadedObject).clone();
+            } else if (loadedObject instanceof PetriNet) {
+                // Convert PetriNet to GraphPetriNet
+                PetriNet petriNet = (PetriNet) loadedObject;
+                PetriNetsFrame petriNetsFrame = (PetriNetsFrame) frame;
+                JScrollPane pane = petriNetsFrame.GetPetriNetPanelScrollPane();
+                Point paneCenter = new Point(pane.getLocation().x + pane.getBounds().width / 2,
+                                           pane.getLocation().y + pane.getBounds().height / 2);
+                net = generateGraphNetBySimpleNet(panel, petriNet, paneCenter);
+            } else {
+                throw new ClassCastException("Unsupported file format. Expected GraphPetriNet or PetriNet, but found: "
+                    + loadedObject.getClass().getName());
+            }
             
             // if there are transitions where b != 0, find them and
             // ask the user if they want to remove exit times from buffers
@@ -89,7 +103,7 @@ public class FileUse {
                     .toArray(GraphPetriTransition[]::new);
             if (tWithNon0Buffers.length != 0) {
                 // display dialog
-                int result = JOptionPane.showConfirmDialog((Component) null, "There are transitions in this net with non-empty buffers. Do you want to clear them?",
+                int result = JOptionPane.showConfirmDialog(null, "There are transitions in this net with non-empty buffers. Do you want to clear them?",
                                 "Buffers reset", JOptionPane.OK_CANCEL_OPTION);
                 if (result == JOptionPane.OK_OPTION) {
                     for (GraphPetriTransition trans : tWithNon0Buffers) {
@@ -100,36 +114,28 @@ public class FileUse {
                     }
                 }
             }
-            
+
             panel.addGraphNet(net);
             pnetName = net.getPetriNet().getName();
-            ois.close();
             panel.repaint();
 
         } catch (FileNotFoundException e) {
             System.out.println("Such file was not found");
-        } catch (ClassNotFoundException | IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+            JOptionPane.showMessageDialog(null, "File not found: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        } catch (ClassNotFoundException ex) {
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, "Class not found during deserialization", ex);
+            JOptionPane.showMessageDialog(null, "Cannot open file: incompatible file format or missing classes", "Error", JOptionPane.ERROR_MESSAGE);
+        } catch (IOException ex) {
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, "IO error during file reading", ex);
+            JOptionPane.showMessageDialog(null, "Error reading file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         } catch (CloneNotSupportedException ex) {
-            Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            try {
-                fis.close();
-            } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (NullPointerException e) {
-                return null;
-            }
-            try {
-                ois.close();
-            } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (NullPointerException e) {
-                return null;
-            }
-
+            Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, "Cannot clone GraphPetriNet", ex);
+            JOptionPane.showMessageDialog(null, "Error processing file data", "Error", JOptionPane.ERROR_MESSAGE);
+        } catch (ClassCastException ex) {
+            Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, "Unexpected object type in file", ex);
+            JOptionPane.showMessageDialog(null, "Unsupported file format", "Error", JOptionPane.ERROR_MESSAGE);
         }
-        return pnetName.substring(0, pnetName.length());
+        return pnetName;
     }
 
     public void newWorksheet(PetriNetsPanel panel) {
@@ -155,11 +161,13 @@ public class FileUse {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
+                assert fos != null;
                 fos.close();
             } catch (IOException ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
             try {
+                assert oos != null;
                 oos.close();
             } catch (IOException ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
@@ -187,11 +195,13 @@ public class FileUse {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
+                assert fos != null;
                 fos.close();
             } catch (IOException ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
             try {
+                assert oos != null;
                 oos.close();
             } catch (IOException ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
@@ -219,11 +229,13 @@ public class FileUse {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
+                assert fos != null;
                 fos.close();
             } catch (IOException ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
             try {
+                assert oos != null;
                 oos.close();
             } catch (IOException ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
@@ -252,11 +264,13 @@ public class FileUse {
             Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
+                assert fos != null;
                 fos.close();
             } catch (IOException ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
             try {
+                assert oos != null;
                 oos.close();
             } catch (IOException ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
@@ -265,14 +279,12 @@ public class FileUse {
         return true;
     }
 
-    public GraphPetriNet generateGraphNetBySimpleNet(PetriNetsPanel panel,PetriNet net, Point paneCenter) { // added by Katya 16.10.2016
-    	GraphPetriNet currentNet = panel.getGraphNet();
-    	List<GraphElement> choosenElements = panel.getChoosenElements();
-    	choosenElements.clear();
-    	ArrayList<GraphPetriPlace> grPlaces = currentNet.getGraphPetriPlaceList();
-    	ArrayList<GraphPetriTransition> grTransitions = currentNet.getGraphPetriTransitionList();
-    	ArrayList<GraphArcIn> grArcIns = currentNet.getGraphArcInList();
-    	ArrayList<GraphArcOut> grArcOuts = currentNet.getGraphArcOutList();
+    public GraphPetriNet generateGraphNetBySimpleNet(PetriNetsPanel panel, PetriNet net, Point paneCenter) { // added by Katya 16.10.2016
+        // Create new lists for the new GraphPetriNet instead of modifying existing ones
+        ArrayList<GraphPetriPlace> grPlaces = new ArrayList<>();
+        ArrayList<GraphPetriTransition> grTransitions = new ArrayList<>();
+        ArrayList<GraphArcIn> grArcIns = new ArrayList<>();
+        ArrayList<GraphArcOut> grArcOuts = new ArrayList<>();
 
         ArrayList<PetriP> availPetriPlaces = new ArrayList<>(Arrays.asList(net.getListP())); // modified by Katya 20.11.2016 (including the "while" and 1st "for" loop)
         ArrayList<PetriT> availPetriTrans = new ArrayList<>(Arrays.asList(net.getListT()));
@@ -289,7 +301,7 @@ public class FileUse {
             VerticalSet lastSet = null;
             int lastSetIndex = 0;
             for (VerticalSet set : sets) {
-                if (set.GetReadyStatus() == false) {
+                if (!set.GetReadyStatus()) {
                     lastSet = set;
                     lastSetIndex = sets.indexOf(lastSet);
                     break;
@@ -405,17 +417,17 @@ public class FileUse {
             lastSet.SetAsReady();
         }
 
-        double x = 0, y = 0;
+        double x = 0, y;
 
-        Boolean hasLoops = false; // "hasLoops" added by Katya 04.12.2016
+        boolean hasLoops = false; // "hasLoops" added by Katya 04.12.2016
         firstSet = sets.get(0);
         VerticalSet lastSet = sets.get(sets.size() - 1);
         if (!Objects.equals(lastSet.IsForPlaces(), firstSet.IsForPlaces())) {
             VerticalSet setWithPlaces = firstSet.IsForPlaces() ? firstSet : lastSet;
             VerticalSet setWithTrans = firstSet.IsForPlaces() ? lastSet : firstSet;
             for (ArcIn arc : net.getArcIn()) {
-                Boolean isInSetWithPlaces = false;
-                Boolean isInSetWithTrans = false;
+                boolean isInSetWithPlaces = false;
+                boolean isInSetWithTrans = false;
                 for (PetriMainElement placeElem : setWithPlaces.GetElements()) {
                     PetriP place = (PetriP)placeElem;
                     if (place.getNumber() == arc.getNumP()) {
@@ -437,8 +449,8 @@ public class FileUse {
             }
             if (!hasLoops) {
                 for (ArcOut arc : net.getArcOut()) {
-                    Boolean isInSetWithPlaces = false;
-                    Boolean isInSetWithTrans = false;
+                    boolean isInSetWithPlaces = false;
+                    boolean isInSetWithTrans = false;
                     for (PetriMainElement placeElem : setWithPlaces.GetElements()) {
                         PetriP place = (PetriP)placeElem;
                         if (place.getNumber() == arc.getNumP()) {
@@ -466,7 +478,7 @@ public class FileUse {
                 ArrayList<PetriMainElement> elements = set.GetElements();
                 int size = elements.size();
                 x += 80;
-                y = ((size % 2) == 0) ? (- (size / 2 * 80) - 40) : (- (size / 2 * 80) - 80);
+                y = ((size % 2) == 0) ? (- ((double) size / 2 * 80) - 40) : (- ((double) size / 2 * 80) - 80);
                 for (PetriMainElement elem : elements) {
                     y += 80;
                     if (set.IsForPlaces()) {
@@ -492,7 +504,7 @@ public class FileUse {
                 ArrayList<PetriMainElement> elements = set.GetElements();
                 int size = elements.size();
                 x += 80;
-                y = ((size % 2) == 0) ? (- (size / 2 * 80) - 40) : (- (size / 2 * 80) - 80);
+                y = ((size % 2) == 0) ? (- ((double) size / 2 * 80) - 40) : (- ((double) size / 2 * 80) - 80);
                 for (PetriMainElement elem : elements) {
                     y += 80;
                     if (set.IsForPlaces()) {
@@ -517,7 +529,7 @@ public class FileUse {
                 ArrayList<PetriMainElement> elements = set.GetElements();
                 int size = elements.size();
                 x -= 80;
-                y = ((size % 2) == 0) ? (- (size / 2 * 80) - 40) : (- (size / 2 * 80) - 80);
+                y = ((size % 2) == 0) ? (- ((double) size / 2 * 80) - 40) : (- ((double) size / 2 * 80) - 80);
                 y += 160;
 
                 for (PetriMainElement elem : elements) {
@@ -586,10 +598,10 @@ public class FileUse {
         // added by Katya 04.12.2016
         for (GraphArcOut arcOut : grArcOuts) {
             for (GraphArcIn arcIn : grArcIns) {
-                int inBeginId = ((GraphPetriPlace)arcIn.getBeginElement()).getId();
-                int inEndId = ((GraphPetriTransition)arcIn.getEndElement()).getId();
-                int outBeginId = ((GraphPetriTransition)arcOut.getBeginElement()).getId();
-                int outEndId = ((GraphPetriPlace)arcOut.getEndElement()).getId();
+                int inBeginId = arcIn.getBeginElement().getId();
+                int inEndId = arcIn.getEndElement().getId();
+                int outBeginId = arcOut.getBeginElement().getId();
+                int outEndId = arcOut.getEndElement().getId();
                 if (inBeginId == outEndId && inEndId == outBeginId) {
                     arcIn.twoArcs(arcOut);
                     arcIn.updateCoordinates();
@@ -630,7 +642,7 @@ public class FileUse {
             }
         }
         // pattern = Pattern.compile(Pattern.quote("d_T.add(new PetriT(\"") + "(.*?)" + Pattern.quote("\",") + "(.*?)" + Pattern.quote("));"));
-        pattern = Pattern.compile("d_T\\.add\\(new PetriT\\(\\\"(.*?)\\\",([^,)]*),?(.*?)\\)\\);");
+        pattern = Pattern.compile("d_T\\.add\\(new PetriT\\(\"(.*?)\",([^,)]*),?(.*?)\\)\\);");
         matcher = pattern.matcher(methodText);
         while (matcher.find()) {
             String match1 = matcher.group(1);
@@ -770,7 +782,7 @@ public class FileUse {
             }
         }
 
-        String netName = "";
+        String netName;
         pattern = Pattern.compile(Pattern.quote("PetriNet d_Net = new PetriNet(\"") + "(.*?)" + Pattern.quote("\","));
         matcher = pattern.matcher(methodText);
         if (matcher.find()) {
@@ -850,7 +862,7 @@ e.printStackTrace();
         String pnetName = "";
         FileInputStream fis = null;
         try {
-            String libraryText = "";
+            StringBuilder libraryText = new StringBuilder();
             Path path = FileSystems.getDefault().getPath(
                     System.getProperty("user.dir"),"petri-obj-paint","src","main","java","ua","stetsenkoinna","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
             String pathNetLibrary = path.toString();
@@ -858,14 +870,14 @@ e.printStackTrace();
 
             int content;
             while ((content = fis.read()) != -1) {
-		libraryText += (char) content;
+		libraryText.append((char) content);
             }
             String methodBeginning = "public static PetriNet " + methodName + "("; // modified by Katya 20.11.2016
             String methodEnding = "return d_Net;";
-            String methodText = "";
+            String methodText;
 
             Pattern pattern = Pattern.compile(Pattern.quote(methodBeginning) + Pattern.quote(paramsString) + Pattern.quote(")") + "([[^}]^\\r]*)" + Pattern.quote(methodEnding)); // modified by Katya 22.11.2016
-            Matcher matcher = pattern.matcher(libraryText);
+            Matcher matcher = pattern.matcher(libraryText.toString());
             if(matcher.find()){
                  methodText = methodBeginning + paramsString + ")" + matcher.group(1) + methodEnding + "}"; // modified by Katya 22.11.2016
             } else {
@@ -897,7 +909,7 @@ e.printStackTrace();
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-        return pnetName.substring(0, pnetName.length());
+        return pnetName;
         // return netName;
     }
     
@@ -1008,7 +1020,7 @@ e.printStackTrace();
             @name@ - group 1
             @paramname@ - group2
         */
-        code = code.replaceAll("d_T\\.add\\(new PetriT\\(\\\"([^\\\"]+)\\\",\\s*(\\w+)\\)\\);", 
+        code = code.replaceAll("d_T\\.add\\(new PetriT\\(\"([^\"]+)\",\\s*(\\w+)\\)\\);",
                 "PetriT $1 = new PetriT(\"$1\",0);\n" 
                         + "$1.setParametrParam(\"$2\");\n" 
                         + "d_T.add($1);");
@@ -1029,56 +1041,46 @@ e.printStackTrace();
         
         return code; // TODO
     }
-    
-    /**
-     * Process the code of a method (including header and { }) to replace
-     * numeric arguments with string parameter names
-     * @param code original method code
-     * @return processed code
-     */
-    /*private String preProcessMethod(String code) {
-        return code;
-    }*/
 
     private String generateArgumentsString(PetriNet net) { // added by Katya 08.12.2016
-        String str = "";
+        StringBuilder str = new StringBuilder();
         for (PetriP petriPlace : net.getListP()) {
             if (petriPlace.markIsParam()) {
-                str += "int " + petriPlace.getMarkParamName() + ", ";
+                str.append("int ").append(petriPlace.getMarkParamName()).append(", ");
             }
         }
 
         for (ArcIn In : net.getArcIn()) {
             if (In.kIsParam()) {
-                str += "int " + In.getKParamName() + ", ";
+                str.append("int ").append(In.getKParamName()).append(", ");
             }
             if (In.infIsParam()) {
-                str += "boolean " + In.getInfParamName() + ", ";
+                str.append("boolean ").append(In.getInfParamName()).append(", ");
             }
         }
         for (ArcOut Out : net.getArcOut()) {
             if (Out.kIsParam()) {
-                str += "int " + Out.getKParamName() + ", ";
+                str.append("int ").append(Out.getKParamName()).append(", ");
             }
         }
         for (PetriT T : net.getListT()) {
             if (T.parametrIsParam()) {
-                str += "double " + T.getParametrParamName() + ", ";
+                str.append("double ").append(T.getParametrParamName()).append(", ");
             }
             if (T.distributionIsParam()) {
-                str += "String " + T.getDistributionParamName() + ", ";
+                str.append("String ").append(T.getDistributionParamName()).append(", ");
             }
             if (T.priorityIsParam()) {
-                str += "int " + T.getPriorityParamName() + ", ";
+                str.append("int ").append(T.getPriorityParamName()).append(", ");
             }
             if (T.probabilityIsParam()) {
-                str += "double " + T.getProbabilityParamName() + ", ";
+                str.append("double ").append(T.getProbabilityParamName()).append(", ");
             }
         }
         if (str.length() > 2) {
-            str = str.substring(0, str.length() - 2);
+            str = new StringBuilder(str.substring(0, str.length() - 2));
         }
-        return str;
+        return str.toString();
     }
 
     public void saveNetAsMethod(GraphPetriNet pnet, JTextArea area) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
@@ -1139,7 +1141,7 @@ e.printStackTrace();
 
             if (In.infIsParam()) { // modified by Katya 08.12.2016
                 area.append("\t" + "d_In.get(" + j + ").setInf(" + In.getInfParamName() + ");\n");
-            } else if (In.getIsInf() == true) {
+            } else if (In.getIsInf()) {
                 area.append("\t" + "d_In.get(" + j + ").setInf(true);\n");
             }
             j++;
@@ -1226,7 +1228,7 @@ e.printStackTrace();
 
             if (In.infIsParam()) { // modified by Katya 08.12.2016
                 s = s.concat("\t" + "d_In.get(" + j + ").setInf(" + In.getInfParamName() + ");\n");
-            } else if (In.getIsInf() == true) {
+            } else if (In.getIsInf()) {
                 s = s.concat("\t" + "d_In.get(" + j + ").setInf(true);\n");
             }
             j++;
@@ -1312,7 +1314,7 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
 
             if (In.infIsParam()) { // modified by Katya 08.12.2016
                 area.append("\t" + "d_In.get(" + j + ").setInf(" + In.getInfParamName() + ");\n");
-            } else if (In.getIsInf() == true) {
+            } else if (In.getIsInf()) {
                 area.append("\t" + "d_In.get(" + j + ").setInf(true);\n");
             }
             j++;
@@ -1378,7 +1380,7 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
 
             if (n > 0) {
                 f.seek(n - 1);
-                String s  = area.getText() + "\n" + c;  //РґРѕР±Р°РІР»СЏРµРј РѕС‚Р±СЂРѕС€РµРЅРЅСѓСЋ СЃРєРѕР±РѕС‡РєСѓ
+                String s  = area.getText() + "\n" + c;
                 f.write(s.getBytes());
 
                 JOptionPane.showMessageDialog(area, "Method was successfully added. See in class NetLibrary.");
