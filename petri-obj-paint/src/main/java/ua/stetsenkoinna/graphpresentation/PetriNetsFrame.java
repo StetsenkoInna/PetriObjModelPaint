@@ -23,6 +23,8 @@ import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
+import ua.stetsenkoinna.LibNet.NetLibrary;
+import ua.stetsenkoinna.LibNet.HiddenFromUI;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -37,6 +39,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.lang.reflect.Method;
 
 import javax.swing.*;
 
@@ -65,6 +68,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public Timer timer; //timer thats starts repainting while net simulates
     private final MethodNameDialogPanel dialogPanel = new MethodNameDialogPanel();
     private JDialog dialog;
+
     class MethodNameDialogPanel extends JPanel { // Added by Katya 23.10.2016,
         // modified by Katya 22.11.2016
 
@@ -118,28 +122,39 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         ArrayList<String> methodNamesList = new ArrayList<>();
         FileInputStream fis = null;
         try {
-            String libraryText = "";
+            StringBuilder libraryText = new StringBuilder();
             Path path = FileSystems.getDefault().getPath(
                     System.getProperty("user.dir"),"petri-obj-paint","src","main","java","ua","stetsenkoinna","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
             String pathNetLibrary = path.toString();
-            fis = new FileInputStream(pathNetLibrary);  // edit by Inna 29.09.2018
+
+            // Check if file exists before trying to open it
+            if (!path.toFile().exists()) {
+                System.out.println("NetLibrary.java file not found at path: " + pathNetLibrary);
+                return;
+            }
+
+            fis = new FileInputStream(pathNetLibrary);
             int content;
             while ((content = fis.read()) != -1) {
-                libraryText += (char) content;
+                libraryText.append((char) content);
             }
             Pattern pattern = Pattern.compile(Pattern
                     .quote("public static PetriNet CreateNet")
-                    + "(\\w+\\([^\\)]*\\))"
+                    + "(\\w+\\([^)]*\\))"
                     + Pattern.quote(" throws"));
-            Matcher matcher = pattern.matcher(libraryText);
+            Matcher matcher = pattern.matcher(libraryText.toString());
             while (matcher.find()) {
                 methodNamesList.add("CreateNet" + matcher.group(1));
             }
         } catch (FileNotFoundException e) {
-            System.out.println("Method not found: " + e.getMessage());
+            String errorMessage = e.getMessage();
+            if (errorMessage == null || errorMessage.trim().isEmpty()) {
+                errorMessage = "NetLibrary.java file not found";
+            }
+            System.out.println("File not found error: " + errorMessage);
         } catch (IOException ex) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
-                    null, ex);
+                    "Error reading NetLibrary.java file", ex);
         } finally {
             try {
                 if (fis != null) {
@@ -150,12 +165,63 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         Level.SEVERE, null, ex);
             }
         }
-        Collections.sort(methodNamesList, String.CASE_INSENSITIVE_ORDER);
-        leftMenuListModel.clear();
+        // Filter out methods that don't work (commented methods in NetLibrary.java)
+        ArrayList<String> workingMethods = new ArrayList<>();
         for (String name : methodNamesList) {
+            // Add methods that are known to work (not commented out in NetLibrary.java)
+            if (!isMethodCommentedOut(name)) {
+                workingMethods.add(name);
+            }
+        }
+
+        workingMethods.sort(String.CASE_INSENSITIVE_ORDER);
+        leftMenuListModel.clear();
+        for (String name : workingMethods) {
             leftMenuListModel.addElement(name);
         }
-        dialogPanel.setComboOptions(methodNamesList);
+        dialogPanel.setComboOptions(workingMethods);
+    }
+
+    /**
+     * Checks if a method with the given name is marked with @HiddenFromUI annotation
+     * Uses reflection to inspect NetLibrary methods for the annotation
+     * @param name The method name to check (e.g., "CreateNetMalware()")
+     * @return true if the method is marked as hidden, false otherwise
+     */
+    private boolean isMethodCommentedOut(String name) {
+        try {
+            // Extract the actual method name from the full name
+            String methodName = name;
+            if (methodName.startsWith("CreateNet")) {
+                methodName = methodName.substring(0, methodName.indexOf("("));
+            }
+
+            // Get all methods from NetLibrary class
+            Method[] methods = NetLibrary.class.getDeclaredMethods();
+
+            for (Method method : methods) {
+                // Check if this is the method we're looking for
+                if (method.getName().equals(methodName)) {
+                    // Check if method has @HiddenFromUI annotation
+                    HiddenFromUI hiddenAnnotation = method.getAnnotation(HiddenFromUI.class);
+                    if (hiddenAnnotation != null) {
+                        // Log the reason why it's hidden (optional)
+                        System.out.println("Method " + methodName + " is hidden: " + hiddenAnnotation.value());
+                        return true;
+                    }
+                    // If method exists but no annotation, it's not hidden
+                    return false;
+                }
+            }
+
+            // If method not found, assume it's not hidden
+            return false;
+
+        } catch (Exception e) {
+            // If any error occurs during reflection, log it and assume method is not hidden
+            System.err.println("Error checking method annotation for " + name + ": " + e.getMessage());
+            return false;
+        }
     }
 
     /**
@@ -815,11 +881,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         runEventButton1.setFocusable(false);
         runEventButton1.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         runEventButton1.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        runEventButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                runEventButton1ActionPerformed(evt);
-            }
-        });
+        runEventButton1.addActionListener(this::runEventButton1ActionPerformed);
         petriNetsFrameToolBar1.add(runEventButton1);
 
         petriNetsFrameSplitPane1.setDividerSize(3);
@@ -1708,18 +1770,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             errorFrame.setVisible(true);
             return false;
         }
-        if (getPetriNetsPanel().getGraphNet().isCorrectInArcs() != true) {
+        if (!getPetriNetsPanel().getGraphNet().isCorrectInArcs()) {
                 errorFrame.setErrorMessage(" Transition has no input places.");
                 errorFrame.setVisible(true);
                 return false;
         }
-        if (getPetriNetsPanel().getGraphNet().isCorrectOutArcs() != true) {
+        if (!getPetriNetsPanel().getGraphNet().isCorrectOutArcs()) {
                     errorFrame.setErrorMessage(" Transition has no output places.");
                     errorFrame.setVisible(true);
                     return false;
-
-
-
         }
         getPetriNetsPanel().getGraphNet().createPetriNet(
                         netNameTextField.getText()); // creating Petri net
@@ -1728,7 +1787,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         errorFrame.setVisible(true);
                         return false;
         }
-        if (getPetriNetsPanel().getGraphNet().hasParameters() == true) { // addedn by Katya 08.12.2016
+        if (getPetriNetsPanel().getGraphNet().hasParameters()) { // addedn by Katya 08.12.2016
                 errorFrame.setErrorMessage("The Petri Net contains unspecified parameters that must be configured before simulation can begin. Please open the 'Edit Net Parameters' dialog (Ctrl+E) to provide specific values for all parameters, or ensure all transition delays and place markings are properly defined.");
                 errorFrame.setVisible(true);
                 return false;
@@ -1748,7 +1807,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
                 petriSim.setSimulationTime(Double.parseDouble(
                         timeModelingTextField.getText()));
-                petriSim.setTimeCurr(Double.valueOf(
+                petriSim.setTimeCurr(Double.parseDouble(
                         timeStartField.getText()));
 
                 ArrayList<PetriSim> list = new ArrayList<>();
@@ -1756,18 +1815,18 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 RunPetriObjModel m = new RunPetriObjModel(list,
                         protocolTextArea); // Петрі-об"єктна модель, що складається з одного Петрі-об"єкта
                 m.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
-                m.setCurrentTime(Double.valueOf(timeStartField.getText()));
+                m.setCurrentTime(Double.parseDouble(timeStartField.getText()));
                 if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
                     statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog, true);
                     m.setStatisticMonitor(statisticGraphMonitor);
                 }
-                m.go(Double.valueOf(timeModelingTextField.getText()));
+                m.go(Double.parseDouble(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
                         statisticsTextArea);
                 // перетворення у потрібний формат ...
-                Double d = m.getCurrentTime(); // added
+                double d = m.getCurrentTime(); // added
 
-                Double dd = 100.0 * (m.getCurrentTime() - d.intValue()); // десяткова частина
+                Double dd = 100.0 * (m.getCurrentTime() - (int) d); // десяткова частина
 
                 //timeStartField.setText(String.valueOf(d.intValue()
                 //		+ "." + dd.intValue())); // added by Inna
@@ -1811,14 +1870,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
                 petriSim.setSimulationTime(Double.parseDouble(
                         timeModelingTextField.getText()));
-                petriSim.setTimeCurr(Double.valueOf(
+                petriSim.setTimeCurr(Double.parseDouble(
                         timeStartField.getText()));
 
-                ArrayList<PetriSim> list = new ArrayList<PetriSim>();
+                ArrayList<PetriSim> list = new ArrayList<>();
                 list.add(petriSim);
-                
-                 
-                
+
                 AnimRunPetriObjModel model = new AnimRunPetriObjModel(list,
                         protocolTextArea, getPetriNetsPanel(),
                         speedSlider); // Петрі-об"єктна модель, що складається з одного Петріз-об"єкта
@@ -1826,18 +1883,18 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 animationModel = model;
 
                 model.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
-                model.setCurrentTime(Double.valueOf(timeStartField.getText()));
+                model.setCurrentTime(Double.parseDouble(timeStartField.getText()));
                 if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
                     StatisticGraphMonitor statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog, false);
                     model.setStatisticMonitor(statisticGraphMonitor);
                 }
-                model.go(Double.valueOf(timeModelingTextField.getText()));
+                model.go(Double.parseDouble(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
                         statisticsTextArea);
-                // перетворення у потрібний формат ...
-                Double d = model.getCurrentTime(); // added
+                // перетворення у потрібний формат
+                double d = model.getCurrentTime();
 
-                Double dd = 100.0 * (model.getCurrentTime() - d.intValue()); // десяткова частина
+                Double dd = 100.0 * (model.getCurrentTime() - (int) d); // десяткова частина
 
                 //timeStartField.setText(String.valueOf(d.intValue()
                 //		+ "." + dd.intValue())); // added by Inna
@@ -2287,7 +2344,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     /**
      * @param args the command line arguments
      */
-    public static void main(String args[]) {
+    public static void main(String[] args) {
 
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager

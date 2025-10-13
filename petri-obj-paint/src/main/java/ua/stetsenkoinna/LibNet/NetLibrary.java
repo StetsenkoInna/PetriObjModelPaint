@@ -20,31 +20,32 @@ public class NetLibrary {
      * @param name the individual name of SMO
      * @throws ExceptionInvalidTimeDelay if one of net's transitions has no input position.
      * @return Petri net dynamics of which corresponds to system of mass service with given parameters
-     * @throws PetriObj.ExceptionInvalidNetStructure
+     * @throws ExceptionInvalidNetStructure
      */
-public static PetriNet CreateNetSMOwithoutQueue(int numChannel, double timeMean, String name) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay{
-	ArrayList<PetriP> d_P = new ArrayList<>();
-	ArrayList<PetriT> d_T = new ArrayList<>();
-	ArrayList<ArcIn> d_In = new ArrayList<>();
-	ArrayList<ArcOut> d_Out = new ArrayList<>();
-	d_P.add(new PetriP("P1",0));
-	d_P.add(new PetriP("P2",numChannel));
-	d_P.add(new PetriP("P3",0));
-	d_T.add(new PetriT("T1",timeMean));
-	d_T.get(0).setDistribution("exp", d_T.get(0).getTimeServ());
-	d_T.get(0).setParamDeviation(0.0);
-	d_In.add(new ArcIn(d_P.get(0),d_T.get(0),1));
-	d_In.add(new ArcIn(d_P.get(1),d_T.get(0),1));
-	d_Out.add(new ArcOut(d_T.get(0),d_P.get(1),1));
-	d_Out.add(new ArcOut(d_T.get(0),d_P.get(2),1));
-	PetriNet d_Net = new PetriNet("SMOwithoutQueue"+name,d_P,d_T,d_In,d_Out);
-	PetriP.initNext();
-	PetriT.initNext();
-	ArcIn.initNext();
-	ArcOut.initNext();
+	@HiddenFromUI
+	public static PetriNet CreateNetSMOwithoutQueue(int numChannel, double timeMean, String name) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay{
+		ArrayList<PetriP> d_P = new ArrayList<>();
+		ArrayList<PetriT> d_T = new ArrayList<>();
+		ArrayList<ArcIn> d_In = new ArrayList<>();
+		ArrayList<ArcOut> d_Out = new ArrayList<>();
+		d_P.add(new PetriP("P1",0));
+		d_P.add(new PetriP("P2",numChannel));
+		d_P.add(new PetriP("P3",0));
+		d_T.add(new PetriT("T1",timeMean));
+		d_T.get(0).setDistribution("exp", d_T.get(0).getTimeServ());
+		d_T.get(0).setParamDeviation(0.0);
+		d_In.add(new ArcIn(d_P.get(0),d_T.get(0),1));
+		d_In.add(new ArcIn(d_P.get(1),d_T.get(0),1));
+		d_Out.add(new ArcOut(d_T.get(0),d_P.get(1),1));
+		d_Out.add(new ArcOut(d_T.get(0),d_P.get(2),1));
+		PetriNet d_Net = new PetriNet("SMOwithoutQueue"+name,d_P,d_T,d_In,d_Out);
+		PetriP.initNext();
+		PetriT.initNext();
+		ArcIn.initNext();
+		ArcOut.initNext();
 
-	return d_Net;
-}
+		return d_Net;
+	}
 
  /**
      * Creates Petri net that describes the dynamics of arrivals of demands for
@@ -52,41 +53,43 @@ public static PetriNet CreateNetSMOwithoutQueue(int numChannel, double timeMean,
      *
      * @param timeMean mean value of interval between arrivals
      * @return Petri net dynamics of which corresponds to generator
-     * @throws PetriObj.ExceptionInvalidTimeDelay if Petri net has invalid structure
-     * @throws PetriObj.ExceptionInvalidNetStructure
+     * @throws ExceptionInvalidTimeDelay if Petri net has invalid structure
+     * @throws ExceptionInvalidNetStructure
      */
-public static PetriNet CreateNetGenerator(double timeMean) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
-	ArrayList<PetriP> d_P = new ArrayList<>();
-	ArrayList<PetriT> d_T = new ArrayList<>();
-	ArrayList<ArcIn> d_In = new ArrayList<>();
-	ArrayList<ArcOut> d_Out = new ArrayList<>();
-	d_P.add(new PetriP("P1",1));
-	d_P.add(new PetriP("P2",0));
-	d_T.add(new PetriT("T1", timeMean,Double.MAX_VALUE));
-	d_T.get(0).setDistribution("exp", d_T.get(0).getTimeServ());
-	d_T.get(0).setParamDeviation(0.0);
-	d_In.add(new ArcIn(d_P.get(0),d_T.get(0),1));
-	d_Out.add(new ArcOut(d_T.get(0),d_P.get(1),1));
-	d_Out.add(new ArcOut(d_T.get(0),d_P.get(0),1));
-	PetriNet d_Net = new PetriNet("Generator",d_P,d_T,d_In,d_Out);
-	PetriP.initNext();
-	PetriT.initNext();
-	ArcIn.initNext();
-	ArcOut.initNext();
+	public static PetriNet CreateNetGenerator(double timeMean) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+		ArrayList<PetriP> d_P = new ArrayList<>();
+		ArrayList<PetriT> d_T = new ArrayList<>();
+		ArrayList<ArcIn> d_In = new ArrayList<>();
+		ArrayList<ArcOut> d_Out = new ArrayList<>();
+		d_P.add(new PetriP("P1",1));
+		d_P.add(new PetriP("P2",0));
+		d_T.add(new PetriT("T1", timeMean,Double.MAX_VALUE));
+		d_T.get(0).setDistribution("exp", d_T.get(0).getTimeServ());
+		d_T.get(0).setParamDeviation(0.0);
+		d_In.add(new ArcIn(d_P.get(0),d_T.get(0),1));
+		d_Out.add(new ArcOut(d_T.get(0),d_P.get(1),1));
+		d_Out.add(new ArcOut(d_T.get(0),d_P.get(0),1));
+		PetriNet d_Net = new PetriNet("Generator",d_P,d_T,d_In,d_Out);
+		PetriP.initNext();
+		PetriT.initNext();
+		ArcIn.initNext();
+		ArcOut.initNext();
 
-	return d_Net;
-}
- /**
-     * Creates Petri net that describes the route choice with given
-     * probabilities
-     *
-     * @param p1 the probability of choosing the first route
-     * @param p2 the probability of choosing the second route
-     * @param p3 the probability of choosing the third route
-     * @return Petri net dynamics of which corresponds to fork of routs
-     * @throws PetriObj.ExceptionInvalidTimeDelay if Petri net has invalid structure
-     * @throws PetriObj.ExceptionInvalidNetStructure
-     */
+		return d_Net;
+	}
+/**
+ * Creates Petri net that describes the route choice with given
+ * probabilities
+ *
+ * @param p1 the probability of choosing the first route
+ * @param p2 the probability of choosing the second route
+ * @param p3 the probability of choosing the third route
+ * @return Petri net dynamics of which corresponds to fork of routs
+ * @throws ExceptionInvalidTimeDelay if Petri net has invalid structure
+ * @throws ExceptionInvalidNetStructure
+ */
+
+@HiddenFromUI
 public static PetriNet CreateNetFork(double p1, double p2, double p3) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay{
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
@@ -113,9 +116,8 @@ public static PetriNet CreateNetFork(double p1, double p2, double p3) throws Exc
 	d_Out.add(new ArcOut(d_T.get(1),d_P.get(2),1));
 	d_Out.add(new ArcOut(d_T.get(2),d_P.get(3),1));
 	d_Out.add(new ArcOut(d_T.get(3),d_P.get(4),1));
-	PetriNet d_Net = new PetriNet("Fork",d_P,d_T,d_In,d_Out);
 
-	return d_Net;
+    return new PetriNet("Fork",d_P,d_T,d_In,d_Out);
 }
    /**
      * Creates Petri net that describes the route choice with given
@@ -124,9 +126,10 @@ public static PetriNet CreateNetFork(double p1, double p2, double p3) throws Exc
      * @param numOfWay quantity of possibilities in choice ("ways")
      * @param probabilities set of values probabilities for each "way"
      * @return Petri net dynamics of which corresponds to fork of routs
-     * @throws PetriObj.ExceptionInvalidTimeDelay if Petri net has invalid structure
-     * @throws PetriObj.ExceptionInvalidNetStructure
+     * @throws ExceptionInvalidTimeDelay if Petri net has invalid structure
+     * @throws ExceptionInvalidNetStructure
      */
+    @HiddenFromUI
     public static PetriNet CreateNetFork(int numOfWay, double[] probabilities) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 
         ArrayList<PetriP> d_P = new ArrayList<>();
@@ -162,9 +165,14 @@ public static PetriNet CreateNetFork(double p1, double p2, double p3) throws Exc
         ArcOut.initNext();
 
         return d_Net;
-    }    
+    }
 
-/*pblic static PetriNet CreateNetMalware() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+/**
+ * Creates Petri net that describes malware attack dynamics
+ * This method is hidden from UI as it's for demonstration purposes only
+ */
+@HiddenFromUI("Demonstration method - not for production use")
+public static PetriNet CreateNetMalware() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
 	ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -268,8 +276,13 @@ public static PetriNet CreateNetFork(double p1, double p2, double p3) throws Exc
 	ArcOut.initNext();
 
 	return d_Net;
-}*/
-/*pblic static PetriNet CreateNetAdmin() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+}
+/**
+ * Creates Petri net that describes admin operations
+ * This method is hidden from UI as it's incomplete
+ */
+@HiddenFromUI("Incomplete implementation")
+public static PetriNet CreateNetAdmin() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
 	ArrayList<ArcIn> d_In = new ArrayList<>();
@@ -318,7 +331,7 @@ public static PetriNet CreateNetFork(double p1, double p2, double p3) throws Exc
 	ArcOut.initNext();
 
 	return d_Net;
-}*/
+}
 public static PetriNet CreateNetTest3() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
@@ -433,7 +446,7 @@ public static PetriNet CreateNetThread3() throws ExceptionInvalidNetStructure, E
 	d_Out.add(new ArcOut(d_T.get(7),d_P.get(13),1));
 	d_Out.add(new ArcOut(d_T.get(9),d_P.get(6),1));
 	d_Out.add(new ArcOut(d_T.get(5),d_P.get(6),1));
-        
+
 	PetriNet d_Net = new PetriNet("friendThread",d_P,d_T,d_In,d_Out);
 	PetriP.initNext();
 	PetriT.initNext();
@@ -475,8 +488,8 @@ public static PetriNet CreateNetThread3() throws ExceptionInvalidNetStructure, E
 	d_Out.add(new ArcOut(d_T.get(3),d_P.get(4),1));
 	d_Out.add(new ArcOut(d_T.get(1),d_P.get(5),1));
 	d_Out.add(new ArcOut(d_T.get(3),d_P.get(6),1));
-        
-        
+
+
 	PetriNet d_Net = new PetriNet("Consistency",d_P,d_T,d_In,d_Out);
 	PetriP.initNext();
 	PetriT.initNext();
@@ -795,6 +808,8 @@ public static PetriNet CreateNetTestStatistics() throws ExceptionInvalidNetStruc
 
 	return d_Net;
 }
+
+@HiddenFromUI
 public static PetriNet CreateNetTask(double a) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 	ArrayList<PetriP> d_P = new ArrayList<>();
 	ArrayList<PetriT> d_T = new ArrayList<>();
@@ -809,7 +824,7 @@ public static PetriNet CreateNetTask(double a) throws ExceptionInvalidNetStructu
         for(PetriT tr: d_T){
             d_In.add(new ArcIn(d_P.get(2),tr,1));
             d_Out.add(new ArcOut(tr,d_P.get(2),1));
-            
+
         }
 	PetriNet d_Net = new PetriNet("Task",d_P,d_T,d_In,d_Out);
 	PetriP.initNext();
@@ -863,12 +878,14 @@ public static PetriNet CreateNetSimple() throws ExceptionInvalidNetStructure, Ex
 
 	return d_Net;
 }
+
+@HiddenFromUI
 public static PetriNet CreateNetSMOgroup(int numInGroup,int numChannel, double timeMean, String name) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay{
         ArrayList<PetriP> d_P = new ArrayList<>();
         ArrayList<PetriT> d_T = new ArrayList<>();
         ArrayList<ArcIn> d_In = new ArrayList<>();
         ArrayList<ArcOut> d_Out = new ArrayList<>();
-        d_P.add(new PetriP("P0", 0)); 
+        d_P.add(new PetriP("P0", 0));
         for (int j = 0; j < numInGroup; j++) {
             d_P.add(new PetriP("P" + (2 * j + 1), numChannel));
             d_P.add(new PetriP("P" + (2 * j + 2), 0));

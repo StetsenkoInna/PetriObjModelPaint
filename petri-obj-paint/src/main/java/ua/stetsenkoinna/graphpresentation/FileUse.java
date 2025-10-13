@@ -882,7 +882,7 @@ e.printStackTrace();
                  methodText = methodBeginning + paramsString + ")" + matcher.group(1) + methodEnding + "}"; // modified by Katya 22.11.2016
             } else {
                 System.out.println("Method not found  FileNotFoundException");
-                throw new FileNotFoundException();
+                throw new FileNotFoundException("Method '" + methodName + "' with parameters '" + paramsString + "' not found in NetLibrary.java");
             }
             PetriNetsFrame petriNetsFrame = (PetriNetsFrame)frame;
             JScrollPane pane = petriNetsFrame.GetPetriNetPanelScrollPane();
