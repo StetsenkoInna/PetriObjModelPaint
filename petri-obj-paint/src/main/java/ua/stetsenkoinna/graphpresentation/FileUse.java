@@ -252,7 +252,12 @@ public class FileUse {
 
         try {
             pnet.createPetriNet(name);
-            File file = new File(name + ".pns");
+            // Create temp directory if it doesn't exist
+            File tempDir = new File("temp");
+            if (!tempDir.exists()) {
+                tempDir.mkdirs();
+            }
+            File file = new File(tempDir, name + ".pns");
             // System.out.println("Saving path = " + file.getAbsolutePath());
             fos = new FileOutputStream(file);
             oos = new ObjectOutputStream(fos);
