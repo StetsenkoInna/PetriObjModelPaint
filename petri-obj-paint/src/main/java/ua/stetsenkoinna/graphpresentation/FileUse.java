@@ -70,10 +70,38 @@ public class FileUse {
             return null; // User cancelled the dialog
         }
 
-        try (FileInputStream fis = new FileInputStream(fdlg.getDirectory() + fdlg.getFile());
+        String filePath = fdlg.getDirectory() + fdlg.getFile();
+        File file = new File(filePath);
+
+        // Validate file before attempting to read
+        if (!file.exists()) {
+            JOptionPane.showMessageDialog(null, "File does not exist: " + filePath, "Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+
+        if (!file.canRead()) {
+            JOptionPane.showMessageDialog(null, "Cannot read file: " + filePath, "Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+
+        if (file.length() == 0) {
+            JOptionPane.showMessageDialog(null, "File is empty: " + filePath, "Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+
+        // Check if file is too small to contain a valid serialized object
+        if (file.length() < 50) { // Minimum size for a serialized object
+            JOptionPane.showMessageDialog(null,
+                "File appears to be corrupted or incomplete (too small): " + filePath +
+                "\nFile size: " + file.length() + " bytes",
+                "Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+
+        try (FileInputStream fis = new FileInputStream(file);
              ObjectInputStream ois = new ObjectInputStream(fis)) {
 
-            // System.out.println("Opening file '" + fdlg.getDirectory() + fdlg.getFile() + "'");
+            // System.out.println("Opening file '" + filePath + "'");
             Object loadedObject = ois.readObject();
 
             GraphPetriNet net;
@@ -125,6 +153,20 @@ public class FileUse {
         } catch (ClassNotFoundException ex) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, "Class not found during deserialization", ex);
             JOptionPane.showMessageDialog(null, "Cannot open file: incompatible file format or missing classes", "Error", JOptionPane.ERROR_MESSAGE);
+        } catch (java.io.EOFException ex) {
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, "EOF error during file reading - file may be corrupted", ex);
+            JOptionPane.showMessageDialog(null,
+                "Error reading file: The file appears to be corrupted or incomplete.\n\n" +
+                "Possible causes:\n" +
+                "• File was not saved properly\n" +
+                "• File was created with a different version of the application\n" +
+                "• File was damaged or truncated\n" +
+                "• Network interruption during file transfer\n\n" +
+                "Please try:\n" +
+                "• Using a backup copy of the file\n" +
+                "• Re-saving the file from the original source\n" +
+                "• Importing from PNML format instead (File → Import PNML)",
+                "File Corrupted", JOptionPane.ERROR_MESSAGE);
         } catch (IOException ex) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, "IO error during file reading", ex);
             JOptionPane.showMessageDialog(null, "Error reading file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
