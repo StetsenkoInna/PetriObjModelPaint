@@ -829,18 +829,13 @@ public class FileUse {
             }
         }
 
-        String netName;
+        String netName = "SampleNet" ;
         pattern = Pattern.compile(Pattern.quote("PetriNet d_Net = new PetriNet(\"") + "(.*?)" + Pattern.quote("\","));
         matcher = pattern.matcher(methodText);
         if (matcher.find()) {
             netName = matcher.group(1);
-        } else {
-            throw new ExceptionInvalidNetStructure(invalidMethodTextMessage);
         }
-
-        PetriNet net = new PetriNet(netName, d_P, d_T, d_In, d_Out);
-
-        return net;
+        return new PetriNet(netName, d_P, d_T, d_In, d_Out);
     }
 
     public String openMethod(PetriNetsPanel panel, String methodFullName, JFrame frame) throws ExceptionInvalidNetStructure { // added by Katya 16.10.2016
@@ -927,16 +922,14 @@ e.printStackTrace();
             Matcher matcher = pattern.matcher(libraryText.toString());
             if(matcher.find()){
                  methodText = methodBeginning + paramsString + ")" + matcher.group(1) + methodEnding + "}"; // modified by Katya 22.11.2016
-            } else {
-                System.out.println("Method not found  FileNotFoundException");
+            } 
+            else {
                 throw new FileNotFoundException("Method '" + methodName + "' with parameters '" + paramsString + "' not found in NetLibrary.java");
             }
             PetriNetsFrame petriNetsFrame = (PetriNetsFrame)frame;
             JScrollPane pane = petriNetsFrame.GetPetriNetPanelScrollPane();
             Point paneCenter = new Point(pane.getLocation().x+pane.getBounds().width/2, pane.getLocation().y+pane.getBounds().height/2);
-            //TODO
             GraphPetriNet net = generateGraphNetBySimpleNet(panel ,convertMethodToPetriNet(methodText), paneCenter);
-       //     System.out.println("num of p: "+net.getGraphPetriPlaceList().size());
             panel.addGraphNet(net);
             pnetName = net.getPetriNet().getName();
             panel.repaint();
@@ -957,7 +950,6 @@ e.printStackTrace();
             }
         }
         return pnetName;
-        // return netName;
     }
     
     public static String replaceGroup(String regex, String source, int groupToReplace, String replacement) {
