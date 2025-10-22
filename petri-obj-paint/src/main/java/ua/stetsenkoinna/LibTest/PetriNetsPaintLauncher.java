@@ -11,7 +11,7 @@ import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
  *
  * @author innastetsenko
  */
-public class TestPetriNetsPaint {
+public class PetriNetsPaintLauncher {
     /**
      * @param args the command line arguments
      */

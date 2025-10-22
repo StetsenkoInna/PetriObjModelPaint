@@ -2164,8 +2164,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     /**
      * @param args the command line arguments
+     *
+     * Direct usage is not recommended - use a separated launcher class instead
      */
-    public static void main(String[] args) {
+    public static void sample_main(String[] args) {
 
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager
