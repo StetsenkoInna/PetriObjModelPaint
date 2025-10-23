@@ -2,6 +2,7 @@ package ua.stetsenkoinna.pnml;
 
 import ua.stetsenkoinna.PetriObj.PetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
+import ua.stetsenkoinna.utils.MessageHelper;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -55,21 +56,15 @@ public class PnmlUtils {
         try {
             PnmlParser parser = new PnmlParser();
             PetriNet petriNet = parser.parse(file);
-            JOptionPane.showMessageDialog(parent,
+            MessageHelper.showInfo(parent,
                     "PNML file imported successfully!\n" +
                             "Places: " + petriNet.getListP().length + "\n" +
                             "Transitions: " + petriNet.getListT().length + "\n" +
                             "Input Arcs: " + petriNet.getArcIn().length + "\n" +
-                            "Output Arcs: " + petriNet.getArcOut().length,
-                    "Import Successful",
-                    JOptionPane.INFORMATION_MESSAGE);
+                            "Output Arcs: " + petriNet.getArcOut().length);
             return new ImportResult(petriNet, parser);
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(parent,
-                    "Error importing PNML file:\n" + e.getMessage(),
-                    "Import Error",
-                    JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
+            MessageHelper.showException(parent, "Error importing PNML file", e);
             return null;
         }
     }
@@ -84,10 +79,7 @@ public class PnmlUtils {
      */
     public static boolean exportToFile(PetriNet petriNet, java.awt.Component parent, GraphPetriNet graphPetriNet) {
         if (petriNet == null) {
-            JOptionPane.showMessageDialog(parent,
-                    "No Petri net to export",
-                    "Export Error",
-                    JOptionPane.ERROR_MESSAGE);
+            MessageHelper.showError(parent, "No Petri net to export");
             return false;
         }
 
@@ -139,11 +131,8 @@ public class PnmlUtils {
         try {
             // Check if file exists and ask for confirmation
             if (file.exists()) {
-                int confirm = JOptionPane.showConfirmDialog(parent,
-                        "File already exists. Do you want to overwrite it?",
-                        "Confirm Overwrite",
-                        JOptionPane.YES_NO_OPTION);
-                if (confirm != JOptionPane.YES_OPTION) {
+                if (!MessageHelper.showConfirmation(parent,
+                        "File already exists. Do you want to overwrite it?")) {
                     return false;
                 }
             }
@@ -151,17 +140,11 @@ public class PnmlUtils {
             PnmlGenerator generator = new PnmlGenerator();
             generator.generate(petriNet, file, graphPetriNet);
 
-            JOptionPane.showMessageDialog(parent,
-                    "PNML file exported successfully to:\n" + file.getAbsolutePath(),
-                    "Export Successful",
-                    JOptionPane.INFORMATION_MESSAGE);
+            MessageHelper.showInfo(parent,
+                    "PNML file exported successfully to:\n" + file.getAbsolutePath());
             return true;
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(parent,
-                    "Error exporting PNML file:\n" + e.getMessage(),
-                    "Export Error",
-                    JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
+            MessageHelper.showException(parent, "Error exporting PNML file", e);
             return false;
         }
     }

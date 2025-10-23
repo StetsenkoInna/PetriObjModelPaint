@@ -33,7 +33,6 @@ import java.util.logging.Logger;
 import java.awt.Point;
 
 import javax.swing.JFrame;
-import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
 import javax.swing.JScrollPane;
 
@@ -44,6 +43,7 @@ import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.utils.Utils;
+import ua.stetsenkoinna.utils.MessageHelper;
 
 import java.awt.geom.Point2D;
 import java.nio.file.Path;
@@ -75,26 +75,25 @@ public class FileUse {
 
         // Validate file before attempting to read
         if (!file.exists()) {
-            JOptionPane.showMessageDialog(null, "File does not exist: " + filePath, "Error", JOptionPane.ERROR_MESSAGE);
+            MessageHelper.showError(frame, "File does not exist: " + filePath);
             return null;
         }
 
         if (!file.canRead()) {
-            JOptionPane.showMessageDialog(null, "Cannot read file: " + filePath, "Error", JOptionPane.ERROR_MESSAGE);
+            MessageHelper.showError(frame, "Cannot read file: " + filePath);
             return null;
         }
 
         if (file.length() == 0) {
-            JOptionPane.showMessageDialog(null, "File is empty: " + filePath, "Error", JOptionPane.ERROR_MESSAGE);
+            MessageHelper.showError(frame, "File is empty: " + filePath);
             return null;
         }
 
         // Check if file is too small to contain a valid serialized object
         if (file.length() < 50) { // Minimum size for a serialized object
-            JOptionPane.showMessageDialog(null,
+            MessageHelper.showError(frame,
                 "File appears to be corrupted or incomplete (too small): " + filePath +
-                "\nFile size: " + file.length() + " bytes",
-                "Error", JOptionPane.ERROR_MESSAGE);
+                "\nFile size: " + file.length() + " bytes");
             return null;
         }
 
@@ -131,11 +130,10 @@ public class FileUse {
                     .toArray(GraphPetriTransition[]::new);
             if (tWithNon0Buffers.length != 0) {
                 // display dialog
-                int result = JOptionPane.showConfirmDialog(null, "There are transitions in this net with non-empty buffers. Do you want to clear them?",
-                                "Buffers reset", JOptionPane.OK_CANCEL_OPTION);
-                if (result == JOptionPane.OK_OPTION) {
+                if (MessageHelper.showConfirmation(frame,
+                    "There are transitions in this net with non-empty buffers. Do you want to clear them?")) {
                     for (GraphPetriTransition trans : tWithNon0Buffers) {
-                        // removing all saved exit times 
+                        // removing all saved exit times
                         trans.getPetriTransition().getTimeOut().clear();
                         trans.getPetriTransition().getTimeOut().add(Double.MAX_VALUE);
                         trans.getPetriTransition().setBuffer(0);
@@ -148,14 +146,11 @@ public class FileUse {
             panel.repaint();
 
         } catch (FileNotFoundException e) {
-            System.out.println("Such file was not found");
-            JOptionPane.showMessageDialog(null, "File not found: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            MessageHelper.showException(frame, "File not found", e);
         } catch (ClassNotFoundException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, "Class not found during deserialization", ex);
-            JOptionPane.showMessageDialog(null, "Cannot open file: incompatible file format or missing classes", "Error", JOptionPane.ERROR_MESSAGE);
+            MessageHelper.showException(frame, "Cannot open file: incompatible file format or missing classes", ex);
         } catch (java.io.EOFException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, "EOF error during file reading - file may be corrupted", ex);
-            JOptionPane.showMessageDialog(null,
+            MessageHelper.showError(frame,
                 "Error reading file: The file appears to be corrupted or incomplete.\n\n" +
                 "Possible causes:\n" +
                 "• File was not saved properly\n" +
@@ -165,17 +160,14 @@ public class FileUse {
                 "Please try:\n" +
                 "• Using a backup copy of the file\n" +
                 "• Re-saving the file from the original source\n" +
-                "• Importing from PNML format instead (File → Import PNML)",
-                "File Corrupted", JOptionPane.ERROR_MESSAGE);
+                "• Importing from PNML format instead (File → Import PNML)");
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, "EOF error during file reading", ex);
         } catch (IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, "IO error during file reading", ex);
-            JOptionPane.showMessageDialog(null, "Error reading file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            MessageHelper.showException(frame, "Error reading file", ex);
         } catch (CloneNotSupportedException ex) {
-            Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, "Cannot clone GraphPetriNet", ex);
-            JOptionPane.showMessageDialog(null, "Error processing file data", "Error", JOptionPane.ERROR_MESSAGE);
+            MessageHelper.showException(frame, "Error processing file data", ex);
         } catch (ClassCastException ex) {
-            Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, "Unexpected object type in file", ex);
-            JOptionPane.showMessageDialog(null, "Unsupported file format", "Error", JOptionPane.ERROR_MESSAGE);
+            MessageHelper.showException(frame, "Unsupported file format", ex);
         }
         return pnetName;
     }
@@ -942,12 +934,11 @@ e.printStackTrace();
             pnetName = net.getPetriNet().getName();
             panel.repaint();
         } catch (FileNotFoundException e) {
-            System.out.println("Method not found: " + e.getMessage());
-
+            MessageHelper.showException(frame, "Method not found in NetLibrary", e);
         } catch (IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+            MessageHelper.showException(frame, "Error reading NetLibrary file", ex);
         } catch (ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, null, ex);
+            MessageHelper.showException(frame, "Invalid time delay in Petri net", ex);
         } finally {
             try {
                 if (fis != null) {
@@ -966,7 +957,6 @@ e.printStackTrace();
         boolean hasSequencesToProcess = true;
         Pattern pattern = Pattern.compile(regex);
         while (hasSequencesToProcess) {
-            System.out.println("bruh");
             Matcher m = pattern.matcher(source);
             if (!m.find()) {
                 hasSequencesToProcess = false;
@@ -1397,8 +1387,8 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
 
             // Check if file exists
             if (path == null) {
-                JOptionPane.showMessageDialog(area, "NetLibrary.java not found in any configured location. Working directory: " +
-                    System.getProperty("user.dir"), "Error", JOptionPane.ERROR_MESSAGE);
+                MessageHelper.showError(area, "NetLibrary.java not found in any configured location. Working directory: " +
+                    System.getProperty("user.dir"));
                 return;
             }
 
@@ -1438,13 +1428,13 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
                 String s  = area.getText() + "\n" + c;
                 f.write(s.getBytes());
 
-                JOptionPane.showMessageDialog(area, "Method was successfully added. See in class NetLibrary.");
+                MessageHelper.showInfo(area, "Method was successfully added to NetLibrary class.");
             } else {
-                JOptionPane.showMessageDialog(area, "symbol '}' doesn't find in file NetLibrary.java");
+                MessageHelper.showError(area, "Could not find closing brace '}' in NetLibrary.java");
             }
             f.close();
         } catch (IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+            MessageHelper.showException(area, "Error saving method to NetLibrary", ex);
         }
         
         // Force to recomile the class next time any method from there is used

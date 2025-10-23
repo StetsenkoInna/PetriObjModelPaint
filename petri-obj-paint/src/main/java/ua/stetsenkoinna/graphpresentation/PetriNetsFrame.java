@@ -47,6 +47,7 @@ import ua.stetsenkoinna.graphpresentation.actions.RewindAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunNetAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunOneEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
+import ua.stetsenkoinna.utils.MessageHelper;
 
 import java.awt.Dialog.ModalityType;
 import java.io.ObjectInputStream;
@@ -2018,31 +2019,22 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
                 getPetriNetsPanel().repaint();
 
-                javax.swing.JOptionPane.showMessageDialog(this,
+                MessageHelper.showInfo(this,
                     "PNML file imported successfully!\nPlaces: " + petriNet.getListP().length +
                     ", Transitions: " + petriNet.getListT().length +
                     "\nInput arcs: " + petriNet.getArcIn().length +
-                    ", Output arcs: " + petriNet.getArcOut().length,
-                    "Import Complete",
-                    javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                    ", Output arcs: " + petriNet.getArcOut().length);
             }
         } catch (Exception ex) {
-            javax.swing.JOptionPane.showMessageDialog(this,
-                "Error importing PNML file: " + ex.getMessage(),
-                "Import Error",
-                javax.swing.JOptionPane.ERROR_MESSAGE);
-            java.util.logging.Logger.getLogger(PetriNetsFrame.class.getName()).log(
-                java.util.logging.Level.SEVERE, null, ex);
+            MessageHelper.showException(this, "Error importing PNML file", ex);
         }
     }
 
     private void exportPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
         try {
             if (getPetriNetsPanel().getGraphNet() == null) {
-                javax.swing.JOptionPane.showMessageDialog(this,
-                    "No Petri net to export. Please create or load a net first.",
-                    "Export Error",
-                    javax.swing.JOptionPane.ERROR_MESSAGE);
+                MessageHelper.showError(this,
+                    "No Petri net to export. Please create or load a net first.");
                 return;
             }
 
@@ -2063,10 +2055,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 PetriNet petriNet = getPetriNetsPanel().getGraphNet().getPetriNet();
 
                 if (petriNet == null) {
-                    javax.swing.JOptionPane.showMessageDialog(this,
-                        "Unable to create Petri net for export. Please check your net structure.",
-                        "Export Error",
-                        javax.swing.JOptionPane.ERROR_MESSAGE);
+                    MessageHelper.showError(this,
+                        "Unable to create Petri net for export. Please check your net structure.");
                     return;
                 }
 
@@ -2074,18 +2064,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 PnmlGenerator generator = new PnmlGenerator();
                 generator.generate(petriNet, selectedFile, getPetriNetsPanel().getGraphNet());
 
-                javax.swing.JOptionPane.showMessageDialog(this,
-                    "PNML file exported successfully to:\n" + selectedFile.getAbsolutePath(),
-                    "Export Complete",
-                    javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                MessageHelper.showInfo(this,
+                    "PNML file exported successfully to:\n" + selectedFile.getAbsolutePath());
             }
         } catch (Exception ex) {
-            javax.swing.JOptionPane.showMessageDialog(this,
-                "Error exporting PNML file: " + ex.getMessage(),
-                "Export Error",
-                javax.swing.JOptionPane.ERROR_MESSAGE);
-            java.util.logging.Logger.getLogger(PetriNetsFrame.class.getName()).log(
-                java.util.logging.Level.SEVERE, null, ex);
+            MessageHelper.showException(this, "Error exporting PNML file", ex);
         }
     }
 

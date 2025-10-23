@@ -6,6 +6,7 @@
 package ua.stetsenkoinna.LibTest;
 
 import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
+import ua.stetsenkoinna.utils.MessageHelper;
 
 /**
  *
@@ -33,6 +34,10 @@ public class PetriNetsPaintLauncher {
         java.awt.EventQueue.invokeLater(() -> {
             PetriNetsFrame frame = new PetriNetsFrame();
             frame.setExtendedState(javax.swing.JFrame.MAXIMIZED_BOTH);
+
+            // Set the main frame as default parent for MessageHelper dialogs
+            MessageHelper.setDefaultParent(frame);
+
             frame.setVisible(true);
         });
 
