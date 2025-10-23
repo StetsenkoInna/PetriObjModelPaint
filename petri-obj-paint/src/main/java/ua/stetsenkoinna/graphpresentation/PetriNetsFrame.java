@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphpresentation;
 
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
@@ -9,11 +5,12 @@ import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.PetriObj.PetriP;
 import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.PetriObj.PetriT;
+import ua.stetsenkoinna.config.FilePathConfig;
 import ua.stetsenkoinna.graphpresentation.statistic.StatisticMonitorDialog;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonitor;
 import ua.stetsenkoinna.graphreuse.GraphNetParametersFrame;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
-import ua.stetsenkoinna.utils.ResourcePathConfig;
+import ua.stetsenkoinna.config.ResourcePathConfig;
 import ua.stetsenkoinna.pnml.PnmlParser;
 import ua.stetsenkoinna.pnml.PnmlGenerator;
 import ua.stetsenkoinna.PetriObj.PetriNet;
@@ -53,43 +50,37 @@ import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
 
 import java.awt.Dialog.ModalityType;
 import java.io.ObjectInputStream;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEditSupport;
 
-/**
- *
- * @author Ольга
- */
-
 public class PetriNetsFrame extends javax.swing.JFrame {
 
-    public Timer timer; //timer thats starts repainting while net simulates
+    public Timer timer; // timer that starts repainting while simulation
     private final MethodNameDialogPanel dialogPanel = new MethodNameDialogPanel();
     private JDialog dialog;
 
-    static class MethodNameDialogPanel extends JPanel { // Added by Katya 23.10.2016,
+    static class MethodNameDialogPanel extends JPanel {
         private final JComboBox<String> combo;
         private final JButton okButton = new JButton("OK");
 
-        private Boolean secondListenerAdded = false; // added by Katya 05.12.2016
+        private Boolean secondListenerAdded = false;
 
-        public MethodNameDialogPanel() { // modified by Katya 27.11.2016
+        public MethodNameDialogPanel() {
             okButton.addActionListener((ActionEvent e) -> okButtonAction());
             combo = new JComboBox<>();
             add(combo);
             add(okButton);
         }
 
-        public void addOkButtonClickHandler(ActionListener listener) { // added by Katya 05.12.2016
+        public void addOkButtonClickHandler(ActionListener listener) {
             if (!secondListenerAdded) {
                 okButton.addActionListener(listener);
                 secondListenerAdded = true;
             }
         }
 
-        public void setComboOptions(ArrayList<String> methodNames) { // added by Katya
+        public void setComboOptions(ArrayList<String> methodNames) {
             combo.setModel(new DefaultComboBoxModel<>(methodNames.toArray(new String[0])));															// 27.11.2016
         }
 
@@ -114,21 +105,27 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public final RunOneEventAction runOneEventAction = animationControls.runOneEventAction;
     public final AnimateEventAction animateEventAction = animationControls.animateEventAction;
 
-    private void UpdateNetLibraryMethodsCombobox() { // added by Katya
-        // 27.11.2016
+    private void UpdateNetLibraryMethodsCombobox() {
         ArrayList<String> methodNamesList = new ArrayList<>();
         FileInputStream fis = null;
         try {
             StringBuilder libraryText = new StringBuilder();
-            Path path = FileSystems.getDefault().getPath(
-                    System.getProperty("user.dir"),"petri-obj-paint","src","main","java","ua","stetsenkoinna","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
-            String pathNetLibrary = path.toString();
 
-            // Check if file exists before trying to open it
-            if (!path.toFile().exists()) {
-                System.out.println("NetLibrary.java file not found at path: " + pathNetLibrary);
+            // Use FilePathConfig for cross-platform path resolution
+            Path path = FilePathConfig.getNetLibraryPath();
+
+            // Check if file exists
+            if (path == null) {
+                System.out.println("NetLibrary.java file not found in any configured location.");
+                System.out.println("Working directory: " + System.getProperty("user.dir"));
+                System.out.println("Searched paths:");
+                for (String searchPath : FilePathConfig.getNetLibrarySearchPaths()) {
+                    System.out.println("  - " + searchPath);
+                }
                 return;
             }
+
+            String pathNetLibrary = path.toString();
 
             fis = new FileInputStream(pathNetLibrary);
             int content;

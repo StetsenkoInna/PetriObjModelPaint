@@ -14,7 +14,7 @@ import ua.stetsenkoinna.graphpresentation.statistic.enums.PetriStatisticFunction
 import ua.stetsenkoinna.graphpresentation.statistic.services.FormulaBuilderService;
 import ua.stetsenkoinna.graphpresentation.statistic.services.FormulaBuilderServiceImpl;
 import ua.stetsenkoinna.graphpresentation.statistic.services.StatisticMonitorService;
-import ua.stetsenkoinna.utils.ResourcePathConfig;
+import ua.stetsenkoinna.config.ResourcePathConfig;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.chart.XYChart;
 

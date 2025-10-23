@@ -1,7 +1,7 @@
 package ua.stetsenkoinna.graphpresentation.actions;
 
 import ua.stetsenkoinna.graphpresentation.AnimationControls;
-import ua.stetsenkoinna.utils.ResourcePathConfig;
+import ua.stetsenkoinna.config.ResourcePathConfig;
 import java.awt.event.ActionEvent;
 import java.util.Objects;
 import javax.swing.AbstractAction;

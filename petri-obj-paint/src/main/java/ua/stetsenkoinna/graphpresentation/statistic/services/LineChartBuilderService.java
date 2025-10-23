@@ -5,7 +5,7 @@ import ua.stetsenkoinna.graphpresentation.statistic.dto.drawings.ChartAnnotation
 import ua.stetsenkoinna.graphpresentation.statistic.dto.configs.ChartConfigDto;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.drawings.ChartDrawingConfig;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.drawings.ChartLineData;
-import ua.stetsenkoinna.utils.ResourcePathConfig;
+import ua.stetsenkoinna.config.ResourcePathConfig;
 import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
 import javafx.embed.swing.SwingFXUtils;
@@ -537,7 +537,8 @@ public class LineChartBuilderService implements ChartBuilderService {
     public void exportChartAsImage(String directory) {
         Platform.runLater(() -> {
             WritableImage image = rootPane.snapshot(null, null);
-            File file = new File(directory + "/" + chartConfigDto.getTitle() + ".png");
+            // Use File constructor for cross-platform path handling
+            File file = new File(directory, chartConfigDto.getTitle() + ".png");
             try {
                 ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", file);
                 showMessageDialog(null, "Chart image successfully saved", "Chart image export", JOptionPane.PLAIN_MESSAGE);
@@ -557,8 +558,9 @@ public class LineChartBuilderService implements ChartBuilderService {
         long series_id = 1l;
         try {
             for (XYChart.Series<Number, Number> series : lineChart.getData()) {
-                String filePath = documentsFolder.getPath() + "/Series-" + series_id + ".csv";
-                try (FileWriter writer = new FileWriter(filePath)) {
+                // Use File constructor for cross-platform path handling
+                File csvFile = new File(documentsFolder, "Series-" + series_id + ".csv");
+                try (FileWriter writer = new FileWriter(csvFile)) {
                     writer.append(chartConfigDto.getxAxisTitle()).append(",")
                             .append(chartConfigDto.getyAxisTitle()).append("\n");
                     for (XYChart.Data<Number, Number> data : series.getData()) {

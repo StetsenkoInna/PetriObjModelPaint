@@ -37,6 +37,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
 import javax.swing.JScrollPane;
 
+import ua.stetsenkoinna.config.FilePathConfig;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
@@ -45,7 +46,6 @@ import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.utils.Utils;
 
 import java.awt.geom.Point2D;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -905,8 +905,16 @@ e.printStackTrace();
         FileInputStream fis = null;
         try {
             StringBuilder libraryText = new StringBuilder();
-            Path path = FileSystems.getDefault().getPath(
-                    System.getProperty("user.dir"),"petri-obj-paint","src","main","java","ua","stetsenkoinna","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
+
+            // Use FilePathConfig for cross-platform path resolution
+            Path path = FilePathConfig.getNetLibraryPath();
+
+            // Check if file exists
+            if (path == null) {
+                throw new FileNotFoundException("NetLibrary.java not found in any configured location. Working directory: " +
+                    System.getProperty("user.dir"));
+            }
+
             String pathNetLibrary = path.toString();
             fis = new FileInputStream(pathNetLibrary); // modified by Katya 23.10.2016, by Inna 29.09.2018
 
@@ -1384,8 +1392,16 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
     public void saveMethodInNetLibrary(JTextArea area) {  //added by Inna 20.05.2013
         try {
 
-            Path path = FileSystems.getDefault().getPath(
-                    System.getProperty("user.dir"),"src","LibNet", "NetLibrary.java"); //added by Inna 29.09.2018
+            // Use FilePathConfig for cross-platform path resolution
+            Path path = FilePathConfig.getNetLibraryPath();
+
+            // Check if file exists
+            if (path == null) {
+                JOptionPane.showMessageDialog(area, "NetLibrary.java not found in any configured location. Working directory: " +
+                    System.getProperty("user.dir"), "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
             String pathNetLibrary = path.toString(); //added by Inna 29.09.2018
 
             RandomAccessFile f = new RandomAccessFile(pathNetLibrary, "rw");

@@ -1,4 +1,4 @@
-package ua.stetsenkoinna.utils;
+package ua.stetsenkoinna.config;
 
 import java.io.InputStream;
 import java.net.URL;
