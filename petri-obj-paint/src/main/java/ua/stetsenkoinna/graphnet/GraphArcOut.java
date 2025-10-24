@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphnet;
 
 import ua.stetsenkoinna.PetriObj.ArcOut;
@@ -19,14 +15,13 @@ import java.util.List;
  */
 public class GraphArcOut extends GraphArc implements Serializable {
 
-    private static ArrayList<GraphArcOut> graphArcOutList = new ArrayList<>();  // added by Olha 24.09.12, cjrrect by Inna 28.11.2012
+    private static ArrayList<GraphArcOut> graphArcOutList = new ArrayList<>();
 
     private final ArcOut arc;
 
-    public GraphArcOut() { // додано Олею 28.09.12 для створення тимчасової дуги (тільки для промальовки) 
+    public GraphArcOut() { // для створення тимчасової дуги (тільки для промальовки)
         super();
         arc = new ArcOut();
-        //System.out.println("GraphTieOut  "+ arc.getNameT()+"  "+arc.getNumT()+"  "+arc.getNameP()+"  "+arc.getNumP());
         super.setLineWidth(1);
         super.setColor(Color.BLACK);
     }
@@ -35,7 +30,6 @@ public class GraphArcOut extends GraphArc implements Serializable {
         arc = arcout;
         super.setLineWidth(1);
         super.setColor(Color.BLACK);
-
     }
 
     public ArcOut getArcOut() {
@@ -44,19 +38,16 @@ public class GraphArcOut extends GraphArc implements Serializable {
 
     @Override
     public void setPetriElements() {
-        arc.setQuantity(arc.getQuantity()); //???навіщо?
+        arc.setQuantity(arc.getQuantity());
         arc.setNumT(super.getBeginElement().getNumber());
         arc.setNameT(super.getBeginElement().getName());
         arc.setNumP(super.getEndElement().getNumber());
         arc.setNameP(super.getEndElement().getName());
-        /*  System.out.println("GraphTIE OUT : setPetriElements "+super.getBeginElement().getName()+  "  "+ super.getBeginElement().getNumber()+
-                    super.getEndElement().getName()+"  "+super.getEndElement().getNumber()     
-                );*/
-        addElementToArrayList(); //// added by Olha 24.09.12
+        addElementToArrayList();
     }
 
     @Override
-    public void addElementToArrayList() {   // added by Olha 24.09.12
+    public void addElementToArrayList() {
         if (graphArcOutList == null) {
             graphArcOutList = new ArrayList<>();
         }
@@ -71,7 +62,7 @@ public class GraphArcOut extends GraphArc implements Serializable {
         g2.draw(this.getGraphElement());
         drawArrowHead(g2);
         if (arc.getQuantity() != 1 || arc.kIsParam()) {
-            String quantityString = arc.kIsParam() // added by Katya 08.12.2016
+            String quantityString = arc.kIsParam()
                     ? arc.getKParamName()
                     : Integer.toString(arc.getQuantity());
             this.getAvgLine().setLocation((this.getGraphElement().getX1() + this.getGraphElement().getX2()) / 2, (this.getGraphElement().getY1() + this.getGraphElement().getY2()) / 2);
@@ -95,17 +86,13 @@ public class GraphArcOut extends GraphArc implements Serializable {
         return graphArcOutList;
     }
 
-    public static ArrayList<ArcOut> getArcOutList() {  // added by Inna 1.11.2012
+    public static ArrayList<ArcOut> getArcOutList() {
         ArrayList<ArcOut> arrayTieOut = new ArrayList<>();
         for (GraphArcOut e : graphArcOutList) {
             arrayTieOut.add(e.getArcOut());
         }
         return arrayTieOut;
     }
-
-//    public static void setTieOutList(ArrayList<TieOut> TieOutList) {
-//        TieOut.tieOutList = TieOutList;
-//    }
 
     public static void setNullTieOutList() {
         graphArcOutList.clear();

@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphnet;
 
 import ua.stetsenkoinna.PetriObj.ArcIn;
@@ -23,12 +19,11 @@ public class GraphArcIn extends GraphArc implements Serializable {
 
     private final ArcIn arc;
 
-    private static ArrayList<GraphArcIn> graphArcInList = new ArrayList<>(); // added by Olha 24.09.12, moderated by Inna 28.11.2012
+    private static ArrayList<GraphArcIn> graphArcInList = new ArrayList<>();
   
-    public GraphArcIn() { // додано Олею 28.09.12 для створення тимчасової дуги (тільки для промальовки)  
+    public GraphArcIn() {
         super();
         arc = new ArcIn();
-        //System.out.println("GraphArcIn  "+ arc.getNameP()+"  "+arc.getNumP()+"  "+arc.getNameT()+"  "+arc.getNumT());
         super.setLineWidth(1);
         super.setColor(Color.BLACK);
     }
@@ -46,18 +41,18 @@ public class GraphArcIn extends GraphArc implements Serializable {
 
     @Override
     public void setPetriElements() {
-        arc.setQuantity(arc.getQuantity()); // ?? зайва операція?
+        arc.setQuantity(arc.getQuantity());
         arc.setInf(arc.getIsInf());
         arc.setNumP(super.getBeginElement().getNumber());
         arc.setNumT(super.getEndElement().getNumber());
         arc.setNameP(super.getBeginElement().getName());
         arc.setNameT(super.getEndElement().getName());
 
-        addElementToArrayList(); //// added by Olha 24.09.12
+        addElementToArrayList();
     }
 
     @Override
-    public void addElementToArrayList() {  // added by Olha 24.09.12
+    public void addElementToArrayList() {
         if (graphArcInList == null) {
             graphArcInList = new ArrayList<>();
         }
@@ -77,7 +72,7 @@ public class GraphArcIn extends GraphArc implements Serializable {
         g2.draw(this.getGraphElement());
         drawArrowHead(g2);
         if (arc.getQuantity() != 1 || arc.kIsParam()) {
-            String quantityString = arc.kIsParam() // added by Katya 08.12.2016
+            String quantityString = arc.kIsParam()
                 ? arc.getKParamName()
                 : Integer.toString(arc.getQuantity());
             this.getAvgLine().setLocation((this.getGraphElement().getX1() + this.getGraphElement().getX2()) / 2, (this.getGraphElement().getY1() + this.getGraphElement().getY2()) / 2);
@@ -100,14 +95,13 @@ public class GraphArcIn extends GraphArc implements Serializable {
     public static ArrayList<GraphArcIn> getGraphArcInList() {
         return graphArcInList;
     }
-    public static ArrayList<ArcIn> getArcInList() {  // added by Inna 1.11.2012
-        
+
+    public static ArrayList<ArcIn> getArcInList() {
         ArrayList<ArcIn> arrayArcIn = new ArrayList <>();
         for (GraphArcIn e: graphArcInList)
             arrayArcIn.add(e.getArcIn());
         return arrayArcIn;
     }
-    
 
     public static void setNullArcInList() {
         graphArcInList.clear();
@@ -118,20 +112,20 @@ public class GraphArcIn extends GraphArc implements Serializable {
             return arc.getQuantity();
         }
 
-   @Override
-   public void setQuantity(int i){
-            arc.setQuantity(i);
-        }
+    @Override
+    public void setQuantity(int i){
+        arc.setQuantity(i);
+    }
 
-   @Override
-   public boolean getIsInf(){
-            return arc.getIsInf();
-        }
+    @Override
+    public boolean getIsInf(){
+        return arc.getIsInf();
+    }
 
-   @Override
-   public void setInf(boolean i){
-            arc.setInf(i);
-        }
+    @Override
+    public void setInf(boolean i){
+        arc.setInf(i);
+    }
 
     public static void addGraphArcInList(List<GraphArcIn> tieIn){ // added by Olha 14/11/2012
         graphArcInList.addAll(tieIn);

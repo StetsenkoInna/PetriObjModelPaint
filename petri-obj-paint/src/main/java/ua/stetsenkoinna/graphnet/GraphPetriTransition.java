@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphnet;
 
 import ua.stetsenkoinna.PetriObj.PetriT;
@@ -15,12 +11,12 @@ import java.io.Serializable;
  */
 public class GraphPetriTransition extends GraphTransition implements Serializable {
 
-    private static int simpleInd = 0; // added by Inna 18.01.2013
+    private static int simpleInd = 0;
 
     private final PetriT transition;
     private final int id;
 
-    public GraphPetriTransition(PetriT T, int i) { //додано Олею
+    public GraphPetriTransition(PetriT T, int i) {
         transition = T;
         id = i;
     }
@@ -45,11 +41,11 @@ public class GraphPetriTransition extends GraphTransition implements Serializabl
                 (float) this.getGraphElement().getCenterY() - (float) GraphPetriTransition.getHeight() / 2 - (float) GraphPetriTransition.getHeight() / 5
         );
 
-        String parametrString = transition.parametrIsParam() // added by Katya 08.12.2016
+        String parametrString = transition.parametrIsParam()
                 ? transition.getParameterParamName()
                 : Double.toString(transition.getParameter());
 
-        String distributionString = transition.distributionIsParam() // added by Katya 08.12.2016
+        String distributionString = transition.distributionIsParam()
                 ? transition.getDistributionParamName()
                 : transition.getDistribution();
 
@@ -64,7 +60,9 @@ public class GraphPetriTransition extends GraphTransition implements Serializabl
                       (float) this.getGraphElement().getCenterX() - (float) (Double.toString(transition.getParameter()).length() * font) / 2,
                       (float) this.getGraphElement().getCenterY() + (float) GraphPetriTransition.getHeight() / 2 + 20);
         }
-        g2.drawString("r=" + transition.getProbability(), (float) this.getGraphElement().getCenterX() - (float) (Double.toString(transition.getBuffer()).length() * font) / 2, (float) this.getGraphElement().getCenterY() + (float) GraphPetriTransition.getHeight() / 2 + 40);
+        g2.drawString("r=" + transition.getProbability(),
+                (float) this.getGraphElement().getCenterX() - (float) (Double.toString(transition.getBuffer()).length() * font) / 2,
+                (float) this.getGraphElement().getCenterY() + (float) GraphPetriTransition.getHeight() / 2 + 40);
     }
 
     @Override
@@ -87,14 +85,13 @@ public class GraphPetriTransition extends GraphTransition implements Serializabl
         return this.getPetriTransition().getNumber();
     }
 
-    public static String setSimpleName() { // added by Inna 18.01.2013
+    public static String setSimpleName() {
         simpleInd++;
         return "T" + simpleInd;
     }
 
-    public static void setNullSimpleName() { // added by Inna 18.01.2013
+    public static void setNullSimpleName() {
         simpleInd = 0;
 
     }
-
 }
