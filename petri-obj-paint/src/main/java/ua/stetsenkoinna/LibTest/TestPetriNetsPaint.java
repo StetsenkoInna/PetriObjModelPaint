@@ -12,7 +12,7 @@ import ua.stetsenkoinna.utils.MessageHelper;
  *
  * @author innastetsenko
  */
-public class PetriNetsPaintLauncher {
+public class TestPetriNetsPaint {
     /**
      * @param args the command line arguments
      */
