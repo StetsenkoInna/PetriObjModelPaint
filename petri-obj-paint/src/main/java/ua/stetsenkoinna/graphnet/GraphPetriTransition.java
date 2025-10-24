@@ -46,8 +46,8 @@ public class GraphPetriTransition extends GraphTransition implements Serializabl
         );
 
         String parametrString = transition.parametrIsParam() // added by Katya 08.12.2016
-                ? transition.getParametrParamName()
-                : Double.toString(transition.getParametr());
+                ? transition.getParameterParamName()
+                : Double.toString(transition.getParameter());
 
         String distributionString = transition.distributionIsParam() // added by Katya 08.12.2016
                 ? transition.getDistributionParamName()
@@ -56,12 +56,12 @@ public class GraphPetriTransition extends GraphTransition implements Serializabl
         if (transition.getDistribution() != null || transition.distributionIsParam()) {
             g2.drawString(
                     "d=" + parametrString + "(" + distributionString + ")",
-                    (float) this.getGraphElement().getCenterX() - (float) (Double.toString(transition.getParametr()).length() * font) / 2,
+                    (float) this.getGraphElement().getCenterX() - (float) (Double.toString(transition.getParameter()).length() * font) / 2,
                     (float) this.getGraphElement().getCenterY() + (float) GraphPetriTransition.getHeight() / 2 + 20
             );
         } else {
             g2.drawString("d=" + parametrString,
-                      (float) this.getGraphElement().getCenterX() - (float) (Double.toString(transition.getParametr()).length() * font) / 2,
+                      (float) this.getGraphElement().getCenterX() - (float) (Double.toString(transition.getParameter()).length() * font) / 2,
                       (float) this.getGraphElement().getCenterY() + (float) GraphPetriTransition.getHeight() / 2 + 20);
         }
         g2.drawString("r=" + transition.getProbability(), (float) this.getGraphElement().getCenterX() - (float) (Double.toString(transition.getBuffer()).length() * font) / 2, (float) this.getGraphElement().getCenterY() + (float) GraphPetriTransition.getHeight() / 2 + 40);

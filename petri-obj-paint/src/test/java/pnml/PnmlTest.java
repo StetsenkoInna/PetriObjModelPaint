@@ -68,7 +68,7 @@ public class PnmlTest {
         PetriT transition1 = transitions[0];
         assertNotNull("First transition should not be null", transition1);
         assertEquals("First transition should have correct name", "Transition 1", transition1.getName());
-        assertEquals("First transition should have correct delay", 1.5, transition1.getParametr(), 0.001);
+        assertEquals("First transition should have correct delay", 1.5, transition1.getParameter(), 0.001);
         assertEquals("First transition should have correct priority", 1, transition1.getPriority());
         assertEquals("First transition should have correct probability", 0.8, transition1.getProbability(), 0.001);
     }
@@ -108,7 +108,7 @@ public class PnmlTest {
         // Verify transition properties are preserved
         PetriT importedTransition = importedNet.getListT()[0];
         assertEquals("Transition name should be preserved", "TestTransition1", importedTransition.getName());
-        assertEquals("Transition delay should be preserved", 2.0, importedTransition.getParametr(), 0.001);
+        assertEquals("Transition delay should be preserved", 2.0, importedTransition.getParameter(), 0.001);
 
         // Verify place properties are preserved
         PetriP[] importedPlaces = importedNet.getListP();
