@@ -1,8 +1,6 @@
 package ua.stetsenkoinna.graphpresentation.statistic.services;
 
 import ua.stetsenkoinna.graphpresentation.statistic.dto.data.PetriElementStatisticDto;
-
-import javax.swing.*;
 import java.util.List;
 import java.util.Map;
 

@@ -7,7 +7,6 @@ import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.data.PetriElementStatisticDto;
 import ua.stetsenkoinna.graphpresentation.statistic.enums.PetriStatisticFunction;
 
-import javax.swing.*;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,7 +42,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             return input + "(";
         }
 
-        String lastOperator = operators.get(operators.size() - 1);
+        String lastOperator = operators.getLast();
 
         if (formula.endsWith(")")) {
             operators.add(input);
@@ -120,7 +119,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             return PetriStatisticFunction.getFunctionNames();
         }
 
-        String lastOperator = operators.get(operators.size() - 1);
+        String lastOperator = operators.getLast();
         if (OPERATORS.contains(lastOperator)) {
             return PetriStatisticFunction.getFunctionNames();
         }
@@ -200,7 +199,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     }
 
     private boolean validateOperations(List<String> operations) {
-        if (operations.isEmpty() || OPERATORS.contains(operations.get(operations.size() - 1))) {
+        if (operations.isEmpty() || OPERATORS.contains(operations.getLast())) {
             return false;
         }
 
@@ -269,7 +268,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
                 parenthesisDepth--;
             }
 
-            if ((OPERATORS.contains(String.valueOf(c)) && parenthesisDepth == 0) && currentOperation.length() > 0) {
+            if ((OPERATORS.contains(String.valueOf(c)) && parenthesisDepth == 0) && !currentOperation.isEmpty()) {
                 operations.add(currentOperation.toString());
                 currentOperation = new StringBuilder();
                 operations.add(String.valueOf(c));
@@ -277,7 +276,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
                 currentOperation.append(c);
             }
         }
-        if (currentOperation.length() > 0) {
+        if (!currentOperation.isEmpty()) {
             operations.add(currentOperation.toString());
         }
         return operations;
@@ -296,7 +295,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         Number result = null;
         try {
             Matcher functionMatcher = FUNCTION_CALL_PATTERN.matcher(formula);
-            StringBuffer numericExpression = new StringBuffer();
+            StringBuilder numericExpression = new StringBuilder();
             while (functionMatcher.find()) {
                 String functionName = functionMatcher.group(1);
                 String argument = functionMatcher.group(2);
@@ -347,12 +346,12 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
                 }
             }
         } else if (function.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.MULTIPLE_ELEMENT) {
-            List<Map.Entry<Integer, String>> entries = Arrays.asList(argument.split(function.getArgumentType().getSeparator())).stream()
+            List<Map.Entry<Integer, String>> entries = Arrays.stream(argument.split(function.getArgumentType().getSeparator()))
                     .map(this::getArgumentIdNameEntry)
-                    .collect(Collectors.toList());
+                    .toList();
             List<PetriElementStatisticDto> argumentsStatistic = statistics.stream()
                     .filter(petriElementStatistic -> entries.contains(new AbstractMap.SimpleEntry<>(petriElementStatistic.getPetriObjId(), petriElementStatistic.getElementName())))
-                    .collect(Collectors.toList());
+                    .toList();
             switch (function) {
                 case SUM_MIN: {
                     return argumentsStatistic.stream()
@@ -430,14 +429,14 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             if (argument != null) {
                 placeNames = placeNames.stream()
                         .filter(name -> name.toUpperCase().startsWith(argument.toUpperCase()))
-                        .collect(Collectors.toList());
+                        .toList();
             }
             elements.addAll(placeNames);
         } else if (petriStatisticFunction.getFunctionType().equals(PetriStatisticFunction.FunctionArgumentElementType.TRANSITION)) {
             if (argument != null) {
                 transitionNames = transitionNames.stream()
                         .filter(name -> name.toUpperCase().startsWith(argument.toUpperCase()))
-                        .collect(Collectors.toList());
+                        .toList();
             }
             elements.addAll(transitionNames);
         } else {
@@ -514,18 +513,11 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     }
 
     private boolean isValidFunctionArgument(PetriStatisticFunction function, String argument) {
-        switch (function.getArgumentType()) {
-            case SINGLE_ELEMENT: {
-                return isValidArgumentElement(function, argument);
-            }
-            case MULTIPLE_ELEMENT: {
-                return isValidArgumentsElement(function, argument);
-            }
-            case SINGLE_ELEMENT_AND_NUMBER: {
-                return isValidArgumentsElementAndNumber(function, argument);
-            }
-        }
-        return false;
+        return switch (function.getArgumentType()) {
+            case SINGLE_ELEMENT -> isValidArgumentElement(function, argument);
+            case MULTIPLE_ELEMENT -> isValidArgumentsElement(function, argument);
+            case SINGLE_ELEMENT_AND_NUMBER -> isValidArgumentsElementAndNumber(function, argument);
+        };
     }
 
     private boolean isValidArgumentElement(PetriStatisticFunction function, String argument) {
@@ -539,10 +531,10 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         List<String> elements = new ArrayList<>();
         List<String> places = net.getGraphPetriPlaceList().stream()
                 .map(place -> place.getName().toUpperCase())
-                .collect(Collectors.toList());
+                .toList();
         List<String> transitions = net.getGraphPetriTransitionList().stream()
                 .map(transition -> transition.getName().toUpperCase())
-                .collect(Collectors.toList());
+                .toList();
         if (function.getFunctionType() == PetriStatisticFunction.FunctionArgumentElementType.PLACE) {
             elements.addAll(places);
         } else if (function.getFunctionType() == PetriStatisticFunction.FunctionArgumentElementType.TRANSITION) {

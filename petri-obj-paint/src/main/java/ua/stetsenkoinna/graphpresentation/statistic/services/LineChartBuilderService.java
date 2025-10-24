@@ -37,7 +37,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static javax.swing.JOptionPane.showMessageDialog;
 
@@ -197,14 +196,14 @@ public class LineChartBuilderService implements ChartBuilderService {
     private void clearDrawingsOnClicked(double xData, double yData, double xEvent, double yEvent) {
         List<ChartLineData> verticalLinesToRemove = chartDrawing.getVerticalLines().stream()
                 .filter(chartLineData -> Math.abs(chartLineData.getX() - xData) <= 10)
-                .collect(Collectors.toList());
+                .toList();
         List<ChartLineData> horizontalLinesToRemove = chartDrawing.getHorizontalLines().stream()
                 .filter(chartLineData -> Math.abs(chartLineData.getY() - yData) <= 10)
-                .collect(Collectors.toList());
+                .toList();
         List<ChartAnnotationData> annotationsForRemove = chartDrawing.getAnnotations().stream()
                 .filter(annotation -> Math.abs(annotation.getY() - yEvent) <= 20 &&
                         Math.abs(annotation.getX() - xEvent) <= 20)
-                .collect(Collectors.toList());
+                .toList();
 
         chartDrawing.getVerticalLines().removeAll(verticalLinesToRemove);
         chartDrawing.getHorizontalLines().removeAll(horizontalLinesToRemove);
@@ -213,13 +212,13 @@ public class LineChartBuilderService implements ChartBuilderService {
         List<Node> removeNodes = new ArrayList<>();
         removeNodes.addAll(verticalLinesToRemove.stream()
                 .map(ChartLineData::getLine)
-                .collect(Collectors.toList()));
+                .toList());
         removeNodes.addAll(horizontalLinesToRemove.stream()
                 .map(ChartLineData::getLine)
-                .collect(Collectors.toList()));
+                .toList());
         removeNodes.addAll(annotationsForRemove.stream()
                 .map(ChartAnnotationData::getNode)
-                .collect(Collectors.toList()));
+                .toList());
         rootPane.getChildren().removeAll(removeNodes);
     }
 
@@ -460,13 +459,13 @@ public class LineChartBuilderService implements ChartBuilderService {
             List<Node> removeNodes = new ArrayList<>();
             removeNodes.addAll(verticalLinesToRemove.stream()
                     .map(ChartLineData::getLine)
-                    .collect(Collectors.toList()));
+                    .toList());
             removeNodes.addAll(horizontalLinesToRemove.stream()
                     .map(ChartLineData::getLine)
-                    .collect(Collectors.toList()));
+                    .toList());
             removeNodes.addAll(annotationsForRemove.stream()
                     .map(ChartAnnotationData::getNode)
-                    .collect(Collectors.toList()));
+                    .toList());
             rootPane.getChildren().removeAll(removeNodes);
         });
     }
@@ -477,7 +476,7 @@ public class LineChartBuilderService implements ChartBuilderService {
             XYChart.Series<Number, Number> series = lineChart.getData().get(currentSeriesId);
             series.getData().add(data);
             if (chartConfigDto.getDisplayDataMarkers()) {
-                XYChart.Data<Number, Number> dataPoint = series.getData().get(series.getData().size() - 1);
+                XYChart.Data<Number, Number> dataPoint = series.getData().getLast();
                 createDataPointTooltip(dataPoint);
             }
         });

@@ -1,6 +1,5 @@
 package ua.stetsenkoinna.graphpresentation.statistic.dto.data;
 
-
 import ua.stetsenkoinna.graphpresentation.statistic.events.StatisticGraphUpdateWorker;
 import ua.stetsenkoinna.graphpresentation.statistic.services.StatisticMonitorService;
 

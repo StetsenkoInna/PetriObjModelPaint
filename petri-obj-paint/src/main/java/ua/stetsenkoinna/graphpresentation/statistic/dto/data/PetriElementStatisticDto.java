@@ -1,12 +1,6 @@
 package ua.stetsenkoinna.graphpresentation.statistic.dto.data;
 
-import ua.stetsenkoinna.PetriObj.PetriNet;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 public class PetriElementStatisticDto {
     private final Integer petriObjId;

@@ -80,7 +80,7 @@ public class StatisticConsoleMonitor extends StatisticMonitor {
     public void printHeader() {
         if (isMonitoringEnabled) {
             System.out.println("-----------------------------------------------");
-            System.out.println(String.format("%-20s | %-20s", "Petri Object Index", "Watch Elements"));
+            System.out.printf("%-20s | %-20s%n", "Petri Object Index", "Watch Elements");
             System.out.println("-----------------------------------------------");
             for (Map.Entry<Integer, List<String>> entry : getWatchMap().entrySet()) {
                 Integer index = entry.getKey();
@@ -90,7 +90,7 @@ public class StatisticConsoleMonitor extends StatisticMonitor {
             System.out.println("-----------------------------------------------");
             System.out.println();
             System.out.println("-----------------------------------------------");
-            System.out.println(String.format("%-20s | %-20s", "Time", "Formula Value"));
+            System.out.printf("%-20s | %-20s%n", "Time", "Formula Value");
             System.out.println("-----------------------------------------------");
         }
     }

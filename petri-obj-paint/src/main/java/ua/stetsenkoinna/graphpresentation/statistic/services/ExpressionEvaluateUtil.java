@@ -57,22 +57,16 @@ public class ExpressionEvaluateUtil {
     }
 
     private static double applyOperator(char operator, double b, double a) {
-        switch (operator) {
-            case '+': {
-                return a + b;
-            }
-            case '-': {
-                return a - b;
-            }
-            case '*': {
-                return a * b;
-            }
-            case '/': {
+        return switch (operator) {
+            case '+' -> a + b;
+            case '-' -> a - b;
+            case '*' -> a * b;
+            case '/' -> {
                 if (b == 0)
                     throw new ArithmeticException("Cannot divide by zero");
-                return a / b;
+                yield a / b;
             }
-        }
-        return 0;
+            default -> 0;
+        };
     }
 }

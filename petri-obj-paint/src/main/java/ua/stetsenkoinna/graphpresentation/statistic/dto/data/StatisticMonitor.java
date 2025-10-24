@@ -4,7 +4,6 @@ import ua.stetsenkoinna.PetriObj.PetriNet;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.configs.DataCollectionConfigDto;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class StatisticMonitor {
     private Map<Integer, List<String>> watchMap;
@@ -73,11 +72,11 @@ public class StatisticMonitor {
         petriStat.addAll(Arrays.stream(petriNet.getListP())
                 .filter(petriP -> watchList.contains(petriP.getName()))
                 .map(petriP -> new PetriElementStatisticDto(petriObjId, petriP.getName(), petriP.getObservedMin(), petriP.getObservedMax(), petriP.getMean()))
-                .collect(Collectors.toList()));
+                .toList());
         petriStat.addAll(Arrays.stream(petriNet.getListT())
                 .filter(petriT -> watchList.contains(petriT.getName()))
                 .map(petriT -> new PetriElementStatisticDto(petriObjId, petriT.getName(), petriT.getObservedMin(), petriT.getObservedMax(), petriT.getMean()))
-                .collect(Collectors.toList()));
+                .toList());
         return petriStat;
     }
 }
