@@ -12,7 +12,7 @@ package ua.stetsenkoinna.graphpresentation;
 
 import ua.stetsenkoinna.PetriObj.*;
 import ua.stetsenkoinna.graphnet.*;
-import ua.stetsenkoinna.utils.Utils;
+import ua.stetsenkoinna.utils.SafeParsingUtils;
 
 import javax.swing.*;
 
@@ -193,7 +193,7 @@ public class SetArc extends javax.swing.JFrame {
 
     private void setQuantity() { // modified by Katya 08.12.2016
         String quantityValueStr = quantityTextField.getText();
-        if (Utils.tryParseInt(quantityValueStr)) {
+        if (SafeParsingUtils.tryParseInt(quantityValueStr)) {
             chosenTie.setQuantity(Integer.parseInt(quantityValueStr));
             if (chosenTie.getClass() == GraphArcIn.class) {
                 GraphArcIn chosenArc = (GraphArcIn) chosenTie;

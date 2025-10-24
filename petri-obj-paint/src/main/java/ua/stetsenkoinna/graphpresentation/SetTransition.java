@@ -13,7 +13,7 @@ package ua.stetsenkoinna.graphpresentation;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.PetriObj.*;
 import java.awt.*;
-import ua.stetsenkoinna.utils.Utils;
+import ua.stetsenkoinna.utils.SafeParsingUtils;
 
 import javax.swing.*;
 
@@ -337,10 +337,6 @@ public class SetTransition extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_probabilityTextFieldActionPerformed
 
-     /**
-      * @param args the command line arguments
-      */
-
     private void setTName(){
         choosenPetriT.getPetriTransition().setName(nameTextField.getText());
     }
@@ -349,7 +345,7 @@ public class SetTransition extends javax.swing.JFrame {
         PetriT petriTran = choosenPetriT.getPetriTransition();
         String parametrValueStr = parametrTextField.getText();
         double parametrValue = 0;
-        if (Utils.tryParseDouble(parametrValueStr)) {
+        if (SafeParsingUtils.tryParseDouble(parametrValueStr)) {
             parametrValue = Double.valueOf(parametrValueStr);
             petriTran.setParametr(parametrValue);
             petriTran.setParametrParam(null);
@@ -358,7 +354,7 @@ public class SetTransition extends javax.swing.JFrame {
         }
         
         String probabilityValueStr = probabilityTextField.getText();
-        if (Utils.tryParseDouble(probabilityValueStr)) {
+        if (SafeParsingUtils.tryParseDouble(probabilityValueStr)) {
             petriTran.setProbability(Double.valueOf(probabilityValueStr));
             petriTran.setProbabilityParam(null);
         } else {

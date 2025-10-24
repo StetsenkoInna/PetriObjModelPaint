@@ -8,7 +8,7 @@ import ua.stetsenkoinna.PetriObj.ArcOut;
 import java.util.ArrayList;
 import javax.swing.table.AbstractTableModel;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
-import ua.stetsenkoinna.utils.Utils;
+import ua.stetsenkoinna.utils.SafeParsingUtils;
 
 /**
  *
@@ -68,8 +68,8 @@ public class PetriArcOutTableModel extends AbstractTableModel {
         for (int i = 0; i < graphPetriArcOutList.size(); i++) {
             ArcOut to = graphPetriArcOutList.get(i).getArcOut();
             String quantityValueStr = getValueAt(i, 1).toString();
-            if (Utils.tryParseInt(quantityValueStr)) {
-                to.setQuantity(Integer.valueOf(quantityValueStr));
+            if (SafeParsingUtils.tryParseInt(quantityValueStr)) {
+                to.setQuantity(Integer.parseInt(quantityValueStr));
                 to.setKParam(null);
             } else {
                 to.setKParam(quantityValueStr);

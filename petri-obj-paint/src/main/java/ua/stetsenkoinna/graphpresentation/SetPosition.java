@@ -3,7 +3,7 @@ package ua.stetsenkoinna.graphpresentation;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.PetriObj.PetriP;
 import java.awt.*;
-import ua.stetsenkoinna.utils.Utils;
+import ua.stetsenkoinna.utils.SafeParsingUtils;
 
 import javax.swing.*;
 
@@ -82,18 +82,10 @@ public class SetPosition extends javax.swing.JFrame {
         );
 
         okButton.setText("OK");
-        okButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                okButtonActionPerformed(evt);
-            }
-        });
+        okButton.addActionListener(this::okButtonActionPerformed);
 
         cancelButton.setText("Cancel");
-        cancelButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                cancelButtonActionPerformed(evt);
-            }
-        });
+        cancelButton.addActionListener(this::cancelButtonActionPerformed);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -152,8 +144,8 @@ public class SetPosition extends javax.swing.JFrame {
     private void setPMark() { // modified by Katya 08.12.2016
         PetriP petriPlace = choosenPetriP.getPetriPlace();
         String markValueStr = markTextField.getText();
-        if (Utils.tryParseInt(markValueStr)) {
-            petriPlace.setMark(Integer.valueOf(markValueStr));
+        if (SafeParsingUtils.tryParseInt(markValueStr)) {
+            petriPlace.setMark(Integer.parseInt(markValueStr));
             petriPlace.setMarkParam(null);
         } else {
             petriPlace.setMarkParam(markValueStr);

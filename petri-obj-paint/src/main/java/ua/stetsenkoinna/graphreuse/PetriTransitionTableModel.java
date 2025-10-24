@@ -11,8 +11,7 @@ import java.util.ArrayList;
 import javax.swing.table.AbstractTableModel;
 
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
-import ua.stetsenkoinna.graphpresentation.GraphTransition;
-import ua.stetsenkoinna.utils.Utils;
+import ua.stetsenkoinna.utils.SafeParsingUtils;
 
 /**
  *
@@ -77,10 +76,7 @@ public class PetriTransitionTableModel extends AbstractTableModel {
 
     @Override
     public boolean isCellEditable(int row, int col) {
-        if (col == 0) {
-            return false;
-        }
-        return true;
+        return col != 0;
     }
 
     @Override
@@ -90,7 +86,7 @@ public class PetriTransitionTableModel extends AbstractTableModel {
 
     @Override
     public void setValueAt(Object value, int row, int col) {
-        this.mass[row][col] = (Object) value;
+        this.mass[row][col] = value;
         fireTableCellUpdated(row, col);
     }
 
@@ -108,8 +104,8 @@ public class PetriTransitionTableModel extends AbstractTableModel {
             
             double parametrValue = 0;
             String parametrValueStr = getValueAt(i, 2).toString();
-            if (Utils.tryParseDouble(parametrValueStr)) {
-                parametrValue = Double.valueOf(parametrValueStr);
+            if (SafeParsingUtils.tryParseDouble(parametrValueStr)) {
+                parametrValue = Double.parseDouble(parametrValueStr);
                 pt.setParametr(parametrValue);
                 pt.setParametrParam(null);
             } else {
@@ -129,7 +125,7 @@ public class PetriTransitionTableModel extends AbstractTableModel {
                 pt.setDistributionParam(null);
             }
             
-            int priorityValue = Integer.valueOf(getValueAt(i, 5).toString());
+            int priorityValue = Integer.parseInt(getValueAt(i, 5).toString());
             String priorityParamName = getValueAt(i, 6) != null
                 ? getValueAt(i, 6).toString()
                 : null;
@@ -141,8 +137,8 @@ public class PetriTransitionTableModel extends AbstractTableModel {
             }
             
             String probabilityValueStr = getValueAt(i, 7).toString();
-            if (Utils.tryParseDouble(probabilityValueStr)) {
-                pt.setProbability(Double.valueOf(probabilityValueStr));
+            if (SafeParsingUtils.tryParseDouble(probabilityValueStr)) {
+                pt.setProbability(Double.parseDouble(probabilityValueStr));
                 pt.setProbabilityParam(null);
             } else {
                 pt.setProbabilityParam(probabilityValueStr);

@@ -8,7 +8,7 @@ import ua.stetsenkoinna.PetriObj.PetriP;
 import java.util.ArrayList;
 import javax.swing.table.AbstractTableModel;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
-import ua.stetsenkoinna.utils.Utils;
+import ua.stetsenkoinna.utils.SafeParsingUtils;
 
 /**
  *
@@ -86,8 +86,8 @@ public class PetriPlaceTableModel extends AbstractTableModel {
             petriPlace.setName(getValueAt(i, 1).toString());
             
             String markValueStr = getValueAt(i, 2).toString();
-            if (Utils.tryParseInt(markValueStr)) {
-                petriPlace.setMark(Integer.valueOf(markValueStr));
+            if (SafeParsingUtils.tryParseInt(markValueStr)) {
+                petriPlace.setMark(Integer.parseInt(markValueStr));
                 petriPlace.setMarkParam(null);
             } else {
                 petriPlace.setMarkParam(markValueStr);
