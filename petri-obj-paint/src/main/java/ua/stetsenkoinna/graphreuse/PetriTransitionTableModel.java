@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphreuse;
 
 import ua.stetsenkoinna.PetriObj.PetriT;
@@ -19,19 +15,23 @@ import ua.stetsenkoinna.utils.SafeParsingUtils;
  */
 public class PetriTransitionTableModel extends AbstractTableModel {
 
-    private final int TRANSITION_PARAMETERS = 7;
-    private int row;
-    private int column = TRANSITION_PARAMETERS + 1;
-    private Object[][] mass;
-    private String[] COLUMN_NAMES = {"Transition", "Name", "Time delay value", "Time delay distribution", "Distribution (parameter name)",
-        "Transition priority", "Priority (parameter name)", "Activation probability"};
-    private ArrayList<GraphPetriTransition> graphPetriTransitionList;
     private static String[] DISTRIBUTION_OPTIONS = {"null", "exp", "unif", "norm"};
+
+    private final String[] COLUMN_NAMES = {
+            "Transition", "Name", "Time delay value", "Time delay distribution", "Distribution (parameter name)",
+            "Transition priority", "Priority (parameter name)", "Activation probability"
+    };
+    private final int TRANSITION_PARAMETERS = 7;
+    private final int column = TRANSITION_PARAMETERS + 1;
+
+    private int row;
+    private Object[][] mass;
+    private ArrayList<GraphPetriTransition> graphPetriTransitionList;
     private int distributionColumnIndex = 3;
     private int priorityColumnIndex = 5;
 
     public PetriTransitionTableModel() {
-        
+        // todo
     }
 
     public void setGraphPetriTransitionList(ArrayList<GraphPetriTransition> list) {
@@ -42,18 +42,18 @@ public class PetriTransitionTableModel extends AbstractTableModel {
             PetriT pt = list.get(i).getPetriTransition();
             mass[i][0] = pt.getName();
             mass[i][1] = pt.getName();
-            mass[i][2] = pt.parametrIsParam() // modified by Katya 08.12.2016
+            mass[i][2] = pt.parametrIsParam()
                 ? pt.getParameterParamName()
                 : pt.getParameter();
             mass[i][3] = pt.getDistribution();
-            mass[i][4] = pt.distributionIsParam() // added by Katya 08.12.2016
+            mass[i][4] = pt.distributionIsParam()
                 ? pt.getDistributionParamName()
                 : null;
             mass[i][5] = pt.getPriority();
-            mass[i][6] = pt.priorityIsParam() // added by Katya 08.12.2016
+            mass[i][6] = pt.priorityIsParam()
                 ? pt.getPriorityParamName()
                 : null;
-            mass[i][7] = pt.probabilityIsParam() // modified by Katya 08.12.2016
+            mass[i][7] = pt.probabilityIsParam()
                 ? pt.getProbabilityParamName()
                 : pt.getProbability();
         }
@@ -91,13 +91,13 @@ public class PetriTransitionTableModel extends AbstractTableModel {
     }
 
     @Override
-    public Class getColumnClass(int c) { // modified by Katya 08.12.2016
+    public Class getColumnClass(int c) {
         return (c == 3 || c == 5)
             ? getValueAt(0, c).getClass()
             : String.class;
     }
 
-    public ArrayList<GraphPetriTransition> createGraphPetriTransitionList() { // modified by Katya 08.12.2016
+    public ArrayList<GraphPetriTransition> createGraphPetriTransitionList() {
         for (int i = 0; i < graphPetriTransitionList.size(); i++) {
             PetriT pt = graphPetriTransitionList.get(i).getPetriTransition();
             pt.setName(getValueAt(i, 1).toString());

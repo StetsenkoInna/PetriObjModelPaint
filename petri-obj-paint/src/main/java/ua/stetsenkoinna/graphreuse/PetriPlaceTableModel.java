@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphreuse;
 
 import ua.stetsenkoinna.PetriObj.PetriP;
@@ -16,15 +12,16 @@ import ua.stetsenkoinna.utils.SafeParsingUtils;
  */
 public class PetriPlaceTableModel extends AbstractTableModel {
 
+    private final String[] COLUMN_NAMES = {"Place", "Name", "Markers"};
     private final int PLACE_PARAMETERS = 2;
+    private final int column = PLACE_PARAMETERS + 1;
+
     private int row;
-    private int column = PLACE_PARAMETERS + 1;
     private Object[][] mass;
-    private String[] COLUMN_NAMES = {"Place", "Name", "Markers"};
     private ArrayList<GraphPetriPlace> graphPetriPlaceList;   
 
     public PetriPlaceTableModel(){
-
+        // todo
     }
     
     public void setGraphPetriPlaceList(ArrayList<GraphPetriPlace> list) {
@@ -35,7 +32,7 @@ public class PetriPlaceTableModel extends AbstractTableModel {
             PetriP pp = list.get(i).getPetriPlace();
             mass[i][0] = pp.getName();
             mass[i][1] = pp.getName();
-            mass[i][2] = pp.markIsParam() // modified by Katya 08.12.2016
+            mass[i][2] = pp.markIsParam()
                 ? pp.getMarkParamName()
                 : pp.getMark();
         }
@@ -58,10 +55,7 @@ public class PetriPlaceTableModel extends AbstractTableModel {
 
     @Override
     public boolean isCellEditable(int row, int col) {
-        if (col == 0) {
-            return false;
-        }
-        return true;
+        return col != 0;
     }
 
     @Override

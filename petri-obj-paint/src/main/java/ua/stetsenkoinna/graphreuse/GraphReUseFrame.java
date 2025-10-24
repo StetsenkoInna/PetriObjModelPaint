@@ -28,12 +28,8 @@ public class GraphReUseFrame extends javax.swing.JFrame {
     public GraphReUseFrame() throws ExceptionInvalidNetStructure {
         initComponents();
         this.setLocationRelativeTo(null);
-        
-      //  fileUse = new FileUse();
-       // graphPetriNet = fileUse.openFile(this);
-        
-        String netName = graphPetriNet.getPetriNet().getName();
-        graphNetName = netName.substring(0, netName.length());
+
+        graphNetName = graphPetriNet.getPetriNet().getName();
 
         placeTableModel = new PetriPlaceTableModel();
         placeTableModel.setGraphPetriPlaceList(graphPetriNet.getGraphPetriPlaceList());

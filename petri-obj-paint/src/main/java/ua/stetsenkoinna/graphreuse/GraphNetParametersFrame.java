@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphreuse;
 
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
@@ -18,7 +14,6 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableColumn;
 
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
-import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
 
 import java.awt.*;
@@ -35,9 +30,8 @@ public class GraphNetParametersFrame extends javax.swing.JFrame {
     public GraphNetParametersFrame() throws ExceptionInvalidNetStructure {
         initComponents();
         this.setLocationRelativeTo(null);
-          
-        String netName = graphPetriNet.getPetriNet().getName();
-        graphNetName = netName.substring(0, netName.length());
+
+        graphNetName = graphPetriNet.getPetriNet().getName();
         
         placeTableModel = new PetriPlaceTableModel();
         placeTableModel.setGraphPetriPlaceList(graphPetriNet.getGraphPetriPlaceList());
