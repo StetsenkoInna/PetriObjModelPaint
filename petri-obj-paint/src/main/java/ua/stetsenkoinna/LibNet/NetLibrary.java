@@ -132,7 +132,7 @@ public class NetLibrary {
 	 * @throws ExceptionInvalidNetStructure
 	 */
 	@HiddenFromUI
-	public static PetriNet CreateNetFork(int numOfWay, double[] probabilities) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+	public static PetriNet CreateNetFork2(int numOfWay, double[] probabilities) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
 		ArrayList<PetriP> d_P = new ArrayList<>();
 		ArrayList<PetriT> d_T = new ArrayList<>();
 		ArrayList<ArcIn> d_In = new ArrayList<>();

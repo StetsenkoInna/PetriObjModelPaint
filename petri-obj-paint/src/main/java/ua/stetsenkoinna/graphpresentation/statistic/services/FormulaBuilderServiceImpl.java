@@ -61,7 +61,11 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             operator.append(resultFunctionName).append("(");
         } else {
             PetriStatisticFunction func = PetriStatisticFunction.findFunctionByName(lastFunctionName);
-            if (func.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT) {
+            if (func == null) {
+                // If function is not found, treat it as incomplete function name
+                String resultFunctionName = lastOperator + input.substring(lastOperator.length());
+                operator.append(resultFunctionName);
+            } else if (func.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT) {
                 String functionArgument = Optional.ofNullable(getFunctionArgument(lastOperator)).orElse("");
                 String resultArgumentName = functionArgument + input.substring(functionArgument.length());
                 operator.append(func.getFunctionName()).append("(").append(resultArgumentName).append(")");
@@ -126,6 +130,9 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             return PetriStatisticFunction.filterFunctionsByName(lastOperator);
         } else {
             PetriStatisticFunction func = PetriStatisticFunction.findFunctionByName(lastFunctionName);
+            if (func == null) {
+                return new ArrayList<>();
+            }
             if (func.getArgumentType() == PetriStatisticFunction.FunctionArgumentType.SINGLE_ELEMENT) {
                 String functionArgument = Optional.ofNullable(getFunctionArgument(lastOperator)).orElse("");
                 return getElementSuggestions(func, functionArgument);
