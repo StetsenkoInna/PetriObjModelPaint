@@ -10,7 +10,6 @@
     <version>1.2.0</version>
 
     <modules>
-        <module>lib-net-annotations</module>
         <module>petri-obj-paint</module>
     </modules>
 

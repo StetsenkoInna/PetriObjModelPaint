@@ -30,9 +30,10 @@
             <version>3.6.1</version>
         </dependency>
         <dependency>
-            <groupId>ua.stetsenkoinna</groupId>
-            <artifactId>lib-net-annotations</artifactId>
-            <version>1.2.0</version>
+            <groupId>com.google.auto.service</groupId>
+            <artifactId>auto-service</artifactId>
+            <version>1.1.1</version>
+            <scope>provided</scope>
         </dependency>
         <!-- OpenHFT Compiler dependency -->
         <dependency>
@@ -88,9 +89,9 @@
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
-                            <groupId>ua.stetsenkoinna</groupId>
-                            <artifactId>lib-net-annotations</artifactId>
-                            <version>1.2.0</version>
+                            <groupId>com.google.auto.service</groupId>
+                            <artifactId>auto-service</artifactId>
+                            <version>1.1.1</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

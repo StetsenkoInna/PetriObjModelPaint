@@ -1,4 +1,4 @@
-package ua.stetsenkoinna.annotation;
+package ua.stetsenkoinna.libnetannotation.annotation;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

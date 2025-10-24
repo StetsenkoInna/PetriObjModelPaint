@@ -22,7 +22,7 @@ import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import ua.stetsenkoinna.annotation.NetLibraryMethod;
+import ua.stetsenkoinna.libnetannotation.annotation.NetLibraryMethod;
 
 public class NetLibraryManager {
 

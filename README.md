@@ -94,10 +94,10 @@ PetriObjModelPaint/
 │   │   │   ├── graphnet/      # Graphical net components
 │   │   │   ├── graphpresentation/ # UI components
 │   │   │   │   └── statistic/ # Statistics and charting module
+│   │   │   │── libnetannotation/ # Annotation processing
 │   │   │   └── pnml/          # PNML import/export
 │   │   └── resources/
 │   └── target/                # Build output
-├── lib-net-annotations/       # Annotation processing
 ├── run.bat                    # Windows launch script
 ├── run.sh                     # Unix launch script
 └── README.md                  # This file

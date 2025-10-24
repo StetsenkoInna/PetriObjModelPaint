@@ -1,7 +1,7 @@
-package ua.stetsenkoinna.processor;
+package ua.stetsenkoinna.libnetannotation.processor;
 
 import com.google.auto.service.AutoService;
-import ua.stetsenkoinna.annotation.NetLibraryMethod;
+import ua.stetsenkoinna.libnetannotation.annotation.NetLibraryMethod;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
