@@ -1,15 +1,9 @@
 package ua.stetsenkoinna.graphpresentation.undoable_edits;
 
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
-import ua.stetsenkoinna.graphnet.GraphArcIn;
-import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
-import ua.stetsenkoinna.graphnet.GraphPetriPlace;
-import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphpresentation.GraphElement;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
-import java.awt.Color;
-import java.util.List;
 import javax.swing.undo.AbstractUndoableEdit;
 
 /**
@@ -38,12 +32,7 @@ public class PasteElementsEdit extends AbstractUndoableEdit {
             if (element == panel.getCurrent()) {
                 panel.setCurrent(null);
             }
-            if (element == panel.getChoosen()) {
-               // panel.setChoosen(null);
-            }
-            if (panel.getChoosenElements().contains(element)) {
-                panel.getChoosenElements().remove(element);
-            }
+            panel.getChoosenElements().remove(element);
             try {
                panel.getGraphNet().delGraphElement(element);
             } catch (ExceptionInvalidNetStructure e) {
@@ -57,7 +46,6 @@ public class PasteElementsEdit extends AbstractUndoableEdit {
     @Override
     public void redo() {
         super.redo();
-        
         panel.addNetFragment(fragment);
     }
     

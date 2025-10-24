@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphpresentation;
 
 import ua.stetsenkoinna.PetriObj.PetriObjModel;
@@ -22,11 +17,9 @@ import javax.swing.*;
  *
  * @author Inna
  */
-public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
+public class AnimRunPetriObjModel extends PetriObjModel{
 
-    private JTextArea area; // specifies where simulation protokol is printed
-    private PetriNetsPanel panel;
-    private JSlider delaySlider;
+    private final JTextArea area; // specifies where simulation protokol is printed
     private StatisticGraphMonitor statisticGraphMonitor;
     private ArrayList<AnimRunPetriSim> runlist = new ArrayList<>();
 
@@ -43,33 +36,27 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
     public AnimRunPetriObjModel(ArrayList<PetriSim> list,
                                 JTextArea area,
                                 PetriNetsPanel panel,
-                                JSlider delaySlider){
+                                JSlider delaySlider
+    ){
         super(list);
         this.area = area;
-        this.panel = panel;
-        this.delaySlider = delaySlider;
         StateTime s = new StateTime();
         for(PetriSim sim: list){
-            runlist.add(new AnimRunPetriSim(sim.getNet(),s, area, panel,delaySlider, this)); // edit 25.07.2018
+            runlist.add(new AnimRunPetriSim(sim.getNet(),s, area, panel,delaySlider, this));
         }
-        super.setTimeState(s); // edit 25.07.2018  It's very important for correct statistics but building of project get error...very strange
-        super.setListObj(list); // edit 25.07.2018 May be it's not important 
-
+        super.setTimeState(s); // It's very important for correct statistics but building of project get error
+        super.setListObj(list);
     }
 
-
-
-
-
-
     @Override
-    public void go(double timeModeling) { //виведення протоколу подій та результатів моделювання у об"єкт класу JTextArea
+    public void go(double timeModeling) {
+        // виведення протоколу подій та результатів моделювання у об"єкт класу JTextArea
         area.setText(" Events protocol ");
         super.setSimulationTime(timeModeling);
 
         super.setCurrentTime(0.0);
         double min;
-        super.getListObj().sort(PetriSim.getComparatorByPriority()); //виправлено 9.11.2015, 12.10.2017
+        super.getListObj().sort(PetriSim.getComparatorByPriority());
         for (AnimRunPetriSim e : getRunlist()) {
             e.input();
             /* support for early termination of the simulation */
@@ -93,11 +80,13 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
             }
 
             List<PetriElementStatisticDto> currentStatistic = new ArrayList<>();
-            if (super.isStatistics() == true) {
+            if (super.isStatistics()) {
                 for (AnimRunPetriSim e : getRunlist()) {
                     if (min > 0) {
                         if (min < super.getSimulationTime()) {
-                            e.doStatistics((min - super.getCurrentTime()) / min); //статистика за час "дельта т", для спільних позицій потрібно статистику збирати тільки один раз!!!
+                            // статистика за час "дельта т"
+                            // для спільних позицій потрібно статистику збирати тільки один раз
+                            e.doStatistics((min - super.getCurrentTime()) / min);
                         } else {
                             e.doStatistics((timeModeling - super.getCurrentTime()) / super.getSimulationTime());
                         }
@@ -119,14 +108,14 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
             if (super.getCurrentTime() <= timeModeling) {
 
                 for (AnimRunPetriSim e : getRunlist()) {
-                    if (super.getCurrentTime() == e.getTimeMin()) { // розв'язання конфлікту об'єктів рівноймовірнісним способом
-
-                        conflictObj.add(e);                           //список конфліктних обєктів
+                    if (super.getCurrentTime() == e.getTimeMin()) {
+                        // розв'язання конфлікту об'єктів рівноймовірнісним способом
+                        conflictObj.add(e); //список конфліктних обєктів
                     }
                 }
                 int num;
                 int max;
-                if (super.isProtocolPrint() == true) {
+                if (super.isProtocolPrint()) {
                     area.append("  List of conflicting objects  " + "\n");
                     for (int ii = 0; ii < conflictObj.size(); ii++) {
                         area.append("  K [ " + ii + "  ] = " + conflictObj.get(ii).getName() + "\n");
@@ -136,7 +125,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                 if (conflictObj.size() > 1) { //вибір обєкта, що запускається
                     max = conflictObj.size();
                     super.getListObj().sort(PetriSim.getComparatorByPriority());
-                    for (int i = 1; i < conflictObj.size(); i++) { //System.out.println("  "+conflictObj.get(i).getPriority()+"  "+conflictObj.get(i-1).getPriority());
+                    for (int i = 1; i < conflictObj.size(); i++) {
                         if (conflictObj.get(i).getPriority() < conflictObj.get(i - 1).getPriority()) {
                             max = i - 1;
                             break;
@@ -155,7 +144,11 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
 
                 for (AnimRunPetriSim list : getRunlist()) {
                     if (list.getNumObj() == conflictObj.get(num).getNumObj()) {
-                        super.printInfo(" time =   " + super.getCurrentTime() + "   Event '" + list.getEventMin().getName() + "'\n" + "                       is occuring for the object   " + list.getName() + "\n", area);
+                        super.printInfo(" time =   " + super.getCurrentTime()
+                                + "   Event '" + list.getEventMin().getName()
+                                + "'\n" + "                       is occuring for the object   "
+                                + list.getName() + "\n", area
+                        );
                         list.doT();
                         list.output(); /* вихід маркерів з переходів */
                         /* support for early termination of the simulation */
@@ -166,18 +159,6 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
                 }
                 super.printInfo("Markers leave transitions:", area);
                 super.printMark(area);
-
-                /* pausing/unpausing support between input and output */
-                /*if (paused) {
-                    synchronized(this) {
-                        while (paused) {
-                            try {
-                                wait();
-                            } catch (InterruptedException e) {}
-                        }
-                    }
-                } */
-                /* end of pausing/unpausing support */
 
                 super.getListObj().sort(PetriSim.getComparatorByPriority());
                 for (AnimRunPetriSim e : getRunlist()) {
@@ -203,8 +184,6 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
         if (isStatisticMonitorEnabled()) {
             statisticGraphMonitor.shutdownStatisticUpdate();
         }
-
-
         displayModellingResults();
     }
 
@@ -214,11 +193,11 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
             area.append("\n Petri-object " + e.getName());
             area.append("\n Mean values of the quantity of markers in places : ");
             for (PetriP P : e.getListPositionsForStatistica()) {
-                area.append("\n  Place '" + P.getName() + "'  " + Double.toString(P.getMean()));
+                area.append("\n  Place '" + P.getName() + "'  " + P.getMean());
             }
             area.append("\n Mean values of the quantity of active transition channels : ");
             for (PetriT T : e.getNet().getListT()) {
-                area.append("\n Transition '" + T.getName() + "'  " + Double.toString(T.getMean()));
+                area.append("\n Transition '" + T.getName() + "'  " + T.getMean());
             }
         }
     }
@@ -244,7 +223,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
      *
      */
     public void printInfo(String info){
-        if(isProtocolPrint() == true)
+        if(isProtocolPrint())
             area.append(info);
     }
     /**
@@ -252,7 +231,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{  // added 07.2018
      **
      */
     public void printMark(){
-        if (isProtocolPrint() == true) {
+        if (isProtocolPrint()) {
             for (AnimRunPetriSim e : getRunlist()) {
                 e.printMark(area);
             }

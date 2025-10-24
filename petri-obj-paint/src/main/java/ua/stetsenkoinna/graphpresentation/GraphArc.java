@@ -117,58 +117,6 @@ public class GraphArc implements Serializable {
 
     }
 
-    /*   public void changeBorderOld() { //2022 // претендент на видалення
-        double x, y, k, b, r, yy,  xx, rr,dd, ii1, ii2, jj1, jj2;
-        
- //getBorder() for place =radius, for rect = width/2     
-        r = endElement.getBorder();  
-        rr = beginElement.getBorder();
-        
-       
-        if (firstArc) {
-            y = graphElement.getY2() - 10;
-            yy = graphElement.getY1() - 10;
-        } else if (secondArc) {
-            y = graphElement.getY2() + 10;
-            yy = graphElement.getY1() + 10;
-        } else {
-            y = graphElement.getY2();
-            yy = graphElement.getY1();
-        }
-        
-        x = graphElement.getX2();
-        xx = graphElement.getX1();
-        k = (yy - y) / (xx - x);
-        b = yy - k * xx;
-        
-   
-// цей фрагмент переписано з більш простим розрахунком перетину з кружечком
-//потрібно ще доопрацювати, тому що перетин шукається з кружечком, хоч з одного боку маємо прямокутник
-        double d = (Math.pow((2 * k * b - 2 * x - 2 * y * k), 2) - (4 + 4 * k * k) * (b * b - r * r + x * x + y * y - 2 * y * b));
-        double i1 = ((-(2 * k * b - 2 * x - 2 * y * k) - Math.sqrt(d)) / (2 + 2 * k * k));
-        double i2 = ((-(2 * k * b - 2 * x - 2 * y * k) + Math.sqrt(d)) / (2 + 2 * k * k));
-        double j1 = k * i1 + b;
-        double j2 = k * i2 + b;
-
-        dd = (Math.pow((2 * k * b - 2 * xx - 2 * yy * k), 2) - (4 + 4 * k * k) * (b * b - rr * rr + xx * xx + yy * yy - 2 * yy * b));
-        ii1 = ((-(2 * k * b - 2 * xx - 2 * yy * k) - Math.sqrt(dd)) / (2 + 2 * k * k));
-        ii2 = ((-(2 * k * b - 2 * xx - 2 * yy * k) + Math.sqrt(dd)) / (2 + 2 * k * k));
-        jj1 = k * ii1 + b;
-        jj2 = k * ii2 + b;
-
-
-        if (x < xx){      
-            graphElement.setLine(new Point2D.Double(ii1, jj1), new Point2D.Double(i2, j2));
-        } else if (x > xx) {                       
-           graphElement.setLine(new Point2D.Double(ii2, jj2), new Point2D.Double(i1, j1));
-        } else if (yy > y) {                     
-            graphElement.setLine(beginElement.getGraphElementCenter(), new Point2D.Double(endElement.getGraphElementCenter().getX(), endElement.getGraphElementCenter().getY() + 10));
-        } else {
-            graphElement.setLine(beginElement.getGraphElementCenter(), new Point2D.Double(endElement.getGraphElementCenter().getX(), endElement.getGraphElementCenter().getY() - 10));
-        }  
-     }
-     */
-
     // використовуємо векторні операції для розрахунку координат  
     public void changeBorder() {
         double x, y, r, rr, yy, xx, dy, dx, k, b;
@@ -190,13 +138,6 @@ public class GraphArc implements Serializable {
         double arcLength = Math.sqrt(dy * dy + dx * dx);
 
         double halfH = (double) GraphTransition.getHeight() / 2;
-
-//        rr = rr / arcLength;
-//        xx = xx + rr * dx;
-//        yy = yy + rr * dy;
-//        r = r / arcLength;
-//        x = x - r * dx;
-//        y = y - r * dy;
 
         if (dx == 0) {
             if (beginElement.getClass().equals(GraphPetriPlace.class)) {
@@ -249,7 +190,6 @@ public class GraphArc implements Serializable {
 
                  double halfW = (double) ((GraphTransition) beginElement).getWidth() / 2;
                 // 4 точки перетину з 4 прямими, а яка з них - вирішуємо через перетин
-                // з точками перетину ще біда...не вийшло
                 Point2D.Double p1;
                 Point2D.Double p2;
                 if(Math.abs(k) <= halfH/halfW){ // halfH/halfW тангенс кута діагоналі прямокутника, з яким перетинаємо лінію
@@ -321,8 +261,6 @@ public class GraphArc implements Serializable {
         }
     }
 
-   
-
     /**
      * it is called when setting two arcs that go between the same place and
      * transition but in opposite directions
@@ -330,7 +268,6 @@ public class GraphArc implements Serializable {
      * @param t the arc that goes in opposite direction form this arc
      */
     public void twoArcs(GraphArc t) {
-
         t.firstArc = true;
         this.secondArc = true;
         t.changeBorder();
@@ -344,7 +281,6 @@ public class GraphArc implements Serializable {
     public boolean isEnoughDistance(Point2D p) {
         return graphElement.ptSegDist(p) < 3;
     }
-// еквівалентно виклику changeBorder(), замінити changeBorder?
 
     public void updateCoordinates() { // метод для оновлення інформації щодо координат елементу (для перемалювання) 09.01.13
         changeBorder();
@@ -374,12 +310,12 @@ public class GraphArc implements Serializable {
         return endElement;
     }
 
-    public void addElementToArrayList() {  // added by Olha 24.09.12
-
+    public void addElementToArrayList() {
+        // todo
     }
 
     public void setPetriElements() {
-
+        // todo
     }
 
     public int getId() {
@@ -391,7 +327,7 @@ public class GraphArc implements Serializable {
     }
 
     public void setQuantity(int i) {
-
+        // todo
     }
 
     public boolean getIsInf() {
@@ -399,7 +335,7 @@ public class GraphArc implements Serializable {
     }
 
     public void setInf(boolean i) {
-
+        // todo
     }
 
     /**

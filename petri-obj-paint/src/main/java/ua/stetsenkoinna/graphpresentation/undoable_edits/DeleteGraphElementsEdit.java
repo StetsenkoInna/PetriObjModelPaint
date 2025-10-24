@@ -24,17 +24,17 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
     /**
      * Petri net elements that were removed during delete operation
      */
-    private List<GraphElement> elements;
+    private final List<GraphElement> elements;
     
     /**
      * In arcs that were removed along with GraphElements
      */
-    private List<GraphArcIn> inArcs;
+    private final List<GraphArcIn> inArcs;
     
     /**
      * Out arcs that were removed along with GraphElements
      */
-    private List<GraphArcOut> outArcs; 
+    private final List<GraphArcOut> outArcs;
     
     public DeleteGraphElementsEdit(PetriNetsPanel panel, List<GraphElement> elements,
             List<GraphArcIn> inArcs, List<GraphArcOut> outArcs) {
@@ -47,7 +47,7 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
     public DeleteGraphElementsEdit(PetriNetsPanel panel, GraphElement element,
             List<GraphArcIn> inArcs, List<GraphArcOut> outArcs) {
         this.panel = panel;
-        this.elements = new ArrayList();
+        this.elements = new ArrayList<>();
         this.elements.add(element);
         this.inArcs = inArcs;
         this.outArcs = outArcs;
@@ -124,12 +124,8 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
             if (element == panel.getCurrent()) {
                 panel.setCurrent(null);
             }
-            //if (element == panel.getChoosen()) {
-               // panel.setChoosen(null);
-            //}
-            if (panel.getChoosenElements().contains(element)) {
-                panel.getChoosenElements().remove(element);
-            }
+
+            panel.getChoosenElements().remove(element);
             try {
                panel.getGraphNet().delGraphElement(element);
             } catch (ExceptionInvalidNetStructure e) {

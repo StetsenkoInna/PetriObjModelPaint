@@ -1,13 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
-
-/*
- * SetTie.java
- *
- * Created on 11.12.2011, 18:44:06
- */
 package ua.stetsenkoinna.graphpresentation;
 
 import ua.stetsenkoinna.PetriObj.*;

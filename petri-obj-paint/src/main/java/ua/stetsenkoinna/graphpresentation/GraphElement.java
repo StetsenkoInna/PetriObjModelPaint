@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphpresentation;
 
 import java.awt.Color;
@@ -15,15 +11,15 @@ import java.io.Serializable;
  */
 public class GraphElement implements Serializable {
 
-    private int lineWidth; //replaced from subclasses
+    private int lineWidth; // replaced from subclasses
     private Color color;  // replaced from subclasses
 
     public void drawGraphElement(Graphics2D g2) {
-
+        // todo
     }
 
     public void setNewCoordinates(Point2D p) {
-
+        // todo
     }
 
     public boolean isGraphElement(Point2D p) {
@@ -45,19 +41,13 @@ public class GraphElement implements Serializable {
     public int getId() {
         return 0;
     }
-    /*  public  void addElementToArrayList(){
-           
-       }*/
+
     public String getName() {
         return null;
     }
 
     public int getNumber() {
         return 0;
-    }
-
-    public void resize() {
-
     }
 
     /**

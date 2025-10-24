@@ -215,7 +215,7 @@ public class FileUse {
         ObjectOutputStream oos = null;
         try {
             fdlg.setFilenameFilter(null);
-            //System.out.println("Saving GraphNet as '" + fdlg.getDirectory() + fdlg.getFile() + "'");
+            System.out.println("Saving GraphNet as '" + fdlg.getDirectory() + fdlg.getFile() + "'");
             net.createPetriNet(fdlg.getFile());
             fos = new FileOutputStream(fdlg.getDirectory() + fdlg.getFile() + PATTERN);
             oos = new ObjectOutputStream(fos);
@@ -249,7 +249,7 @@ public class FileUse {
         ObjectOutputStream oos = null;
         try {
             fdlg.setFilenameFilter(null);
-            // System.out.println("Saving PetriNet as '" + fdlg.getDirectory() + fdlg.getFile() + "'");
+            System.out.println("Saving PetriNet as '" + fdlg.getDirectory() + fdlg.getFile() + "'");
             panel.getGraphNet().createPetriNet(fdlg.getFile());
             fos = new FileOutputStream(fdlg.getDirectory() + fdlg.getFile() + PATTERN);
             oos = new ObjectOutputStream(fos);
@@ -521,13 +521,11 @@ public class FileUse {
                         GraphPetriPlace grPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
                         grPlace.setNewCoordinates(new Point2D.Double(x, y));
                         grPlaces.add(grPlace);
-                        //choosenElements.add(grPlace);
                     } else {
                         PetriT tran = (PetriT)elem;
                         GraphPetriTransition grTran = new GraphPetriTransition(tran, PetriNetsPanel.getIdElement());
                         grTran.setNewCoordinates(new Point2D.Double(x, y));
                         grTransitions.add(grTran);
-                        //choosenElements.add(grTran);
                     }
                 }
             }
@@ -547,13 +545,11 @@ public class FileUse {
                         GraphPetriPlace grPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
                         grPlace.setNewCoordinates(new Point2D.Double(x, y));
                         grPlaces.add(grPlace);
-                        //choosenElements.add(grPlace);
                     } else {
                         PetriT tran = (PetriT)elem;
                         GraphPetriTransition grTran = new GraphPetriTransition(tran, PetriNetsPanel.getIdElement());
                         grTran.setNewCoordinates(new Point2D.Double(x, y));
                         grTransitions.add(grTran);
-                        //choosenElements.add(grTran);
                     }
                 }
             }
@@ -574,13 +570,11 @@ public class FileUse {
                         GraphPetriPlace grPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
                         grPlace.setNewCoordinates(new Point2D.Double(x, y));
                         grPlaces.add(grPlace);
-                        //choosenElements.add(grPlace);
                     } else {
                         PetriT tran = (PetriT)elem;
                         GraphPetriTransition grTran = new GraphPetriTransition(tran, PetriNetsPanel.getIdElement());
                         grTran.setNewCoordinates(new Point2D.Double(x, y));
                         grTransitions.add(grTran);
-                       // choosenElements.add(grTran);
                     }
                 }
             }
@@ -602,35 +596,17 @@ public class FileUse {
             }
             grInArc.settingNewArc(beginPlace);
             grInArc.finishSettingNewArc(endTransition);
-            grInArc.setPetriElements(); // added by Katya 04.12.2016 (this line and the next two)
+            grInArc.setPetriElements(); // this line and the next two
             grInArc.changeBorder();
             grInArc.updateCoordinates();
             grArcIns.add(grInArc);
         }
 
         for (ArcOut outArc : net.getArcOut()) {
-            GraphArcOut grOutArc = new GraphArcOut(outArc);
-            GraphPetriTransition beginTransition = null;
-            for (GraphPetriTransition grTran : grTransitions) {
-                if (grTran.getNumber() == outArc.getNumT()) {
-                    beginTransition = grTran;
-                }
-            }
-            GraphPetriPlace endPlace = null;
-            for (GraphPetriPlace grPlace : grPlaces) {
-                if (grPlace.getNumber() == outArc.getNumP()) {
-                    endPlace = grPlace;
-                }
-            }
-            grOutArc.settingNewArc(beginTransition);
-            grOutArc.finishSettingNewArc(endPlace);
-            grOutArc.setPetriElements(); // added by Katya 04.12.2016 (this line and the next two)
-            grOutArc.changeBorder();
-            grOutArc.updateCoordinates();
+            GraphArcOut grOutArc = getGraphArcOut(outArc, grTransitions, grPlaces);
             grArcOuts.add(grOutArc);
         }
 
-        // added by Katya 04.12.2016
         for (GraphArcOut arcOut : grArcOuts) {
             for (GraphArcIn arcIn : grArcIns) {
                 int inBeginId = arcIn.getBeginElement().getId();
@@ -647,6 +623,28 @@ public class FileUse {
 
         graphNet.changeLocation(paneCenter);
         return graphNet;
+    }
+
+    private static GraphArcOut getGraphArcOut(ArcOut outArc, ArrayList<GraphPetriTransition> grTransitions, ArrayList<GraphPetriPlace> grPlaces) {
+        GraphArcOut grOutArc = new GraphArcOut(outArc);
+        GraphPetriTransition beginTransition = null;
+        for (GraphPetriTransition grTran : grTransitions) {
+            if (grTran.getNumber() == outArc.getNumT()) {
+                beginTransition = grTran;
+            }
+        }
+        GraphPetriPlace endPlace = null;
+        for (GraphPetriPlace grPlace : grPlaces) {
+            if (grPlace.getNumber() == outArc.getNumP()) {
+                endPlace = grPlace;
+            }
+        }
+        grOutArc.settingNewArc(beginTransition);
+        grOutArc.finishSettingNewArc(endPlace);
+        grOutArc.setPetriElements(); // this line and the next two
+        grOutArc.changeBorder();
+        grOutArc.updateCoordinates();
+        return grOutArc;
     }
 
     @Deprecated

@@ -1,10 +1,3 @@
-
-
-
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphpresentation;
 
 import java.awt.BasicStroke;
@@ -19,8 +12,7 @@ import java.awt.geom.Point2D;
  */
 public class GraphPlace extends GraphElement {
     
-    private static  int diameter = 40;       // діаметр кола
-    
+    private static  int diameter = 40; // діаметр кола
 
     /**
      * @return the diameter
@@ -51,41 +43,36 @@ public class GraphPlace extends GraphElement {
         g2.setColor(Color.WHITE);
         g2.fill(graphElement);
         g2.setColor(getColor());
-     
     }
 
     @Override
     public void setNewCoordinates(Point2D p) {
-            graphElement.setFrame(p.getX() - getDiameter() / 2, p.getY() - getDiameter() / 2, getDiameter(), getDiameter());
-            
+            graphElement.setFrame(
+                    p.getX() - (double) getDiameter() / 2,
+                    p.getY() - (double) getDiameter() / 2, getDiameter(), getDiameter()
+            );
     }
 
-        
     @Override
     public boolean isGraphElement(Point2D p) {
-        if (graphElement.contains(p)) {
-            return true;
-        }
-        return false;
+        return graphElement.contains(p);
     }
 
     @Override
     public Point2D getGraphElementCenter() {
-        return new Point2D.Double(graphElement.getX() + getDiameter() / 2, graphElement.getY() + getDiameter() / 2);
+        return new Point2D.Double(
+                graphElement.getX() + (double) getDiameter() / 2,
+                graphElement.getY() + (double) getDiameter() / 2
+        );
     }
 
-  
     @Override
     public String getType() {
         return graphElement.getClass().toString();
     }
 
-   
     @Override
-    public  int getBorder() {
-        return getDiameter() / 2;
-    }
-    
+    public  int getBorder() {return getDiameter() / 2;}
 
     public Ellipse2D getGraphElement() {
         return graphElement;
@@ -95,8 +82,4 @@ public class GraphPlace extends GraphElement {
         this.graphElement = graphElement;
     }
 
-   
-    
-    
-    
 }
