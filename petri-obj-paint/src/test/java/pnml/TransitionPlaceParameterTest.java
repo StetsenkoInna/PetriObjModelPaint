@@ -86,7 +86,7 @@ public class TransitionPlaceParameterTest {
 
         assertEquals("Time delay parameter flag should be preserved", originalTransition.parametrIsParam(), importedTransition.parametrIsParam());
         assertTrue("Transition should have time delay parameter", importedTransition.parametrIsParam());
-        assertEquals("Time delay parameter name should be preserved", originalTransition.getParametrParamName(), importedTransition.getParametrParamName());
+        assertEquals("Time delay parameter name should be preserved", originalTransition.getParameterParamName(), importedTransition.getParameterParamName());
     }
 
     @Test
@@ -191,7 +191,7 @@ public class TransitionPlaceParameterTest {
         // Verify time delay parameter
         assertEquals("Time delay parameter flag should be preserved", originalTransition.parametrIsParam(), importedTransition.parametrIsParam());
         assertTrue("Transition should have time delay parameter", importedTransition.parametrIsParam());
-        assertEquals("Time delay parameter name should be preserved", originalTransition.getParametrParamName(), importedTransition.getParametrParamName());
+        assertEquals("Time delay parameter name should be preserved", originalTransition.getParameterParamName(), importedTransition.getParameterParamName());
 
         // Verify priority parameter
         assertEquals("Priority parameter flag should be preserved", originalTransition.priorityIsParam(), importedTransition.priorityIsParam());
@@ -230,7 +230,7 @@ public class TransitionPlaceParameterTest {
         assertNotNull("Should find original transition", originalTransition);
         assertNotNull("Should find imported transition", importedTransition);
 
-        assertEquals("Mean value should be preserved", originalTransition.getParametr(), importedTransition.getParametr(), 0.001);
+        assertEquals("Mean value should be preserved", originalTransition.getParameter(), importedTransition.getParameter(), 0.001);
         assertEquals("Standard deviation should be preserved", originalTransition.getParamDeviation(), importedTransition.getParamDeviation(), 0.001);
     }
 
@@ -280,7 +280,7 @@ public class TransitionPlaceParameterTest {
         PetriT importedTransFixed = findTransitionById("t2", importedTransitions);
         assertEquals("Transition parameter flag should be preserved", originalTransFixed.parametrIsParam(), importedTransFixed.parametrIsParam());
         assertFalse("Transition should not have time delay parameter", importedTransFixed.parametrIsParam());
-        assertEquals("Transition time delay should be preserved", originalTransFixed.getParametr(), importedTransFixed.getParametr(), 0.001);
+        assertEquals("Transition time delay should be preserved", originalTransFixed.getParameter(), importedTransFixed.getParameter(), 0.001);
         assertEquals("Transition priority should be preserved", originalTransFixed.getPriority(), importedTransFixed.getPriority());
         assertEquals("Transition probability should be preserved", originalTransFixed.getProbability(), importedTransFixed.getProbability(), 0.001);
         assertEquals("Transition distribution should be preserved", originalTransFixed.getDistribution(), importedTransFixed.getDistribution());
@@ -319,7 +319,7 @@ public class TransitionPlaceParameterTest {
 
         PetriP p1 = new PetriP("p1", "Place1", 1);
         PetriT t1 = new PetriT("t1", "Transition1", 0.0);
-        t1.setParametrParam("testTimeDelayParam");
+        t1.setParameterParam("testTimeDelayParam");
         places.add(p1);
         transitions.add(t1);
 
@@ -419,7 +419,7 @@ public class TransitionPlaceParameterTest {
 
         PetriP p1 = new PetriP("p1", "Place1", 1);
         PetriT t1 = new PetriT("t1", "Transition1", 0.0);
-        t1.setParametrParam("testTimeDelayParam");
+        t1.setParameterParam("testTimeDelayParam");
         t1.setPriorityParam("testPriorityParam");
         t1.setProbabilityParam("testProbabilityParam");
         t1.setDistributionParam("testDistributionParam");
@@ -457,7 +457,7 @@ public class TransitionPlaceParameterTest {
 
         // Transition with parameter
         PetriT t1 = new PetriT("t1", "Transition1", 0.0);
-        t1.setParametrParam("testTimeDelayParam");
+        t1.setParameterParam("testTimeDelayParam");
         transitions.add(t1);
 
         // Transition with fixed values

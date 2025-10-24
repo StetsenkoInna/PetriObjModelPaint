@@ -17,10 +17,10 @@ import java.util.Map;
  */
 public class PnmlParser {
 
-    private Map<String, Integer> placeIdToNumber = new HashMap<>();
-    private Map<String, Integer> transitionIdToNumber = new HashMap<>();
-    private Map<Integer, java.awt.geom.Point2D.Double> placeCoordinates = new HashMap<>();
-    private Map<Integer, java.awt.geom.Point2D.Double> transitionCoordinates = new HashMap<>();
+    private final Map<String, Integer> placeIdToNumber = new HashMap<>();
+    private final Map<String, Integer> transitionIdToNumber = new HashMap<>();
+    private final Map<Integer, java.awt.geom.Point2D.Double> placeCoordinates = new HashMap<>();
+    private final Map<Integer, java.awt.geom.Point2D.Double> transitionCoordinates = new HashMap<>();
 
     /**
      * Parse PNML file and create PetriNet object
@@ -92,8 +92,8 @@ public class PnmlParser {
                     String markingText = textNodes.item(0).getTextContent();
                     try {
                         marking = Integer.parseInt(markingText);
-                    } catch (NumberFormatException e) {
-                        marking = 0;
+                    } catch (NumberFormatException _) {
+
                     }
                 }
             }
@@ -263,7 +263,7 @@ public class PnmlParser {
 
             // Set parameter names if present
             if (timeDelayParam != null && !timeDelayParam.trim().isEmpty()) {
-                transition.setParametrParam(timeDelayParam);
+                transition.setParameterParam(timeDelayParam);
             }
             if (priorityParam != null && !priorityParam.trim().isEmpty()) {
                 transition.setPriorityParam(priorityParam);
@@ -306,8 +306,8 @@ public class PnmlParser {
                 if (textNodes.getLength() > 0) {
                     try {
                         weight = Integer.parseInt(textNodes.item(0).getTextContent());
-                    } catch (NumberFormatException e) {
-                        weight = 1;
+                    } catch (NumberFormatException _) {
+
                     }
                 }
             }

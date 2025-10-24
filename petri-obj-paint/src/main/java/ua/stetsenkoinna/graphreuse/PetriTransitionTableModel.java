@@ -43,8 +43,8 @@ public class PetriTransitionTableModel extends AbstractTableModel {
             mass[i][0] = pt.getName();
             mass[i][1] = pt.getName();
             mass[i][2] = pt.parametrIsParam() // modified by Katya 08.12.2016
-                ? pt.getParametrParamName()
-                : pt.getParametr();
+                ? pt.getParameterParamName()
+                : pt.getParameter();
             mass[i][3] = pt.getDistribution();
             mass[i][4] = pt.distributionIsParam() // added by Katya 08.12.2016
                 ? pt.getDistributionParamName()
@@ -106,10 +106,10 @@ public class PetriTransitionTableModel extends AbstractTableModel {
             String parametrValueStr = getValueAt(i, 2).toString();
             if (SafeParsingUtils.tryParseDouble(parametrValueStr)) {
                 parametrValue = Double.parseDouble(parametrValueStr);
-                pt.setParametr(parametrValue);
-                pt.setParametrParam(null);
+                pt.setParameter(parametrValue);
+                pt.setParameterParam(null);
             } else {
-                pt.setParametrParam(parametrValueStr);
+                pt.setParameterParam(parametrValueStr);
             }
             
             String distributionValue = getValueAt(i, 3) != null

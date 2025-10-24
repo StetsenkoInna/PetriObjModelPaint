@@ -690,7 +690,7 @@ public class FileUse {
                 : 0;
             PetriT place = new PetriT(tName, parametr);
             if (!SafeParsingUtils.tryParseDouble(parametrStr)) { // added by Katya 08.12.2016
-                place.setParametrParam(parametrStr);
+                place.setParameterParam(parametrStr);
             }
             if (!(probability == null || probability.isBlank())) {
                 try {
@@ -970,7 +970,7 @@ public class FileUse {
         }
         for (PetriT T : net.getListT()) {
             if (T.parametrIsParam()) {
-                str.append("double ").append(T.getParametrParamName()).append(", ");
+                str.append("double ").append(T.getParameterParamName()).append(", ");
             }
             if (T.distributionIsParam()) {
                 str.append("String ").append(T.getDistributionParamName()).append(", ");
@@ -1012,8 +1012,8 @@ public class FileUse {
         int j = 0;
         for (PetriT T : net.getListT()) {
             String parametrStr = T.parametrIsParam() // added by Katya 08.12.2016
-                ? T.getParametrParamName()
-                : Double.toString(T.getParametr());
+                ? T.getParameterParamName()
+                : Double.toString(T.getParameter());
             area.append("\t" + "d_T.add(new PetriT(" + "\"" + T.getName() + "\"," + parametrStr + "));\n");
             if (T.getDistribution() != null || T.distributionIsParam()) {
                 String distributionStr = T.distributionIsParam() // added by Katya 08.12.2016
@@ -1099,8 +1099,8 @@ public class FileUse {
         int j = 0;
         for (PetriT T : net.getListT()) {
             String parametrStr = T.parametrIsParam() // added by Katya 08.12.2016
-                ? T.getParametrParamName()
-                : Double.toString(T.getParametr());
+                ? T.getParameterParamName()
+                : Double.toString(T.getParameter());
             s = s.concat("\t" + "d_T.add(new PetriT(" + "\"" + T.getName() + "\"," + parametrStr + "));\n");
             if (T.getDistribution() != null || T.distributionIsParam()) {
                 String distributionStr = T.distributionIsParam() // added by Katya 08.12.2016
@@ -1185,8 +1185,8 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
         int j = 0;
         for (PetriT T : net.getListT()) {
             String parametrStr = T.parametrIsParam() // added by Katya 08.12.2016
-                ? T.getParametrParamName()
-                : Double.toString(T.getParametr());
+                ? T.getParameterParamName()
+                : Double.toString(T.getParameter());
             area.append("\t" + "d_T.add(new PetriT(" + "\"" + T.getName() + "\"," + parametrStr + "));\n");
             if (T.getDistribution() != null || T.distributionIsParam()) {
                 String distributionStr = T.distributionIsParam() // added by Katya 08.12.2016

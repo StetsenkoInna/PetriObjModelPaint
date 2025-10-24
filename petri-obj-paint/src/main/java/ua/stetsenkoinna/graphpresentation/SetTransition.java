@@ -347,10 +347,10 @@ public class SetTransition extends javax.swing.JFrame {
         double parametrValue = 0;
         if (SafeParsingUtils.tryParseDouble(parametrValueStr)) {
             parametrValue = Double.valueOf(parametrValueStr);
-            petriTran.setParametr(parametrValue);
-            petriTran.setParametrParam(null);
+            petriTran.setParameter(parametrValue);
+            petriTran.setParameterParam(null);
         } else {
-            petriTran.setParametrParam(parametrValueStr);
+            petriTran.setParameterParam(parametrValueStr);
         }
         
         String probabilityValueStr = probabilityTextField.getText();
@@ -412,8 +412,8 @@ public class SetTransition extends javax.swing.JFrame {
     private void getTimeDelay() { // modified by Katya 08.12.2016
         PetriT petriTran = choosenPetriT.getPetriTransition();
         String parametrStr = petriTran.parametrIsParam()
-            ? petriTran.getParametrParamName()
-            : Double.toString(petriTran.getParametr());
+            ? petriTran.getParameterParamName()
+            : Double.toString(petriTran.getParameter());
         parametrTextField.setText(parametrStr);
         
         String probabilityStr = petriTran.probabilityIsParam()
