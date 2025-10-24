@@ -2,10 +2,6 @@ package ua.stetsenkoinna.PetriObj;
 
 import java.io.Serializable;
 
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 /**
  * This class for creating the arc between place and transition of Petri net
  * (and directed from place to transion) numP - number of place numT - number of
@@ -31,10 +27,6 @@ public class ArcIn implements Cloneable, Serializable {
     private String kParamName = null;
     private String infParamName = null;
 
-    
-    /**
-     *
-     */
     public ArcIn() {
         k = 1;
         number = next;
@@ -149,6 +141,7 @@ public class ArcIn implements Cloneable, Serializable {
             inf = false;
         }
     }
+
     /**
      * Set the counter of input arcs to zero.
      */
@@ -266,7 +259,7 @@ public class ArcIn implements Cloneable, Serializable {
     public void printParameters() {
         System.out.println("This arc has direction from  place with number " + numP + " to transition with number " + numT
                 + " and has " + k + " value of multiplicity, ");
-        if (inf == true) {
+        if (inf) {
             System.out.println(" and is informational.");
         }
     }
@@ -280,9 +273,7 @@ public class ArcIn implements Cloneable, Serializable {
     @Override
     public ArcIn clone() throws CloneNotSupportedException {
         super.clone();
-        ArcIn arc = new ArcIn(numP, numT, k);  // коректніть номерів дуже важлива!!!
-        return arc;
-
+        return new ArcIn(numP, numT, k);
     }
 
 }

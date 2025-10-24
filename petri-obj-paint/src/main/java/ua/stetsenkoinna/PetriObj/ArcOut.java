@@ -2,10 +2,6 @@ package ua.stetsenkoinna.PetriObj;
 
 import java.io.Serializable;
 
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 /**
  * This class for creating the arc between transition and place of Petri
  * net (and directed from transion to place)
@@ -27,9 +23,6 @@ public class ArcOut implements Cloneable, Serializable {
     // param name
     private String kParamName = null;
 
-    /**
-     *
-     */
     public ArcOut() {
         k = 1;
         number = next;
@@ -87,8 +80,7 @@ public class ArcOut implements Cloneable, Serializable {
             k = 1;
         }
     }
-    
-    
+
     /**
      * Set the counter of output arcs to zero.
      */
@@ -190,16 +182,13 @@ public class ArcOut implements Cloneable, Serializable {
 
     /**
      *
-     * @return ArcOut object with parameters which copy current parameters of
- this arc
+     * @return ArcOut object with parameters which copy current parameters ofthis arc
      * @throws java.lang.CloneNotSupportedException if Petri net has invalid structure
      */
     @Override
     public ArcOut clone() throws CloneNotSupportedException {
         super.clone();
-        ArcOut arc = new ArcOut(numT, numP, k); // коректніть номерів дуже важлива!!!
-        return arc;
-
+        return new ArcOut(numT, numP, k);
     }
 
     public void printParameters() {

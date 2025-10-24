@@ -2,10 +2,6 @@ package ua.stetsenkoinna.PetriObj;
 
 import java.io.Serializable;
 
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 /**
  * This class for creating the place of Petri net.
  *
@@ -17,16 +13,15 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
     private String name;
     private int number;
     private double mean;
-    private static int next = 0;//додано 1.10.2012, лічильник об"єктів
+    private static int next = 0;// лічильник об"єктів
     private int observedMax;
     private int observedMin;
-    // whether mark is a parameter; added by Katya 08.12.2016
+    // whether mark is a parameter
     private boolean markIsParam = false;
     // param name
     private String markParamName = null;
     
     private String id; // for json unique number
-    
 
     /**
      *
@@ -59,7 +54,7 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
      * @param n name of place
      * @param m quantity of markers
      */
-    public PetriP(String id, String n, int m) { //added by Inna 21.03.2018
+    public PetriP(String id, String n, int m) {
         this(n,m);
         this.id = id;
     }
@@ -69,34 +64,17 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
      * @param id unique number for saving in server
      * @param n - the name of place
      */
-    public PetriP(String id, String n) { //added by Inna 21.03.2018
+    public PetriP(String id, String n) {
         this(id, n, 0);
         
     }
-    
-    /**
-     * Create a place with parametrized number of markers
-     * @param placeName place's name
-     * @param marksParameterName name of the parameter representing number of markers in this place
-     */
-    /*public PetriP(String placeName, String marksParameterName) {
-        name = placeName;
-        
-        mean = 0;
-        number = next; //додано 1.10.2012
-        next++;
-        
-        id=null;
-        this.setMarkParam(marksParameterName);
-    }*/
 
     public PetriP(PetriP position) {
         this(position.getName(), position.getMark());
         number = next;
         next++;
     }
- 
-    
+
     public boolean markIsParam() {
         return markIsParam;
     }
@@ -115,6 +93,7 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
             mark = 0;
         }
     }
+
     /**
      * Set the counter of places to zero.
      */
@@ -154,7 +133,6 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
         if (observedMin > mark) {
             observedMin = mark;
         }
-
     }
 
     /**
@@ -178,7 +156,8 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
     public int getMark() {
         return mark;
     }
- /**
+
+    /**
      * Set quantity of markers
      *
      * @param a quantity of markers
@@ -192,8 +171,7 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
             observedMin = mark;
         }
     }
-    
-    
+
     public int getObservedMax() {
         return observedMax;
     }
@@ -234,7 +212,6 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
         number = n;
     }
 
-    
     /**
      *
      * @return PetriP object with parameters which copy current parameters of

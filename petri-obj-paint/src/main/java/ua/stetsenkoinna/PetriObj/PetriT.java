@@ -664,7 +664,6 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
      */
     public boolean isEmptyInputPlacesList() {
         return inP.isEmpty();
-
     }
 
     /**
@@ -751,9 +750,8 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
     public void setMoments(boolean moments) {
         this.moments = moments;
     }
-    
-    
-    public class EventMoments{
+
+    public static class EventMoments{
        private List<Interval> list = new ArrayList<>();
 
         /**
@@ -770,9 +768,9 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
             this.list = list;
         }
         
-        class Interval{
-            private Double in;
-            private Double out;
+        static class Interval{
+            private final Double in;
+            private final Double out;
             Interval(Double t1, Double t2){
                 in = t1;
                 out = t2;
@@ -796,16 +794,13 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
         public EventMoments(List<Double> listIn, List<Double> listOut){
             int j;
             for(j=0; j< listOut.size(); j++){
-                list.add( new Interval(listIn.get(j),listOut.get(j)) );
+                list.add(new Interval(listIn.get(j), listOut.get(j)));
             }
             if(j<listIn.size()){
                 for(j=listOut.size(); j<listIn.size();j++)
-                    list.add(new Interval(listIn.get(j),Double.MAX_VALUE));
+                    list.add(new Interval(listIn.get(j), Double.MAX_VALUE));
             }
-     
         }
-        
-        
     } 
         
     public void printEventMoments() {

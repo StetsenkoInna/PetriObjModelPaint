@@ -15,11 +15,17 @@ PetriObjModelPaint is the project of Petri-object simulation technique implement
 - **Net Library**: Built-in library of common Petri net patterns
 - **Extensible**: Support for custom net components and annotations
 
+## Technology Stack
+
+### Core Technologies
+- **Java**: 23
+- **Maven**: 3.6+
+- **JavaFX**: 25.0.1
+
 ## Quick Start
 
 ### Prerequisites
-
-- **Java 8 or higher** - [Download Java](https://www.oracle.com/java/technologies/downloads/)
+- **Java 23 or higher** - [Download Java](https://www.oracle.com/java/technologies/downloads/)
 - **Maven 3.6 or higher** - [Download Maven](https://maven.apache.org/download.cgi)
 
 To check if you have the required software installed:
@@ -123,7 +129,7 @@ mvn test
 ## Troubleshooting
 
 ### Application Won't Start
-- Ensure Java 8+ is installed and in your PATH
+- Ensure Java 23+ is installed and in your PATH
 - Check that the JAR file was built successfully in `petri-obj-paint/target/`
 - Try running with: `java -jar petri-obj-paint/target/petri-obj-paint-1.2.0.jar`
 
