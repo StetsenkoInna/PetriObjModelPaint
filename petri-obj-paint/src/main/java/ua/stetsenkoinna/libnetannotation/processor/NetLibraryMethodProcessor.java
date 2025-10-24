@@ -23,8 +23,7 @@ public class NetLibraryMethodProcessor extends AbstractProcessor {
         Types typeUtils = processingEnv.getTypeUtils();
         Elements elementUtils = processingEnv.getElementUtils();
         for (Element element : roundEnv.getElementsAnnotatedWith(NetLibraryMethod.class)) {
-            if (element instanceof ExecutableElement) {
-                final ExecutableElement method = (ExecutableElement) element;
+            if (element instanceof ExecutableElement method) {
                 if (!method.getParameters().isEmpty()) {
                     processingEnv.getMessager().printMessage(
                             Diagnostic.Kind.ERROR,

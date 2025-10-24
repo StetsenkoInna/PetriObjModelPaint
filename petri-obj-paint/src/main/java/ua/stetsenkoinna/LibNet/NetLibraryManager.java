@@ -73,7 +73,7 @@ public class NetLibraryManager {
     {
         final Optional<Method> method = Arrays.stream(loadedClass.getMethods())
                 .filter((m) -> m.getName().equals(methodName)).findFirst();
-        if (!method.isPresent()) {
+        if (method.isEmpty()) {
             throw new MethodNotFound("No method with name \"" + methodName + "\" found");
         }
         return (PetriNet) method.get().invoke(null);

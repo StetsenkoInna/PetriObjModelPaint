@@ -1,10 +1,4 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.LibTest;
-
-//import PetriObj.PetriObjModel;
 
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
@@ -16,28 +10,24 @@ import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticConsoleMon
 
 import java.util.ArrayList;
 
-
 /**
  * @author Inna V. Stetsenko
+ * Example usage of the Statistic module:
+ * 1) Define the statistic formula to explore:
+ *    1.1) Use functions from the PetriStatFunction enum.
+ *    1.2) Combine functions with mathematical operators.
+ *    1.3) Specify the petri object to take elements from using "O1.". default: 0
+ * 2) Configure data collection:
+ *    2.1) Set the start time for data collection. default: 0
+ *    2.2) Define the collection step interval. default: 1
+ *
+ * 3) Assign the monitor to the model object.
  */
 public class TestPetriObjSimulation {  //Результати співпадають з аналітичними обрахунками
       public static void main(String[] args) throws ExceptionInvalidTimeDelay, ExceptionInvalidNetStructure {
-     // цей фрагмент для запуску імітації моделі з заданною мережею Петрі на інтервалі часу timeModeling
+          // цей фрагмент для запуску імітації моделі з заданною мережею Петрі на інтервалі часу timeModeling
           PetriObjModel model = getModel();
-          /**
-           * Example usage of the Statistic module:
-           *
-           * 1) Define the statistic formula to explore:
-           *    1.1) Use functions from the PetriStatFunction enum.
-           *    1.2) Combine functions with mathematical operators.
-           *    1.3) Specify the petri object to take elements from using "O1.". default: 0
-           *
-           * 2) Configure data collection:
-           *    2.1) Set the start time for data collection. default: 0
-           *    2.2) Define the collection step interval. default: 1
-           *
-           * 3) Assign the monitor to the model object.
-           */
+
           String formula = "P_AVG(O2.P2)+P_AVG(O3.P2)-T_AVG(O4.T1)";
           DataCollectionConfigDto dataCollectionConfigDto = new DataCollectionConfigDto();
           dataCollectionConfigDto.setDataCollectionStep(10000.0);
@@ -84,23 +74,9 @@ public class TestPetriObjSimulation {  //Результати співпадаю
             inaccuracy = Math.abs(inaccuracy);
            
            System.out.println(inaccuracy+" %");
-          
-          
-          
-       /*   for(PetriSim e: model.getListObj()){
-              e.printMark();
-                           
-         }
-         for(PetriSim e: model.getListObj()){
-              e.printBuffer();
-             
-         }*/
-           
-             
       } 
       
-     // метод для конструювання моделі масового обслуговування з 4 СМО 
-      
+      // метод для конструювання моделі масового обслуговування з 4 СМО
       public static PetriObjModel getModel() throws ExceptionInvalidTimeDelay, ExceptionInvalidNetStructure{
           ArrayList<PetriSim> list = new ArrayList<>();
           list.add(new PetriSim(NetLibrary.CreateNetGenerator(2.0)));
@@ -109,9 +85,6 @@ public class TestPetriObjSimulation {  //Результати співпадаю
           list.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(1, 0.4,"Third")));
           list.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(2, 0.1,"Forth")));
           list.add(new PetriSim(NetLibrary.CreateNetFork(0.15, 0.13, 0.3)));
-      //перевірка зв'язків
-     //     System.out.println(list.get(0).getNet().getListP()[1].getName() + " == " + list.get(1).getNet().getListP()[0].getName());
-     //     System.out.println(list.get(1).getNet().getListP()[2].getName() + " == " + list.get(5).getNet().getListP()[0].getName());
 
           list.get(0).getNet().getListP()[1] = list.get(1).getNet().getListP()[0]; //gen = > SMO1
           list.get(1).getNet().getListP()[2] = list.get(5).getNet().getListP()[0]; //SMO1 = > fork
@@ -124,8 +97,6 @@ public class TestPetriObjSimulation {  //Результати співпадаю
           list.get(3).getNet().getListP()[2] = list.get(1).getNet().getListP()[0];//SMO3 => SMO1
           list.get(4).getNet().getListP()[2] = list.get(1).getNet().getListP()[0];//SMO4 => SMO1
 
-          PetriObjModel model = new PetriObjModel(list);
-          return model;
+          return new PetriObjModel(list);
       }
-           
 }
