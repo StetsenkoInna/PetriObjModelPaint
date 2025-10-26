@@ -578,12 +578,19 @@ public class GraphPetriNet implements Cloneable, Serializable {
     /**
      * Merges another GraphPetriNet into this one by adding all its elements.
      * The elements from the other net will be copied with new IDs to avoid conflicts.
+     * The new elements will be positioned to the right of the existing net.
      * @param other The GraphPetriNet to merge into this one
      */
     public void mergeGraphNet(GraphPetriNet other) {
         if (other == null) {
             return;
         }
+
+        // Calculate the offset for the new net to position it to the right of existing net
+        double existingNetRightEdge = this.getRightmostX();
+        double newNetLeftEdge = other.getLeftmostX();
+        double spacing = 100.0; // Gap between networks
+        double xOffset = existingNetRightEdge + spacing - newNetLeftEdge;
 
         // Create lists of all elements to copy
         List<GraphElement> elementsToCopy = new ArrayList<>();
@@ -597,6 +604,15 @@ public class GraphPetriNet implements Cloneable, Serializable {
             other.graphArcOutList
         );
 
+        // Shift the copied elements to the right of the existing net
+        for (GraphElement element : fragment.elements) {
+            Point currentPos = new Point(
+                (int) (element.getGraphElementCenter().getX() + xOffset),
+                (int) element.getGraphElementCenter().getY()
+            );
+            element.setNewCoordinates(currentPos);
+        }
+
         // Add copied elements to this net's lists
         for (GraphElement element : fragment.elements) {
             if (element instanceof GraphPetriPlace) {
@@ -607,6 +623,14 @@ public class GraphPetriNet implements Cloneable, Serializable {
         }
         graphArcInList.addAll(fragment.inArcs);
         graphArcOutList.addAll(fragment.outArcs);
+
+        // Update arc coordinates after element repositioning
+        for (GraphArcIn arcIn : fragment.inArcs) {
+            arcIn.updateCoordinates();
+        }
+        for (GraphArcOut arcOut : fragment.outArcs) {
+            arcOut.updateCoordinates();
+        }
     }
 
     public void printStatistics(JTextArea area) {
@@ -627,6 +651,56 @@ public class GraphPetriNet implements Cloneable, Serializable {
                     + "         min value = " + T.getObservedMin() + "\n");
         }
 
+    }
+
+    /**
+     * Gets the rightmost X coordinate of all elements in the net
+     * @return the maximum X coordinate, or 0 if the net is empty
+     */
+    public double getRightmostX() {
+        double maxX = 0.0;
+
+        for (GraphPetriPlace place : graphPetriPlaceList) {
+            double x = place.getGraphElementCenter().getX();
+            if (x > maxX) {
+                maxX = x;
+            }
+        }
+        for (GraphPetriTransition transition : graphPetriTransitionList) {
+            double x = transition.getGraphElementCenter().getX();
+            if (x > maxX) {
+                maxX = x;
+            }
+        }
+
+        return maxX;
+    }
+
+    /**
+     * Gets the leftmost X coordinate of all elements in the net
+     * @return the minimum X coordinate, or 0 if the net is empty
+     */
+    public double getLeftmostX() {
+        if (graphPetriPlaceList.isEmpty() && graphPetriTransitionList.isEmpty()) {
+            return 0.0;
+        }
+
+        double minX = Double.MAX_VALUE;
+
+        for (GraphPetriPlace place : graphPetriPlaceList) {
+            double x = place.getGraphElementCenter().getX();
+            if (x < minX) {
+                minX = x;
+            }
+        }
+        for (GraphPetriTransition transition : graphPetriTransitionList) {
+            double x = transition.getGraphElementCenter().getX();
+            if (x < minX) {
+                minX = x;
+            }
+        }
+
+        return minX;
     }
 
     public Point getCurrentLocation(){
