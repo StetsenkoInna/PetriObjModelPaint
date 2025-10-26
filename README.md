@@ -51,7 +51,7 @@ mvn -version
 
 3. **Run the application:**
    ```bash
-   java -jar petri-obj-paint/target/petri-obj-paint-1.2.0.jar
+   java -jar target/PetriObjModelPaint-1.2.0.jar
    ```
 
 #### Option 2: Use Convenience Scripts
@@ -71,7 +71,6 @@ After building the project, you can use the provided scripts:
 #### Option 3: Maven Exec Plugin
 
 ```bash
-cd petri-obj-paint
 mvn exec:java -Dexec.mainClass="ua.stetsenkoinna.graphpresentation.PetriNetsFrame"
 ```
 
@@ -93,20 +92,25 @@ The application supports importing and exporting Petri nets in PNML format:
 
 ```
 PetriObjModelPaint/
-├── petri-obj-paint/          # Main application module
-│   ├── src/main/java/
-│   │   ├── ua/stetsenkoinna/
-│   │   │   ├── PetriObj/      # Core Petri net objects
-│   │   │   ├── graphnet/      # Graphical net components
-│   │   │   ├── graphpresentation/ # UI components
-│   │   │   │   └── statistic/ # Statistics and charting module
-│   │   │   │── libnetannotation/ # Annotation processing
-│   │   │   └── pnml/          # PNML import/export
-│   │   └── resources/
-│   └── target/                # Build output
-├── run.bat                    # Windows launch script
-├── run.sh                     # Unix launch script
-└── README.md                  # This file
+├── src/
+│   ├── main/
+│   │   ├── java/
+│   │   │   └── ua/stetsenkoinna/
+│   │   │       ├── PetriObj/          # Core Petri net objects
+│   │   │       ├── graphnet/          # Graphical net components
+│   │   │       ├── graphpresentation/ # UI components
+│   │   │       │   └── statistic/     # Statistics and charting module
+│   │   │       ├── libnetannotation/  # Annotation processing
+│   │   │       ├── LibNet/            # Net library
+│   │   │       ├── config/            # Configuration classes
+│   │   │       └── pnml/              # PNML import/export
+│   │   └── resources/                 # Application resources
+│   └── test/                          # Test sources
+├── target/                            # Build output
+├── pom.xml                            # Maven configuration
+├── run.bat                            # Windows launch script
+├── run.sh                             # Unix launch script
+└── README.md                          # This file
 ```
 
 ## Building from Source
@@ -130,8 +134,8 @@ mvn test
 
 ### Application Won't Start
 - Ensure Java 23+ is installed and in your PATH
-- Check that the JAR file was built successfully in `petri-obj-paint/target/`
-- Try running with: `java -jar petri-obj-paint/target/petri-obj-paint-1.2.0.jar`
+- Check that the JAR file was built successfully in `target/`
+- Try running with: `java -jar target/PetriObjModelPaint-1.2.0.jar`
 
 ### Build Failures
 - Ensure Maven 3.6+ is installed
@@ -146,7 +150,7 @@ mvn test
 ### Performance Issues
 - For large nets, consider increasing Java heap size:
   ```bash
-  java -Xmx2g -jar petri-obj-paint/target/petri-obj-paint-1.2.0.jar
+  java -Xmx2g -jar target/PetriObjModelPaint-1.2.0.jar
   ```
 
 ## Contributing

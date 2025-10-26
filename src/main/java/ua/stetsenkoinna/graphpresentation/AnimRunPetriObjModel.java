@@ -1,0 +1,296 @@
+package ua.stetsenkoinna.graphpresentation;
+
+import ua.stetsenkoinna.PetriObj.PetriObjModel;
+import ua.stetsenkoinna.PetriObj.PetriP;
+import ua.stetsenkoinna.PetriObj.PetriSim;
+import ua.stetsenkoinna.PetriObj.PetriT;
+import ua.stetsenkoinna.PetriObj.StateTime;
+import ua.stetsenkoinna.graphpresentation.statistic.dto.data.PetriElementStatisticDto;
+import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonitor;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import javax.swing.*;
+
+/**
+ *
+ * @author Inna
+ */
+public class AnimRunPetriObjModel extends PetriObjModel{
+
+    private final JTextArea area; // specifies where simulation protokol is printed
+    private StatisticGraphMonitor statisticGraphMonitor;
+    private ArrayList<AnimRunPetriSim> runlist = new ArrayList<>();
+
+    /**
+     * Whether the simulation is paused (by pressing pause button)
+     */
+    private volatile boolean paused = false;
+
+    /**
+     * Whether the simulation should completely stop immediately
+     */
+    private volatile boolean halted = false;
+
+    public AnimRunPetriObjModel(ArrayList<PetriSim> list,
+                                JTextArea area,
+                                PetriNetsPanel panel,
+                                JSlider delaySlider
+    ){
+        super(list);
+        this.area = area;
+        StateTime s = new StateTime();
+        for(PetriSim sim: list){
+            runlist.add(new AnimRunPetriSim(sim.getNet(),s, area, panel,delaySlider, this));
+        }
+        super.setTimeState(s); // It's very important for correct statistics but building of project get error
+        super.setListObj(list);
+    }
+
+    @Override
+    public void go(double timeModeling) {
+        // виведення протоколу подій та результатів моделювання у об"єкт класу JTextArea
+        area.setText(" Events protocol ");
+        super.setSimulationTime(timeModeling);
+
+        super.setCurrentTime(0.0);
+        double min;
+        super.getListObj().sort(PetriSim.getComparatorByPriority());
+        for (AnimRunPetriSim e : getRunlist()) {
+            e.input();
+            /* support for early termination of the simulation */
+            if (isHalted()) {
+                return;
+            }
+        }
+        super.printMark(area);
+        ArrayList<AnimRunPetriSim> conflictObj = new ArrayList<>();
+        Random r = new Random();
+
+        while ((super.getCurrentTime() < super.getSimulationTime())) {
+            conflictObj.clear();
+
+            min = Double.MAX_VALUE;  //пошук найближчої події
+
+            for (AnimRunPetriSim e : getRunlist()) {
+                if (e.getTimeMin() < min) {
+                    min = e.getTimeMin();
+                }
+            }
+
+            List<PetriElementStatisticDto> currentStatistic = new ArrayList<>();
+            if (super.isStatistics()) {
+                for (AnimRunPetriSim e : getRunlist()) {
+                    if (min > 0) {
+                        if (min < super.getSimulationTime()) {
+                            // статистика за час "дельта т"
+                            // для спільних позицій потрібно статистику збирати тільки один раз
+                            e.doStatistics((min - super.getCurrentTime()) / min);
+                        } else {
+                            e.doStatistics((timeModeling - super.getCurrentTime()) / super.getSimulationTime());
+                        }
+                    }
+                    if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
+                        currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
+                    }
+                }
+            }
+            if (!currentStatistic.isEmpty()) {
+                statisticGraphMonitor.setLastStatisticCollectionTime(getCurrentTime());
+                statisticGraphMonitor.asyncStatisticSend(getCurrentTime(), currentStatistic);
+            }
+
+            super.setCurrentTime(min); // просування часу
+
+            super.printInfo(" \n Time progress: time = " + super.getCurrentTime() + "\n", area);
+
+            if (super.getCurrentTime() <= timeModeling) {
+
+                for (AnimRunPetriSim e : getRunlist()) {
+                    if (super.getCurrentTime() == e.getTimeMin()) {
+                        // розв'язання конфлікту об'єктів рівноймовірнісним способом
+                        conflictObj.add(e); //список конфліктних обєктів
+                    }
+                }
+                int num;
+                int max;
+                if (super.isProtocolPrint()) {
+                    area.append("  List of conflicting objects  " + "\n");
+                    for (int ii = 0; ii < conflictObj.size(); ii++) {
+                        area.append("  K [ " + ii + "  ] = " + conflictObj.get(ii).getName() + "\n");
+                    }
+                }
+
+                if (conflictObj.size() > 1) { //вибір обєкта, що запускається
+                    max = conflictObj.size();
+                    super.getListObj().sort(PetriSim.getComparatorByPriority());
+                    for (int i = 1; i < conflictObj.size(); i++) {
+                        if (conflictObj.get(i).getPriority() < conflictObj.get(i - 1).getPriority()) {
+                            max = i - 1;
+                            break;
+                        }
+                    }
+                    if (max == 0) {
+                        num = 0;
+                    } else {
+                        num = r.nextInt(max);
+                    }
+                } else {
+                    num = 0;
+                }
+
+                super.printInfo(" Selected object  " + conflictObj.get(num).getName() + "\n" + " NextEvent " + "\n", area);
+
+                for (AnimRunPetriSim list : getRunlist()) {
+                    if (list.getNumObj() == conflictObj.get(num).getNumObj()) {
+                        super.printInfo(" time =   " + super.getCurrentTime()
+                                + "   Event '" + list.getEventMin().getName()
+                                + "'\n" + "                       is occuring for the object   "
+                                + list.getName() + "\n", area
+                        );
+                        list.doT();
+                        list.output(); /* вихід маркерів з переходів */
+                        /* support for early termination of the simulation */
+                        if (isHalted()) {
+                            return;
+                        }
+                    }
+                }
+                super.printInfo("Markers leave transitions:", area);
+                super.printMark(area);
+
+                super.getListObj().sort(PetriSim.getComparatorByPriority());
+                for (AnimRunPetriSim e : getRunlist()) {
+                        e.input(); //вхід маркерів в переходи Петрі-об'єкта
+                        /* support for early termination of the simulation */
+                        if (isHalted()) {
+                            return;
+                        }
+                }
+
+                super.printInfo("Markers enter transitions:", area);
+                super.printMark(area);
+            }
+        }
+
+        if (isLastStatisticSegment()) {
+            List<PetriElementStatisticDto> statistic = new ArrayList<>();
+            for (PetriSim e : getListObj()) {
+                statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
+            }
+            statisticGraphMonitor.asyncStatisticSend(getCurrentTime(), statistic);
+        }
+        if (isStatisticMonitorEnabled()) {
+            statisticGraphMonitor.shutdownStatisticUpdate();
+        }
+        displayModellingResults();
+    }
+
+    private void displayModellingResults() {
+        area.append("\n Modeling results: \n");
+        for (AnimRunPetriSim e : getRunlist()) {
+            area.append("\n Petri-object " + e.getName());
+            area.append("\n Mean values of the quantity of markers in places : ");
+            for (PetriP P : e.getListPositionsForStatistica()) {
+                area.append("\n  Place '" + P.getName() + "'  " + P.getMean());
+            }
+            area.append("\n Mean values of the quantity of active transition channels : ");
+            for (PetriT T : e.getNet().getListT()) {
+                area.append("\n Transition '" + T.getName() + "'  " + T.getMean());
+            }
+        }
+    }
+
+    /**
+     * @return the runlist
+     */
+    public ArrayList<AnimRunPetriSim> getRunlist() {
+        return runlist;
+    }
+
+    /**
+     * @param runlist the runlist to set
+     */
+    public void setRunlist(ArrayList<AnimRunPetriSim> runlist) {
+        this.runlist = runlist;
+    }
+
+     /**
+     * Prints the string in given JTextArea object
+     *
+     * @param info string for printing
+     *
+     */
+    public void printInfo(String info){
+        if(isProtocolPrint())
+            area.append(info);
+    }
+    /**
+     * Prints the quantity for each position of Petri net
+     **
+     */
+    public void printMark(){
+        if (isProtocolPrint()) {
+            for (AnimRunPetriSim e : getRunlist()) {
+                e.printMark(area);
+            }
+        }
+    }
+
+    /**
+     * Pause or unpause the simulation
+     */
+    public void setPaused(boolean isPaused) {
+        this.paused = isPaused;
+        for (AnimRunPetriSim petriObject: runlist) {
+            petriObject.setPaused(isPaused);
+        }
+    }
+
+    /**
+     * @return Whether the animation is paused or not
+     */
+    public boolean isPaused() {
+        return paused;
+    }
+
+    /**
+     * Send a signal to the simulation that it should stop ASAP.
+     * It wouldn't be possible to continue this simulation after that.
+     */
+    public void halt() {
+        halted = true;
+        setPaused(false); // otherwise it remains paused and doesn't terminate
+        synchronized(this) {
+            this.notifyAll();
+        }
+        for (AnimRunPetriSim petriObject: runlist) {
+            petriObject.halt();
+        }
+    }
+
+    /**
+     * @return whether the simulation received the signal to halt
+     */
+    public boolean isHalted() {
+        return halted;
+    }
+
+    public void setStatisticMonitor(StatisticGraphMonitor statisticGraphMonitor) {
+        this.statisticGraphMonitor = statisticGraphMonitor;
+    }
+
+    private boolean isStatisticMonitorEnabled() {
+        return statisticGraphMonitor != null && statisticGraphMonitor.isValidMonitor();
+    }
+
+    private boolean isStatisticCollectionTime() {
+        return isStatisticMonitorEnabled() && (getCurrentTime() >= statisticGraphMonitor.getDataCollectionStartTime());
+    }
+
+    private boolean isLastStatisticSegment() {
+        return isStatisticMonitorEnabled() && (getCurrentTime() - getSimulationTime() <= getSimulationTime()) &&
+                statisticGraphMonitor.getDataCollectionStartTime() <= getSimulationTime();
+    }
+}
