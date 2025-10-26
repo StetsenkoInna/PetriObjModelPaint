@@ -1,0 +1,4 @@
+.onDataPointHover {
+    -fx-cursor: hand;
+    -fx-background-color: orangered;
+}

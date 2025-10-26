@@ -1,14 +1,10 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphreuse;
 
 import ua.stetsenkoinna.PetriObj.ArcIn;
 import java.util.ArrayList;
 import javax.swing.table.AbstractTableModel;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
-import ua.stetsenkoinna.utils.Utils;
+import ua.stetsenkoinna.utils.SafeParsingUtils;
 
 /**
  *
@@ -16,17 +12,20 @@ import ua.stetsenkoinna.utils.Utils;
  */
 public class PetriArcInTableModel extends AbstractTableModel {
 
-    private final int TIE_PARAMETERS = 3;
-    private int row;
-    private int column = TIE_PARAMETERS + 1;
-    private Object[][] mass;
-    private static String[] COLUMN_NAMES = {"Arc", "Number of links", "Information link", "Information link (parameter name)"};
-    private ArrayList<GraphArcIn> graphPetriArcInList;
-    private static int isInfColumnIndex = 2;
+    private static final int isInfColumnIndex = 2;
+    private static final String[] COLUMN_NAMES = {"Arc", "Number of links", "Information link", "Information link (parameter name)"};
+
     private static String isInfColumnName = COLUMN_NAMES[isInfColumnIndex];
 
+    private final int TIE_PARAMETERS = 3;
+    private final int column = TIE_PARAMETERS + 1;
+
+    private int row;
+    private Object[][] mass;
+    private ArrayList<GraphArcIn> graphPetriArcInList;
+
     public PetriArcInTableModel(){
-        
+        // todo
     }
     
     public void setGraphPetriArcInList(ArrayList<GraphArcIn> list) {
@@ -36,15 +35,15 @@ public class PetriArcInTableModel extends AbstractTableModel {
         for (int i = 0; i < row; i++) {
             ArcIn ti = list.get(i).getArcIn();
             mass[i][0] = ti.getNameP() + " -> " + ti.getNameT();
-            mass[i][1] = ti.kIsParam() // modified by Katya 08.12.2016
+            mass[i][1] = ti.kIsParam()
                 ? ti.getKParamName()
                 : ti.getQuantity();
-            if (ti.getIsInf() == true) {
+            if (ti.getIsInf()) {
                 mass[i][2] = true;
             } else {
                 mass[i][2] = false;
             }
-            mass[i][3] = ti.infIsParam() // added by Katya 08.12.2016
+            mass[i][3] = ti.infIsParam()
                 ? ti.getInfParamName()
                 : null;
         }
@@ -66,10 +65,7 @@ public class PetriArcInTableModel extends AbstractTableModel {
     }
 
     public boolean isCellEditable(int row, int col) {
-        if (col == 0) {
-            return false;
-        }
-        return true;
+        return col != 0;
     }
 
     @Override
@@ -84,16 +80,16 @@ public class PetriArcInTableModel extends AbstractTableModel {
     }
 
     @Override
-    public Class getColumnClass(int c) { // modified by Katya 08.12.2016
+    public Class getColumnClass(int c) {
         return c == 2
             ? getValueAt(0, c).getClass()
             : String.class;
     }
 
-    public ArrayList<GraphArcIn> createGraphPetriArcInList() { // modified by Katya 08.12.2016
+    public ArrayList<GraphArcIn> createGraphPetriArcInList() {
         for (int i = 0; i < graphPetriArcInList.size(); i++) {
             ArcIn ti = graphPetriArcInList.get(i).getArcIn();
-            boolean isInfValue = Boolean.valueOf(getValueAt(i, 2).toString());
+            boolean isInfValue = Boolean.parseBoolean(getValueAt(i, 2).toString());
             String isInfParamName = getValueAt(i, 3) != null
                 ? getValueAt(i, 3).toString()
                 : null;
@@ -104,8 +100,8 @@ public class PetriArcInTableModel extends AbstractTableModel {
                 ti.setInfParam(null);
             }
             String quantityValueStr = getValueAt(i, 1).toString();
-            if (Utils.tryParseInt(quantityValueStr)) {
-                ti.setQuantity(Integer.valueOf(quantityValueStr));
+            if (SafeParsingUtils.tryParseInt(quantityValueStr)) {
+                ti.setQuantity(Integer.parseInt(quantityValueStr));
                 ti.setKParam(null);
             } else {
                 ti.setKParam(quantityValueStr);

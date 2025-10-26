@@ -1,14 +1,10 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphreuse;
 
 import ua.stetsenkoinna.PetriObj.ArcOut;
 import java.util.ArrayList;
 import javax.swing.table.AbstractTableModel;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
-import ua.stetsenkoinna.utils.Utils;
+import ua.stetsenkoinna.utils.SafeParsingUtils;
 
 /**
  *
@@ -16,15 +12,17 @@ import ua.stetsenkoinna.utils.Utils;
  */
 public class PetriArcOutTableModel extends AbstractTableModel {
 
+    private static final String[] COLUMN_NAMES = {"Arc", "Number of links"};
+
     private final int TIE_PARAMETERS = 1;
+    private final int column = TIE_PARAMETERS + 1;
+
     private int row;
-    private int column = TIE_PARAMETERS + 1;
     private Object[][] mass;
-    private static String[] COLUMN_NAMES = {"Arc", "Number of links"};
     private ArrayList<GraphArcOut> graphPetriArcOutList;
 
     public PetriArcOutTableModel(){
-        
+        // todo
     }
     
     public void setGraphPetriArcOutList(ArrayList<GraphArcOut> list) {
@@ -34,7 +32,7 @@ public class PetriArcOutTableModel extends AbstractTableModel {
         for (int i = 0; i < row; i++) {
             ArcOut to = list.get(i).getArcOut();
             mass[i][0] = to.getNameT() + " -> " + to.getNameP();
-            mass[i][1] = to.kIsParam() // modified by Katya 08.12.2016
+            mass[i][1] = to.kIsParam()
                 ? to.getKParamName()
                 : to.getQuantity();
         }
@@ -42,10 +40,7 @@ public class PetriArcOutTableModel extends AbstractTableModel {
 
     @Override
     public boolean isCellEditable(int row, int col) {
-        if (col == 0) {
-            return false;
-        }
-        return true;
+        return col != 0;
     }
 
     @Override
@@ -64,12 +59,12 @@ public class PetriArcOutTableModel extends AbstractTableModel {
         return String.class;
     }
 
-    public ArrayList<GraphArcOut> createGraphPetriArcOutList() { // modified by Katya 08.12.2016
+    public ArrayList<GraphArcOut> createGraphPetriArcOutList() {
         for (int i = 0; i < graphPetriArcOutList.size(); i++) {
             ArcOut to = graphPetriArcOutList.get(i).getArcOut();
             String quantityValueStr = getValueAt(i, 1).toString();
-            if (Utils.tryParseInt(quantityValueStr)) {
-                to.setQuantity(Integer.valueOf(quantityValueStr));
+            if (SafeParsingUtils.tryParseInt(quantityValueStr)) {
+                to.setQuantity(Integer.parseInt(quantityValueStr));
                 to.setKParam(null);
             } else {
                 to.setKParam(quantityValueStr);

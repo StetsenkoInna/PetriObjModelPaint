@@ -54,9 +54,7 @@ public class AddGraphElementEdit extends AbstractUndoableEdit  {
             if (element == panel.getChoosen()) {
                panel.setChoosen(null);
             }
-            if (panel.getChoosenElements().contains(element)) {
-                panel.getChoosenElements().remove(element);
-            }
+            panel.getChoosenElements().remove(element);
             
             if (element instanceof GraphPetriPlace) {
                 panel.getGraphNet().getGraphPetriPlaceList().remove((GraphPetriPlace)element);

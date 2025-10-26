@@ -1,92 +1,92 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphpresentation;
 
-import ua.stetsenkoinna.LibNet.NetLibraryManager;
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.PetriObj.PetriP;
 import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.PetriObj.PetriT;
+import ua.stetsenkoinna.config.FilePathConfig;
+import ua.stetsenkoinna.graphpresentation.statistic.StatisticMonitorDialog;
+import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonitor;
+import ua.stetsenkoinna.graphreuse.GraphNetParametersFrame;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
+import ua.stetsenkoinna.config.ResourcePathConfig;
+import ua.stetsenkoinna.pnml.PnmlParser;
+import ua.stetsenkoinna.pnml.PnmlGenerator;
 import ua.stetsenkoinna.PetriObj.PetriNet;
 import ua.stetsenkoinna.PetriObj.ArcIn;
 import ua.stetsenkoinna.PetriObj.ArcOut;
-import ua.stetsenkoinna.graphreuse.GraphNetParametersFrame;
-import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
-
-import java.awt.*;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import javax.swing.*;
-
-import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
+import ua.stetsenkoinna.LibNet.NetLibrary;
+import ua.stetsenkoinna.LibNet.HiddenFromUI;
+
+import java.awt.*;
+import java.awt.event.*;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+import java.lang.reflect.Method;
+
+import javax.swing.*;
+
+import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphpresentation.actions.AnimateEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.PlayPauseAction;
 import ua.stetsenkoinna.graphpresentation.actions.RewindAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunNetAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunOneEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
-import ua.stetsenkoinna.pnml.PnmlUtils;
-import ua.stetsenkoinna.pnml.ImportResult;
+import ua.stetsenkoinna.utils.MessageHelper;
 
 import java.awt.Dialog.ModalityType;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.ObjectInputStream;
+import java.nio.file.Path;
 import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEditSupport;
 
-/**
- *
- * @author Ольга
- */
-
 public class PetriNetsFrame extends javax.swing.JFrame {
 
-    public Timer timer; //timer thats starts repainting while net simulates
+    public Timer timer; // timer that starts repainting while simulation
     private final MethodNameDialogPanel dialogPanel = new MethodNameDialogPanel();
     private JDialog dialog;
-    class MethodNameDialogPanel extends JPanel { // Added by Katya 23.10.2016,
-        // modified by Katya 22.11.2016
 
-        private JComboBox<String> combo;
+    static class MethodNameDialogPanel extends JPanel {
+        private final JComboBox<String> combo;
         private final JButton okButton = new JButton("OK");
-        private Boolean secondListenerAdded = false; // added by Katya 05.12.2016
 
-        public MethodNameDialogPanel() { // modified by Katya 27.11.2016
-            okButton.addActionListener((ActionEvent e) -> {
-                okButtonAction();
-            });
-            combo = new JComboBox<>(); // modified by Katya 27.11.2016
+        private Boolean secondListenerAdded = false;
+
+        public MethodNameDialogPanel() {
+            okButton.addActionListener((ActionEvent e) -> okButtonAction());
+            combo = new JComboBox<>();
             add(combo);
             add(okButton);
         }
 
-        public void addOkButtonClickHandler(ActionListener listener) { // added by Katya 05.12.2016
+        public void addOkButtonClickHandler(ActionListener listener) {
             if (!secondListenerAdded) {
                 okButton.addActionListener(listener);
                 secondListenerAdded = true;
             }
         }
 
-        public void setComboOptions(ArrayList<String> methodNames) { // added by Katya
-            combo.setModel(new DefaultComboBoxModel<>(methodNames.toArray(new String[methodNames.size()])));															// 27.11.2016
+        public void setComboOptions(ArrayList<String> methodNames) {
+            combo.setModel(new DefaultComboBoxModel<>(methodNames.toArray(new String[0])));															// 27.11.2016
         }
 
         public String getFieldText() {
-            return combo.getSelectedItem().toString();
+            return Objects.requireNonNull(combo.getSelectedItem()).toString();
         }
 
         private void okButtonAction() {
@@ -98,94 +98,146 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
     
     /* ACTIONS */
-    private final AnimationControls animationContols = new AnimationControls(this);
-    private final RunNetAction runNetAction = animationContols.runNetAction;
-    public final RewindAction rewindAction = animationContols.rewindAction;
-    public final StopSimulationAction stopSimulationAction = animationContols.stopSimulationAction;
-    public final PlayPauseAction playPauseAction = animationContols.playPauseAction;
-    public final RunOneEventAction runOneEventAction = animationContols.runOneEventAction;
-    public final AnimateEventAction animateEventAction = animationContols.animateEventAction; 
-
-    private final NetLibraryManager netLibraryClassLoader = new NetLibraryManager();
+    private final AnimationControls animationControls = new AnimationControls(this);
+    private final RunNetAction runNetAction = animationControls.runNetAction;
+    public final RewindAction rewindAction = animationControls.rewindAction;
+    public final StopSimulationAction stopSimulationAction = animationControls.stopSimulationAction;
+    public final PlayPauseAction playPauseAction = animationControls.playPauseAction;
+    public final RunOneEventAction runOneEventAction = animationControls.runOneEventAction;
+    public final AnimateEventAction animateEventAction = animationControls.animateEventAction;
 
     private void UpdateNetLibraryMethodsCombobox() {
+        ArrayList<String> methodNamesList = new ArrayList<>();
+        FileInputStream fis = null;
+        try {
+            StringBuilder libraryText = new StringBuilder();
+
+            // Use FilePathConfig for cross-platform path resolution
+            Path path = FilePathConfig.getNetLibraryPath();
+
+            // Check if file exists
+            if (path == null) {
+                System.out.println("NetLibrary.java file not found in any configured location.");
+                System.out.println("Working directory: " + System.getProperty("user.dir"));
+                System.out.println("Searched paths:");
+                for (String searchPath : FilePathConfig.getNetLibrarySearchPaths()) {
+                    System.out.println("  - " + searchPath);
+                }
+                return;
+            }
+
+            String pathNetLibrary = path.toString();
+
+            fis = new FileInputStream(pathNetLibrary);
+            int content;
+            while ((content = fis.read()) != -1) {
+                libraryText.append((char) content);
+            }
+            Pattern pattern = Pattern.compile(Pattern
+                    .quote("public static PetriNet CreateNet")
+                    + "(\\w+\\([^)]*\\))"
+                    + Pattern.quote(" throws"));
+            Matcher matcher = pattern.matcher(libraryText.toString());
+            while (matcher.find()) {
+                methodNamesList.add("CreateNet" + matcher.group(1));
+            }
+        } catch (FileNotFoundException e) {
+            String errorMessage = e.getMessage();
+            if (errorMessage == null || errorMessage.trim().isEmpty()) {
+                errorMessage = "NetLibrary.java file not found";
+            }
+            System.out.println("File not found error: " + errorMessage);
+        } catch (IOException ex) {
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
+                    "Error reading NetLibrary.java file", ex);
+        } finally {
+            try {
+                if (fis != null) {
+                    fis.close();
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(PetriNetsFrame.class.getName()).log(
+                        Level.SEVERE, null, ex);
+            }
+        }
+        // Filter out methods that don't work (commented methods in NetLibrary.java)
+        ArrayList<String> workingMethods = new ArrayList<>();
+        for (String name : methodNamesList) {
+            // Add methods that are known to work (not commented out in NetLibrary.java)
+            if (!isMethodCommentedOut(name)) {
+                workingMethods.add(name);
+            }
+        }
+
+        workingMethods.sort(String.CASE_INSENSITIVE_ORDER);
         leftMenuListModel.clear();
-        final ArrayList<String> methodNamesList = netLibraryClassLoader.getMethodNamesArrayList();
-        for (final String name : methodNamesList) {
+        for (String name : workingMethods) {
             leftMenuListModel.addElement(name);
         }
-        dialogPanel.setComboOptions(methodNamesList);
+        dialogPanel.setComboOptions(workingMethods);
+    }
+
+    /**
+     * Checks if a method with the given name is marked with @HiddenFromUI annotation
+     * Uses reflection to inspect NetLibrary methods for the annotation
+     * @param name The method name to check (e.g., "CreateNetMalware()")
+     * @return true if the method is marked as hidden, false otherwise
+     */
+    private boolean isMethodCommentedOut(String name) {
+        try {
+            // Extract the actual method name from the full name
+            String methodName = name;
+            if (methodName.startsWith("CreateNet")) {
+                methodName = methodName.substring(0, methodName.indexOf("("));
+            }
+
+            // Get all methods from NetLibrary class
+            Method[] methods = NetLibrary.class.getDeclaredMethods();
+
+            for (Method method : methods) {
+                // Check if this is the method we're looking for
+                if (method.getName().equals(methodName)) {
+                    // Check if method has @HiddenFromUI annotation
+                    HiddenFromUI hiddenAnnotation = method.getAnnotation(HiddenFromUI.class);
+                    if (hiddenAnnotation != null) {
+                        // Log the reason why it's hidden (optional)
+                        System.out.println("Method " + methodName + " is hidden: " + hiddenAnnotation.value());
+                        return true;
+                    }
+                    // If method exists but no annotation, it's not hidden
+                    return false;
+                }
+            }
+
+            // If method not found, assume it's not hidden
+            return false;
+
+        } catch (Exception e) {
+            // If any error occurs during reflection, log it and assume method is not hidden
+            System.err.println("Error checking method annotation for " + name + ": " + e.getMessage());
+            return false;
+        }
     }
 
     /**
      * Creates new form PetriNetsFrame
      */
-    public PetriNetsFrame() throws Exception {
+    public PetriNetsFrame() {
         initComponents();
         this.UpdateNetLibraryMethodsCombobox();
-        timer = new Timer(250, new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent ae) {
-                getPetriNetsPanel().repaint();
-            }
-        });
-
-    /*    consistBtn = createPtrnButton("Consistency", "Shared data access");  // should be added later in special bar
-        consistBtn.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ptrnButtonActionPerformed(evt, "Consistency");
-            }
-        });
-        poolBtn = createPtrnButton("pool", "Thread pool");
-        poolBtn.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ptrnButtonActionPerformed(evt, "pool");
-            }
-        });
-        newThreadBtn = createPtrnButton("newThread", "Thread's creating, starting, ending");
-        newThreadBtn.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ptrnButtonActionPerformed(evt, "newThread");
-            }
-        });
-        lockBtn = createPtrnButton("Lock", "Thread's locking");
-        lockBtn.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ptrnButtonActionPerformed(evt, "Lock");
-            }
-        });
-        guardBtn = createPtrnButton("guardedBlock", "Guarded block(wait/notify)");
-        guardBtn.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ptrnButtonActionPerformed(evt, "guardedBlock");
-            }
-        });
-        petriNetsFrameToolBar.add(newThreadBtn);
-        petriNetsFrameToolBar.add(lockBtn);
-        petriNetsFrameToolBar.add(guardBtn);
-        petriNetsFrameToolBar.add(consistBtn);
-        petriNetsFrameToolBar.add(poolBtn);*/
+        timer = new Timer(250, ae -> getPetriNetsPanel().repaint());
 
         newPlaceButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newPlaceButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
         newPlaceButton.setText("Place");
         newPlaceButton.setBorder(null);
         newPlaceButton.setMargin(new Insets(0, 0, 0, 0));
-//        newPlaceButton.setContentAreaFilled(false);
-//        newPlaceButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/pl.png")));
 
         newArcButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newArcButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
         newArcButton.setText("Arc");
         newArcButton.setBorder(null);
         newArcButton.setMargin(new Insets(0, 0, 0, 0));
-//        newArcButton.setContentAreaFilled(false);
-//        newArcButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/Arc.png")));
 
         newTransitionButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newTransitionButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
@@ -193,28 +245,16 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         newTransitionButton.setBorder(null);
         newTransitionButton.setMargin(new Insets(0, 0, 0, 0));
-//        newTransitionButton.setContentAreaFilled(false);
-//        newTransitionButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/trans.png")));
-//                try {
-//                   
-//                    //Image img = ImageIO.read(new File(new File(".").getCanonicalPath() + "\\src\\utils\\pl.PNG"));
-//                    //Image img1 = ImageIO.read(new File(new File(".").getCanonicalPath() + "\\src\\utils\\arc.PNG"));
-//                   // Image img2 = ImageIO.read(new File(new File(".").getCanonicalPath() + "\\src\\utils\\trans.PNG"));
-//                   // newPlaceButton.setIcon(new ImageIcon(img));
-//                   // newTransitionButton.setIcon(new ImageIcon(img2));
-//                    //newArcButton.setIcon(new ImageIcon(img1));
-//                } catch (IOException ex) {
-//                    Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-//                }
 
         petriNetsPanel = new PetriNetsPanel(netNameTextField);
         petriNetPanelScrollPane.setViewportView(petriNetsPanel);
 
         this.setLocation(50, 50);
-
-        this.setExtendedState(JFrame.MAXIMIZED_BOTH / 2);
         this.setTitle("Discrete Event Simulation System ");
         this.setSize(1000, 700);
+
+        // Set fullscreen mode - should be called after setSize
+        this.setExtendedState(JFrame.MAXIMIZED_BOTH);
         
         undoSupport.addUndoableEditListener((event) -> {
             undoManager.addEdit(event.getEdit());
@@ -226,7 +266,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private JButton createPtrnButton(String title, String tooltip) {
 
         javax.swing.JButton btn = new javax.swing.JButton();
-        btn.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        btn.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         btn.setToolTipText(tooltip);
         btn.setBorder(javax.swing.BorderFactory.createEmptyBorder(1,
                 10, 1, 10));
@@ -236,19 +276,22 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         btn.setBorder(null);
         btn.setMargin(new Insets(0, 0, 0, 0));
         btn.setContentAreaFilled(false);
-        btn.setIcon(new javax.swing.ImageIcon(getClass().getResource("/ua/stetsenkoinna/utils/" + title + ".png")));
+        btn.setIcon(new javax.swing.ImageIcon(ResourcePathConfig.getResource(getClass(), ResourcePathConfig.getIconPath(title + ".png"))));
 
         return btn;
     }
 
     private void ptrnButtonActionPerformed(java.awt.event.ActionEvent evt, String fileName) {
-        FileInputStream fis = null;
         ObjectInputStream ois = null;
         try {
-            //System.out.println(new File(".").getCanonicalPath() + "\\src\\main\\resources\\" + fileName + ".pns");
-            fis = new FileInputStream(new File(".").getCanonicalPath() + "\\src\\utils\\" + fileName + ".pns");
+            //Load .pns file from resources
+            InputStream resourceStream = ResourcePathConfig.getResourceAsStream(getClass(), ResourcePathConfig.getPnsFilePath(fileName));
+            if (resourceStream == null) {
+                System.out.println("Resource not found: " + ResourcePathConfig.getPnsFilePath(fileName));
+                return;
+            }
 
-            ois = new ObjectInputStream(fis);
+            ois = new ObjectInputStream(resourceStream);
             GraphPetriNet net = ((GraphPetriNet) ois.readObject()).clone();  //
             getPetriNetsPanel().addGraphNet(net); //
             ois.close();
@@ -263,18 +306,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             try {
-                fis.close();
+                if (ois != null) {
+                    ois.close();
+                }
             } catch (IOException ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (NullPointerException e) {
-
-            }
-            try {
-                ois.close();
-            } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (NullPointerException e) {
-
             }
         }
     }
@@ -284,7 +320,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * WARNING: Do NOT modify this code. The content of this method is always
      * regenerated by the Form Editor.
      */
-    @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed"
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
@@ -319,7 +354,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         statisticsTextArea = new javax.swing.JTextArea();
         leftNenuPanel = new javax.swing.JPanel();
         scrollPane = new javax.swing.JScrollPane();
-        leftMenuList = new javax.swing.JList<String>();
+        leftMenuList = new javax.swing.JList<>();
         petriNetDesign1 = new javax.swing.JPanel();
         petriNetsFrameToolBar1 = new javax.swing.JToolBar();
         newPlaceButton1 = new javax.swing.JButton();
@@ -370,7 +405,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         openMenuItem = new javax.swing.JMenuItem();
         newMenuItem = new javax.swing.JMenuItem();
         openMethodMenuItem = new javax.swing.JMenuItem();
-        importPnmlMenuItem = new javax.swing.JMenuItem();
         editMenu = new javax.swing.JMenu();
         editNetParameters = new javax.swing.JMenuItem();
         centerLocationOfGraphNet = new javax.swing.JMenuItem();
@@ -382,7 +416,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         SavePetriNetAs = new javax.swing.JMenuItem();
         SaveNetAsMethod = new javax.swing.JMenuItem();
         SaveMethodInNetLibrary = new javax.swing.JMenuItem();
-        exportPnmlMenuItem = new javax.swing.JMenuItem();
+        statisticMenu = new javax.swing.JMenu();
+        openMonitor = new javax.swing.JMenuItem();
+        isStatisticMonitorEnabled = new javax.swing.JCheckBoxMenuItem();
         Animate = new javax.swing.JMenu();
         itemAnimateNet = new javax.swing.JMenuItem();
         itemAnimateEvent = new javax.swing.JMenuItem();
@@ -394,58 +430,46 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         jTabbedPane1.setBackground(new java.awt.Color(255, 255, 255));
         jTabbedPane1.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
-        jTabbedPane1.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
+        jTabbedPane1.setFont(new java.awt.Font("Arial", Font.BOLD, 12)); // NOI18N
 
-        netNameLabel.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        netNameLabel.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         netNameLabel.setText("Net name");
         netNameLabel.setMinimumSize(new java.awt.Dimension(0, 0));
 
-        netNameTextField.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        netNameTextField.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         netNameTextField.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         netNameTextField.setText("Untitled");
         netNameTextField.setCaretPosition(1);
         netNameTextField.setMinimumSize(new java.awt.Dimension(0, 0));
-        netNameTextField.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                netNameTextFieldActionPerformed(evt);
-            }
-        });
+        netNameTextField.addActionListener(this::netNameTextFieldActionPerformed);
 
         timeStartLabel.setBackground(new java.awt.Color(192, 192, 192));
-        timeStartLabel.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        timeStartLabel.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         timeStartLabel.setText("Time start");
 
-        timeStartField.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        timeStartField.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         timeStartField.setHorizontalAlignment(javax.swing.JTextField.LEFT);
         timeStartField.setText("0");
         timeStartField.setMinimumSize(new java.awt.Dimension(0, 0));
-        timeStartField.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                timeStartFieldActionPerformed(evt);
-            }
-        });
+        timeStartField.addActionListener(this::timeStartFieldActionPerformed);
 
         timeModelingLabel.setBackground(new java.awt.Color(247, 247, 247));
-        timeModelingLabel.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        timeModelingLabel.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         timeModelingLabel.setText("Time modeling");
 
-        timeModelingTextField.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        timeModelingTextField.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         timeModelingTextField.setHorizontalAlignment(javax.swing.JTextField.LEFT);
         timeModelingTextField.setText("1000");
         timeModelingTextField.setCaretPosition(1);
         timeModelingTextField.setMinimumSize(new java.awt.Dimension(0, 0));
 
-        speedLabel.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        speedLabel.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         speedLabel.setText("Animation speed");
 
         speedSlider.setMaximum(1000);
         speedSlider.setValue(1000);
         speedSlider.setInverted(true);
-        speedSlider.addChangeListener(new javax.swing.event.ChangeListener() {
-            public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                speedSliderStateChanged(evt);
-            }
-        });
+        speedSlider.addChangeListener(this::speedSliderStateChanged);
 
         playPauseAnimationButton.setAction(playPauseAction);
         playPauseAnimationButton.setMargin(new java.awt.Insets(14, 25, 14, 25));
@@ -522,12 +546,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartLabel.getAccessibleContext().setAccessibleName("Time");
 
         petriNetsFrameToolBar.setBorder(null);
-        petriNetsFrameToolBar.setFloatable(false);
         petriNetsFrameToolBar.setRollover(true);
-        petriNetsFrameToolBar.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
+        petriNetsFrameToolBar.setFont(new java.awt.Font("Arial", Font.PLAIN, 12)); // NOI18N
         petriNetsFrameToolBar.setMargin(new java.awt.Insets(0, 10, 0, 10));
+        petriNetsFrameToolBar.setFloatable(false);
 
-        newPlaceButton.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newPlaceButton.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         newPlaceButton.setText("Place");
         newPlaceButton.setToolTipText("");
         newPlaceButton.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
@@ -538,14 +562,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         newPlaceButton.setPreferredSize(new java.awt.Dimension(101, 19));
         newPlaceButton.setRequestFocusEnabled(false);
         newPlaceButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newPlaceButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newPlaceButtonActionPerformed(evt);
-            }
-        });
+        newPlaceButton.addActionListener(this::newPlaceButtonActionPerformed);
         petriNetsFrameToolBar.add(newPlaceButton);
 
-        newTransitionButton.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newTransitionButton.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         newTransitionButton.setText("Transition");
         newTransitionButton.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
         newTransitionButton.setFocusable(false);
@@ -554,14 +574,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         newTransitionButton.setMinimumSize(new java.awt.Dimension(103, 19));
         newTransitionButton.setPreferredSize(new java.awt.Dimension(101, 19));
         newTransitionButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newTransitionButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newTransitionButtonActionPerformed(evt);
-            }
-        });
+        newTransitionButton.addActionListener(this::newTransitionButtonActionPerformed);
         petriNetsFrameToolBar.add(newTransitionButton);
 
-        newArcButton.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newArcButton.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         newArcButton.setText("Arc");
         newArcButton.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
         newArcButton.setFocusable(false);
@@ -570,11 +586,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         newArcButton.setMinimumSize(new java.awt.Dimension(103, 19));
         newArcButton.setPreferredSize(new java.awt.Dimension(101, 19));
         newArcButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newArcButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newArcButtonActionPerformed(evt);
-            }
-        });
+        newArcButton.addActionListener(this::newArcButtonActionPerformed);
         petriNetsFrameToolBar.add(newArcButton);
 
         petriNetsFrameSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
@@ -597,7 +609,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         modelingResultsPanel.setBackground(new java.awt.Color(229, 229, 229));
         modelingResultsPanel.setForeground(new java.awt.Color(255, 255, 255));
         modelingResultsPanel.setAutoscrolls(true);
-        modelingResultsPanel.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
+        modelingResultsPanel.setFont(new java.awt.Font("Tahoma", Font.BOLD, 11)); // NOI18N
         modelingResultsPanel.setMaximumSize(new java.awt.Dimension(2147483647, 2147483647));
         modelingResultsPanel.setRequestFocusEnabled(false);
 
@@ -610,7 +622,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         protokolScrollPane.setAutoscrolls(true);
         protokolScrollPane.setMinimumSize(new java.awt.Dimension(21, 220));
 
-        protocolTextArea.setFont(new java.awt.Font("Tahoma", 0, 10)); // NOI18N
+        protocolTextArea.setFont(new java.awt.Font("Tahoma", Font.PLAIN, 10)); // NOI18N
         protocolTextArea.setText("-------------- Events protokol ---------------");
         protocolTextArea.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
         protocolTextArea.setMinimumSize(new java.awt.Dimension(100, 400));
@@ -621,7 +633,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         statisticsScrollPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
 
-        statisticsTextArea.setFont(new java.awt.Font("Tahoma", 0, 10)); // NOI18N
+        statisticsTextArea.setFont(new java.awt.Font("Tahoma", Font.PLAIN, 10)); // NOI18N
         statisticsTextArea.setText("--------------- STATISTICS ----------------");
         statisticsTextArea.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
         statisticsTextArea.setName(""); // NOI18N
@@ -714,75 +726,55 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         jTabbedPane1.addTab("Net designer", petriNetDesign);
 
         petriNetsFrameToolBar1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
-        petriNetsFrameToolBar1.setFloatable(false);
         petriNetsFrameToolBar1.setRollover(true);
-        petriNetsFrameToolBar1.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
+        petriNetsFrameToolBar1.setFont(new java.awt.Font("Arial", Font.PLAIN, 12)); // NOI18N
         petriNetsFrameToolBar1.setMargin(new java.awt.Insets(0, 10, 0, 10));
+        petriNetsFrameToolBar1.setFloatable(false);
 
-        newPlaceButton1.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newPlaceButton1.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         newPlaceButton1.setText("Petri-object");
         newPlaceButton1.setToolTipText("");
         newPlaceButton1.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
         newPlaceButton1.setFocusable(false);
         newPlaceButton1.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newPlaceButton1.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newPlaceButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newPlaceButton1ActionPerformed(evt);
-            }
-        });
+        newPlaceButton1.addActionListener(this::newPlaceButton1ActionPerformed);
         petriNetsFrameToolBar1.add(newPlaceButton1);
 
-        newTransitionButton1.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newTransitionButton1.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         newTransitionButton1.setText("Petri-object class");
         newTransitionButton1.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
         newTransitionButton1.setFocusable(false);
         newTransitionButton1.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newTransitionButton1.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newTransitionButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newTransitionButton1ActionPerformed(evt);
-            }
-        });
+        newTransitionButton1.addActionListener(this::newTransitionButton1ActionPerformed);
         petriNetsFrameToolBar1.add(newTransitionButton1);
 
-        newArcButton1.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newArcButton1.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         newArcButton1.setText("Arc");
         newArcButton1.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
         newArcButton1.setFocusable(false);
         newArcButton1.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newArcButton1.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newArcButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newArcButton1ActionPerformed(evt);
-            }
-        });
+        newArcButton1.addActionListener(this::newArcButton1ActionPerformed);
         petriNetsFrameToolBar1.add(newArcButton1);
 
-        runPetriNetButton1.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        runPetriNetButton1.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         runPetriNetButton1.setText("Run model");
         runPetriNetButton1.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
         runPetriNetButton1.setFocusable(false);
         runPetriNetButton1.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         runPetriNetButton1.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        runPetriNetButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                runPetriNetButton1ActionPerformed(evt);
-            }
-        });
+        runPetriNetButton1.addActionListener(this::runPetriNetButton1ActionPerformed);
         petriNetsFrameToolBar1.add(runPetriNetButton1);
 
-        runEventButton1.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        runEventButton1.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         runEventButton1.setText("Run event");
         runEventButton1.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
         runEventButton1.setFocusable(false);
         runEventButton1.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         runEventButton1.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        runEventButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                runEventButton1ActionPerformed(evt);
-            }
-        });
+        runEventButton1.addActionListener(this::runEventButton1ActionPerformed);
         petriNetsFrameToolBar1.add(runEventButton1);
 
         petriNetsFrameSplitPane1.setDividerSize(3);
@@ -803,7 +795,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         modelingResultsPanel1.setBorder(new javax.swing.border.MatteBorder(null));
         modelingResultsPanel1.setForeground(new java.awt.Color(255, 255, 255));
         modelingResultsPanel1.setAutoscrolls(true);
-        modelingResultsPanel1.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
+        modelingResultsPanel1.setFont(new java.awt.Font("Tahoma", Font.BOLD, 11)); // NOI18N
         modelingResultsPanel1.setMaximumSize(new java.awt.Dimension(2147483647, 2147483647));
         modelingResultsPanel1.setRequestFocusEnabled(false);
 
@@ -812,7 +804,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         protokolScrollPane1.setAutoscrolls(true);
 
-        protokolTextArea1.setFont(new java.awt.Font("Tahoma", 0, 10)); // NOI18N
+        protokolTextArea1.setFont(new java.awt.Font("Tahoma", Font.PLAIN, 10)); // NOI18N
         protokolTextArea1.setText("-------------- Events protokol ---------------");
         protokolTextArea1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
         protokolTextArea1.setMinimumSize(new java.awt.Dimension(100, 100));
@@ -820,7 +812,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         modelingResultsSplitPane1.setLeftComponent(protokolScrollPane1);
 
-        statisticsTextArea1.setFont(new java.awt.Font("Tahoma", 0, 10)); // NOI18N
+        statisticsTextArea1.setFont(new java.awt.Font("Tahoma", Font.PLAIN, 10)); // NOI18N
         statisticsTextArea1.setText("--------------- STATISTICS ----------------");
         statisticsTextArea1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
         statisticsTextArea1.setName(""); // NOI18N
@@ -830,40 +822,32 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         modelingParametersPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
 
-        netNameLabel1.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        netNameLabel1.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         netNameLabel1.setText("Model name");
         netNameLabel1.setMinimumSize(new java.awt.Dimension(0, 0));
 
-        netNameTextField1.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        netNameTextField1.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         netNameTextField1.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         netNameTextField1.setText("Untitled");
         netNameTextField1.setCaretPosition(1);
         netNameTextField1.setMinimumSize(new java.awt.Dimension(0, 0));
-        netNameTextField1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                netNameTextField1ActionPerformed(evt);
-            }
-        });
+        netNameTextField1.addActionListener(this::netNameTextField1ActionPerformed);
 
         timeStartLabel1.setBackground(new java.awt.Color(192, 192, 192));
-        timeStartLabel1.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        timeStartLabel1.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         timeStartLabel1.setText("Time start");
 
-        timeStartField1.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        timeStartField1.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         timeStartField1.setHorizontalAlignment(javax.swing.JTextField.LEFT);
         timeStartField1.setText("0");
         timeStartField1.setMinimumSize(new java.awt.Dimension(0, 0));
-        timeStartField1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                timeStartField1ActionPerformed(evt);
-            }
-        });
+        timeStartField1.addActionListener(this::timeStartField1ActionPerformed);
 
         timeModelingLabel1.setBackground(new java.awt.Color(247, 247, 247));
-        timeModelingLabel1.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        timeModelingLabel1.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         timeModelingLabel1.setText("Time modeling");
 
-        timeModelingTextField1.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        timeModelingTextField1.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         timeModelingTextField1.setHorizontalAlignment(javax.swing.JTextField.LEFT);
         timeModelingTextField1.setText("1000");
         timeModelingTextField1.setCaretPosition(1);
@@ -948,70 +932,50 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         jTabbedPane1.addTab("Model designer", petriNetDesign1);
 
         petriNetsFrameToolBar2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
-        petriNetsFrameToolBar2.setFloatable(false);
         petriNetsFrameToolBar2.setRollover(true);
-        petriNetsFrameToolBar2.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
+        petriNetsFrameToolBar2.setFont(new java.awt.Font("Arial", Font.PLAIN, 12)); // NOI18N
         petriNetsFrameToolBar2.setMargin(new java.awt.Insets(0, 10, 0, 10));
+        petriNetsFrameToolBar2.setFloatable(false);
 
-        newPlaceButton2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newPlaceButton2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         newPlaceButton2.setText("Petri-object");
         newPlaceButton2.setToolTipText("");
         newPlaceButton2.setFocusable(false);
         newPlaceButton2.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newPlaceButton2.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newPlaceButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newPlaceButton2ActionPerformed(evt);
-            }
-        });
+        newPlaceButton2.addActionListener(this::newPlaceButton2ActionPerformed);
         petriNetsFrameToolBar2.add(newPlaceButton2);
 
-        newTransitionButton2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newTransitionButton2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         newTransitionButton2.setText("Petri-object class");
         newTransitionButton2.setFocusable(false);
         newTransitionButton2.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newTransitionButton2.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newTransitionButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newTransitionButton2ActionPerformed(evt);
-            }
-        });
+        newTransitionButton2.addActionListener(this::newTransitionButton2ActionPerformed);
         petriNetsFrameToolBar2.add(newTransitionButton2);
 
-        newArcButton2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        newArcButton2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         newArcButton2.setText("Tie");
         newArcButton2.setFocusable(false);
         newArcButton2.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newArcButton2.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        newArcButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newArcButton2ActionPerformed(evt);
-            }
-        });
+        newArcButton2.addActionListener(this::newArcButton2ActionPerformed);
         petriNetsFrameToolBar2.add(newArcButton2);
 
-        runPetriNetButton2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        runPetriNetButton2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         runPetriNetButton2.setText("Run model");
         runPetriNetButton2.setFocusable(false);
         runPetriNetButton2.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         runPetriNetButton2.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        runPetriNetButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                runPetriNetButton2ActionPerformed(evt);
-            }
-        });
+        runPetriNetButton2.addActionListener(this::runPetriNetButton2ActionPerformed);
         petriNetsFrameToolBar2.add(runPetriNetButton2);
 
-        runEventButton2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        runEventButton2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         runEventButton2.setText("Run event");
         runEventButton2.setFocusable(false);
         runEventButton2.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         runEventButton2.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        runEventButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                runEventButton2ActionPerformed(evt);
-            }
-        });
+        runEventButton2.addActionListener(this::runEventButton2ActionPerformed);
         petriNetsFrameToolBar2.add(runEventButton2);
 
         petriNetsFrameSplitPane2.setDividerSize(3);
@@ -1032,7 +996,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         modelingResultsPanel2.setBorder(new javax.swing.border.MatteBorder(null));
         modelingResultsPanel2.setForeground(new java.awt.Color(255, 255, 255));
         modelingResultsPanel2.setAutoscrolls(true);
-        modelingResultsPanel2.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
+        modelingResultsPanel2.setFont(new java.awt.Font("Tahoma", Font.BOLD, 11)); // NOI18N
         modelingResultsPanel2.setMaximumSize(new java.awt.Dimension(2147483647, 2147483647));
         modelingResultsPanel2.setRequestFocusEnabled(false);
 
@@ -1041,7 +1005,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         protokolScrollPane2.setAutoscrolls(true);
 
-        protokolTextArea2.setFont(new java.awt.Font("Tahoma", 0, 10)); // NOI18N
+        protokolTextArea2.setFont(new java.awt.Font("Tahoma", Font.PLAIN, 10)); // NOI18N
         protokolTextArea2.setText("-------------- Events protokol ---------------");
         protokolTextArea2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
         protokolTextArea2.setMinimumSize(new java.awt.Dimension(100, 100));
@@ -1049,7 +1013,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         modelingResultsSplitPane2.setLeftComponent(protokolScrollPane2);
 
-        statisticsTextArea2.setFont(new java.awt.Font("Tahoma", 0, 10)); // NOI18N
+        statisticsTextArea2.setFont(new java.awt.Font("Tahoma", Font.PLAIN, 10)); // NOI18N
         statisticsTextArea2.setText("--------------- STATISTICS ----------------");
         statisticsTextArea2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
         statisticsTextArea2.setName(""); // NOI18N
@@ -1059,40 +1023,32 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         modelingParametersPanel2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 255, 255)));
 
-        netNameLabel2.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        netNameLabel2.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         netNameLabel2.setText("Model name");
         netNameLabel2.setMinimumSize(new java.awt.Dimension(0, 0));
 
-        netNameTextField2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        netNameTextField2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         netNameTextField2.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         netNameTextField2.setText("Untitled");
         netNameTextField2.setCaretPosition(1);
         netNameTextField2.setMinimumSize(new java.awt.Dimension(0, 0));
-        netNameTextField2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                netNameTextField2ActionPerformed(evt);
-            }
-        });
+        netNameTextField2.addActionListener(this::netNameTextField2ActionPerformed);
 
         timeStartLabel2.setBackground(new java.awt.Color(192, 192, 192));
-        timeStartLabel2.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        timeStartLabel2.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         timeStartLabel2.setText("Time start");
 
-        timeStartField2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        timeStartField2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         timeStartField2.setHorizontalAlignment(javax.swing.JTextField.LEFT);
         timeStartField2.setText("0");
         timeStartField2.setMinimumSize(new java.awt.Dimension(0, 0));
-        timeStartField2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                timeStartField2ActionPerformed(evt);
-            }
-        });
+        timeStartField2.addActionListener(this::timeStartField2ActionPerformed);
 
         timeModelingLabel2.setBackground(new java.awt.Color(247, 247, 247));
-        timeModelingLabel2.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+        timeModelingLabel2.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         timeModelingLabel2.setText("Time modeling");
 
-        timeModelingTextField2.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
+        timeModelingTextField2.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         timeModelingTextField2.setHorizontalAlignment(javax.swing.JTextField.LEFT);
         timeModelingTextField2.setText("1000");
         timeModelingTextField2.setCaretPosition(1);
@@ -1195,40 +1151,27 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         openMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_O, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         openMenuItem.setText("Open");
-        openMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                openMenuItemActionPerformed(evt);
-            }
-        });
+        openMenuItem.addActionListener(this::openMenuItemActionPerformed);
         fileMenu.add(openMenuItem);
 
         newMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_N, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         newMenuItem.setText("New");
-        newMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                newMenuItemActionPerformed(evt);
-            }
-        });
+        newMenuItem.addActionListener(this::newMenuItemActionPerformed);
         fileMenu.add(newMenuItem);
 
         openMethodMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         openMethodMenuItem.setText("Open a method file");
-        openMethodMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                openMethodMenuItemActionPerformed(evt);
-            }
-        });
+        openMethodMenuItem.addActionListener(this::openMethodMenuItemActionPerformed);
         fileMenu.add(openMethodMenuItem);
 
+        // Add separator
         fileMenu.addSeparator();
 
+        // Import PNML menu item
+        importPnmlMenuItem = new javax.swing.JMenuItem();
         importPnmlMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_I, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         importPnmlMenuItem.setText("Import PNML");
-        importPnmlMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                importPnmlMenuItemActionPerformed(evt);
-            }
-        });
+        importPnmlMenuItem.addActionListener(this::importPnmlMenuItemActionPerformed);
         fileMenu.add(importPnmlMenuItem);
 
         petriNetsFrameMenuBar.add(fileMenu);
@@ -1238,40 +1181,24 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         editNetParameters.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_E, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         editNetParameters.setText("Edit net parameters");
-        editNetParameters.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                editNetParametersActionPerformed(evt);
-            }
-        });
+        editNetParameters.addActionListener(this::editNetParametersActionPerformed);
         editMenu.add(editNetParameters);
 
         centerLocationOfGraphNet.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_L, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         centerLocationOfGraphNet.setText("Locate net in center");
-        centerLocationOfGraphNet.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                centerLocationOfGraphNetActionPerformed(evt);
-            }
-        });
+        centerLocationOfGraphNet.addActionListener(this::centerLocationOfGraphNetActionPerformed);
         editMenu.add(centerLocationOfGraphNet);
 
         undoMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_Z, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         undoMenuItem.setText("Undo");
         undoMenuItem.setEnabled(undoManager.canUndo());
-        undoMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                undoMenuItemActionPerformed(evt);
-            }
-        });
+        undoMenuItem.addActionListener(this::undoMenuItemActionPerformed);
         editMenu.add(undoMenuItem);
 
         redoMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_Z, java.awt.event.InputEvent.SHIFT_DOWN_MASK | java.awt.event.InputEvent.CTRL_DOWN_MASK));
         redoMenuItem.setText("Redo");
         redoMenuItem.setEnabled(undoManager.canRedo());
-        redoMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                redoMenuItemActionPerformed(evt);
-            }
-        });
+        redoMenuItem.addActionListener(this::redoMenuItemActionPerformed);
         editMenu.add(redoMenuItem);
 
         petriNetsFrameMenuBar.add(editMenu);
@@ -1281,61 +1208,55 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         SaveGraphNet.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         SaveGraphNet.setText("Save Graph net");
-        SaveGraphNet.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                SaveGraphNetActionPerformed(evt);
-            }
-        });
+        SaveGraphNet.addActionListener(this::SaveGraphNetActionPerformed);
         save.add(SaveGraphNet);
 
         jMenuItem2.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.SHIFT_DOWN_MASK | java.awt.event.InputEvent.CTRL_DOWN_MASK));
         jMenuItem2.setText("Save Graph net as");
-        jMenuItem2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jMenuItem2ActionPerformed(evt);
-            }
-        });
+        jMenuItem2.addActionListener(this::jMenuItem2ActionPerformed);
         save.add(jMenuItem2);
 
         SavePetriNetAs.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_P, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         SavePetriNetAs.setText("Save  Petri net as");
-        SavePetriNetAs.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                SavePetriNetAsActionPerformed(evt);
-            }
-        });
+        SavePetriNetAs.addActionListener(this::SavePetriNetAsActionPerformed);
         save.add(SavePetriNetAs);
 
         SaveNetAsMethod.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         SaveNetAsMethod.setText("Save net as method");
-        SaveNetAsMethod.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                SaveNetAsMethodActionPerformed(evt);
-            }
-        });
+        SaveNetAsMethod.addActionListener(this::SaveNetAsMethodActionPerformed);
         save.add(SaveNetAsMethod);
 
         SaveMethodInNetLibrary.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.SHIFT_DOWN_MASK | java.awt.event.InputEvent.CTRL_DOWN_MASK));
         SaveMethodInNetLibrary.setText("Save method in NetLibrary");
-        SaveMethodInNetLibrary.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                SaveMethodInNetLibraryActionPerformed(evt);
-            }
-        });
+        SaveMethodInNetLibrary.addActionListener(this::SaveMethodInNetLibraryActionPerformed);
         save.add(SaveMethodInNetLibrary);
 
+        // Add separator
         save.addSeparator();
 
-        exportPnmlMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_P, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        exportPnmlMenuItem.setText("Export to PNML");
-        exportPnmlMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                exportPnmlMenuItemActionPerformed(evt);
-            }
-        });
+        // Export PNML menu item
+        exportPnmlMenuItem = new javax.swing.JMenuItem();
+        exportPnmlMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_X, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        exportPnmlMenuItem.setText("Export PNML");
+        exportPnmlMenuItem.addActionListener(this::exportPnmlMenuItemActionPerformed);
         save.add(exportPnmlMenuItem);
 
         petriNetsFrameMenuBar.add(save);
+
+        statisticMenu.setText("Statistic");
+
+        openMonitor.setText("Open monitor");
+        openMonitor.setMnemonic(KeyEvent.VK_M);
+        openMonitor.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, KeyEvent.CTRL_MASK | KeyEvent.ALT_MASK));
+        openMonitor.addActionListener(this::openMonitorActionPerformed);
+
+        isStatisticMonitorEnabled.setText("Monitor enabled");
+        isStatisticMonitorEnabled.setSelected(true);
+
+        statisticMenu.add(openMonitor);
+        statisticMenu.add(isStatisticMonitorEnabled);
+
+        petriNetsFrameMenuBar.add(statisticMenu);
 
         Animate.setAction(animateEventAction);
         Animate.setText("Animate");
@@ -1418,8 +1339,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void newTransitionButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newTransitionButtonActionPerformed
         GraphPetriTransition pt = new GraphPetriTransition(new PetriT(
                 GraphPetriTransition.setSimpleName(), 0.0),
-                PetriNetsPanel.getIdElement());// by Inna 18.01.2013, changed 1.10.2018
-        
+                PetriNetsPanel.getIdElement());
         AddGraphElementEdit edit = new AddGraphElementEdit(getPetriNetsPanel(), pt);
         edit.doFirstTime();
         undoSupport.postEdit(edit);
@@ -1428,13 +1348,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void newPlaceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newPlaceButtonActionPerformed
         GraphPetriPlace pp = new GraphPetriPlace(new PetriP(
                 GraphPetriPlace.setSimpleName(), 0),
-                PetriNetsPanel.getIdElement()); // by Inna 18.01.2013, changed 1.10.2018
-        /* getPetriNetsPanel().getGraphNet().getGraphPetriPlaceList().add(pp);
-        getPetriNetsPanel().setCurrent(pp);*/
+                PetriNetsPanel.getIdElement());
         AddGraphElementEdit edit = new AddGraphElementEdit(getPetriNetsPanel(), pp); 
         edit.doFirstTime();
         undoSupport.postEdit(edit);
-        
     }//GEN-LAST:event_newPlaceButtonActionPerformed
 
     private void leftMenuListMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_leftMenuListMouseClicked
@@ -1448,11 +1365,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         petriNetPanelScrollPane.getLocation().x
                         + petriNetPanelScrollPane.getBounds().width / 2,
                         petriNetPanelScrollPane.getLocation().y
-                        + petriNetPanelScrollPane.getBounds().height / 2);
+                        + petriNetPanelScrollPane.getBounds().height / 2
+                );
                 getPetriNetsPanel().getGraphNet().changeLocation(center);
 
-                final String methodFullName = (String) leftMenuList.getSelectedValue();
-                final String pnetName = FileUse.openMethod(getPetriNetsPanel(), methodFullName, PetriNetsFrame.this, netLibraryClassLoader);
+                String methodFullName = leftMenuList.getSelectedValue();
+                String pnetName = fileUse.openMethod(getPetriNetsPanel(),
+                        methodFullName, PetriNetsFrame.this);
                 if (pnetName != null) {
                     netNameTextField.setText(pnetName);
                 }
@@ -1533,15 +1452,24 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_netNameTextFieldActionPerformed
 
+    private void openMonitorActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openMonitorActionPerformed
+        if (statisticMonitorDialog == null) {
+            statisticMonitorDialog = new StatisticMonitorDialog(this, false);
+        }
+        statisticMonitorDialog.setSize(600, 600);
+        statisticMonitorDialog.setLocationRelativeTo(this);
+        statisticMonitorDialog.setVisible(true);
+    }//GEN-LAST:event_openMonitorActionPerformed
+
     private void openMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMenuItemActionPerformed
         try {
-            FileUse.newWorksheet(getPetriNetsPanel());
+            fileUse.newWorksheet(getPetriNetsPanel());
             timeStartField.setText(String.valueOf(0));
 
             netNameTextField.setText("Untitled");
             protocolTextArea.setText("---------Events protocol----------");
             statisticsTextArea.setText("---------STATISTICS---------");
-            String pnetName = FileUse.openFile(getPetriNetsPanel(), this);
+            String pnetName = fileUse.openFile(getPetriNetsPanel(), this);
             if (pnetName != null) {
                 netNameTextField.setText(pnetName);
             }
@@ -1552,7 +1480,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }// GEN-LAST:event_openMenuItemActionPerformed
 
     private void newMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_newMenuItemActionPerformed
-        FileUse.newWorksheet(getPetriNetsPanel());
+        fileUse.newWorksheet(getPetriNetsPanel());
         timeStartField.setText(String.valueOf(0));
 
         netNameTextField.setText("Untitled");
@@ -1562,7 +1490,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         try {
             getPetriNetsPanel().getGraphNet().createPetriNet(
                     netNameTextField.getText()); // added by Inna
-            FileUse.saveNetAsMethod(getPetriNetsPanel().getGraphNet(),
+            fileUse.saveNetAsMethod(getPetriNetsPanel().getGraphNet(),
                     statisticsTextArea);
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
@@ -1575,7 +1503,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         GraphPetriNet net = getPetriNetsPanel().getGraphNet();
         if (net != null) {
             try {
-                if (!FileUse.saveGraphNet(net, netNameTextField.getText()
+                if (!fileUse.saveGraphNet(net, netNameTextField.getText()
                         .trim())) {
                     System.out.println("Graph net was not saved");
                 }
@@ -1589,7 +1517,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     private void SavePetriNetAsActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_SavePetriNetAsActionPerformed
         try {
-            FileUse.savePetriNetAs(getPetriNetsPanel(), this);
+            fileUse.savePetriNetAs(getPetriNetsPanel(), this);
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
                     null, ex);
@@ -1598,7 +1526,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     private void jMenuItem2ActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_jMenuItem2ActionPerformed
         try {
-            FileUse.saveGraphNetAs(getPetriNetsPanel(), this);
+            fileUse.saveGraphNetAs(getPetriNetsPanel(), this);
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
                     null, ex);
@@ -1608,11 +1536,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void SaveMethodInNetLibraryActionPerformed(
             java.awt.event.ActionEvent evt) {// GEN-FIRST:event_SaveMethodInNetLibraryActionPerformed
         if (statisticsTextArea.getText().contains("{")) {
-            try {
-                netLibraryClassLoader.addMethod(statisticsTextArea.getText());
-            } catch (final Exception ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            fileUse.saveMethodInNetLibrary(statisticsTextArea);
             this.UpdateNetLibraryMethodsCombobox();
         }
 
@@ -1641,30 +1565,40 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             errorFrame.setVisible(true);
             return false;
         }
-        if (getPetriNetsPanel().getGraphNet().isCorrectInArcs() != true) {
+        if (!getPetriNetsPanel().getGraphNet().isCorrectInArcs()) {
                 errorFrame.setErrorMessage(" Transition has no input places.");
                 errorFrame.setVisible(true);
                 return false;
         }
-        if (getPetriNetsPanel().getGraphNet().isCorrectOutArcs() != true) {
+        if (!getPetriNetsPanel().getGraphNet().isCorrectOutArcs()) {
                     errorFrame.setErrorMessage(" Transition has no output places.");
                     errorFrame.setVisible(true);
                     return false;
-
-
-
         }
-        getPetriNetsPanel().getGraphNet().createPetriNet(
-                        netNameTextField.getText()); // creating Petri net
+        // creating Petri net
+        getPetriNetsPanel().getGraphNet().createPetriNet(netNameTextField.getText());
         if (getPetriNetsPanel().getGraphNet().getPetriNet() == null) {
                         errorFrame.setErrorMessage(" Petri Net does not exist yet. Paint it or read it from file. ");
                         errorFrame.setVisible(true);
                         return false;
         }
-        if (getPetriNetsPanel().getGraphNet().hasParameters() == true) { // addedn by Katya 08.12.2016
-                errorFrame.setErrorMessage(" Petri Net has parameters. Provide specific values for them first.");
-                errorFrame.setVisible(true);
-                return false;
+        if (getPetriNetsPanel().getGraphNet().hasParameters()) {
+            // Get the detailed list of unspecified parameters
+            ArrayList<String> unspecifiedParams = getPetriNetsPanel().getGraphNet().getPetriNet().getUnspecifiedParameters();
+
+            StringBuilder errorMessage = new StringBuilder();
+            errorMessage.append("The Petri Net contains unspecified parameters that must be configured before simulation can begin.\n\n");
+            errorMessage.append("Unspecified parameters:\n");
+
+            for (String unspecifiedParam : unspecifiedParams) {
+                errorMessage.append("• ").append(unspecifiedParam).append("\n");
+            }
+
+            errorMessage.append("\nPlease open the 'Edit Net Parameters' dialog (Ctrl+E) to provide specific values for all parameters, or ensure all transition delays and place markings are properly defined.");
+
+            errorFrame.setErrorMessage(errorMessage.toString());
+            errorFrame.setVisible(true);
+            return false;
         }
         return true;
     }
@@ -1674,107 +1608,97 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         protocolTextArea.setText("---------STATISTICS---------");
         try {
             if(isCorrectNet()){
-                getPetriNetsPanel().getGraphNet().createPetriNet(
-                    netNameTextField.getText()); // modified by Katya 08.12.2016
-                PetriSim petriSim = new PetriSim(
-                        getPetriNetsPanel().getGraphNet().getPetriNet());
-
-                petriSim.setSimulationTime(Double.parseDouble(
-                        timeModelingTextField.getText()));
-                petriSim.setTimeCurr(Double.valueOf(
-                        timeStartField.getText()));
-
-                ArrayList<PetriSim> list = new ArrayList<>();
-                list.add(petriSim);
-                RunPetriObjModel m = new RunPetriObjModel(list,
-                        protocolTextArea); // Петрі-об"єктна модель, що складається з одного Петрі-об"єкта
+                getPetriNetsPanel().getGraphNet().createPetriNet(netNameTextField.getText());
+                RunPetriObjModel m = getRunPetriObjModel();
                 m.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
-                m.setCurrentTime(Double.valueOf(timeStartField.getText()));
-                m.go(Double.valueOf(timeModelingTextField.getText()));
-                getPetriNetsPanel().getGraphNet().printStatistics(
-                        statisticsTextArea);
-                // перетворення у потрібний формат ...
-                Double d = m.getCurrentTime(); // added
+                m.setCurrentTime(Double.parseDouble(timeStartField.getText()));
+                if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
+                    statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog, true);
+                    m.setStatisticMonitor(statisticGraphMonitor);
+                }
+                m.go(Double.parseDouble(timeModelingTextField.getText()));
+                getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea);
 
-                Double dd = 100.0 * (m.getCurrentTime() - d.intValue()); // десяткова частина
+                getPetriNetsPanel().repaint();
 
-                //timeStartField.setText(String.valueOf(d.intValue()
-                //		+ "." + dd.intValue())); // added by Inna
-                // 3.06.2013
-                getPetriNetsPanel().repaint(); // додано 19.11.2012,
-                // можливо не потрібно?
+                if (statisticGraphMonitor != null) {
+                    try {
+                        statisticGraphMonitor.getWorkerStateLatch().await(3, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        System.out.println(e.getMessage());
+                        Thread.currentThread().interrupt();
+                    }
+                }
             }
-            //  }
-            // }
-
-            // }
-        } catch (ExceptionInvalidNetStructure ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, ex.getMessage(), ex);
         }
     }
 
+    private RunPetriObjModel getRunPetriObjModel() {
+        PetriSim petriSim = new PetriSim(
+                getPetriNetsPanel().getGraphNet().getPetriNet());
 
+        petriSim.setSimulationTime(Double.parseDouble(
+                timeModelingTextField.getText()));
+        petriSim.setTimeCurr(Double.parseDouble(
+                timeStartField.getText()));
+
+        ArrayList<PetriSim> list = new ArrayList<>();
+        list.add(petriSim);
+        // Петрі-об'єктна модель, що складається з одного Петрі-об'єкта
+        return new RunPetriObjModel(list, protocolTextArea);
+    }
 
     public void animateNet() {
         protocolTextArea.setText("---------Events protocol----------");
         protocolTextArea.setText("---------STATISTICS---------");
         try {
             if(isCorrectNet()){
-                getPetriNetsPanel().getGraphNet().createPetriNet(
-                    netNameTextField.getText()); // modified by Katya 08.12.2016
-                AnimRunPetriSim petriSim = new AnimRunPetriSim(
-                        getPetriNetsPanel().getGraphNet().getPetriNet(),
-                        this.protocolTextArea, getPetriNetsPanel(),
-                        speedSlider, null); // parentmodel = null is ok since petri objects are recreated in constructor anyway
+                getPetriNetsPanel().getGraphNet().createPetriNet(netNameTextField.getText());
+                AnimRunPetriObjModel model = getAnimRunPetriObjModel();
 
-                petriSim.setSimulationTime(Double.parseDouble(
-                        timeModelingTextField.getText()));
-                petriSim.setTimeCurr(Double.valueOf(
-                        timeStartField.getText()));
-
-                ArrayList<PetriSim> list = new ArrayList<PetriSim>();
-                list.add(petriSim);
-                
-                 
-                
-                AnimRunPetriObjModel model = new AnimRunPetriObjModel(list,
-                        protocolTextArea, getPetriNetsPanel(),
-                        speedSlider); // Петрі-об"єктна модель, що складається з одного Петріз-об"єкта
-                
                 animationModel = model;
-                
+
                 model.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
-                model.setCurrentTime(Double.valueOf(timeStartField.getText()));
-                model.go(Double.valueOf(timeModelingTextField.getText()));
+                model.setCurrentTime(Double.parseDouble(timeStartField.getText()));
+                if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
+                    StatisticGraphMonitor statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog, false);
+                    model.setStatisticMonitor(statisticGraphMonitor);
+                }
+                model.go(Double.parseDouble(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(
                         statisticsTextArea);
-                // перетворення у потрібний формат ...
-                Double d = model.getCurrentTime(); // added
 
-                Double dd = 100.0 * (model.getCurrentTime() - d.intValue()); // десяткова частина
-
-                //timeStartField.setText(String.valueOf(d.intValue()
-                //		+ "." + dd.intValue())); // added by Inna
-                // 3.06.2013
-                getPetriNetsPanel().repaint(); // додано 19.11.2012,
-                // можливо не потрібно?
+                getPetriNetsPanel().repaint();
             }
-            //  }
-            // }
-
-            // }
-        } catch (ExceptionInvalidNetStructure ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, ex.getMessage(), ex);
         }
     }
 
-    private void itemAnimateEventActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_itemRunEventActionPerformed
-        
-    }// GEN-LAST:event_itemRunEventActionPerformed
+    private AnimRunPetriObjModel getAnimRunPetriObjModel() {
+        AnimRunPetriSim petriSim = new AnimRunPetriSim(
+                getPetriNetsPanel().getGraphNet().getPetriNet(),
+                this.protocolTextArea,
+                getPetriNetsPanel(),
+                speedSlider,
+                null // parent model = null is ok since petri objects are recreated in constructor anyway
+        );
+
+        petriSim.setSimulationTime(Double.parseDouble(
+                timeModelingTextField.getText()));
+        petriSim.setTimeCurr(Double.parseDouble(
+                timeStartField.getText()));
+
+        ArrayList<PetriSim> list = new ArrayList<>();
+        list.add(petriSim);
+
+        // Петрі-об'єктна модель, що складається з одного Петрі-об'єкта
+        return new AnimRunPetriObjModel(list,
+                protocolTextArea, getPetriNetsPanel(),
+                speedSlider);
+    }
 
     public void runEvent() {
         if (getPetriNetsPanel().getGraphNet() == null) {
@@ -1783,36 +1707,22 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             return;
         } else {
             try {
-                getPetriNetsPanel().getGraphNet().createPetriNet(
-                        netNameTextField.getText()); // створення мережі Петріта запис її в GraphNet
+                // створення мережі Петрі та запис її в GraphNet
+                getPetriNetsPanel().getGraphNet().createPetriNet(netNameTextField.getText());
                 if (getPetriNetsPanel().getGraphNet().getPetriNet() == null) {
                     errorFrame.setErrorMessage(" Petri Net does not exist yet. Paint it or read it from file. ");
                     errorFrame.setVisible(true);
                     return;
                 } else {
-                    PetriSim petriSim = new PetriSim(
-                            getPetriNetsPanel().getGraphNet().getPetriNet());
-
-                    petriSim.setSimulationTime(
-                            Double.parseDouble(timeModelingTextField.getText()));
-
-                    petriSim.setTimeCurr(
-                            Double.valueOf(timeStartField.getText()));
-
-                    // System.out.println("in the begining we have such state of net places:");
+                    PetriSim petriSim = new PetriSim(getPetriNetsPanel().getGraphNet().getPetriNet());
+                    petriSim.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
+                    petriSim.setTimeCurr(Double.parseDouble(timeStartField.getText()));
+                    // System.out.println("in the beginning we have such state of net places:");
                     petriSim.printMark();
                     petriSim.step();
                     // System.out.println("at the result we have such state of net places:");
                     petriSim.printMark(protocolTextArea);
-
-                    Double d = new Double(petriSim.getCurrentTime()); // added by
-                    Double dd = new Double(100.0 * (petriSim.getCurrentTime() - d.intValue()));
-                    //timeStartField.setText(String.valueOf(d.intValue() + "."
-                    //		+ dd.intValue() // перетворення у цілий формат, але
-                    // тоді здається що час
-                    // дискретний....
-
-                    getPetriNetsPanel().repaint(); // додано 19.11.2012, можливо не потрібно?
+                    getPetriNetsPanel().repaint();
                 }
             } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(
@@ -1820,7 +1730,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         }
         getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea);
-
     }
 
     void animateEvent() {
@@ -1830,8 +1739,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             return;
         } else {
             try {
-                getPetriNetsPanel().getGraphNet().createPetriNet(
-                        netNameTextField.getText()); // створення мережі Петріта запис її в GraphNet
+                // створення мережі Петрі та запис її в GraphNet
+                getPetriNetsPanel().getGraphNet().createPetriNet(netNameTextField.getText());
                 if (getPetriNetsPanel().getGraphNet().getPetriNet() == null) {
                     errorFrame.setErrorMessage(" Petri Net does not exist yet. Paint it or read it from file. ");
                     errorFrame.setVisible(true);
@@ -1839,16 +1748,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 } else {
                     AnimRunPetriSim object = new AnimRunPetriSim(
                             getPetriNetsPanel().getGraphNet().getPetriNet(),
-                            protocolTextArea, getPetriNetsPanel(),
-                            speedSlider, null);
-                    
+                            protocolTextArea,
+                            getPetriNetsPanel(),
+                            speedSlider,
+                            null
+                    );
                     animationPetriObject = object;
-
-                    object.setSimulationTime(
-                            Double.parseDouble(timeModelingTextField.getText()));
-
-                    object.setTimeCurr(
-                            Double.valueOf(timeStartField.getText()));
+                    object.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
+                    object.setTimeCurr(Double.parseDouble(timeStartField.getText()));
 
                     // System.out.println("in the begining we have such state of net places:");
                     object.printMark();
@@ -1856,14 +1763,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     // System.out.println("at the result we have such state of net places:");
                     object.printMark(protocolTextArea);
 
-                    Double d = new Double(object.getCurrentTime()); // added by
-                    Double dd = new Double(100.0 * (object.getCurrentTime() - d.intValue()));
-                    //timeStartField.setText(String.valueOf(d.intValue() + "."
-                    //		+ dd.intValue() // перетворення у цілий формат, але
-                    // тоді здається що час
-                    // дискретний....
-                    //)); // added by Inna 3.06.2013
-                    getPetriNetsPanel().repaint(); // додано 19.11.2012, можливо не потрібно?
+                    getPetriNetsPanel().repaint();
                 }
             } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
                 Logger.getLogger(PetriNetsFrame.class.getName()).log(
@@ -1871,7 +1771,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         }
         getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea);
-
     }
 
     private void centerLocationOfGraphNetActionPerformed(
@@ -1892,7 +1791,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void openMethodMenuItemActionPerformed(
             java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMethodMenuItemActionPerformed
         //!Не! очищаємо поле, тепер мережа додається до попередньої
-        //FileUse.newWorksheet(petriNetsPanel);
+        //fileUse.newWorksheet(petriNetsPanel);
         timeStartField.setText(String.valueOf(0));
 
         //netNameTextField.setText("Untitled");
@@ -1920,8 +1819,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 this.getPetriNetsPanel().getGraphNet().changeLocation(center);
 
                 String methodFullName = dialogPanel.getFieldText();
-                String pnetName = FileUse.openMethod(getPetriNetsPanel(),
-                        methodFullName, that, netLibraryClassLoader);
+                String pnetName = fileUse.openMethod(getPetriNetsPanel(),
+                        methodFullName, that);
                 if (pnetName != null) {
                     netNameTextField.setText(pnetName);
                 }
@@ -1933,6 +1832,185 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         dialog.setVisible(true);
     }// GEN-LAST:event_openMethodMenuItemActionPerformed
 
+    private void importPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
+        try {
+            java.awt.FileDialog fdlg = new java.awt.FileDialog(this, "Import PNML File", java.awt.FileDialog.LOAD);
+            fdlg.setFile("*.pnml");
+            fdlg.setVisible(true);
+
+            if (fdlg.getFile() != null) {
+                java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
+
+                // Parse PNML file
+                PnmlParser parser = new PnmlParser();
+                PetriNet petriNet = parser.parse(selectedFile);
+
+                // Create empty GraphPetriNet and manually add elements
+                GraphPetriNet graphNet = new GraphPetriNet();
+
+                // Create GraphPetriPlace objects from PetriP objects
+                for (PetriP place : petriNet.getListP()) {
+                    GraphPetriPlace graphPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
+
+                    // Set coordinates if available
+                    java.awt.geom.Point2D.Double coords = parser.getPlaceCoordinates(place.getNumber());
+                    if (coords != null) {
+                        graphPlace.setNewCoordinates(new java.awt.geom.Point2D.Double(coords.x, coords.y));
+                    } else {
+                        // Set default coordinates
+                        graphPlace.setNewCoordinates(new java.awt.geom.Point2D.Double(100 + place.getNumber() * 100, 100));
+                    }
+
+                    graphNet.getGraphPetriPlaceList().add(graphPlace);
+                }
+
+                // Create GraphPetriTransition objects from PetriT objects
+                for (PetriT transition : petriNet.getListT()) {
+                    GraphPetriTransition graphTransition = new GraphPetriTransition(transition, PetriNetsPanel.getIdElement());
+
+                    // Set coordinates if available
+                    java.awt.geom.Point2D.Double coords = parser.getTransitionCoordinates(transition.getNumber());
+                    if (coords != null) {
+                        graphTransition.setNewCoordinates(new java.awt.geom.Point2D.Double(coords.x, coords.y));
+                    } else {
+                        // Set default coordinates
+                        graphTransition.setNewCoordinates(new java.awt.geom.Point2D.Double(100 + transition.getNumber() * 100, 200));
+                    }
+
+                    graphNet.getGraphPetriTransitionList().add(graphTransition);
+                }
+
+                // Create GraphArcIn objects from ArcIn objects
+                for (ArcIn arcIn : petriNet.getArcIn()) {
+                    GraphPetriPlace beginPlace = null;
+                    GraphPetriTransition endTransition = null;
+
+                    // Find corresponding graph elements
+                    for (GraphPetriPlace gp : graphNet.getGraphPetriPlaceList()) {
+                        if (gp.getPetriPlace().getNumber() == arcIn.getNumP()) {
+                            beginPlace = gp;
+                            break;
+                        }
+                    }
+
+                    for (GraphPetriTransition gt : graphNet.getGraphPetriTransitionList()) {
+                        if (gt.getPetriTransition().getNumber() == arcIn.getNumT()) {
+                            endTransition = gt;
+                            break;
+                        }
+                    }
+
+                    if (beginPlace != null && endTransition != null) {
+                        GraphArcIn graphArcIn = new GraphArcIn(arcIn);
+                        graphArcIn.settingNewArc(beginPlace);
+                        graphArcIn.setEndElement(endTransition);
+                        graphArcIn.setPetriElements();
+                        graphArcIn.updateCoordinates();
+                        graphNet.getGraphArcInList().add(graphArcIn);
+                    }
+                }
+
+                // Create GraphArcOut objects from ArcOut objects
+                for (ArcOut arcOut : petriNet.getArcOut()) {
+                    GraphPetriTransition beginTransition = null;
+                    GraphPetriPlace endPlace = null;
+
+                    // Find corresponding graph elements
+                    for (GraphPetriTransition gt : graphNet.getGraphPetriTransitionList()) {
+                        if (gt.getPetriTransition().getNumber() == arcOut.getNumT()) {
+                            beginTransition = gt;
+                            break;
+                        }
+                    }
+
+                    for (GraphPetriPlace gp : graphNet.getGraphPetriPlaceList()) {
+                        if (gp.getPetriPlace().getNumber() == arcOut.getNumP()) {
+                            endPlace = gp;
+                            break;
+                        }
+                    }
+
+                    if (beginTransition != null && endPlace != null) {
+                        GraphArcOut graphArcOut = new GraphArcOut(arcOut);
+                        graphArcOut.settingNewArc(beginTransition);
+                        graphArcOut.setEndElement(endPlace);
+                        graphArcOut.setPetriElements();
+                        graphArcOut.updateCoordinates();
+                        graphNet.getGraphArcOutList().add(graphArcOut);
+                    }
+                }
+
+                // Set the imported net
+                getPetriNetsPanel().setGraphNet(graphNet);
+
+                // Fix overlapping arcs (important for nets with bidirectional connections)
+                graphNet.fixOverlappingArcs();
+
+                // Update UI
+                if (petriNet.getName() != null && !petriNet.getName().isEmpty()) {
+                    netNameTextField.setText(petriNet.getName());
+                } else {
+                    netNameTextField.setText(selectedFile.getName().replaceFirst("[.][^.]+$", ""));
+                }
+                timeStartField.setText("0");
+                protocolTextArea.setText("---------Events protocol----------");
+                statisticsTextArea.setText("---------STATISTICS---------");
+
+                getPetriNetsPanel().repaint();
+
+                MessageHelper.showInfo(this,
+                    "PNML file imported successfully!\nPlaces: " + petriNet.getListP().length +
+                    ", Transitions: " + petriNet.getListT().length +
+                    "\nInput arcs: " + petriNet.getArcIn().length +
+                    ", Output arcs: " + petriNet.getArcOut().length);
+            }
+        } catch (Exception ex) {
+            MessageHelper.showException(this, "Error importing PNML file", ex);
+        }
+    }
+
+    private void exportPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
+        try {
+            if (getPetriNetsPanel().getGraphNet() == null) {
+                MessageHelper.showError(this,
+                    "No Petri net to export. Please create or load a net first.");
+                return;
+            }
+
+            java.awt.FileDialog fdlg = new java.awt.FileDialog(this, "Export to PNML File", java.awt.FileDialog.SAVE);
+            fdlg.setFile(netNameTextField.getText() + ".pnml");
+            fdlg.setVisible(true);
+
+            if (fdlg.getFile() != null) {
+                java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
+
+                // Ensure file has .pnml extension
+                if (!selectedFile.getName().toLowerCase().endsWith(".pnml")) {
+                    selectedFile = new java.io.File(selectedFile.getAbsolutePath() + ".pnml");
+                }
+
+                // Create PetriNet from GraphPetriNet
+                getPetriNetsPanel().getGraphNet().createPetriNet(netNameTextField.getText());
+                PetriNet petriNet = getPetriNetsPanel().getGraphNet().getPetriNet();
+
+                if (petriNet == null) {
+                    MessageHelper.showError(this,
+                        "Unable to create Petri net for export. Please check your net structure.");
+                    return;
+                }
+
+                // Generate PNML file
+                PnmlGenerator generator = new PnmlGenerator();
+                generator.generate(petriNet, selectedFile, getPetriNetsPanel().getGraphNet());
+
+                MessageHelper.showInfo(this,
+                    "PNML file exported successfully to:\n" + selectedFile.getAbsolutePath());
+            }
+        } catch (Exception ex) {
+            MessageHelper.showException(this, "Error exporting PNML file", ex);
+        }
+    }
+
     public String getNameNet() {
         return netNameTextField.getText();
     }
@@ -1943,6 +2021,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     public JScrollPane GetPetriNetPanelScrollPane() {
         return petriNetPanelScrollPane;
+    }
+
+    public Integer getNumberOfRuns() {
+        int numberOfRuns = 1;
+        if (statisticMonitorDialog != null && statisticMonitorDialog.getIsFormulaValid()) {
+            numberOfRuns = statisticMonitorDialog.getChartDataCollectionConfig().getNumberOfRuns();
+        }
+        return numberOfRuns;
     }
 
     public void disableInput() {
@@ -1964,6 +2050,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartField.setEnabled(false);
         netNameTextField.setEnabled(false);
         leftMenuList.setEnabled(false);
+        statisticMenu.setEnabled(false);
+        if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
+            statisticMonitorDialog.onSimulationStart();
+        }
     }
 
     public void enableInput() {
@@ -1985,12 +2075,18 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartField.setEnabled(true);
         netNameTextField.setEnabled(true);
         leftMenuList.setEnabled(true);
+        statisticMenu.setEnabled(true);
+        if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
+            statisticMonitorDialog.onSimulationEnd();
+        }
     }
 
     /**
      * @param args the command line arguments
+     *
+     * Direct usage is not recommended - use a separated launcher class instead
      */
-    public static void main(String args[]) {
+    public static void sample_main(String[] args) {
 
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager
@@ -2008,11 +2104,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         java.awt.EventQueue.invokeLater(new Runnable() {
             @Override
             public void run() {
-                try {
-                    new PetriNetsFrame().setVisible(true);
-                } catch (Exception e) {
-                    throw new AssertionError(e);
-                }
+                new PetriNetsFrame().setVisible(true);
             }
         });
 
@@ -2063,8 +2155,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton newTransitionButton2;
     private javax.swing.JMenuItem openMenuItem;
     private javax.swing.JMenuItem openMethodMenuItem;
-    private javax.swing.JMenuItem importPnmlMenuItem;
-    private javax.swing.JMenuItem exportPnmlMenuItem;
+    private javax.swing.JMenuItem openMonitor;
+    private javax.swing.JCheckBoxMenuItem isStatisticMonitorEnabled;
     private javax.swing.JPanel petriNetDesign;
     private javax.swing.JPanel petriNetDesign1;
     private javax.swing.JPanel petriNetDesign2;
@@ -2098,6 +2190,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton skipForwardAnimationButton;
     private javax.swing.JLabel speedLabel;
     private javax.swing.JSlider speedSlider;
+    private javax.swing.JMenu statisticMenu;
     private javax.swing.JScrollPane statisticsScrollPane;
     private javax.swing.JScrollPane statisticsScrollPane1;
     private javax.swing.JScrollPane statisticsScrollPane2;
@@ -2118,8 +2211,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JLabel timeStartLabel1;
     private javax.swing.JLabel timeStartLabel2;
     private javax.swing.JMenuItem undoMenuItem;
+    private javax.swing.JMenuItem importPnmlMenuItem;
+    private javax.swing.JMenuItem exportPnmlMenuItem;
     // End of variables declaration//GEN-END:variables
     private static PetriNetsPanel petriNetsPanel;
+    private FileUse fileUse = new FileUse();
     private ErrorFrame errorFrame = new ErrorFrame();
     private DefaultListModel<String> leftMenuListModel = new DefaultListModel<>();
     /*private javax.swing.JButton consistBtn;
@@ -2134,220 +2230,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public static UndoableEditSupport getUndoSupport() {
         return undoSupport;
     }
-
-    private void importPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
-        System.out.println("Starting PNML import...");
-        ImportResult importResult = PnmlUtils.importFromFile(this);
-        if (importResult != null) {
-            try {
-                PetriNet importedNet = importResult.getPetriNet();
-                System.out.println("PetriNet imported successfully, converting to GraphPetriNet...");
-                System.out.println("Net: " + importedNet.getName() + ", Places: " + importedNet.getListP().length +
-                                 ", Transitions: " + importedNet.getListT().length);
-
-                // Convert PetriNet to GraphPetriNet with coordinates and display it
-                GraphPetriNet graphNet = convertPetriNetToGraphPetriNet(importedNet, importResult);
-                System.out.println("GraphPetriNet created successfully, setting to panel...");
-
-                // Use addGraphNet instead of setGraphNet for proper initialization
-                petriNetsPanel.addGraphNet(graphNet);
-                System.out.println("GraphPetriNet added to panel, updating coordinates...");
-
-                // Update coordinates for all arcs to ensure proper display
-                updateArcCoordinates(graphNet);
-
-                netNameTextField.setText(importedNet.getName() != null ? importedNet.getName() : "Imported Net");
-
-                // Force UI update
-                petriNetsPanel.revalidate();
-                petriNetsPanel.repaint();
-                System.out.println("PNML import completed successfully!");
-
-            } catch (Exception e) {
-                System.err.println("Error during import process:");
-                e.printStackTrace();
-                javax.swing.JOptionPane.showMessageDialog(this,
-                        "Error displaying imported net:\n" + e.getMessage(),
-                        "Display Error",
-                        javax.swing.JOptionPane.ERROR_MESSAGE);
-            }
-        } else {
-            System.out.println("Import cancelled or failed at file parsing stage.");
-        }
-    }
-
-    private void exportPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
-        try {
-            if (petriNetsPanel.getGraphNet() != null) {
-                PetriNet petriNet = convertGraphPetriNetToPetriNet(petriNetsPanel.getGraphNet());
-                petriNet.setName(netNameTextField.getText());
-                // Export with coordinates from GraphPetriNet
-                PnmlUtils.exportToFile(petriNet, this, petriNetsPanel.getGraphNet());
-            } else {
-                javax.swing.JOptionPane.showMessageDialog(this,
-                        "No Petri net to export",
-                        "Export Error",
-                        javax.swing.JOptionPane.ERROR_MESSAGE);
-            }
-        } catch (Exception e) {
-            javax.swing.JOptionPane.showMessageDialog(this,
-                    "Error exporting net:\n" + e.getMessage(),
-                    "Export Error",
-                    javax.swing.JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
-        }
-    }
-
-    private GraphPetriNet convertPetriNetToGraphPetriNet(PetriNet petriNet) throws ExceptionInvalidNetStructure {
-        return convertPetriNetToGraphPetriNet(petriNet, null);
-    }
-
-    private GraphPetriNet convertPetriNetToGraphPetriNet(PetriNet petriNet, ImportResult importResult) throws ExceptionInvalidNetStructure {
-        try {
-            // Reset counters to avoid conflicts with existing elements
-            PetriP.initNext();
-            PetriT.initNext();
-            ArcIn.initNext();
-            ArcOut.initNext();
-
-            // Create lists for graph elements
-            ArrayList<GraphPetriPlace> graphPlaces = new ArrayList<>();
-            ArrayList<GraphPetriTransition> graphTransitions = new ArrayList<>();
-            ArrayList<GraphArcIn> graphArcIns = new ArrayList<>();
-            ArrayList<GraphArcOut> graphArcOuts = new ArrayList<>();
-
-            // Convert places with proper constructor and coordinates
-            for (int i = 0; i < petriNet.getListP().length; i++) {
-                PetriP place = petriNet.getListP()[i];
-                GraphPetriPlace graphPlace = new GraphPetriPlace(place, i);
-
-                // Use imported coordinates if available, otherwise use default positioning
-                java.awt.geom.Point2D.Double coordinates = null;
-                if (importResult != null) {
-                    coordinates = importResult.getPlaceCoordinates(place.getNumber());
-                }
-                if (coordinates == null) {
-                    coordinates = new java.awt.geom.Point2D.Double(100 + i * 120, 100);
-                }
-                graphPlace.setNewCoordinates(coordinates);
-                graphPlaces.add(graphPlace);
-            }
-
-            // Convert transitions with proper constructor and coordinates
-            for (int i = 0; i < petriNet.getListT().length; i++) {
-                PetriT transition = petriNet.getListT()[i];
-                GraphPetriTransition graphTransition = new GraphPetriTransition(transition, i);
-
-                // Use imported coordinates if available, otherwise use default positioning
-                java.awt.geom.Point2D.Double coordinates = null;
-                if (importResult != null) {
-                    coordinates = importResult.getTransitionCoordinates(transition.getNumber());
-                }
-                if (coordinates == null) {
-                    coordinates = new java.awt.geom.Point2D.Double(100 + i * 120, 250);
-                }
-                graphTransition.setNewCoordinates(coordinates);
-                graphTransitions.add(graphTransition);
-            }
-
-            // Convert input arcs (Place -> Transition)
-            for (ArcIn arcIn : petriNet.getArcIn()) {
-                GraphArcIn graphArcIn = new GraphArcIn(arcIn);
-
-                // Find corresponding GraphPetriPlace and GraphPetriTransition
-                GraphPetriPlace sourcePlace = findGraphPlaceByNumber(graphPlaces, arcIn.getNumP());
-                GraphPetriTransition targetTransition = findGraphTransitionByNumber(graphTransitions, arcIn.getNumT());
-
-                if (sourcePlace != null && targetTransition != null) {
-                    // Initialize the arc properly
-                    graphArcIn.settingNewArc(sourcePlace);
-                    graphArcIn.finishSettingNewArc(targetTransition);
-                }
-
-                graphArcIns.add(graphArcIn);
-            }
-
-            // Convert output arcs (Transition -> Place)
-            for (ArcOut arcOut : petriNet.getArcOut()) {
-                GraphArcOut graphArcOut = new GraphArcOut(arcOut);
-
-                // Find corresponding GraphPetriTransition and GraphPetriPlace
-                GraphPetriTransition sourceTransition = findGraphTransitionByNumber(graphTransitions, arcOut.getNumT());
-                GraphPetriPlace targetPlace = findGraphPlaceByNumber(graphPlaces, arcOut.getNumP());
-
-                if (sourceTransition != null && targetPlace != null) {
-                    // Initialize the arc properly
-                    graphArcOut.settingNewArc(sourceTransition);
-                    graphArcOut.finishSettingNewArc(targetPlace);
-                }
-
-                graphArcOuts.add(graphArcOut);
-            }
-
-            // Create GraphPetriNet using the existing PetriNet and graph elements
-            GraphPetriNet graphNet = new GraphPetriNet(petriNet, graphPlaces, graphTransitions, graphArcIns, graphArcOuts);
-
-            return graphNet;
-        } catch (Exception e) {
-            throw new ExceptionInvalidNetStructure("Error converting PetriNet to GraphPetriNet: " + e.getMessage());
-        }
-    }
-
-    private PetriNet convertGraphPetriNetToPetriNet(GraphPetriNet graphPetriNet) throws ExceptionInvalidTimeDelay {
-        return graphPetriNet.getPetriNet();
-    }
-
-    /**
-     * Find GraphPetriPlace by its number
-     */
-    private GraphPetriPlace findGraphPlaceByNumber(ArrayList<GraphPetriPlace> places, int number) {
-        for (GraphPetriPlace place : places) {
-            if (place.getPetriPlace().getNumber() == number) {
-                return place;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Find GraphPetriTransition by its number
-     */
-    private GraphPetriTransition findGraphTransitionByNumber(ArrayList<GraphPetriTransition> transitions, int number) {
-        for (GraphPetriTransition transition : transitions) {
-            if (transition.getPetriTransition().getNumber() == number) {
-                return transition;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Update coordinates for all arcs in the GraphPetriNet
-     */
-    private void updateArcCoordinates(GraphPetriNet graphNet) {
-        System.out.println("Updating arc coordinates...");
-
-        // Update input arcs (Place -> Transition)
-        for (GraphArcIn arcIn : graphNet.getGraphArcInList()) {
-            try {
-                arcIn.updateCoordinates();
-            } catch (Exception e) {
-                System.err.println("Error updating input arc coordinates: " + e.getMessage());
-            }
-        }
-
-        // Update output arcs (Transition -> Place)
-        for (GraphArcOut arcOut : graphNet.getGraphArcOutList()) {
-            try {
-                arcOut.updateCoordinates();
-            } catch (Exception e) {
-                System.err.println("Error updating output arc coordinates: " + e.getMessage());
-            }
-        }
-
-        System.out.println("Arc coordinates updated successfully.");
-    }
-
+    
     /**
      * A petri-object model that is used for displaying animation
      * and can be paused an unpaused
@@ -2365,4 +2248,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * can be interrupted if stop button is pressed
      */
     public Thread animationThread;
+
+    private StatisticMonitorDialog statisticMonitorDialog;
+    private StatisticGraphMonitor statisticGraphMonitor;
 }

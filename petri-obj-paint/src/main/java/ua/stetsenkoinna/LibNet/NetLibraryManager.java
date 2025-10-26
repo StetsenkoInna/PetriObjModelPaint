@@ -22,7 +22,7 @@ import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import ua.stetsenkoinna.annotation.NetLibraryMethod;
+import ua.stetsenkoinna.libnetannotation.annotation.NetLibraryMethod;
 
 public class NetLibraryManager {
 
@@ -73,7 +73,7 @@ public class NetLibraryManager {
     {
         final Optional<Method> method = Arrays.stream(loadedClass.getMethods())
                 .filter((m) -> m.getName().equals(methodName)).findFirst();
-        if (!method.isPresent()) {
+        if (method.isEmpty()) {
             throw new MethodNotFound("No method with name \"" + methodName + "\" found");
         }
         return (PetriNet) method.get().invoke(null);

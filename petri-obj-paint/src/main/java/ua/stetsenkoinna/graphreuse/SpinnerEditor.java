@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphreuse;
 
 import java.awt.Component;
@@ -78,8 +74,7 @@ class SpinnerEditor extends DefaultCellEditor {
 
     @Override
     public boolean isCellEditable(EventObject eo) {
-        if (eo instanceof KeyEvent) {
-            KeyEvent ke = (KeyEvent) eo;
+        if (eo instanceof KeyEvent ke) {
             textField.setText(String.valueOf(ke.getKeyChar()));
             valueSet = true;
         } else {

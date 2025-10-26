@@ -5,10 +5,6 @@ import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 /**
  * This class provides constructing Petri net
  *
@@ -50,7 +46,7 @@ public class PetriNet implements Cloneable, Serializable {
      * @param In set of arcs directed from place to transition
      * @param Out set of arcs directed from transition to place
      */
-    public PetriNet(String s, PetriP[] pp, PetriT TT[], ArcIn[] In, ArcOut[] Out) {
+    public PetriNet(String s, PetriP[] pp, PetriT[] TT, ArcIn[] In, ArcOut[] Out) {
         name = s;
         numP = pp.length;
         numT = TT.length;
@@ -195,8 +191,7 @@ public class PetriNet implements Cloneable, Serializable {
      * @return quantity of markers in place with given name
      */
     public int getCurrentMark(String s) {
-        int a = ListP[PetriNet.this.strToNumP(s)].getMark();
-        return a;
+        return ListP[this.strToNumP(s)].getMark();
     }
 
     /**
@@ -206,8 +201,7 @@ public class PetriNet implements Cloneable, Serializable {
      * @return the mean value of quantity of markers in place with given name
      */
     public double getMeanMark(String s) {
-        double a = ListP[PetriNet.this.strToNumP(s)].getMean();
-        return a;
+        return ListP[this.strToNumP(s)].getMean();
     }
 
     /**
@@ -217,8 +211,7 @@ public class PetriNet implements Cloneable, Serializable {
      * @return quantity of active channels of transition
      */
     public int getCurrentBuffer(String s) {
-        int a = ListT[strToNumT(s)].getBuffer();
-        return a;
+        return ListT[strToNumT(s)].getBuffer();
     }
 
     /**
@@ -228,8 +221,7 @@ public class PetriNet implements Cloneable, Serializable {
      * @return the mean value of quantity of active channels of transition
      */
     public double getMeanBuffer(String s) {
-        double a = ListT[strToNumT(s)].getMean();
-        return a;
+        return ListT[strToNumT(s)].getMean();
     }
 
     /**
@@ -327,10 +319,7 @@ public class PetriNet implements Cloneable, Serializable {
             copyListOut[j].setNameP(getListOut()[j].getNameP());
             copyListOut[j].setNameT(getListOut()[j].getNameT());
         }
-
-        PetriNet net = new PetriNet(name, copyListP, copyListT, copyListIn, copyListOut);
-
-        return net;
+        return new PetriNet(name, copyListP, copyListT, copyListIn, copyListOut);
     }
     
     public boolean hasParameters() { // added by Katya 08.12.2016
@@ -355,6 +344,56 @@ public class PetriNet implements Cloneable, Serializable {
             }
         }
         return false;
+    }
+
+    /**
+     * Gets a detailed list of all unspecified parameters in the Petri net
+     * @return ArrayList of strings describing each unspecified parameter
+     */
+    public ArrayList<String> getUnspecifiedParameters() {
+        ArrayList<String> unspecifiedParams = new ArrayList<>();
+
+        // Check places for unspecified markings
+        for (PetriP petriPlace : ListP) {
+            if (petriPlace.markIsParam()) {
+                unspecifiedParams.add("Place '" + petriPlace.getName() + "' - marking not specified");
+            }
+        }
+
+        // Check transitions for unspecified parameters
+        for (PetriT petriTran : ListT) {
+            if (petriTran.distributionIsParam()) {
+                unspecifiedParams.add("Transition '" + petriTran.getName() + "' - distribution not specified");
+            }
+            if (petriTran.parametrIsParam()) {
+                unspecifiedParams.add("Transition '" + petriTran.getName() + "' - delay parameter not specified");
+            }
+            if (petriTran.priorityIsParam()) {
+                unspecifiedParams.add("Transition '" + petriTran.getName() + "' - priority not specified");
+            }
+            if (petriTran.probabilityIsParam()) {
+                unspecifiedParams.add("Transition '" + petriTran.getName() + "' - probability not specified");
+            }
+        }
+
+        // Check input arcs for unspecified parameters
+        for (ArcIn arcIn : getListIn()) {
+            if (arcIn.infIsParam()) {
+                unspecifiedParams.add("Input Arc '" + arcIn.getNameP() + " -> " + arcIn.getNameT() + "' - inhibitor parameter not specified");
+            }
+            if (arcIn.kIsParam()) {
+                unspecifiedParams.add("Input Arc '" + arcIn.getNameP() + " -> " + arcIn.getNameT() + "' - weight not specified");
+            }
+        }
+
+        // Check output arcs for unspecified parameters
+        for (ArcOut arcOut : getListOut()) {
+            if (arcOut.kIsParam()) {
+                unspecifiedParams.add("Output Arc '" + arcOut.getNameT() + " -> " + arcOut.getNameP() + "' - weight not specified");
+            }
+        }
+
+        return unspecifiedParams;
     }
 
 }

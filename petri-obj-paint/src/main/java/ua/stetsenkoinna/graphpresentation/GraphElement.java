@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphpresentation;
 
 import java.awt.Color;
@@ -13,53 +9,48 @@ import java.io.Serializable;
  *
  * @author Ольга
  */
-public class GraphElement implements Serializable{
-    
-    private int lineWidth; //replaced from subclasses
+public class GraphElement implements Serializable {
+
+    private int lineWidth; // replaced from subclasses
     private Color color;  // replaced from subclasses
 
-    
-    public void drawGraphElement(Graphics2D g2){
-        
+    public void drawGraphElement(Graphics2D g2) {
+        // todo
     }
-    
+
     public void setNewCoordinates(Point2D p) {
-        
+        // todo
     }
-    
-     public boolean isGraphElement(Point2D p) {
-         return false;
-     }
-     
-      public Point2D getGraphElementCenter() {
+
+    public boolean isGraphElement(Point2D p) {
+        return false;
+    }
+
+    public Point2D getGraphElementCenter() {
         return null;
     }
-      
-      public String getType() {
+
+    public String getType() {
         return null;
     }
-      
-       public  int getBorder() {
+
+    public int getBorder() {
         return 0;
     }
-       public int getId(){
-           return 0;
-       }
-     /*  public  void addElementToArrayList(){
-           
-       }*/
-       public String getName(){
-           return null;
-       }
-       public int getNumber(){
-           return 0;
-       }
-       
-       public void resize(){
-           
-       }
-       
-     /**
+
+    public int getId() {
+        return 0;
+    }
+
+    public String getName() {
+        return null;
+    }
+
+    public int getNumber() {
+        return 0;
+    }
+
+    /**
      * @return the lineWidth
      */
     public int getLineWidth() {

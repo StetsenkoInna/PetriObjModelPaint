@@ -10,11 +10,10 @@
  */
 package ua.stetsenkoinna.graphpresentation;
 
-import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.PetriObj.*;
 import java.awt.*;
-import ua.stetsenkoinna.utils.Utils;
+import ua.stetsenkoinna.utils.SafeParsingUtils;
 
 import javax.swing.*;
 
@@ -338,10 +337,6 @@ public class SetTransition extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_probabilityTextFieldActionPerformed
 
-     /**
-      * @param args the command line arguments
-      */
-
     private void setTName(){
         choosenPetriT.getPetriTransition().setName(nameTextField.getText());
     }
@@ -350,16 +345,16 @@ public class SetTransition extends javax.swing.JFrame {
         PetriT petriTran = choosenPetriT.getPetriTransition();
         String parametrValueStr = parametrTextField.getText();
         double parametrValue = 0;
-        if (Utils.tryParseDouble(parametrValueStr)) {
+        if (SafeParsingUtils.tryParseDouble(parametrValueStr)) {
             parametrValue = Double.valueOf(parametrValueStr);
-            petriTran.setParametr(parametrValue);
-            petriTran.setParametrParam(null);
+            petriTran.setParameter(parametrValue);
+            petriTran.setParameterParam(null);
         } else {
-            petriTran.setParametrParam(parametrValueStr);
+            petriTran.setParameterParam(parametrValueStr);
         }
         
         String probabilityValueStr = probabilityTextField.getText();
-        if (Utils.tryParseDouble(probabilityValueStr)) {
+        if (SafeParsingUtils.tryParseDouble(probabilityValueStr)) {
             petriTran.setProbability(Double.valueOf(probabilityValueStr));
             petriTran.setProbabilityParam(null);
         } else {
@@ -417,8 +412,8 @@ public class SetTransition extends javax.swing.JFrame {
     private void getTimeDelay() { // modified by Katya 08.12.2016
         PetriT petriTran = choosenPetriT.getPetriTransition();
         String parametrStr = petriTran.parametrIsParam()
-            ? petriTran.getParametrParamName()
-            : Double.toString(petriTran.getParametr());
+            ? petriTran.getParameterParamName()
+            : Double.toString(petriTran.getParameter());
         parametrTextField.setText(parametrStr);
         
         String probabilityStr = petriTran.probabilityIsParam()

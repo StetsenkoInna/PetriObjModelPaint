@@ -7,7 +7,7 @@
     <parent>
         <groupId>ua.stetsenkoinna</groupId>
         <artifactId>PetriObjModelPaint</artifactId>
-        <version>1.1</version>
+        <version>1.2.0</version>
     </parent>
 
     <artifactId>petri-obj-paint</artifactId>
@@ -30,9 +30,16 @@
             <version>3.6.1</version>
         </dependency>
         <dependency>
-            <groupId>ua.stetsenkoinna</groupId>
-            <artifactId>lib-net-annotations</artifactId>
-            <version>1.1</version>
+            <groupId>com.google.auto.service</groupId>
+            <artifactId>auto-service</artifactId>
+            <version>1.1.1</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- OpenHFT Compiler dependency -->
+        <dependency>
+            <groupId>net.openhft</groupId>
+            <artifactId>compiler</artifactId>
+            <version>2.23ea0</version>
         </dependency>
         <!-- Test dependencies -->
         <dependency>
@@ -40,6 +47,20 @@
             <artifactId>junit</artifactId>
             <version>4.13.2</version>
             <scope>test</scope>
+        </dependency>
+        <!-- JavaFX Controls -->
+        <!-- https://mvnrepository.com/artifact/org.openjfx/javafx-controls -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+            <version>25.0.1</version>
+        </dependency>
+        <!-- JavaFX Swing Integration -->
+        <!-- https://mvnrepository.com/artifact/org.openjfx/javafx-swing -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-swing</artifactId>
+            <version>25.0.1</version>
         </dependency>
     </dependencies>
 
@@ -64,13 +85,13 @@
         <plugins>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
+                <version>3.14.1</version>
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
-                            <groupId>ua.stetsenkoinna</groupId>
-                            <artifactId>lib-net-annotations</artifactId>
-                            <version>1.1</version>
+                            <groupId>com.google.auto.service</groupId>
+                            <artifactId>auto-service</artifactId>
+                            <version>1.1.1</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
@@ -78,7 +99,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.4</version>
+                <version>3.6.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -89,7 +110,7 @@
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>ua.stetsenkoinna.graphpresentation.PetriNetsFrame</mainClass>
+                                    <mainClass>ua.stetsenkoinna.LibTest.TestPetriNetsPaint</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>

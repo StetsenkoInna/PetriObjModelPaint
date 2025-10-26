@@ -24,8 +24,9 @@ import java.util.Map;
  */
 public class PnmlGenerator {
 
-    private Map<Integer, String> placeNumberToId = new HashMap<>();
-    private Map<Integer, String> transitionNumberToId = new HashMap<>();
+    private final Map<Integer, String> placeNumberToId = new HashMap<>();
+    private final Map<Integer, String> transitionNumberToId = new HashMap<>();
+
     private GraphPetriNet graphPetriNet;
 
     /**
@@ -212,20 +213,20 @@ public class PnmlGenerator {
             }
 
             // Add time delay or its parameter
-            if (transition.parametrIsParam() && transition.getParametrParamName() != null) {
+            if (transition.parametrIsParam() && transition.getParameterParamName() != null) {
                 Element timeDelayParamElement = document.createElement("timeDelayParameter");
-                timeDelayParamElement.setTextContent(transition.getParametrParamName());
+                timeDelayParamElement.setTextContent(transition.getParameterParamName());
                 toolspecificElement.appendChild(timeDelayParamElement);
-            } else if (transition.getParametr() > 0) {
+            } else if (transition.getParameter() > 0) {
                 Element timeDelayElement = document.createElement("timeDelay");
-                timeDelayElement.setTextContent(String.valueOf(transition.getParametr()));
+                timeDelayElement.setTextContent(String.valueOf(transition.getParameter()));
                 toolspecificElement.appendChild(timeDelayElement);
             }
 
             // Add delay mean value (always export if > 0)
-            if (transition.getParametr() > 0) {
+            if (transition.getParameter() > 0) {
                 Element delayMeanElement = document.createElement("delayMeanValue");
-                delayMeanElement.setTextContent(String.valueOf(transition.getParametr()));
+                delayMeanElement.setTextContent(String.valueOf(transition.getParameter()));
                 toolspecificElement.appendChild(delayMeanElement);
             }
 

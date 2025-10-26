@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphpresentation;
 
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
@@ -78,37 +74,37 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private boolean leftMouseButtonPressed = false;
 
     private List<GraphElement> copiedElements;
-    
+
     private static PetriNetsPanel instance; // TODO: remove and find a better way
 
     public List<GraphElement> getChoosenElements() {
         return choosenElements;
     }
-	
+
     public PetriNetsPanel(JTextField textField) {
         instance = this;
         initComponents();
         this.setBackground(Color.WHITE);
-      
+
         nameTextField = textField;
         this.setNullPanel(); // починаємо заново створювати усі списки графічних елементів  //додано 3.12.2012
         setFocusable(true);
-  
+
         addMouseListener(new MouseHandler());
         addMouseMotionListener(new MouseMotionHandler());
         addMouseWheelListener(new MouseWheelHendler());
-  
+
         this.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_DELETE||e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
+                if (e.getKeyCode() == KeyEvent.VK_DELETE || e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
                     if (choosenArc != null) {
                         removeArc(choosenArc);
-                        
+
                         /* saving this edit for possible undoing */
                         DeleteArcEdit edit = new DeleteArcEdit(instance, choosenArc);
                         PetriNetsFrame.getUndoSupport().postEdit(edit);
-                        
+
                         choosenArc = null;
                         currentArc = null;
                     }
@@ -117,14 +113,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                             // TODO: make the following code a separate function
                             List<GraphArcIn> inArcsToBeRemoved = new ArrayList<>();
                             List<GraphArcOut> outArcsToBeRemoved = new ArrayList<>();
-                                
+
                             /* finding arcs that will be deleted along with this element. It's mostly a copy-paste from
                             * PetriGraphNet.removeElement and this functionality probably should be merged,
                             * but copy-pasting was the least invasive method of implementing bulk delete undoing.
-                            */ 
-
+                             */
                             for (GraphArcIn arc : getGraphNet().getGraphArcInList()) {
-                                if (arc.getBeginElement() == choosen 
+                                if (arc.getBeginElement() == choosen
                                         || arc.getEndElement() == choosen) {
                                     if (!inArcsToBeRemoved.contains(arc)) {
                                         inArcsToBeRemoved.add(arc);
@@ -134,7 +129,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                             }
 
                             for (GraphArcOut arc : getGraphNet().getGraphArcOutList()) {
-                                if (arc.getBeginElement() == choosen 
+                                if (arc.getBeginElement() == choosen
                                         || arc.getEndElement() == choosen) {
                                     if (!outArcsToBeRemoved.contains(arc)) {
                                         outArcsToBeRemoved.add(arc);
@@ -142,13 +137,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
                                 }
                             }
-                            /* found all arcs that will be deleted */   
-                            
+                            /* found all arcs that will be deleted */
+
                             remove(choosen);
                             // TODO: restoring removed arcs too 
                             /* save this action into undo manager so that it can be undone */
-                            DeleteGraphElementsEdit edit = 
-                                    new DeleteGraphElementsEdit(instance, choosen, 
+                            DeleteGraphElementsEdit edit
+                                    = new DeleteGraphElementsEdit(instance, choosen,
                                             inArcsToBeRemoved, outArcsToBeRemoved);
                             PetriNetsFrame.getUndoSupport().postEdit(edit);
                             choosen = null;
@@ -158,22 +153,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                         }
                     }
                     if (!choosenElements.isEmpty()) {
-                        
+
                         int result = JOptionPane.showConfirmDialog((Component) null, "Are you sure you want to delete selected elements?",
                                 "Delete", JOptionPane.OK_CANCEL_OPTION);
                         if (result == JOptionPane.OK_OPTION) {
                             try {
                                 List<GraphArcIn> inArcsToBeRemoved = new ArrayList<>();
-                                List<GraphArcOut> outArcsToBeRemoved = new ArrayList<>();                      
-                                
+                                List<GraphArcOut> outArcsToBeRemoved = new ArrayList<>();
+
                                 for (GraphElement graphElement : choosenElements) {
                                     /* finding arcs that will be deleted along with this element. It's mostly a copy-paste from
                                      * PetriGraphNet.removeElement and this functionality probably should be merged,
                                      * but copy-pasting was the least invasive method of implementing bulk delete undoing.
-                                    */ 
-                                    
+                                     */
+
                                     for (GraphArcIn arc : getGraphNet().getGraphArcInList()) {
-                                        if (arc.getBeginElement() == graphElement 
+                                        if (arc.getBeginElement() == graphElement
                                                 || arc.getEndElement() == graphElement) {
                                             if (!inArcsToBeRemoved.contains(arc)) {
                                                 inArcsToBeRemoved.add(arc);
@@ -181,9 +176,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
                                         }
                                     }
-                                    
+
                                     for (GraphArcOut arc : getGraphNet().getGraphArcOutList()) {
-                                        if (arc.getBeginElement() == graphElement 
+                                        if (arc.getBeginElement() == graphElement
                                                 || arc.getEndElement() == graphElement) {
                                             if (!outArcsToBeRemoved.contains(arc)) {
                                                 outArcsToBeRemoved.add(arc);
@@ -192,31 +187,30 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                                         }
                                     }
                                     /* found all arcs that will be deleted */
-                                    
+
                                     remove(graphElement);
                                     PetriNetsPanel.this.setDefaultColorGraphElements(); //27.07.2018
                                 }
                                 /* save this action into undo manager so that it can be undone */
-                                DeleteGraphElementsEdit edit = 
-                                        new DeleteGraphElementsEdit(instance, 
+                                DeleteGraphElementsEdit edit
+                                        = new DeleteGraphElementsEdit(instance,
                                                 new ArrayList(choosenElements),
-                                        inArcsToBeRemoved, outArcsToBeRemoved);
-                                
+                                                inArcsToBeRemoved, outArcsToBeRemoved);
+
                                 PetriNetsFrame.getUndoSupport().postEdit(edit);
                             } catch (ExceptionInvalidNetStructure ex) {
                                 Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
                             } finally {
                                 choosenElements.clear();
                                 PetriNetsPanel.this.setDefaultColorGraphElements();//27.07.2018
-                                
+
                             }
                         }
                     }
                 }
 
-               
                 if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_A) {
-                    
+
                     selectAll();
                     repaint();
                 }
@@ -232,60 +226,61 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         });
 
     }
-    
+
     /**
-     * A handler for ctrl+V. Clones elements and arcs associated with them and pastes
-     * them onto the canvas
+     * A handler for ctrl+V. Clones elements and arcs associated with them and
+     * pastes them onto the canvas
      */
     public void pasteAction() {
         if (copiedElements != null && !copiedElements.isEmpty()) {
-            GraphPetriNet.GraphNetFragment clonedFragment = 
-                    graphNet.bulkCopyNoPasteElements(copiedElements);
-            
+            GraphPetriNet.GraphNetFragment clonedFragment
+                    = graphNet.bulkCopyNoPasteElements(copiedElements);
+
             addNetFragment(clonedFragment);
-            
+
             copiedElements = new ArrayList<>(clonedFragment.elements);
-            
+
             PetriNetsFrame.getUndoSupport().postEdit(
                     new PasteElementsEdit(this, clonedFragment)
-            );    
+            );
         }
     }
-    
+
     /**
-     * Adds a fragment of a net onto the canvas. Fragments' coordinates are 
+     * Adds a fragment of a net onto the canvas. Fragments' coordinates are
      * updated in the process.
+     *
      * @param fragment fragment to add
      */
     public void addNetFragment(GraphPetriNet.GraphNetFragment fragment) {
-        List<GraphElement> elementsToSpawn = fragment.elements;               
+        List<GraphElement> elementsToSpawn = fragment.elements;
 
         // de-selecting any selected elements
-        for (GraphElement prevElement: choosenElements) {
+        for (GraphElement prevElement : choosenElements) {
             prevElement.setColor(Color.BLACK);
         }
         choosenElements.clear();
 
-        for (GraphElement element: elementsToSpawn) {
+        for (GraphElement element : elementsToSpawn) {
             Point2D spawnPoint = element.getGraphElementCenter();
             spawnPoint.setLocation(spawnPoint.getX() + 15, spawnPoint.getY() + 15);
 
             element.setNewCoordinates(spawnPoint);
-            
+
             if (element instanceof GraphPetriPlace) {
-                this.getGraphNet().getGraphPetriPlaceList().add((GraphPetriPlace)element);
+                this.getGraphNet().getGraphPetriPlaceList().add((GraphPetriPlace) element);
             } else {
-                this.getGraphNet().getGraphPetriTransitionList().add((GraphPetriTransition)element);
+                this.getGraphNet().getGraphPetriTransitionList().add((GraphPetriTransition) element);
             }
-            
+
             choosenElements.add(element);
             element.setColor(Color.GREEN);
         }
-        
+
         for (GraphArcIn arcIn : fragment.inArcs) {
             getGraphNet().getGraphArcInList().add(arcIn);
         }
-        
+
         for (GraphArcOut arcOut : fragment.outArcs) {
             getGraphNet().getGraphArcOutList().add(arcOut);
         }
@@ -304,7 +299,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 arcOut.updateCoordinates();
             }
         }
-        
+
         repaint();
     }
 
@@ -328,68 +323,68 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     @Override
     public void paintComponent(Graphics g) {
-        
+
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
         g2.scale(scale, scale);
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                            RenderingHints.VALUE_ANTIALIAS_ON);
+                RenderingHints.VALUE_ANTIALIAS_ON);
         this.requestFocusInWindow(); //added 1.06.2013
         //додано 3.12.2012
         if (graphNet == null) {
             graphNet = new GraphPetriNet();
         }
-        
+
         graphNet.paintGraphPetriNet(g2, g);
-       
+
         if (currentArc != null) {
-             currentArc.drawGraphElement(g2);
+            currentArc.drawGraphElement(g2);
         }
         if (choosenArc != null) {
-             choosenArc.drawGraphElement(g2);
+            choosenArc.drawGraphElement(g2);
         }
         if (current != null) {
             current.drawGraphElement(g2);
         }
         if (choosen != null) {
-             choosen.drawGraphElement(g2);
-        } 
+            choosen.drawGraphElement(g2);
+        }
         for (GraphElement graphElement : choosenElements) {
-         
+
             graphElement.drawGraphElement(g2);
         }
-     
-     //  printPointLocation(currentDragMouseLocation,"current");
-     //  printPointLocation(startDragMouseLocation,"start");
-    //   printArraySize(choosenElements, "");
+
+        //  printPointLocation(currentDragMouseLocation,"current");
+        //  printPointLocation(startDragMouseLocation,"start");
+        //   printArraySize(choosenElements, "");
         if (currentDragMouseLocation != null && startDragMouseLocation != null && leftMouseButtonPressed) {
             g2.setStroke((Stroke) new BasicStroke(1.0f,
                     BasicStroke.CAP_ROUND,
                     BasicStroke.JOIN_BEVEL,
                     20.0f,
-                    new float[]{15.0f, 15.0f},0.0f));
-            g2.drawRect(startDragMouseLocation.x, 
+                    new float[]{15.0f, 15.0f}, 0.0f));
+            g2.drawRect(startDragMouseLocation.x,
                     startDragMouseLocation.y,
                     currentDragMouseLocation.x - startDragMouseLocation.x,
                     currentDragMouseLocation.y - startDragMouseLocation.y);
         }
     }
-    
-    private void printPointLocation(Point point, String s){
-        if(point!=null){
-            System.out.println(s+"  "+point.getX());
-        } else{
+
+    private void printPointLocation(Point point, String s) {
+        if (point != null) {
+            System.out.println(s + "  " + point.getX());
+        } else {
             System.out.println("NULL");
         }
     }
-    private void printArraySize(List<GraphElement> list, String s){
-        if(list!=null){
-            System.out.println(s+"  "+list.size());
-        } else{
+
+    private void printArraySize(List<GraphElement> list, String s) {
+        if (list != null) {
+            System.out.println(s + "  " + list.size());
+        } else {
             System.out.println("NULL");
         }
     }
-    
 
     public GraphElement find(Point2D p) {
         for (GraphPetriPlace pp : graphNet.getGraphPetriPlaceList()) {
@@ -430,32 +425,34 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         /* if(current!=null)System.out.println("remove : "+current.getName()+"  "+s.getName());
         else System.out.println("remove : current null");*/
         graphNet.delGraphElement(s); //added by Inna 4.12.2012
-        
+
         repaint();
     }
 
-    public class MouseWheelHendler implements MouseWheelListener{
+    public class MouseWheelHendler implements MouseWheelListener {
 
-		@Override
-		public void mouseWheelMoved(MouseWheelEvent e) {
-			if(e.getWheelRotation()==-1 && scale <=0.15)return;
-			scale+=(double)e.getWheelRotation()/10;
-			repaint();
-		}
-    	
+        @Override
+        public void mouseWheelMoved(MouseWheelEvent e) {
+            if (e.getWheelRotation() == -1 && scale <= 0.15) {
+                return;
+            }
+            scale += (double) e.getWheelRotation() / 10;
+            repaint();
+        }
+
     }
-    
+
     public void selectAll() { // works when key event is Ctrl+a  
         choosenElements.clear();
         for (GraphPetriPlace p : graphNet.getGraphPetriPlaceList()) {
             choosenElements.add(p);
             p.setColor(Color.GREEN);
-            
+
         }
         for (GraphPetriTransition tr : graphNet.getGraphPetriTransitionList()) {
             choosenElements.add(tr);
             tr.setColor(Color.GREEN);
-            
+
         }
     }
 
@@ -483,9 +480,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         setDefaultColorGraphArcs();
         repaint();
     }
-    
 
     public class MouseHandler extends MouseAdapter {
+
         private java.util.Timer timer;
         private boolean isMouseButtonHold = false;
 
@@ -524,8 +521,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                             to.updateCoordinates();
                         }
                     }
-                    
-                    if( choosenArc!=null){
+
+                    if (choosenArc != null) {
                         choosenArc.setColor(Color.BLACK);//26.07.2018
                     }
                     choosenArc = null;
@@ -537,44 +534,43 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 current = find(scaledCurrentMousePoint);
                 if (current != null) {
                     current.setColor(Color.BLUE);
-                   
+
                     if (current.getClass().equals(GraphPetriPlace.class)) {
                         currentArc = new GraphArcIn();
-                         currentArc.setColor(Color.BLUE);//26.07.2018
+                        currentArc.setColor(Color.BLUE);//26.07.2018 
                         graphNet.getGraphArcInList().add((GraphArcIn) currentArc); //3.12.2012
                         currentArc.settingNewArc(current); //set begin element, point and setting LINe(0,0)
                     } else if (current.getClass().equals(GraphPetriTransition.class)) { //26.01.2013
                         currentArc = new GraphArcOut();
-                         currentArc.setColor(Color.BLUE);//26.07.2018
+                        currentArc.setColor(Color.BLUE);//26.07.2018
                         graphNet.getGraphArcOutList().add((GraphArcOut) currentArc); //3.12.2012
                         currentArc.settingNewArc(current);
                     }
                 } else {    //26.01.2013
-                    
+
                     isSettingArc = false;
                 }
                 // System.out.println("after added tie we have such graph net:");
                 // graphNet.print();
-            } 
-            
+            }
+
             isSettingArc = false;//26.01.2013
             choosenArc = null;
             repaint();
         }
-        
-       
+
         @Override
         public void mouseClicked(MouseEvent ev) {
-            
+
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
-            
-           if (current == null && currentArc == null) { // previous click was empty
-          
-          //  PetriNetsPanel.this.printPointLocation(prevMouseLocation, "clear");
-               setDefaultColorGraphElements();
-               setDefaultColorGraphArcs();
-               choosenElements.clear();
-               choosen = null;
+
+            if (current == null && currentArc == null) { // previous click was empty
+
+                //  PetriNetsPanel.this.printPointLocation(prevMouseLocation, "clear");
+                setDefaultColorGraphElements();
+                setDefaultColorGraphArcs();
+                choosenElements.clear();
+                choosen = null;
             }
             if (current != null) {
                 current.setColor(Color.BLUE); //26.07.2018
@@ -644,18 +640,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                         tr.setColor(Color.GREEN);
                     }
                 }
-            repaint();
+                repaint();
             }
-            
+
             startDragMouseLocation = null;
             currentDragMouseLocation = null;
             current = null;
-          //  setDefaultColorGraphElements();// deleted 27.07.2018
-            
+            //  setDefaultColorGraphElements();// deleted 27.07.2018
+
             setCursor(Cursor.getDefaultCursor());
             if (currentArc != null) {
                 currentArc.setColor(Color.BLUE);
                 current = find(scaledCurrentMousePoint);
+
                 if (current != null) {
                     current.setColor(Color.BLUE);
                     if (currentArc.finishSettingNewArc(current)) {
@@ -665,33 +662,83 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                         isSettingArc = false;
                         currentArc.setColor(Color.BLACK);
                         int currBeginId, currEndId;
+                        boolean isrepeat;
                         if (currentArc.getClass().equals(GraphArcIn.class)) {
                             currBeginId = ((GraphPetriPlace) currentArc.getBeginElement()).getId();
                             currEndId = ((GraphPetriTransition) currentArc.getEndElement()).getId();
-                        } else {
+                            isrepeat = false;
+                            for (GraphArcIn ti : graphNet.getGraphArcInList()) {   // check if GraphArcOut is created for the same place and transition
+
+                                if ((ti != currentArc)
+                                        && ((GraphPetriPlace) ti.getBeginElement()).getId() == currBeginId
+                                        && ((GraphPetriTransition) ti.getEndElement()).getId() == currEndId) {
+                                    isrepeat = true;
+                                    ti.getArcIn().setQuantity(ti.getArcIn().getQuantity() + 1);
+                                    break;
+                                }
+
+                            }
+                            if (isrepeat) {
+                                graphNet.getGraphArcInList().remove((GraphArcIn) currentArc);
+                            } else {
+                                   // check if current GraphArcOut is opposite to one of the existed arcs 
+                                for (GraphArcOut to : graphNet.getGraphArcOutList()) {
+
+                                    if (((GraphPetriTransition) to.getBeginElement()).getId() == currEndId
+                                            && ((GraphPetriPlace) to.getEndElement()).getId() == currBeginId) {
+
+                                        if (!to.isFirstArc() && !to.isSecondArc()) { //july 2023
+
+                                            currentArc.twoArcs(to);
+                                            currentArc.updateCoordinates();
+                                            break;
+                                        }
+                                    }
+
+                                }
+                                /* saving the action of adding an GraphArcOut for possible undoing */
+                                AddArcEdit edit = new AddArcEdit(instance, currentArc);
+                                PetriNetsFrame.getUndoSupport().postEdit(edit);
+                            }
+
+                        } else { // current GraphArcOut is GraphArcOut
                             currBeginId = ((GraphPetriTransition) currentArc.getBeginElement()).getId();
                             currEndId = ((GraphPetriPlace) currentArc.getEndElement()).getId();
+                            isrepeat = false;
+                            for (GraphArcOut to : graphNet.getGraphArcOutList()) {    // check if GraphArcOut is created for the same place and transition
+
+                                if ((to != currentArc)
+                                        && ((GraphPetriTransition) to.getBeginElement()).getId() == currBeginId
+                                        && ((GraphPetriPlace) to.getEndElement()).getId() == currEndId) {
+                                    isrepeat = true;
+                                    to.getArcOut().setQuantity(to.getArcOut().getQuantity() + 1);
+                                    break;
+                                }
+
+                            }
+                            if (isrepeat) { // new GraphArcOut is existed in the list of arcs
+                                graphNet.getGraphArcOutList().remove((GraphArcOut) currentArc);
+                            } else {
+
+                                // check if current GraphArcOut is opposite to one of the existed arcs 
+                                for (GraphArcIn ti : graphNet.getGraphArcInList()) {
+                                    if (((GraphPetriPlace) ti.getBeginElement()).getId() == currEndId
+                                            && ((GraphPetriTransition) ti.getEndElement()).getId() == currBeginId) {
+
+                                        if (!ti.isFirstArc() && !ti.isSecondArc()) { //july 2023 to provide the oposite GraphArcOut does not exist
+
+                                            currentArc.twoArcs(ti);
+                                            currentArc.updateCoordinates();
+                                            break;
+                                        }
+                                    }
+                                }
+                                /* saving the action of adding an GraphArcOut for possible undoing */
+                                AddArcEdit edit = new AddArcEdit(instance, currentArc);
+                                PetriNetsFrame.getUndoSupport().postEdit(edit);
+                            }
                         }
 
-                        for (GraphArcIn ti : graphNet.getGraphArcInList()) {
-                            if (((GraphPetriPlace) ti.getBeginElement()).getId() == currEndId 
-                                    && ((GraphPetriTransition) ti.getEndElement()).getId() == currBeginId) {
-                                currentArc.twoArcs(ti);
-                                currentArc.updateCoordinates();
-                            }
-                        }
-                        for (GraphArcOut to : graphNet.getGraphArcOutList()) {
-                            if (((GraphPetriTransition) to.getBeginElement()).getId() == currEndId 
-                                    && ((GraphPetriPlace) to.getEndElement()).getId() == currBeginId) {
-                                currentArc.twoArcs(to);
-                                currentArc.updateCoordinates();
-                            }
-                        }
-                        
-                        /* saving the action of adding an arc for possible undoing */ 
-                        AddArcEdit edit = new AddArcEdit(instance, currentArc);
-                        PetriNetsFrame.getUndoSupport().postEdit(edit);
-                        
                         currentArc = null;
                         setDefaultColorGraphArcs();
                     } else {                        //1.02.2013 цей фрагмент дозволяє відслідковувати намагання 
@@ -708,21 +755,18 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             setDefaultColorGraphArcs();
             leftMouseButtonPressed = false;
             repaint();
-           
+
         }
 
         private void startTimer() {
-            if(timer == null)
-            {
+            if (timer == null) {
                 timer = new java.util.Timer();
             }
-            timer.schedule(new TimerTask()
-            {
-                public void run()
-                {
+            timer.schedule(new TimerTask() {
+                public void run() {
                     isMouseButtonHold = true;
                 }
-            },500);
+            }, 500);
         }
 
         private void removeTimer() {
@@ -737,12 +781,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private void removeCurrentArc() { //1.02.2013 цей метод дозволяє знищувати намальовану дугу
         if (currentArc.getClass().equals(GraphArcIn.class)) // 
         {
-            graphNet.getGraphArcInList().remove(currentArc);
+            graphNet.getGraphArcInList().remove((GraphArcIn) currentArc);
         } else if (currentArc.getClass().equals(GraphArcOut.class)) {
-            graphNet.getGraphArcOutList().remove(currentArc);
+            graphNet.getGraphArcOutList().remove((GraphArcOut) currentArc);
         } else ;
         currentArc = null;
-        
+
         repaint();
     }
 
@@ -756,7 +800,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 currentDragMouseLocation = scaledCurrentMousePoint;
             }
             if (current != null && currentArc == null) {  // moving place or transition
-                
+
                 current.setColor(Color.BLUE);
                 PetriNetsPanel.this.setDefaultColorGraphArcs(); //26.07.2018
 
@@ -768,19 +812,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     to.updateCoordinates();
                 }
             }
-           
-            if (currentArc != null && current != null) { //creating the arc
+
+            if (currentArc != null && current != null) { //creating the GraphArcOut
                 currentArc.setColor(Color.BLUE);
                 current.setColor(Color.BLUE);
                 currentArc.setNewCoordinates(scaledCurrentMousePoint);
             }
-          
+
             if (!choosenElements.isEmpty() && leftMouseButtonPressed) { //moving choosenElements
-               
-                for(GraphElement e: choosenElements){
+
+                for (GraphElement e : choosenElements) {
                     e.setColor(Color.GREEN);
                 }
-                
+
                 setCursor(new Cursor(Cursor.MOVE_CURSOR));
                 for (GraphElement graphElement : choosenElements) {
                     Point currentLocation = new Point(
@@ -830,7 +874,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     public GraphElement getChoosen() {
         return choosen;
     }
-    
+
     public void setChoosen(GraphElement chosen) {
         this.choosen = chosen;
     }
@@ -846,7 +890,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     public GraphArc getChoosenArc() {
         return choosenArc;
     }
-    
+
     public void setChoosenArc(GraphArc arc) {
         this.choosenArc = arc;
     }
@@ -881,7 +925,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         currentArc = null;
         choosen = null;
         choosenArc = null;
-       
+
         id = 0;
         PetriP.initNext();
         PetriT.initNext();
@@ -890,21 +934,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         GraphPetriPlace.setNullSimpleName();
         GraphPetriTransition.setNullSimpleName();
         graphNet = new GraphPetriNet();
-        
+
         repaint();
     }
 
     public void addGraphNet(GraphPetriNet net) {
+        // If there's no existing net, just set the new one
+        if (graphNet == null) {
+            graphNet = net;
+        } else {
+            // Merge the new net into the existing one
+            graphNet.mergeGraphNet(net);
+        }
 
-        graphNet = net;
-       
         int maxIdPetriNet = 0; //
         for (GraphPetriPlace pp : graphNet.getGraphPetriPlaceList()) {  //відшукуємо найбільший id для позицій
             if (maxIdPetriNet < pp.getId()) {
                 maxIdPetriNet = pp.getId();
             }
         }
-        for (GraphPetriTransition pt : graphNet.getGraphPetriTransitionList()) { //відшукуємо найбільший id для переходів і позицій 
+        for (GraphPetriTransition pt : graphNet.getGraphPetriTransitionList()) { //відшукуємо найбільший id для переходів і позицій
             if (maxIdPetriNet < pt.getId()) {
                 maxIdPetriNet = pt.getId();
             }
@@ -914,7 +963,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             id = maxIdPetriNet;
         }
         id++;
-        
+
         repaint();
     }
 
@@ -932,7 +981,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         graphNet = net;
         repaint();
     }
-/*
+
+    /*
     public List<GraphPetriNet> getGraphNetList() {  //11.01.13
         return graphNetList;
     }
@@ -940,11 +990,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     public GraphPetriNet getLastGraphNetList() {  //11.01.13
         return graphNetList.get(graphNetList.size() - 1);
     }
-*/
+     */
     public static int getIdElement() {  //edited by Inna 1.10.2018
         return id++;
     }
-  
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -960,23 +1010,23 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }// </editor-fold>//GEN-END:initComponents
     // Variables declaration - do not modify//GEN-BEGIN:variables
     // End of variables declaration//GEN-END:variables
-    
+
     public void animateIn(PetriT tr) {    //Саша 05.17
-        
+
         ArrayList<GraphArcIn> list = new ArrayList<>();
         for (GraphArcIn t : graphNet.getGraphArcInList()) {
             if (t.getArcIn().getNumT() == tr.getNumber()) {
                 list.add(t);
             }
         }
-        animArcIn(list,100,3,new Color(255, 77, 77));
-        animArcIn(list,100,5);
-        animArcIn(list,100,7);
-        animArcIn(list,100,5);
-        animArcIn(list,100,3);
-        animArcIn(list,100,1, Color.BLACK);
+        animArcIn(list, 100, 3, new Color(255, 77, 77));
+        animArcIn(list, 100, 5);
+        animArcIn(list, 100, 7);
+        animArcIn(list, 100, 5);
+        animArcIn(list, 100, 3);
+        animArcIn(list, 100, 1, Color.BLACK);
     }
-    
+
     public void animateT(PetriT tr) {   //Саша 05.17
         ArrayList<GraphPetriTransition> list = new ArrayList<>();
         for (GraphPetriTransition t : graphNet.getGraphPetriTransitionList()) {
@@ -984,14 +1034,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 list.add(t);
             }
         }
-        animTransitions(list,100,7,new Color(255, 77, 77));
-        animTransitions(list,100,10);
-        animTransitions(list,100,12);
-        animTransitions(list,100,10);
-        animTransitions(list,100,7);
-        animTransitions(list,100,5,Color.BLACK);
+        animTransitions(list, 100, 7, new Color(255, 77, 77));
+        animTransitions(list, 100, 10);
+        animTransitions(list, 100, 12);
+        animTransitions(list, 100, 10);
+        animTransitions(list, 100, 7);
+        animTransitions(list, 100, 5, Color.BLACK);
 
     }
+
     public void animateP(ArrayList<Integer> inP) {  //Саша 05.17
         ArrayList<GraphPetriPlace> list = new ArrayList<>();
         for (GraphPetriPlace p : graphNet.getGraphPetriPlaceList()) {
@@ -1001,14 +1052,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
             }
         }
-        animPlaces(list,100, 5, new Color(255, 77, 77));
-        animPlaces(list,100, 7);
-        animPlaces(list,100, 10);
-        animPlaces(list,100, 7);
-        animPlaces(list,100, 5);
-        animPlaces(list,100, 2, Color.BLACK);
+        animPlaces(list, 100, 5, new Color(255, 77, 77));
+        animPlaces(list, 100, 7);
+        animPlaces(list, 100, 10);
+        animPlaces(list, 100, 7);
+        animPlaces(list, 100, 5);
+        animPlaces(list, 100, 2, Color.BLACK);
     }
-    
+
     public void animateOut(PetriT eventMin) {   //Саша 05.17
         ArrayList<GraphArcOut> list = new ArrayList<>();
         for (GraphArcOut t : graphNet.getGraphArcOutList()) {
@@ -1016,14 +1067,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 list.add(t);
             }
         }
-        animArcOut(list, 50, 3,new Color(255, 77, 77));
+        animArcOut(list, 50, 3, new Color(255, 77, 77));
         animArcOut(list, 50, 5);
         animArcOut(list, 50, 7);
         animArcOut(list, 50, 5);
         animArcOut(list, 50, 3);
         animArcOut(list, 50, 1, Color.BLACK);
     }
-    
+
     private void animArcIn(ArrayList<GraphArcIn> list, long sleepDelay, int lineWidth, Color color) {
         try {
             for (GraphArcIn a : list) {
@@ -1036,6 +1087,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
+
     private void animArcIn(ArrayList<GraphArcIn> list, long sleepDelay, int lineWidth) {
         try {
             for (GraphArcIn a : list) {
@@ -1047,7 +1099,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+
     private void animArcOut(ArrayList<GraphArcOut> list, long sleepDelay, int lineWidth, Color color) {
         try {
             for (GraphArcOut a : list) {
@@ -1060,6 +1112,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
+
     private void animArcOut(ArrayList<GraphArcOut> list, long sleepDelay, int lineWidth) {
         try {
             for (GraphArcOut a : list) {
@@ -1071,7 +1124,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+
     private void animPlaces(ArrayList<GraphPetriPlace> list, long sleepDelay, int lineWidth, Color color) {
         try {
             for (GraphPetriPlace p : list) {
@@ -1084,7 +1137,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+
     private void animPlaces(ArrayList<GraphPetriPlace> list, long sleepDelay, int lineWidth) {
         try {
             for (GraphPetriPlace p : list) {
@@ -1096,8 +1149,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
-     private void animTransitions(ArrayList<GraphPetriTransition> list, long sleepDelay, int lineWidth, Color color) {
+
+    private void animTransitions(ArrayList<GraphPetriTransition> list, long sleepDelay, int lineWidth, Color color) {
         try {
             for (GraphPetriTransition tr : list) {
                 tr.setLineWidth(lineWidth);
@@ -1109,7 +1162,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-     private void animTransitions(ArrayList<GraphPetriTransition> list, long sleepInterval, int lineWidth) {
+
+    private void animTransitions(ArrayList<GraphPetriTransition> list, long sleepInterval, int lineWidth) {
         try {
             for (GraphPetriTransition tr : list) {
                 tr.setLineWidth(lineWidth);
@@ -1120,6 +1174,5 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-     
-    
+
 }

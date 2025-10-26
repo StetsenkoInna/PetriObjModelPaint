@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphnet;
 
 import ua.stetsenkoinna.PetriObj.ArcOut;
@@ -15,53 +11,47 @@ import java.util.List;
 
 /**
  *
- * @author Инна
+ * @author Inna
  */
 public class GraphArcOut extends GraphArc implements Serializable {
 
-    private static ArrayList<GraphArcOut> graphTieOutList = new ArrayList<>();  // added by Olha 24.09.12, cjrrect by Inna 28.11.2012
-    private ArcOut tie;
-    
-    
-    
-   public GraphArcOut() { // додано Олею 28.09.12 для створення тимчасової дуги (тільки для промальовки) 
-       super();
-       tie = new ArcOut();
-       //System.out.println("GraphTieOut  "+ tie.getNameT()+"  "+tie.getNumT()+"  "+tie.getNameP()+"  "+tie.getNumP());
-       super.setLineWidth(1);
-       super.setColor(Color.BLACK);
-    }
-    
-     public GraphArcOut(ArcOut tieout){
-        tie = tieout;
+    private static ArrayList<GraphArcOut> graphArcOutList = new ArrayList<>();
+
+    private final ArcOut arc;
+
+    public GraphArcOut() { // для створення тимчасової дуги (тільки для промальовки)
+        super();
+        arc = new ArcOut();
         super.setLineWidth(1);
         super.setColor(Color.BLACK);
-   
     }
-     public ArcOut getArcOut()
-    {
-        return tie;
+
+    public GraphArcOut(ArcOut arcout) {
+        arc = arcout;
+        super.setLineWidth(1);
+        super.setColor(Color.BLACK);
     }
-    @Override
-    public void setPetriElements() {
-        tie.setQuantity(tie.getQuantity());
-        tie.setNumT(super.getBeginElement().getNumber());
-        tie.setNameT(super.getBeginElement().getName());
-        tie.setNumP(super.getEndElement().getNumber());
-        tie.setNameP(super.getEndElement().getName());
-    /*  System.out.println("GraphTIE OUT : setPetriElements "+super.getBeginElement().getName()+  "  "+ super.getBeginElement().getNumber()+
-                    super.getEndElement().getName()+"  "+super.getEndElement().getNumber()     
-                );*/
-        addElementToArrayList(); //// added by Olha 24.09.12
+
+    public ArcOut getArcOut() {
+        return arc;
     }
-    
 
     @Override
-    public void addElementToArrayList() {   // added by Olha 24.09.12
-        if (graphTieOutList == null) {
-            graphTieOutList = new ArrayList<>();
+    public void setPetriElements() {
+        arc.setQuantity(arc.getQuantity());
+        arc.setNumT(super.getBeginElement().getNumber());
+        arc.setNameT(super.getBeginElement().getName());
+        arc.setNumP(super.getEndElement().getNumber());
+        arc.setNameP(super.getEndElement().getName());
+        addElementToArrayList();
+    }
+
+    @Override
+    public void addElementToArrayList() {
+        if (graphArcOutList == null) {
+            graphArcOutList = new ArrayList<>();
         }
-        graphTieOutList.add(this);
+        graphArcOutList.add(this);
     }
 
     @Override
@@ -71,50 +61,54 @@ public class GraphArcOut extends GraphArc implements Serializable {
         g2.setColor(getColor());
         g2.draw(this.getGraphElement());
         drawArrowHead(g2);
-        if (tie.getQuantity() != 1 || tie.kIsParam()) {
-            String quantityString = tie.kIsParam() // added by Katya 08.12.2016
-                ? tie.getKParamName()
-                : Integer.toString(tie.getQuantity());
+        if (arc.getQuantity() != 1 || arc.kIsParam()) {
+            String quantityString = arc.kIsParam()
+                    ? arc.getKParamName()
+                    : Integer.toString(arc.getQuantity());
             this.getAvgLine().setLocation((this.getGraphElement().getX1() + this.getGraphElement().getX2()) / 2, (this.getGraphElement().getY1() + this.getGraphElement().getY2()) / 2);
             g2.drawLine((int) this.getAvgLine().getX() + 5, (int) this.getAvgLine().getY() - 5, (int) this.getAvgLine().getX() - 5, (int) this.getAvgLine().getY() + 5);
-            g2.drawString(quantityString, (float) this.getAvgLine().getX(), (float) this.getAvgLine().getY() - 7);
+
+            // shift two arcs
+            float textX = (float) this.getAvgLine().getX();
+            float textY = (float) this.getAvgLine().getY() - 7;
+            if (this.isFirstArc()) {
+                textX -= 10; // left shift for the first arc
+                textY -= 5;  // upper shift
+            } else if (this.isSecondArc()) {
+                textX += 10; // right shift for the second arc
+                textY += 5;  // down shift
+            }
+            g2.drawString(quantityString, textX, textY);
         }
     }
 
-    public static ArrayList<GraphArcOut> getGraphTieOutList() {
-        return graphTieOutList;
+    public static ArrayList<GraphArcOut> getGraphArcOutList() {
+        return graphArcOutList;
     }
-    
-    public static ArrayList<ArcOut> getArcOutList() {  // added by Inna 1.11.2012
-        
+
+    public static ArrayList<ArcOut> getArcOutList() {
         ArrayList<ArcOut> arrayTieOut = new ArrayList<>();
-        for (GraphArcOut e: graphTieOutList)
+        for (GraphArcOut e : graphArcOutList) {
             arrayTieOut.add(e.getArcOut());
+        }
         return arrayTieOut;
     }
-//    public static void setTieOutList(ArrayList<TieOut> TieOutList) {
-//        TieOut.tieOutList = TieOutList;
-//    }
-    public static void setNullTieOutList() {
-        graphTieOutList.clear();
-    }
-    public static void addGraphTieOutList(List<GraphArcOut> tieOut){ // added by Olha 14/11/2012
-      for (GraphArcOut to:tieOut) {
-          graphTieOutList.add(to);
-      } 
-    }
-     
-    
-    
-     @Override
-    public int getQuantity(){  //потрібно для правильної роботи методу getQuantity() батьківського класу
-            return tie.getQuantity();
-        }
-    @Override
-   public void setQuantity(int i){
-            tie.setQuantity(i);
-        }
 
-    
-    
+    public static void setNullTieOutList() {
+        graphArcOutList.clear();
+    }
+
+    public static void addGraphTieOutList(List<GraphArcOut> tieOut) { // added by Olha 14/11/2012
+        graphArcOutList.addAll(tieOut);
+    }
+
+    @Override
+    public int getQuantity() {  //потрібно для правильної роботи методу getQuantity() батьківського класу
+        return arc.getQuantity();
+    }
+
+    @Override
+    public void setQuantity(int i) {
+        arc.setQuantity(i);
+    }
 }

@@ -1,5 +1,8 @@
+/dist/
 .idea/
 PetriObjModelPaint.iml
 build/
 target/
-NetLibraryDynamic/NetLibraryDynamic.class
+./nbproject/private/
+dependency-reduced-pom.xml
+temp/

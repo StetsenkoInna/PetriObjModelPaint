@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ua.stetsenkoinna.graphnet;
 
 import ua.stetsenkoinna.PetriObj.PetriP;
@@ -14,13 +10,14 @@ import java.io.Serializable;
  *
  * @author Инна
  */
-public class GraphPetriPlace extends GraphPlace implements Serializable {     //додано Олею 17.25.2012
- 
-    private PetriP place;
-    private static int simpleInd=0; // added by Inna 18.01.2013
-    private int id; //додано Олею
+public class GraphPetriPlace extends GraphPlace implements Serializable {
+
+    private static int simpleInd=0;
+
+    private final PetriP place;
+    private final int id;
   
-    public GraphPetriPlace(PetriP P, int i){ //додано Олею
+    public GraphPetriPlace(PetriP P, int i){
         place = P;
         id=i;
     }
@@ -29,15 +26,21 @@ public class GraphPetriPlace extends GraphPlace implements Serializable {     //
          return place;
     }
    
-    @Override                 //додано Олею 17.09.2012
+    @Override
     public void drawGraphElement(Graphics2D g2) {
         super.drawGraphElement(g2);
         int font = 10;
-        g2.drawString(place.getName(), (float) this.getGraphElement().getX() + GraphPetriPlace.getDiameter() / 2 - (place.getName().length() * font) / 2, (float) this.getGraphElement().getY()- GraphPetriPlace.getDiameter() / 2 + GraphPetriPlace.getDiameter()/3 );
-        String markString = place.markIsParam() // added by Katya 08.12.2016
+        g2.drawString(place.getName(),
+                    (float) this.getGraphElement().getX() + (float) GraphPetriPlace.getDiameter() / 2 - (float) (place.getName().length() * font) / 2,
+                    (float) this.getGraphElement().getY()- (float) GraphPetriPlace.getDiameter() / 2 + (float) GraphPetriPlace.getDiameter() /3
+        );
+        String markString = place.markIsParam()
             ? place.getMarkParamName()
             : Integer.toString(place.getMark());
-        g2.drawString(markString, (float) this.getGraphElement().getX() + GraphPetriPlace.getDiameter() / 2 - Integer.toString(place.getMark()).length() * font / 2, (float) this.getGraphElement().getY() + GraphPetriPlace.getDiameter() / 2 + font / 2);
+        g2.drawString(markString,
+                (float) this.getGraphElement().getX() + (float) GraphPetriPlace.getDiameter() / 2 - (float) (Integer.toString(place.getMark()).length() * font) / 2,
+                (float) this.getGraphElement().getY() + (float) GraphPetriPlace.getDiameter() / 2 + (float) font / 2
+        );
     }
     
     @Override
@@ -48,24 +51,24 @@ public class GraphPetriPlace extends GraphPlace implements Serializable {     //
     @Override
     public int getId(){
         return id;
-    } 
+    }
+
     @Override
      public String getName(){
            return this.getPetriPlace().getName();
        }
+
     @Override
        public int getNumber(){
            return this.getPetriPlace().getNumber();
        }
     
-    public static String setSimpleName(){ // added by Inna 18.01.2013
+    public static String setSimpleName(){
           simpleInd++; 
           return "P"+simpleInd;
        }
-    
-     public static void setNullSimpleName(){ // added by Inna 18.01.2013
-          simpleInd = 0; 
-          
-       }
-     
+
+    public static void setNullSimpleName(){
+        simpleInd = 0;
+    }
 }

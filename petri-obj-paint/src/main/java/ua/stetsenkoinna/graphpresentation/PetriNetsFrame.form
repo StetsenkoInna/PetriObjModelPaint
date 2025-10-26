@@ -180,6 +180,21 @@
             </MenuItem>
           </SubComponents>
         </Menu>
+        <Menu class="javax.swing.JMenu" name="statisticMenu">
+          <Properties>
+            <Property name="text" type="java.lang.String" value="Statistic"/>
+          </Properties>
+          <SubComponents>
+            <MenuItem class="javax.swing.JMenuItem" name="openMonitor">
+              <Properties>
+                <Property name="text" type="java.lang.String" value="Open monitor"/>
+              </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="openMonitorActionPerformed"/>
+              </Events>
+            </MenuItem>
+          </SubComponents>
+        </Menu>
         <Menu class="javax.swing.JMenu" name="Animate">
           <Properties>
             <Property name="action" type="javax.swing.Action" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
@@ -562,7 +577,6 @@
                 <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
                   <Border info="null"/>
                 </Property>
-                <Property name="floatable" type="boolean" value="false"/>
                 <Property name="rollover" type="boolean" value="true"/>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Arial" size="12" style="0"/>
@@ -959,7 +973,6 @@
                     </LineBorder>
                   </Border>
                 </Property>
-                <Property name="floatable" type="boolean" value="false"/>
                 <Property name="rollover" type="boolean" value="true"/>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                   <Font name="Arial" size="12" style="0"/>
@@ -1432,7 +1445,6 @@
                         </LineBorder>
                       </Border>
                     </Property>
-                    <Property name="floatable" type="boolean" value="false"/>
                     <Property name="rollover" type="boolean" value="true"/>
                     <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                       <Font name="Arial" size="12" style="0"/>

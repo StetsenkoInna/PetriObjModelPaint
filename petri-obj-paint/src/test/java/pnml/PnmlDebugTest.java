@@ -56,7 +56,7 @@ public class PnmlDebugTest {
             assertNotNull("Transition " + i + " should have a name", transition.getName());
             assertNotNull("Transition " + i + " should have an ID", transition.getId());
             assertTrue("Transition " + i + " should have valid number", transition.getNumber() >= 0);
-            assertTrue("Transition " + i + " should have valid delay", transition.getParametr() >= 0);
+            assertTrue("Transition " + i + " should have valid delay", transition.getParameter() >= 0);
         }
 
         // Verify input arcs have valid properties

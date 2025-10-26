@@ -28,12 +28,8 @@ public class GraphReUseFrame extends javax.swing.JFrame {
     public GraphReUseFrame() throws ExceptionInvalidNetStructure {
         initComponents();
         this.setLocationRelativeTo(null);
-        
-      //  fileUse = new FileUse();
-       // graphPetriNet = fileUse.openFile(this);
-        
-        String netName = graphPetriNet.getPetriNet().getName();
-        graphNetName = netName.substring(0, netName.length());
+
+        graphNetName = graphPetriNet.getPetriNet().getName();
 
         placeTableModel = new PetriPlaceTableModel();
         placeTableModel.setGraphPetriPlaceList(graphPetriNet.getGraphPetriPlaceList());
@@ -87,7 +83,7 @@ public class GraphReUseFrame extends javax.swing.JFrame {
         arcOutScrollPane = new javax.swing.JScrollPane();
         saveButton = new javax.swing.JButton();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 
         saveAsButton.setText("Зберегти як");
         saveAsButton.addActionListener(new java.awt.event.ActionListener() {

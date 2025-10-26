@@ -2,20 +2,11 @@ package ua.stetsenkoinna.PetriObj;
 
 import java.util.Random;
 
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
-
-
-
 /**
  *This class contains methods for generating a random value according to a given distribution
  *  @author Inna V. Stetsenko
  */
 public  class FunRand {
-
-
     /**
      * Generates random value according to an exponential distribution
      *
@@ -67,6 +58,7 @@ public  class FunRand {
             throw new ExceptionInvalidTimeDelay("Negative time delay is generatated: Check parameters for time delay.");
         return a;
     }
+
     /**
      * Generates random value according to the empiric distribution
      * determined by the sequence of points (xi,yi), 

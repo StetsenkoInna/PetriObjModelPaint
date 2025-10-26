@@ -10,15 +10,22 @@ PetriObjModelPaint is the project of Petri-object simulation technique implement
 
 - **Visual Petri Net Editor**: Create and edit Petri nets with intuitive drag-and-drop interface
 - **PNML Support**: Import and export Petri nets in standard PNML format (ISO/IEC 15909)
+- **Statistics Module**: Advanced simulation statistics and charting capabilities
 - **Simulation**: Run and animate Petri net simulations
 - **Net Library**: Built-in library of common Petri net patterns
 - **Extensible**: Support for custom net components and annotations
 
+## Technology Stack
+
+### Core Technologies
+- **Java**: 23
+- **Maven**: 3.6+
+- **JavaFX**: 25.0.1
+
 ## Quick Start
 
 ### Prerequisites
-
-- **Java 8 or higher** - [Download Java](https://www.oracle.com/java/technologies/downloads/)
+- **Java 23 or higher** - [Download Java](https://www.oracle.com/java/technologies/downloads/)
 - **Maven 3.6 or higher** - [Download Maven](https://maven.apache.org/download.cgi)
 
 To check if you have the required software installed:
@@ -44,7 +51,7 @@ mvn -version
 
 3. **Run the application:**
    ```bash
-   java -jar petri-obj-paint/target/petri-obj-paint-1.1.jar
+   java -jar petri-obj-paint/target/petri-obj-paint-1.2.0.jar
    ```
 
 #### Option 2: Use Convenience Scripts
@@ -92,10 +99,11 @@ PetriObjModelPaint/
 │   │   │   ├── PetriObj/      # Core Petri net objects
 │   │   │   ├── graphnet/      # Graphical net components
 │   │   │   ├── graphpresentation/ # UI components
+│   │   │   │   └── statistic/ # Statistics and charting module
+│   │   │   │── libnetannotation/ # Annotation processing
 │   │   │   └── pnml/          # PNML import/export
 │   │   └── resources/
 │   └── target/                # Build output
-├── lib-net-annotations/       # Annotation processing
 ├── run.bat                    # Windows launch script
 ├── run.sh                     # Unix launch script
 └── README.md                  # This file
@@ -121,9 +129,9 @@ mvn test
 ## Troubleshooting
 
 ### Application Won't Start
-- Ensure Java 8+ is installed and in your PATH
+- Ensure Java 23+ is installed and in your PATH
 - Check that the JAR file was built successfully in `petri-obj-paint/target/`
-- Try running with: `java -jar petri-obj-paint/target/petri-obj-paint-1.1.jar`
+- Try running with: `java -jar petri-obj-paint/target/petri-obj-paint-1.2.0.jar`
 
 ### Build Failures
 - Ensure Maven 3.6+ is installed
@@ -138,7 +146,7 @@ mvn test
 ### Performance Issues
 - For large nets, consider increasing Java heap size:
   ```bash
-  java -Xmx2g -jar petri-obj-paint/target/petri-obj-paint-1.1.jar
+  java -Xmx2g -jar petri-obj-paint/target/petri-obj-paint-1.2.0.jar
   ```
 
 ## Contributing
