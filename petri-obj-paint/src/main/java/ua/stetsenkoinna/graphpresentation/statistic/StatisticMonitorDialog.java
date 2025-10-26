@@ -111,11 +111,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         formulaInfoBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         formulaInfoBtn.setPreferredSize(new java.awt.Dimension(40, 40));
         formulaInfoBtn.setToolTipText("Available formulas");
-        formulaInfoBtn.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                formulaInfoBtnActionPerformed(evt);
-            }
-        });
+        formulaInfoBtn.addActionListener(this::formulaInfoBtnActionPerformed);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTH;
         formulaActionsGroup.add(formulaInfoBtn, gridBagConstraints);
@@ -435,6 +431,10 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     }
 
     public void onSimulationStart() {
+        // Clear previous chart data before starting new simulation
+        chartBuilderService.clearChart();
+        chartBuilderService.clearDrawings();
+
         elementsWatchMap = formulaBuilderService.getFormulaElementsWatchMap(formulaInputField.getText());
         formulaInputField.setEnabled(false);
         formulaInfoBtn.setEnabled(false);
@@ -455,6 +455,10 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     }
 
     public void onSimulationEnd() {
+        // Clear previous chart data when simulation ends
+        chartBuilderService.clearChart();
+        chartBuilderService.clearDrawings();
+
         formulaInputField.setEnabled(true);
         formulaInfoBtn.setEnabled(true);
         clearMonitorBtn.setEnabled(true);
