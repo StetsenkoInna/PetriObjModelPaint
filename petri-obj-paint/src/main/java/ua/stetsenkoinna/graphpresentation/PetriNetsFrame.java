@@ -227,62 +227,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         this.UpdateNetLibraryMethodsCombobox();
         timer = new Timer(250, ae -> getPetriNetsPanel().repaint());
 
-    /*    consistBtn = createPtrnButton("Consistency", "Shared data access");  // should be added later in special bar
-        consistBtn.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ptrnButtonActionPerformed(evt, "Consistency");
-            }
-        });
-        poolBtn = createPtrnButton("pool", "Thread pool");
-        poolBtn.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ptrnButtonActionPerformed(evt, "pool");
-            }
-        });
-        newThreadBtn = createPtrnButton("newThread", "Thread's creating, starting, ending");
-        newThreadBtn.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ptrnButtonActionPerformed(evt, "newThread");
-            }
-        });
-        lockBtn = createPtrnButton("Lock", "Thread's locking");
-        lockBtn.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ptrnButtonActionPerformed(evt, "Lock");
-            }
-        });
-        guardBtn = createPtrnButton("guardedBlock", "Guarded block(wait/notify)");
-        guardBtn.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ptrnButtonActionPerformed(evt, "guardedBlock");
-            }
-        });
-        petriNetsFrameToolBar.add(newThreadBtn);
-        petriNetsFrameToolBar.add(lockBtn);
-        petriNetsFrameToolBar.add(guardBtn);
-        petriNetsFrameToolBar.add(consistBtn);
-        petriNetsFrameToolBar.add(poolBtn);*/
-
         newPlaceButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newPlaceButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
         newPlaceButton.setText("Place");
         newPlaceButton.setBorder(null);
         newPlaceButton.setMargin(new Insets(0, 0, 0, 0));
-//        newPlaceButton.setContentAreaFilled(false);
-//        newPlaceButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/pl.png")));
 
         newArcButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newArcButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
         newArcButton.setText("Arc");
         newArcButton.setBorder(null);
         newArcButton.setMargin(new Insets(0, 0, 0, 0));
-//        newArcButton.setContentAreaFilled(false);
-//        newArcButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/Arc.png")));
 
         newTransitionButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         newTransitionButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
@@ -290,19 +245,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         newTransitionButton.setBorder(null);
         newTransitionButton.setMargin(new Insets(0, 0, 0, 0));
-//        newTransitionButton.setContentAreaFilled(false);
-//        newTransitionButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/utils/trans.png")));
-//                try {
-//                   
-//                    //Image img = ImageIO.read(new File(new File(".").getCanonicalPath() + "\\src\\utils\\pl.PNG"));
-//                    //Image img1 = ImageIO.read(new File(new File(".").getCanonicalPath() + "\\src\\utils\\arc.PNG"));
-//                   // Image img2 = ImageIO.read(new File(new File(".").getCanonicalPath() + "\\src\\utils\\trans.PNG"));
-//                   // newPlaceButton.setIcon(new ImageIcon(img));
-//                   // newTransitionButton.setIcon(new ImageIcon(img2));
-//                    //newArcButton.setIcon(new ImageIcon(img1));
-//                } catch (IOException ex) {
-//                    Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-//                }
 
         petriNetsPanel = new PetriNetsPanel(netNameTextField);
         petriNetPanelScrollPane.setViewportView(petriNetsPanel);
@@ -1397,8 +1339,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void newTransitionButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newTransitionButtonActionPerformed
         GraphPetriTransition pt = new GraphPetriTransition(new PetriT(
                 GraphPetriTransition.setSimpleName(), 0.0),
-                PetriNetsPanel.getIdElement());// by Inna 18.01.2013, changed 1.10.2018
-        
+                PetriNetsPanel.getIdElement());
         AddGraphElementEdit edit = new AddGraphElementEdit(getPetriNetsPanel(), pt);
         edit.doFirstTime();
         undoSupport.postEdit(edit);
@@ -1407,13 +1348,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void newPlaceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newPlaceButtonActionPerformed
         GraphPetriPlace pp = new GraphPetriPlace(new PetriP(
                 GraphPetriPlace.setSimpleName(), 0),
-                PetriNetsPanel.getIdElement()); // by Inna 18.01.2013, changed 1.10.2018
-        /* getPetriNetsPanel().getGraphNet().getGraphPetriPlaceList().add(pp);
-        getPetriNetsPanel().setCurrent(pp);*/
+                PetriNetsPanel.getIdElement());
         AddGraphElementEdit edit = new AddGraphElementEdit(getPetriNetsPanel(), pp); 
         edit.doFirstTime();
         undoSupport.postEdit(edit);
-        
     }//GEN-LAST:event_newPlaceButtonActionPerformed
 
     private void leftMenuListMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_leftMenuListMouseClicked
@@ -1427,7 +1365,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         petriNetPanelScrollPane.getLocation().x
                         + petriNetPanelScrollPane.getBounds().width / 2,
                         petriNetPanelScrollPane.getLocation().y
-                        + petriNetPanelScrollPane.getBounds().height / 2);
+                        + petriNetPanelScrollPane.getBounds().height / 2
+                );
                 getPetriNetsPanel().getGraphNet().changeLocation(center);
 
                 String methodFullName = leftMenuList.getSelectedValue();

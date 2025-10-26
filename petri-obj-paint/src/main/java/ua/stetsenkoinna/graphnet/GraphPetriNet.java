@@ -575,6 +575,39 @@ public class GraphPetriNet implements Cloneable, Serializable {
         return new GraphNetFragment(copiedElements, arcInsToAdd, arcOutsToAdd);
     }
 
+    /**
+     * Merges another GraphPetriNet into this one by adding all its elements.
+     * The elements from the other net will be copied with new IDs to avoid conflicts.
+     * @param other The GraphPetriNet to merge into this one
+     */
+    public void mergeGraphNet(GraphPetriNet other) {
+        if (other == null) {
+            return;
+        }
+
+        // Create lists of all elements to copy
+        List<GraphElement> elementsToCopy = new ArrayList<>();
+        elementsToCopy.addAll(other.graphPetriPlaceList);
+        elementsToCopy.addAll(other.graphPetriTransitionList);
+
+        // Copy all elements with their arcs
+        GraphNetFragment fragment = bulkCopyNoPasteElements(
+            elementsToCopy,
+            other.graphArcInList,
+            other.graphArcOutList
+        );
+
+        // Add copied elements to this net's lists
+        for (GraphElement element : fragment.elements) {
+            if (element instanceof GraphPetriPlace) {
+                graphPetriPlaceList.add((GraphPetriPlace) element);
+            } else if (element instanceof GraphPetriTransition) {
+                graphPetriTransitionList.add((GraphPetriTransition) element);
+            }
+        }
+        graphArcInList.addAll(fragment.inArcs);
+        graphArcOutList.addAll(fragment.outArcs);
+    }
 
     public void printStatistics(JTextArea area) {
 

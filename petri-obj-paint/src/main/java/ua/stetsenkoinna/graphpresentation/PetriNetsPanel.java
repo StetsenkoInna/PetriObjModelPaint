@@ -939,8 +939,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     public void addGraphNet(GraphPetriNet net) {
-
-        graphNet = net;
+        // If there's no existing net, just set the new one
+        if (graphNet == null) {
+            graphNet = net;
+        } else {
+            // Merge the new net into the existing one
+            graphNet.mergeGraphNet(net);
+        }
 
         int maxIdPetriNet = 0; //
         for (GraphPetriPlace pp : graphNet.getGraphPetriPlaceList()) {  //відшукуємо найбільший id для позицій
@@ -948,7 +953,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 maxIdPetriNet = pp.getId();
             }
         }
-        for (GraphPetriTransition pt : graphNet.getGraphPetriTransitionList()) { //відшукуємо найбільший id для переходів і позицій 
+        for (GraphPetriTransition pt : graphNet.getGraphPetriTransitionList()) { //відшукуємо найбільший id для переходів і позицій
             if (maxIdPetriNet < pt.getId()) {
                 maxIdPetriNet = pt.getId();
             }
