@@ -36,7 +36,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 
 import static javax.swing.JOptionPane.showMessageDialog;
 
@@ -51,11 +53,13 @@ public class LineChartBuilderService implements ChartBuilderService {
     private Integer currentSeriesId;
     private LineChart<Number, Number> lineChart;
     private AnchorPane rootPane;
+    private final Queue<XYChart.Data<Number, Number>> pendingDataQueue;
 
 
     public LineChartBuilderService() {
         this.currentSeriesId = -1;
         this.chartDrawing = new ChartDrawingConfig();
+        this.pendingDataQueue = new LinkedList<>();
         Platform.setImplicitExit(false);
     }
 
@@ -472,14 +476,32 @@ public class LineChartBuilderService implements ChartBuilderService {
 
     @Override
     public void appendData(XYChart.Data<Number, Number> data) {
-        Platform.runLater(() -> {
-            XYChart.Series<Number, Number> series = lineChart.getData().get(currentSeriesId);
-            series.getData().add(data);
-            if (chartConfigDto.getDisplayDataMarkers()) {
-                XYChart.Data<Number, Number> dataPoint = series.getData().getLast();
-                createDataPointTooltip(dataPoint);
+        // Check if series is ready before scheduling data append
+        if (currentSeriesId < 0) {
+            // No series created yet, skip silently (this should not happen in normal flow)
+            return;
+        }
+
+        Platform.runLater(() -> appendDataInternal(data, 0));
+    }
+
+    private void appendDataInternal(XYChart.Data<Number, Number> data, int retryCount) {
+        // Check if series exists in chart
+        if (currentSeriesId >= lineChart.getData().size()) {
+            // Series not yet added to chart, retry up to 3 times with small delay
+            if (retryCount < 3) {
+                Platform.runLater(() -> appendDataInternal(data, retryCount + 1));
             }
-        });
+            // Data will be lost after 3 retries, but this should rarely happen
+            return;
+        }
+
+        XYChart.Series<Number, Number> series = lineChart.getData().get(currentSeriesId);
+        series.getData().add(data);
+        if (chartConfigDto.getDisplayDataMarkers()) {
+            XYChart.Data<Number, Number> dataPoint = series.getData().getLast();
+            createDataPointTooltip(dataPoint);
+        }
     }
 
     private void createDataPointTooltip(XYChart.Data<Number, Number> dataPoint) {
@@ -600,10 +622,13 @@ public class LineChartBuilderService implements ChartBuilderService {
 
     @Override
     public void createSeries(String name) {
+        // Increment series ID immediately to avoid race condition with appendData
+        currentSeriesId++;
+        final int seriesId = currentSeriesId;
+
         Platform.runLater(() -> {
-            currentSeriesId++;
             XYChart.Series<Number, Number> series = new XYChart.Series<>();
-            series.setName(name + "_" + currentSeriesId);
+            series.setName(name + "_" + seriesId);
             lineChart.getData().add(series);
 
             Node legendNode = lineChart.getChildrenUnmodifiable()

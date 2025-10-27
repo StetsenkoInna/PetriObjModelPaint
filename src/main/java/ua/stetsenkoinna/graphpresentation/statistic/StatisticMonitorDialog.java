@@ -455,10 +455,8 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     }
 
     public void onSimulationEnd() {
-        // Clear previous chart data when simulation ends
-        chartBuilderService.clearChart();
-        chartBuilderService.clearDrawings();
-
+        // Keep chart data visible after simulation ends
+        // User can manually clear it using the clear button
         formulaInputField.setEnabled(true);
         formulaInfoBtn.setEnabled(true);
         clearMonitorBtn.setEnabled(true);
