@@ -29,9 +29,7 @@ import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.swing.JOptionPane;
-import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
@@ -42,6 +40,9 @@ import ua.stetsenkoinna.graphpresentation.undoable_edits.AddArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteGraphElementsEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.PasteElementsEdit;
+import ua.stetsenkoinna.graphpresentation.dragndrop.PnmlDropHandler;
+
+import java.awt.dnd.DropTarget;
 
 /**
  * Creates new form PetriNetsPanel
@@ -936,6 +937,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         graphNet = new GraphPetriNet();
 
         repaint();
+    }
+
+    /**
+     * Enable drag and drop for PNML files
+     *
+     * @param parentFrame parent frame for dialogs
+     */
+    public void enablePnmlDragAndDrop(JFrame parentFrame) {
+        PnmlDropHandler dropHandler = new PnmlDropHandler(this, parentFrame);
+        new DropTarget(this, dropHandler);
     }
 
     public void addGraphNet(GraphPetriNet net) {

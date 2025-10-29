@@ -249,13 +249,16 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetsPanel = new PetriNetsPanel(netNameTextField);
         petriNetPanelScrollPane.setViewportView(petriNetsPanel);
 
+        // Enable drag and drop for PNML files
+        petriNetsPanel.enablePnmlDragAndDrop(this);
+
         this.setLocation(50, 50);
         this.setTitle("Discrete Event Simulation System ");
         this.setSize(1000, 700);
 
         // Set fullscreen mode - should be called after setSize
         this.setExtendedState(JFrame.MAXIMIZED_BOTH);
-        
+
         undoSupport.addUndoableEditListener((event) -> {
             undoManager.addEdit(event.getEdit());
             undoMenuItem.setEnabled(undoManager.canUndo());
