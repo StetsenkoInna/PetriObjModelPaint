@@ -7,7 +7,7 @@ import ua.stetsenkoinna.graphpresentation.FileUse;
 import ua.stetsenkoinna.pnml.PnmlParser;
 import ua.stetsenkoinna.pnml.ImportResult;
 import ua.stetsenkoinna.utils.MessageHelper;
-import ua.stetsenkoinna.utils.NetworkLocationUtil;
+import ua.stetsenkoinna.utils.NetworkPositionCalculator;
 
 import javax.swing.*;
 import java.awt.Point;
@@ -15,6 +15,7 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.dnd.*;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -119,21 +120,36 @@ public class PnmlDropHandler implements DropTargetListener {
             PetriNet petriNet = parser.parse(file);
             ImportResult importResult = new ImportResult(petriNet, parser);
 
-            // Calculate free space on workspace using utility
-            Point targetLocation = NetworkLocationUtil.findFreeSpaceNear(
-                panel.getGraphNet(),
+            // First, create a temporary GraphPetriNet to calculate its dimensions
+            // Use a temporary location for initial generation
+            Point tempLocation = new Point(0, 0);
+            GraphPetriNet tempGraphNet = fileUse.generateGraphNetBySimpleNet(
+                panel,
+                petriNet,
+                tempLocation
+            );
+
+            // Calculate optimal target location based on existing networks
+            GraphPetriNet existingNet = panel.getGraphNet();
+            List<GraphPetriNet> existingNetworks = new ArrayList<>();
+            if (existingNet != null && !NetworkPositionCalculator.isNetworkEmpty(existingNet)) {
+                existingNetworks.add(existingNet);
+            }
+
+            Point targetLocation = NetworkPositionCalculator.calculateTargetPosition(
+                existingNetworks,
+                tempGraphNet,
                 dropLocation
             );
 
-            // Use existing FileUse logic to convert PetriNet to GraphPetriNet
-            GraphPetriNet graphNet = fileUse.generateGraphNetBySimpleNet(
-                panel,
-                petriNet,
-                targetLocation
-            );
+            // Move the network to the calculated position
+            tempGraphNet.changeLocation(targetLocation);
+
+            // Fix overlapping arcs to prevent visual issues
+            tempGraphNet.fixOverlappingArcs();
 
             // Add network to panel
-            panel.addGraphNet(graphNet);
+            panel.addGraphNet(tempGraphNet);
             panel.repaint();
 
             MessageHelper.showInfo(parentFrame,
