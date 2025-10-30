@@ -251,6 +251,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         // Enable drag and drop for PNML files
         petriNetsPanel.enablePnmlDragAndDrop(this);
+        petriNetsPanel.enablePnsDragAndDrop(this);
 
         this.setLocation(50, 50);
         this.setTitle("Discrete Event Simulation System ");

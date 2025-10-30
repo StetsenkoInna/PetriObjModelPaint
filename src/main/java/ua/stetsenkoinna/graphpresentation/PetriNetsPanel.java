@@ -36,6 +36,7 @@ import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
+import ua.stetsenkoinna.graphpresentation.dragndrop.PnsDropHandler;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteGraphElementsEdit;
@@ -946,6 +947,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     public void enablePnmlDragAndDrop(JFrame parentFrame) {
         PnmlDropHandler dropHandler = new PnmlDropHandler(this, parentFrame);
+        new DropTarget(this, dropHandler);
+    }
+
+    /**
+     * Enable drag and drop for PNS files
+     *
+     * @param parentFrame parent frame for dialogs
+     */
+    public void enablePnsDragAndDrop(JFrame parentFrame) {
+        PnsDropHandler dropHandler = new PnsDropHandler(this, parentFrame);
         new DropTarget(this, dropHandler);
     }
 
