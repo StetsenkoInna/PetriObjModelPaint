@@ -11,6 +11,7 @@ import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonit
 import ua.stetsenkoinna.graphreuse.GraphNetParametersFrame;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
 import ua.stetsenkoinna.config.ResourcePathConfig;
+import ua.stetsenkoinna.pnml.CoordinateNormalizer;
 import ua.stetsenkoinna.pnml.PnmlParser;
 import ua.stetsenkoinna.pnml.PnmlGenerator;
 import ua.stetsenkoinna.PetriObj.PetriNet;
@@ -1844,39 +1845,38 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             if (fdlg.getFile() != null) {
                 java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
 
-                // Parse PNML file
                 PnmlParser parser = new PnmlParser();
                 PetriNet petriNet = parser.parse(selectedFile);
 
-                // Create empty GraphPetriNet and manually add elements
+                java.util.Map<Integer, java.awt.geom.Point2D.Double> placeCoordinates = parser.getAllPlaceCoordinates();
+                java.util.Map<Integer, java.awt.geom.Point2D.Double> transitionCoordinates = parser.getAllTransitionCoordinates();
+
+                // Normalize coordinates preserving network structure
+                CoordinateNormalizer.NormalizationResult normalization =
+                    CoordinateNormalizer.normalize(placeCoordinates, transitionCoordinates);
+
                 GraphPetriNet graphNet = new GraphPetriNet();
 
-                // Create GraphPetriPlace objects from PetriP objects
                 for (PetriP place : petriNet.getListP()) {
                     GraphPetriPlace graphPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
 
-                    // Set coordinates if available
-                    java.awt.geom.Point2D.Double coords = parser.getPlaceCoordinates(place.getNumber());
+                    java.awt.geom.Point2D.Double coords = normalization.normalizedPlaceCoordinates.get(place.getNumber());
                     if (coords != null) {
                         graphPlace.setNewCoordinates(new java.awt.geom.Point2D.Double(coords.x, coords.y));
                     } else {
-                        // Set default coordinates
                         graphPlace.setNewCoordinates(new java.awt.geom.Point2D.Double(100 + place.getNumber() * 100, 100));
                     }
 
                     graphNet.getGraphPetriPlaceList().add(graphPlace);
                 }
 
-                // Create GraphPetriTransition objects from PetriT objects
                 for (PetriT transition : petriNet.getListT()) {
                     GraphPetriTransition graphTransition = new GraphPetriTransition(transition, PetriNetsPanel.getIdElement());
 
-                    // Set coordinates if available
-                    java.awt.geom.Point2D.Double coords = parser.getTransitionCoordinates(transition.getNumber());
+                    java.awt.geom.Point2D.Double coords = normalization.normalizedTransitionCoordinates.get(transition.getNumber());
                     if (coords != null) {
                         graphTransition.setNewCoordinates(new java.awt.geom.Point2D.Double(coords.x, coords.y));
                     } else {
-                        // Set default coordinates
                         graphTransition.setNewCoordinates(new java.awt.geom.Point2D.Double(100 + transition.getNumber() * 100, 200));
                     }
 

@@ -11,6 +11,7 @@ import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
+import ua.stetsenkoinna.pnml.CoordinateNormalizer;
 import ua.stetsenkoinna.pnml.PnmlParser;
 import ua.stetsenkoinna.utils.MessageHelper;
 
@@ -118,39 +119,38 @@ public class PnmlDropHandler implements DropTargetListener {
      */
     private boolean importPnmlFile(File file, Point dropLocation) {
         try {
-            // Parse PNML file
             PnmlParser parser = new PnmlParser();
             PetriNet petriNet = parser.parse(file);
 
-            // Create empty GraphPetriNet and manually add elements with original PNML coordinates
+            java.util.Map<Integer, java.awt.geom.Point2D.Double> placeCoordinates = parser.getAllPlaceCoordinates();
+            java.util.Map<Integer, java.awt.geom.Point2D.Double> transitionCoordinates = parser.getAllTransitionCoordinates();
+
+            // Normalize coordinates preserving network structure
+            CoordinateNormalizer.NormalizationResult normalization =
+                CoordinateNormalizer.normalize(placeCoordinates, transitionCoordinates);
+
             GraphPetriNet graphNet = new GraphPetriNet();
 
-            // Create GraphPetriPlace objects from PetriP objects with original PNML coordinates
             for (PetriP place : petriNet.getListP()) {
                 GraphPetriPlace graphPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
 
-                // Get coordinates from PNML parser (preserves original position)
-                java.awt.geom.Point2D.Double coords = parser.getPlaceCoordinates(place.getNumber());
+                java.awt.geom.Point2D.Double coords = normalization.normalizedPlaceCoordinates.get(place.getNumber());
                 if (coords != null) {
                     graphPlace.setNewCoordinates(new java.awt.geom.Point2D.Double(coords.x, coords.y));
                 } else {
-                    // Fallback to default coordinates if PNML doesn't have position info
                     graphPlace.setNewCoordinates(new java.awt.geom.Point2D.Double(100 + place.getNumber() * 100, 100));
                 }
 
                 graphNet.getGraphPetriPlaceList().add(graphPlace);
             }
 
-            // Create GraphPetriTransition objects from PetriT objects with original PNML coordinates
             for (PetriT transition : petriNet.getListT()) {
                 GraphPetriTransition graphTransition = new GraphPetriTransition(transition, PetriNetsPanel.getIdElement());
 
-                // Get coordinates from PNML parser (preserves original position)
-                java.awt.geom.Point2D.Double coords = parser.getTransitionCoordinates(transition.getNumber());
+                java.awt.geom.Point2D.Double coords = normalization.normalizedTransitionCoordinates.get(transition.getNumber());
                 if (coords != null) {
                     graphTransition.setNewCoordinates(new java.awt.geom.Point2D.Double(coords.x, coords.y));
                 } else {
-                    // Fallback to default coordinates if PNML doesn't have position info
                     graphTransition.setNewCoordinates(new java.awt.geom.Point2D.Double(100 + transition.getNumber() * 100, 200));
                 }
 

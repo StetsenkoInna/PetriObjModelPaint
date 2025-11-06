@@ -411,17 +411,18 @@ public class PnmlParser {
         // If no tool-specific coordinates found, try standard graphics coordinates
         if (!coordinatesFound) {
             NodeList graphicsNodes = placeElement.getElementsByTagName("graphics");
-            if (graphicsNodes.getLength() > 0) {
-                Element graphicsElement = (Element) graphicsNodes.item(0);
+            // Find graphics element with position child (not offset)
+            for (int i = 0; i < graphicsNodes.getLength() && !coordinatesFound; i++) {
+                Element graphicsElement = (Element) graphicsNodes.item(i);
                 NodeList positionNodes = graphicsElement.getElementsByTagName("position");
                 if (positionNodes.getLength() > 0) {
                     Element positionElement = (Element) positionNodes.item(0);
                     try {
                         double x = Double.parseDouble(positionElement.getAttribute("x"));
                         double y = Double.parseDouble(positionElement.getAttribute("y"));
-                        // Only use if coordinates are not (0,0) which is often a placeholder
                         if (x != 0.0 || y != 0.0) {
                             placeCoordinates.put(placeNumber, new java.awt.geom.Point2D.Double(x, y));
+                            coordinatesFound = true;
                         }
                     } catch (NumberFormatException e) {
                         // Ignore invalid coordinates
@@ -460,17 +461,18 @@ public class PnmlParser {
         // If no tool-specific coordinates found, try standard graphics coordinates
         if (!coordinatesFound) {
             NodeList graphicsNodes = transitionElement.getElementsByTagName("graphics");
-            if (graphicsNodes.getLength() > 0) {
-                Element graphicsElement = (Element) graphicsNodes.item(0);
+            // Find graphics element with position child (not offset)
+            for (int i = 0; i < graphicsNodes.getLength() && !coordinatesFound; i++) {
+                Element graphicsElement = (Element) graphicsNodes.item(i);
                 NodeList positionNodes = graphicsElement.getElementsByTagName("position");
                 if (positionNodes.getLength() > 0) {
                     Element positionElement = (Element) positionNodes.item(0);
                     try {
                         double x = Double.parseDouble(positionElement.getAttribute("x"));
                         double y = Double.parseDouble(positionElement.getAttribute("y"));
-                        // Only use if coordinates are not (0,0) which is often a placeholder
                         if (x != 0.0 || y != 0.0) {
                             transitionCoordinates.put(transitionNumber, new java.awt.geom.Point2D.Double(x, y));
+                            coordinatesFound = true;
                         }
                     } catch (NumberFormatException e) {
                         // Ignore invalid coordinates
