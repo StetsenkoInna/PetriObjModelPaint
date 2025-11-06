@@ -303,14 +303,12 @@ public class PnmlGenerator {
             arcElement.setAttribute(PnmlConstants.ATTR_TARGET, transitionNumberToId.get(arcIn.getNumT()));
             netElement.appendChild(arcElement);
 
-            // Add inscription (weight)
-            if (arcIn.getQuantity() != 1) {
-                Element inscriptionElement = document.createElement(PnmlConstants.ELEMENT_INSCRIPTION);
-                Element textElement = document.createElement(PnmlConstants.ELEMENT_TEXT);
-                textElement.setTextContent(String.valueOf(arcIn.getQuantity()));
-                inscriptionElement.appendChild(textElement);
-                arcElement.appendChild(inscriptionElement);
-            }
+            // Add inscription (weight) - always include even if quantity is 1
+            Element inscriptionElement = document.createElement(PnmlConstants.ELEMENT_INSCRIPTION);
+            Element textElement = document.createElement(PnmlConstants.ELEMENT_TEXT);
+            textElement.setTextContent(String.valueOf(arcIn.getQuantity()));
+            inscriptionElement.appendChild(textElement);
+            arcElement.appendChild(inscriptionElement);
 
             // Add toolspecific information for informational arcs and parameters
             boolean needsToolspecific = arcIn.getIsInf() || arcIn.infIsParam() || arcIn.kIsParam();
@@ -349,14 +347,12 @@ public class PnmlGenerator {
             arcElement.setAttribute(PnmlConstants.ATTR_TARGET, placeNumberToId.get(arcOut.getNumP()));
             netElement.appendChild(arcElement);
 
-            // Add inscription (weight)
-            if (arcOut.getQuantity() != 1) {
-                Element inscriptionElement = document.createElement(PnmlConstants.ELEMENT_INSCRIPTION);
-                Element textElement = document.createElement(PnmlConstants.ELEMENT_TEXT);
-                textElement.setTextContent(String.valueOf(arcOut.getQuantity()));
-                inscriptionElement.appendChild(textElement);
-                arcElement.appendChild(inscriptionElement);
-            }
+            // Add inscription (weight) - always include even if quantity is 1
+            Element inscriptionElement = document.createElement(PnmlConstants.ELEMENT_INSCRIPTION);
+            Element textElement = document.createElement(PnmlConstants.ELEMENT_TEXT);
+            textElement.setTextContent(String.valueOf(arcOut.getQuantity()));
+            inscriptionElement.appendChild(textElement);
+            arcElement.appendChild(inscriptionElement);
 
             // Add toolspecific information for parameters
             if (arcOut.kIsParam() && arcOut.getKParamName() != null) {
