@@ -55,28 +55,26 @@ public class PnmlGenerator {
         Document document = builder.newDocument();
 
         // Create root element
-        Element pnmlElement = document.createElement("pnml");
-        pnmlElement.setAttribute("xmlns", "http://www.pnml.org/version-2009/grammar/pnml");
+        Element pnmlElement = document.createElement(PnmlConstants.ELEMENT_PNML);
+        pnmlElement.setAttribute(PnmlConstants.ATTR_XMLNS, PnmlConstants.PNML_NAMESPACE);
         document.appendChild(pnmlElement);
 
         // Create net element
-        Element netElement = document.createElement("net");
-        netElement.setAttribute("id", petriNet.getName() != null ? petriNet.getName() : "net1");
-        netElement.setAttribute("type", "http://www.pnml.org/version-2009/grammar/ptnet");
+        Element netElement = document.createElement(PnmlConstants.ELEMENT_NET);
+        netElement.setAttribute(PnmlConstants.ATTR_ID,
+                XmlHelper.isNotEmpty(petriNet.getName()) ? petriNet.getName() : PnmlConstants.DEFAULT_NET_ID);
+        netElement.setAttribute(PnmlConstants.ATTR_TYPE, PnmlConstants.PTNET_TYPE);
         pnmlElement.appendChild(netElement);
 
         // Add name to net
-        if (petriNet.getName() != null && !petriNet.getName().isEmpty()) {
-            Element nameElement = document.createElement("name");
-            Element textElement = document.createElement("text");
-            textElement.setTextContent(petriNet.getName());
-            nameElement.appendChild(textElement);
+        if (XmlHelper.isNotEmpty(petriNet.getName())) {
+            Element nameElement = createNameElement(document, petriNet.getName());
             netElement.appendChild(nameElement);
         }
 
         // Create page element for better compatibility with tools like Tina
-        Element pageElement = document.createElement("page");
-        pageElement.setAttribute("id", "page1");
+        Element pageElement = document.createElement(PnmlConstants.ELEMENT_PAGE);
+        pageElement.setAttribute(PnmlConstants.ATTR_ID, PnmlConstants.DEFAULT_PAGE_ID);
         netElement.appendChild(pageElement);
 
         // Generate places
@@ -108,23 +106,19 @@ public class PnmlGenerator {
             String placeId = place.getId() != null ? place.getId() : "p" + place.getNumber();
             placeNumberToId.put(place.getNumber(), placeId);
 
-            Element placeElement = document.createElement("place");
-            placeElement.setAttribute("id", placeId);
+            Element placeElement = document.createElement(PnmlConstants.ELEMENT_PLACE);
+            placeElement.setAttribute(PnmlConstants.ATTR_ID, placeId);
             netElement.appendChild(placeElement);
 
             // Add name (without offset - let other tools use their own defaults)
-            if (place.getName() != null && !place.getName().isEmpty()) {
-                Element nameElement = document.createElement("name");
-                Element textElement = document.createElement("text");
-                textElement.setTextContent(place.getName());
-                nameElement.appendChild(textElement);
-                placeElement.appendChild(nameElement);
+            if (XmlHelper.isNotEmpty(place.getName())) {
+                placeElement.appendChild(createNameElement(document, place.getName()));
             }
 
             // Add initial marking
             if (!place.markIsParam() && place.getMark() > 0) {
-                Element markingElement = document.createElement("initialMarking");
-                Element textElement = document.createElement("text");
+                Element markingElement = document.createElement(PnmlConstants.ELEMENT_INITIAL_MARKING);
+                Element textElement = document.createElement(PnmlConstants.ELEMENT_TEXT);
                 textElement.setTextContent(String.valueOf(place.getMark()));
                 markingElement.appendChild(textElement);
                 placeElement.appendChild(markingElement);
@@ -138,16 +132,16 @@ public class PnmlGenerator {
             }
 
             if (needsToolspecific) {
-                Element toolspecificElement = document.createElement("toolspecific");
-                toolspecificElement.setAttribute("tool", "PetriObjModel");
-                toolspecificElement.setAttribute("version", "1.0");
+                Element toolspecificElement = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
+                toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
+                toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION);
 
                 // Add coordinates if available
                 if (graphPlace != null) {
-                    Element coordinatesElement = document.createElement("coordinates");
+                    Element coordinatesElement = document.createElement(PnmlConstants.ELEMENT_COORDINATES);
                     Point2D center = graphPlace.getGraphElementCenter();
-                    coordinatesElement.setAttribute("x", String.valueOf(center.getX()));
-                    coordinatesElement.setAttribute("y", String.valueOf(center.getY()));
+                    coordinatesElement.setAttribute(PnmlConstants.ATTR_X, String.valueOf(center.getX()));
+                    coordinatesElement.setAttribute(PnmlConstants.ATTR_Y, String.valueOf(center.getY()));
                     toolspecificElement.appendChild(coordinatesElement);
                 }
 
@@ -162,18 +156,18 @@ public class PnmlGenerator {
             }
 
             // Add graphics information with real coordinates for PNML compatibility
-            Element graphicsElement = document.createElement("graphics");
-            Element positionElement = document.createElement("position");
+            Element graphicsElement = document.createElement(PnmlConstants.ELEMENT_GRAPHICS);
+            Element positionElement = document.createElement(PnmlConstants.ELEMENT_POSITION);
 
             // Use coordinates from GraphPetriNet if available, otherwise use defaults
             GraphPetriPlace graphPlaceForGraphics = findGraphPlaceByNumber(place.getNumber());
             if (graphPlaceForGraphics != null) {
                 Point2D center = graphPlaceForGraphics.getGraphElementCenter();
-                positionElement.setAttribute("x", String.valueOf((int)center.getX()));
-                positionElement.setAttribute("y", String.valueOf((int)center.getY()));
+                positionElement.setAttribute(PnmlConstants.ATTR_X, String.valueOf((int)center.getX()));
+                positionElement.setAttribute(PnmlConstants.ATTR_Y, String.valueOf((int)center.getY()));
             } else {
-                positionElement.setAttribute("x", "0");
-                positionElement.setAttribute("y", "0");
+                positionElement.setAttribute(PnmlConstants.ATTR_X, "0");
+                positionElement.setAttribute(PnmlConstants.ATTR_Y, "0");
             }
 
             graphicsElement.appendChild(positionElement);
@@ -189,31 +183,27 @@ public class PnmlGenerator {
             String transitionId = transition.getId() != null ? transition.getId() : "t" + transition.getNumber();
             transitionNumberToId.put(transition.getNumber(), transitionId);
 
-            Element transitionElement = document.createElement("transition");
-            transitionElement.setAttribute("id", transitionId);
+            Element transitionElement = document.createElement(PnmlConstants.ELEMENT_TRANSITION);
+            transitionElement.setAttribute(PnmlConstants.ATTR_ID, transitionId);
             netElement.appendChild(transitionElement);
 
             // Add name (without offset - let other tools use their own defaults)
-            if (transition.getName() != null && !transition.getName().isEmpty()) {
-                Element nameElement = document.createElement("name");
-                Element textElement = document.createElement("text");
-                textElement.setTextContent(transition.getName());
-                nameElement.appendChild(textElement);
-                transitionElement.appendChild(nameElement);
+            if (XmlHelper.isNotEmpty(transition.getName())) {
+                transitionElement.appendChild(createNameElement(document, transition.getName()));
             }
 
             // Add toolspecific information for extended properties and coordinates
-            Element toolspecificElement = document.createElement("toolspecific");
-            toolspecificElement.setAttribute("tool", "PetriObjModel");
-            toolspecificElement.setAttribute("version", "1.0");
+            Element toolspecificElement = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
+            toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
+            toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION);
 
             // Add coordinates from GraphPetriNet if available
             GraphPetriTransition graphTransition = findGraphTransitionByNumber(transition.getNumber());
             if (graphTransition != null) {
-                Element coordinatesElement = document.createElement("coordinates");
+                Element coordinatesElement = document.createElement(PnmlConstants.ELEMENT_COORDINATES);
                 Point2D center = graphTransition.getGraphElementCenter();
-                coordinatesElement.setAttribute("x", String.valueOf(center.getX()));
-                coordinatesElement.setAttribute("y", String.valueOf(center.getY()));
+                coordinatesElement.setAttribute(PnmlConstants.ATTR_X, String.valueOf(center.getX()));
+                coordinatesElement.setAttribute(PnmlConstants.ATTR_Y, String.valueOf(center.getY()));
                 toolspecificElement.appendChild(coordinatesElement);
             }
 
@@ -280,18 +270,18 @@ public class PnmlGenerator {
             }
 
             // Add graphics information with real coordinates for PNML compatibility
-            Element graphicsElement = document.createElement("graphics");
-            Element positionElement = document.createElement("position");
+            Element graphicsElement = document.createElement(PnmlConstants.ELEMENT_GRAPHICS);
+            Element positionElement = document.createElement(PnmlConstants.ELEMENT_POSITION);
 
             // Use coordinates from GraphPetriNet if available, otherwise use defaults
             GraphPetriTransition graphTransitionForGraphics = findGraphTransitionByNumber(transition.getNumber());
             if (graphTransitionForGraphics != null) {
                 Point2D center = graphTransitionForGraphics.getGraphElementCenter();
-                positionElement.setAttribute("x", String.valueOf((int)center.getX()));
-                positionElement.setAttribute("y", String.valueOf((int)center.getY()));
+                positionElement.setAttribute(PnmlConstants.ATTR_X, String.valueOf((int)center.getX()));
+                positionElement.setAttribute(PnmlConstants.ATTR_Y, String.valueOf((int)center.getY()));
             } else {
-                positionElement.setAttribute("x", "0");
-                positionElement.setAttribute("y", "0");
+                positionElement.setAttribute(PnmlConstants.ATTR_X, "0");
+                positionElement.setAttribute(PnmlConstants.ATTR_Y, "0");
             }
 
             graphicsElement.appendChild(positionElement);
@@ -307,16 +297,16 @@ public class PnmlGenerator {
 
         // Generate input arcs (Place to Transition)
         for (ArcIn arcIn : arcIns) {
-            Element arcElement = document.createElement("arc");
-            arcElement.setAttribute("id", "arc" + arcCounter++);
-            arcElement.setAttribute("source", placeNumberToId.get(arcIn.getNumP()));
-            arcElement.setAttribute("target", transitionNumberToId.get(arcIn.getNumT()));
+            Element arcElement = document.createElement(PnmlConstants.ELEMENT_ARC);
+            arcElement.setAttribute(PnmlConstants.ATTR_ID, "arc" + arcCounter++);
+            arcElement.setAttribute(PnmlConstants.ATTR_SOURCE, placeNumberToId.get(arcIn.getNumP()));
+            arcElement.setAttribute(PnmlConstants.ATTR_TARGET, transitionNumberToId.get(arcIn.getNumT()));
             netElement.appendChild(arcElement);
 
             // Add inscription (weight)
             if (arcIn.getQuantity() != 1) {
-                Element inscriptionElement = document.createElement("inscription");
-                Element textElement = document.createElement("text");
+                Element inscriptionElement = document.createElement(PnmlConstants.ELEMENT_INSCRIPTION);
+                Element textElement = document.createElement(PnmlConstants.ELEMENT_TEXT);
                 textElement.setTextContent(String.valueOf(arcIn.getQuantity()));
                 inscriptionElement.appendChild(textElement);
                 arcElement.appendChild(inscriptionElement);
@@ -325,9 +315,9 @@ public class PnmlGenerator {
             // Add toolspecific information for informational arcs and parameters
             boolean needsToolspecific = arcIn.getIsInf() || arcIn.infIsParam() || arcIn.kIsParam();
             if (needsToolspecific) {
-                Element toolspecificElement = document.createElement("toolspecific");
-                toolspecificElement.setAttribute("tool", "PetriObjModel");
-                toolspecificElement.setAttribute("version", "1.0");
+                Element toolspecificElement = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
+                toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
+                toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION);
 
                 if (arcIn.getIsInf()) {
                     Element infElement = document.createElement("informational");
@@ -353,16 +343,16 @@ public class PnmlGenerator {
 
         // Generate output arcs (Transition to Place)
         for (ArcOut arcOut : arcOuts) {
-            Element arcElement = document.createElement("arc");
-            arcElement.setAttribute("id", "arc" + arcCounter++);
-            arcElement.setAttribute("source", transitionNumberToId.get(arcOut.getNumT()));
-            arcElement.setAttribute("target", placeNumberToId.get(arcOut.getNumP()));
+            Element arcElement = document.createElement(PnmlConstants.ELEMENT_ARC);
+            arcElement.setAttribute(PnmlConstants.ATTR_ID, "arc" + arcCounter++);
+            arcElement.setAttribute(PnmlConstants.ATTR_SOURCE, transitionNumberToId.get(arcOut.getNumT()));
+            arcElement.setAttribute(PnmlConstants.ATTR_TARGET, placeNumberToId.get(arcOut.getNumP()));
             netElement.appendChild(arcElement);
 
             // Add inscription (weight)
             if (arcOut.getQuantity() != 1) {
-                Element inscriptionElement = document.createElement("inscription");
-                Element textElement = document.createElement("text");
+                Element inscriptionElement = document.createElement(PnmlConstants.ELEMENT_INSCRIPTION);
+                Element textElement = document.createElement(PnmlConstants.ELEMENT_TEXT);
                 textElement.setTextContent(String.valueOf(arcOut.getQuantity()));
                 inscriptionElement.appendChild(textElement);
                 arcElement.appendChild(inscriptionElement);
@@ -370,9 +360,9 @@ public class PnmlGenerator {
 
             // Add toolspecific information for parameters
             if (arcOut.kIsParam() && arcOut.getKParamName() != null) {
-                Element toolspecificElement = document.createElement("toolspecific");
-                toolspecificElement.setAttribute("tool", "PetriObjModel");
-                toolspecificElement.setAttribute("version", "1.0");
+                Element toolspecificElement = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
+                toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
+                toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION);
 
                 Element kParamElement = document.createElement("multiplicityParameter");
                 kParamElement.setTextContent(arcOut.getKParamName());
@@ -381,6 +371,17 @@ public class PnmlGenerator {
                 arcElement.appendChild(toolspecificElement);
             }
         }
+    }
+
+    /**
+     * Creates name element with text content
+     */
+    private Element createNameElement(Document document, String name) {
+        Element nameElement = document.createElement(PnmlConstants.ELEMENT_NAME);
+        Element textElement = document.createElement(PnmlConstants.ELEMENT_TEXT);
+        textElement.setTextContent(name);
+        nameElement.appendChild(textElement);
+        return nameElement;
     }
 
     /**
