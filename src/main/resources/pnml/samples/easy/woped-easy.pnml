@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Created with Workflow PetriNet Designer Version 3.9.2 (woped.org)
+Manual editing may break compatibility.-->
+<pnml>
+  <net type="http://www.informatik.hu-berlin.de/top/pntd/ptNetb" id="n-4030-5EACC-0">
+    <name>
+      <text>tina-easy</text>
+    </name>
+    <place id="p-4030-5EB0F-2">
+      <name>
+        <text>p0</text>
+        <graphics>
+          <offset x="0" y="-10"/>
+        </graphics>
+      </name>
+      <graphics>
+        <position x="30" y="70"/>
+        <dimension x="40" y="40"/>
+      </graphics>
+      <initialMarking>
+        <text>1</text>
+      </initialMarking>
+    </place>
+    <place id="p-4030-5EB2C-3">
+      <name>
+        <text>p1</text>
+        <graphics>
+          <offset x="0" y="-10"/>
+        </graphics>
+      </name>
+      <graphics>
+        <position x="445" y="60"/>
+        <dimension x="40" y="40"/>
+      </graphics>
+    </place>
+    <transition id="t-4030-5EB33-4">
+      <name>
+        <text>t0</text>
+        <graphics>
+          <offset x="0" y="0"/>
+        </graphics>
+      </name>
+      <graphics>
+        <position x="235" y="50"/>
+        <dimension x="40" y="40"/>
+      </graphics>
+      <toolspecific tool="WoPeD" version="1.0">
+        <time>0</time>
+        <timeUnit>1</timeUnit>
+        <orientation>1</orientation>
+      </toolspecific>
+    </transition>
+    <arc id="e-4030-5EB42-6" source="t-4030-5EB33-4" target="p-4030-5EB2C-3">
+      <inscription>
+        <text>1</text>
+        <graphics>
+          <offset x="500.0" y="-12.0"/>
+        </graphics>
+      </inscription>
+      <graphics/>
+      <toolspecific tool="WoPeD" version="1.0">
+        <probability>1.0</probability>
+        <displayProbabilityOn>false</displayProbabilityOn>
+        <displayProbabilityPosition x="500.0" y="12.0"/>
+      </toolspecific>
+    </arc>
+    <arc id="e-4030-5EB3E-5" source="p-4030-5EB0F-2" target="t-4030-5EB33-4">
+      <inscription>
+        <text>1</text>
+        <graphics>
+          <offset x="500.0" y="-12.0"/>
+        </graphics>
+      </inscription>
+      <graphics/>
+      <toolspecific tool="WoPeD" version="1.0">
+        <probability>1.0</probability>
+        <displayProbabilityOn>false</displayProbabilityOn>
+        <displayProbabilityPosition x="500.0" y="12.0"/>
+      </toolspecific>
+    </arc>
+    <arc id="e-4030-5EB44-7" source="t-4030-5EB33-4" target="p-4030-5EB0F-2">
+      <inscription>
+        <text>1</text>
+        <graphics>
+          <offset x="500.0" y="-12.0"/>
+        </graphics>
+      </inscription>
+      <graphics/>
+      <toolspecific tool="WoPeD" version="1.0">
+        <probability>1.0</probability>
+        <displayProbabilityOn>false</displayProbabilityOn>
+        <displayProbabilityPosition x="500.0" y="12.0"/>
+      </toolspecific>
+    </arc>
+    <toolspecific tool="WoPeD" version="3.9.2">
+      <bounds>
+        <position x="2" y="24"/>
+        <dimension x="966" y="650"/>
+      </bounds>
+      <scale>100</scale>
+      <treeWidthRight>816</treeWidthRight>
+      <overviewPanelVisible>true</overviewPanelVisible>
+      <treeHeightOverview>100</treeHeightOverview>
+      <treePanelVisible>true</treePanelVisible>
+      <verticalLayout>false</verticalLayout>
+      <resources/>
+      <simulations/>
+      <partnerLinks/>
+      <variables/>
+    </toolspecific>
+  </net>
+</pnml>
