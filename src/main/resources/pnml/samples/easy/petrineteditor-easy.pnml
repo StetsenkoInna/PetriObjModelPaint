@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!-- PNML example exported from PetrinetEditor (https://pes.vsb.cz/petrineteditor)
+     Demonstration of a simple Place-Transition net structure according to ISO/IEC 15909-2:2011 -->
+
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+
+  <!-- Мережа Петрі -->
+  <net id="47d0694f-b38d-4f0c-8e50-456f49c10cc1"
+       type="http://www.pnml.org/version-2009/grammar/ptnet">
+
+    <!-- Назва моделі -->
+    <name>
+      <text>simple-pes-example</text>
+    </name>
+
+    <!-- Сторінка мережі -->
+    <page id="7b8006f7-b367-4926-8ccf-784221496951">
+
+      <!-- Позиція p0 -->
+      <place id="p-4030-5EB0F-2">
+        <name>
+          <text>p0</text>
+          <graphics>
+            <offset x="0" y="-10"/>
+          </graphics>
+        </name>
+        <graphics>
+          <position x="30" y="70"/>
+        </graphics>
+        <!-- Початкове маркування -->
+        <initialMarking>
+          <text>1</text>
+        </initialMarking>
+      </place>
+
+      <!-- Позиція p1 -->
+      <place id="p-4030-5EB2C-3">
+        <name>
+          <text>p1</text>
+          <graphics>
+            <offset x="0" y="-10"/>
+          </graphics>
+        </name>
+        <graphics>
+          <position x="445" y="60"/>
+        </graphics>
+      </place>
+
+      <!-- Перехід t0 -->
+      <transition id="t-4030-5EB33-4">
+        <name>
+          <text>t0</text>
+          <graphics>
+            <offset x="0" y="0"/>
+          </graphics>
+        </name>
+        <graphics>
+          <position x="235" y="50"/>
+        </graphics>
+      </transition>
+
+      <!-- Дуги -->
+      <arc id="e-4030-5EB3E-5" source="p-4030-5EB0F-2" target="t-4030-5EB33-4"/>
+      <arc id="e-4030-5EB42-6" source="t-4030-5EB33-4" target="p-4030-5EB2C-3"/>
+      <arc id="e-4030-5EB44-7" source="t-4030-5EB33-4" target="p-4030-5EB0F-2"/>
+
+    </page>
+  </net>
+</pnml>

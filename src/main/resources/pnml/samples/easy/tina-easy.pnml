@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--created Wed Nov 05 19:10:11 2025 by ndrio version 3.9.0-->
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+ <net id="n-4030-5EACC-0" type ="http://www.laas.fr/tina/tpn">
+  <name>
+   <text>tina-easy</text>
+  </name>
+ <page id="g-4030-5EB08-1">
+  <place id="p-4030-5EB0F-2">
+  <name>
+   <text>p0</text>
+    <graphics>
+     <offset x="0" y="-10" />
+    </graphics>
+  </name>
+   <label>
+    <text>test label arc 1</text>
+    <graphics>
+     <offset x="10" y="-10" />
+    </graphics>
+   </label>
+   <initialMarking>
+    <text>1</text>
+   </initialMarking>
+   <graphics>
+    <position x="30" y="70"/>
+   </graphics>
+  </place>
+  <place id="p-4030-5EB2C-3">
+  <name>
+   <text>p1</text>
+    <graphics>
+     <offset x="0" y="-10" />
+    </graphics>
+  </name>
+   <label>
+    <text>test label arc 2</text>
+    <graphics>
+     <offset x="10" y="-10" />
+    </graphics>
+   </label>
+   <graphics>
+    <position x="445" y="60"/>
+   </graphics>
+  </place>
+  <transition id="t-4030-5EB33-4">
+  <name>
+   <text>t0</text>
+    <graphics>
+     <offset x="0" y="0" />
+    </graphics>
+  </name>
+   <label>
+    <text>test label transition 1</text>
+    <graphics>
+     <offset x="10" y="-10" />
+    </graphics>
+   </label>
+   <graphics>
+    <position x="235" y="50"/>
+   </graphics>
+  </transition>
+  <arc id="e-4030-5EB3E-5" source="p-4030-5EB0F-2" target="t-4030-5EB33-4">
+  </arc>
+  <arc id="e-4030-5EB42-6" source="t-4030-5EB33-4" target="p-4030-5EB2C-3">
+  </arc>
+  <arc id="e-4030-5EB44-7" source="t-4030-5EB33-4" target="p-4030-5EB0F-2">
+  </arc>
+ </page>
+ </net>
+</pnml>
