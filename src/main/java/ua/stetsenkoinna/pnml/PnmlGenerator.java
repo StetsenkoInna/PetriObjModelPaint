@@ -74,14 +74,19 @@ public class PnmlGenerator {
             netElement.appendChild(nameElement);
         }
 
+        // Create page element for better compatibility with tools like Tina
+        Element pageElement = document.createElement("page");
+        pageElement.setAttribute("id", "page1");
+        netElement.appendChild(pageElement);
+
         // Generate places
-        generatePlaces(document, netElement, petriNet.getListP());
+        generatePlaces(document, pageElement, petriNet.getListP());
 
         // Generate transitions
-        generateTransitions(document, netElement, petriNet.getListT());
+        generateTransitions(document, pageElement, petriNet.getListT());
 
         // Generate arcs
-        generateArcs(document, netElement, petriNet.getArcIn(), petriNet.getArcOut());
+        generateArcs(document, pageElement, petriNet.getArcIn(), petriNet.getArcOut());
 
         // Write to file
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
@@ -107,7 +112,7 @@ public class PnmlGenerator {
             placeElement.setAttribute("id", placeId);
             netElement.appendChild(placeElement);
 
-            // Add name
+            // Add name (without offset - let other tools use their own defaults)
             if (place.getName() != null && !place.getName().isEmpty()) {
                 Element nameElement = document.createElement("name");
                 Element textElement = document.createElement("text");
@@ -188,7 +193,7 @@ public class PnmlGenerator {
             transitionElement.setAttribute("id", transitionId);
             netElement.appendChild(transitionElement);
 
-            // Add name
+            // Add name (without offset - let other tools use their own defaults)
             if (transition.getName() != null && !transition.getName().isEmpty()) {
                 Element nameElement = document.createElement("name");
                 Element textElement = document.createElement("text");
