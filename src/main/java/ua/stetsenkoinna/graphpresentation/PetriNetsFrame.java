@@ -6,6 +6,8 @@ import ua.stetsenkoinna.PetriObj.PetriP;
 import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.config.FilePathConfig;
+import ua.stetsenkoinna.graphpresentation.settings.RecognitionApiSettingsDialog;
+import ua.stetsenkoinna.graphpresentation.settings.RecognitionApiSettingsManager;
 import ua.stetsenkoinna.graphpresentation.statistic.StatisticMonitorDialog;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonitor;
 import ua.stetsenkoinna.graphreuse.GraphNetParametersFrame;
@@ -427,6 +429,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         itemAnimateNet = new javax.swing.JMenuItem();
         itemAnimateEvent = new javax.swing.JMenuItem();
         runMenu = new javax.swing.JMenu();
+        settingsMenu = new javax.swing.JMenu();
+        recognitionApiSettingsItem = new javax.swing.JMenuItem();
         javax.swing.JMenuItem itemRunNet = new javax.swing.JMenuItem();
         itemRunEvent = new javax.swing.JMenuItem();
 
@@ -1178,6 +1182,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         importPnmlMenuItem.addActionListener(this::importPnmlMenuItemActionPerformed);
         fileMenu.add(importPnmlMenuItem);
 
+        // Import Image menu item
+        importImageMenuItem = new javax.swing.JMenuItem();
+        importImageMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_A, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        importImageMenuItem.setText("Import Image");
+        importImageMenuItem.addActionListener(this::importImageMenuItemActionPerformed);
+        fileMenu.add(importImageMenuItem);
+
         petriNetsFrameMenuBar.add(fileMenu);
 
         editMenu.setText("Edit");
@@ -1289,6 +1300,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         runMenu.add(itemRunEvent);
 
         petriNetsFrameMenuBar.add(runMenu);
+
+//        settingsMenu.setAction();
+        settingsMenu.setText("Settings");
+
+        recognitionApiSettingsItem.setText("Recognition API Settings");
+        recognitionApiSettingsItem.addActionListener(this::recognitionApiSettingsActionPerformed);
+        settingsMenu.add(recognitionApiSettingsItem);
+
+        petriNetsFrameMenuBar.add(settingsMenu);
 
         setJMenuBar(petriNetsFrameMenuBar);
 
@@ -2014,6 +2034,32 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }
     }
 
+    private void importImageMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
+        try {
+            java.awt.FileDialog fdlg = new java.awt.FileDialog(this, "Import Image File", java.awt.FileDialog.LOAD);
+            fdlg.setFile("*.png");
+            fdlg.setVisible(true);
+
+            if (fdlg.getFile() != null) {
+                java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
+                // TODO: implement image importing
+            }
+
+        } catch (Exception ex) {
+            MessageHelper.showException(this, "Error importing Image file", ex);
+        }
+    }
+
+    private void recognitionApiSettingsActionPerformed(java.awt.event.ActionEvent evt) {
+        try {
+            RecognitionApiSettingsManager manager = new RecognitionApiSettingsManager();
+            RecognitionApiSettingsDialog dialog = new RecognitionApiSettingsDialog(this, manager);
+            dialog.setVisible(true);
+        } catch (Exception ex) {
+            MessageHelper.showException(this, "Error opening API settings", ex);
+        }
+    }
+
     public String getNameNet() {
         return netNameTextField.getText();
     }
@@ -2213,9 +2259,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JLabel timeStartLabel;
     private javax.swing.JLabel timeStartLabel1;
     private javax.swing.JLabel timeStartLabel2;
+    private javax.swing.JMenu settingsMenu;
+    private javax.swing.JMenuItem recognitionApiSettingsItem;
     private javax.swing.JMenuItem undoMenuItem;
     private javax.swing.JMenuItem importPnmlMenuItem;
     private javax.swing.JMenuItem exportPnmlMenuItem;
+    private javax.swing.JMenuItem importImageMenuItem;
     // End of variables declaration//GEN-END:variables
     private static PetriNetsPanel petriNetsPanel;
     private FileUse fileUse = new FileUse();
