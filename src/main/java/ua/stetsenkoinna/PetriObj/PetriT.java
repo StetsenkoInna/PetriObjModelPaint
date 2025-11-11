@@ -500,7 +500,8 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
             }
         }
         if (getOutP().isEmpty()) {
-            throw new ExceptionInvalidTimeDelay("Transition " + this.getName() + " hasn't output positions!");
+            Logger.getLogger(PetriT.class.getName()).log(Level.WARNING,
+                "Transition " + this.getName() + " has no output places (acts as a sink transition)");
         }
     }
 
