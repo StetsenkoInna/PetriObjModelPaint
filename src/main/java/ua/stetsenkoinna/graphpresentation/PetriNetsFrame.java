@@ -6,6 +6,7 @@ import ua.stetsenkoinna.PetriObj.PetriP;
 import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.config.FilePathConfig;
+import ua.stetsenkoinna.config.UserDirectoryManager;
 import ua.stetsenkoinna.graphpresentation.settings.RecognitionApiSettingsDialog;
 import ua.stetsenkoinna.graphpresentation.settings.RecognitionApiSettingsManager;
 import ua.stetsenkoinna.graphpresentation.statistic.StatisticMonitorDialog;
@@ -2052,7 +2053,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     private void recognitionApiSettingsActionPerformed(java.awt.event.ActionEvent evt) {
         try {
-            RecognitionApiSettingsManager manager = new RecognitionApiSettingsManager();
+            UserDirectoryManager userDirectoryManager = new UserDirectoryManager();
+            RecognitionApiSettingsManager manager = new RecognitionApiSettingsManager(userDirectoryManager);
             RecognitionApiSettingsDialog dialog = new RecognitionApiSettingsDialog(this, manager);
             dialog.setVisible(true);
         } catch (Exception ex) {
