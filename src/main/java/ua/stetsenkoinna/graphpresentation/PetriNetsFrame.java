@@ -7,6 +7,7 @@ import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.config.FilePathConfig;
 import ua.stetsenkoinna.config.UserDirectoryManager;
+import ua.stetsenkoinna.graphpresentation.importimage.ImportImageDialog;
 import ua.stetsenkoinna.graphpresentation.settings.RecognitionApiSettingsDialog;
 import ua.stetsenkoinna.graphpresentation.settings.RecognitionApiSettingsManager;
 import ua.stetsenkoinna.graphpresentation.statistic.StatisticMonitorDialog;
@@ -29,10 +30,7 @@ import ua.stetsenkoinna.LibNet.HiddenFromUI;
 
 import java.awt.*;
 import java.awt.event.*;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -51,10 +49,11 @@ import ua.stetsenkoinna.graphpresentation.actions.RewindAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunNetAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunOneEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
+import ua.stetsenkoinna.recognition.RecognitionApiClient;
+import ua.stetsenkoinna.recognition.RecognitionService;
 import ua.stetsenkoinna.utils.MessageHelper;
 
 import java.awt.Dialog.ModalityType;
-import java.io.ObjectInputStream;
 import java.nio.file.Path;
 import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEditSupport;
@@ -2037,26 +2036,48 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     private void importImageMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
         try {
-            java.awt.FileDialog fdlg = new java.awt.FileDialog(this, "Import Image File", java.awt.FileDialog.LOAD);
-            fdlg.setFile("*.png");
-            fdlg.setVisible(true);
-
-            if (fdlg.getFile() != null) {
-                java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
-                // TODO: implement image importing
+            ImportImageDialog imageDialog = new ImportImageDialog(this);
+            imageDialog.setVisible(true);
+            
+            if (imageDialog.isConfirmed()) {
+                java.io.File imageFile = imageDialog.getImageFile();
+                java.io.File configFile = imageDialog.getConfigFile();
+                String requestedFileType = imageDialog.getRequestedFileType();
+                
+                UserDirectoryManager userDirectoryManager = new UserDirectoryManager();
+                RecognitionApiSettingsManager apiSettingsManager = new RecognitionApiSettingsManager(userDirectoryManager);
+                RecognitionApiClient apiClient = new RecognitionApiClient(apiSettingsManager.getApiUrl(), apiSettingsManager.getApiKey());
+                RecognitionService recognitionService = new RecognitionService(apiClient, userDirectoryManager);
+    
+                java.io.File recognizedModelFile = recognitionService.recognize(imageFile, configFile, requestedFileType);
+                
+                if (recognizedModelFile != null && recognizedModelFile.exists()) {
+                    // TODO: implement loading model from file to simulator field using PnmlGenerator
+                }
+                MessageHelper.showInfo(this, "Petri net recognized successfully");
             }
-
         } catch (Exception ex) {
-            MessageHelper.showException(this, "Error importing Image file", ex);
+            MessageHelper.showException(this, "Error importing and recognizing image", ex);
         }
     }
 
     private void recognitionApiSettingsActionPerformed(java.awt.event.ActionEvent evt) {
         try {
             UserDirectoryManager userDirectoryManager = new UserDirectoryManager();
-            RecognitionApiSettingsManager manager = new RecognitionApiSettingsManager(userDirectoryManager);
-            RecognitionApiSettingsDialog dialog = new RecognitionApiSettingsDialog(this, manager);
-            dialog.setVisible(true);
+            RecognitionApiSettingsManager settingsManager = new RecognitionApiSettingsManager(userDirectoryManager);
+            RecognitionApiSettingsDialog settingsDialog = new RecognitionApiSettingsDialog(this, settingsManager.getApiUrl(), settingsManager.getApiKey());
+            settingsDialog.setVisible(true);
+
+            if (settingsDialog.isConfirmed()) {
+                String apiUrl = settingsDialog.getApiUrl();
+                String apiKey = settingsDialog.getApiKey();
+
+                settingsManager.setApiUrl(apiUrl);
+                settingsManager.setApiKey(apiKey);
+                settingsManager.save();
+
+                MessageHelper.showInfo(this, "Settings saved successfully.");
+            }
         } catch (Exception ex) {
             MessageHelper.showException(this, "Error opening API settings", ex);
         }

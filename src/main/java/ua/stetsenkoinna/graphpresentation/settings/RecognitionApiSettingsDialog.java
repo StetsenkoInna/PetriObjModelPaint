@@ -1,21 +1,26 @@
 package ua.stetsenkoinna.graphpresentation.settings;
 
+import ua.stetsenkoinna.utils.MessageHelper;
+
+import java.awt.event.ActionEvent;
+
 public class RecognitionApiSettingsDialog extends javax.swing.JDialog {
+
     private final javax.swing.JTextField urlField;
     private final javax.swing.JPasswordField keyField;
-    private final RecognitionApiSettingsManager settingsManager;
 
-    public RecognitionApiSettingsDialog(javax.swing.JFrame parent, RecognitionApiSettingsManager settingsManager) {
+    private boolean confirmed = false;
+
+    public RecognitionApiSettingsDialog(javax.swing.JFrame parent, String initialApiUrl, String initialApiKey) {
         super(parent, "Recognition API Settings", true);
-        this.settingsManager = settingsManager;
 
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setLayout(new java.awt.BorderLayout(10, 10));
         setSize(420, 220);
         setLocationRelativeTo(parent);
 
-        urlField = new javax.swing.JTextField(settingsManager.getApiUrl());
-        keyField = new javax.swing.JPasswordField(settingsManager.getApiKey());
+        urlField = new javax.swing.JTextField(initialApiUrl != null ? initialApiUrl: "");
+        keyField = new javax.swing.JPasswordField(initialApiKey != null ? initialApiKey: "");
 
         add(createFormPanel(), java.awt.BorderLayout.CENTER);
         add(createButtonPanel(), java.awt.BorderLayout.SOUTH);
@@ -41,8 +46,8 @@ public class RecognitionApiSettingsDialog extends javax.swing.JDialog {
         javax.swing.JButton saveButton = new javax.swing.JButton("Save");
         javax.swing.JButton cancelButton = new javax.swing.JButton("Cancel");
 
-        saveButton.addActionListener(e -> onSave());
-        cancelButton.addActionListener(e -> dispose());
+        saveButton.addActionListener(this::onSave);
+        cancelButton.addActionListener(this::onCancel);
 
         buttonPanel.add(saveButton);
         buttonPanel.add(cancelButton);
@@ -50,17 +55,34 @@ public class RecognitionApiSettingsDialog extends javax.swing.JDialog {
         return buttonPanel;
     }
 
-    private void onSave() {
-        settingsManager.setApiUrl(urlField.getText().trim());
-        settingsManager.setApiKey(new String(keyField.getPassword()).trim());
-        settingsManager.save();
+    private void onSave(ActionEvent actionEvent) {
+       if (urlField.getText().trim().isEmpty() || keyField.getPassword().length == 0) {
+           MessageHelper.showWarning(this, "Please fill in both the API URL and API Key fields.");
+           return;
+       }
 
-        javax.swing.JOptionPane.showMessageDialog(
-                this,
-                "API settings saved successfully.",
-                "Settings Updated",
-                javax.swing.JOptionPane.INFORMATION_MESSAGE
-        );
+       confirmed = true;
+       dispose();
+    }
+
+    private void onCancel(ActionEvent actionEvent) {
+        confirmed = false;
         dispose();
+    }
+
+    private void onTestConnection(ActionEvent actionEvent) {
+        // TODO: implement test connection feature
+    }
+
+    public boolean isConfirmed() {
+        return confirmed;
+    }
+
+    public String getApiUrl() {
+        return urlField.getText().trim();
+    }
+
+    public String getApiKey() {
+        return new String(keyField.getPassword()).trim();
     }
 }

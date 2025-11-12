@@ -136,7 +136,7 @@ public class UserDirectoryManager {
         Path file = getFilePath(filename, type);
         if (!Files.exists(file)) {
             Files.createFile(file);
-            LOGGER.log(Level.INFO, "Created config file: " + file);
+            LOGGER.log(Level.INFO, "Created " + type.getFolderName() + " file: " + file);
         }
     }
 

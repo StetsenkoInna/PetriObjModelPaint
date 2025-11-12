@@ -81,8 +81,4 @@ public class RecognitionApiSettingsManager {
     public void setApiKey(String apiKey) {
         this.apiKey = apiKey;
     }
-
-    private boolean isNullOrEmpty(String value) {
-        return value == null || value.trim().isEmpty();
-    }
 }
