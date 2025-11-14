@@ -12,8 +12,6 @@ import java.util.logging.Logger;
 
 public class RecognitionService {
 
-    private static final Logger LOGGER = Logger.getLogger(RecognitionService.class.getName());
-
     private final RecognitionApiClient apiClient;
     private final UserDirectoryManager userDirectoryManager;
 

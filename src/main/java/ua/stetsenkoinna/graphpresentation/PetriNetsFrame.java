@@ -49,6 +49,7 @@ import ua.stetsenkoinna.graphpresentation.actions.RewindAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunNetAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunOneEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
+import ua.stetsenkoinna.recognition.ModelLoaderService;
 import ua.stetsenkoinna.recognition.RecognitionApiClient;
 import ua.stetsenkoinna.recognition.RecognitionService;
 import ua.stetsenkoinna.utils.MessageHelper;
@@ -2052,9 +2053,20 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 java.io.File recognizedModelFile = recognitionService.recognize(imageFile, configFile, requestedFileType);
                 
                 if (recognizedModelFile != null && recognizedModelFile.exists()) {
-                    // TODO: implement loading model from file to simulator field using PnmlGenerator
+                    ModelLoaderService modelLoader = new ModelLoaderService(new PnmlParser());
+                    GraphPetriNet graphNet = modelLoader.loadModelFromFile(recognizedModelFile);
+
+                    getPetriNetsPanel().addGraphNet(graphNet);
+                    graphNet.fixOverlappingArcs();
+
+                    timeStartField.setText("0");
+                    protocolTextArea.setText("---------Events protocol----------");
+                    statisticsTextArea.setText("---------STATISTICS---------");
+
+                    getPetriNetsPanel().repaint();
+
+                    MessageHelper.showInfo(this, "Petri net recognized successfully");
                 }
-                MessageHelper.showInfo(this, "Petri net recognized successfully");
             }
         } catch (Exception ex) {
             MessageHelper.showException(this, "Error importing and recognizing image", ex);
