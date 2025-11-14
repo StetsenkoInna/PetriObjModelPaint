@@ -4,11 +4,39 @@ import javax.swing.*;
 import javax.swing.plaf.basic.BasicProgressBarUI;
 import java.awt.*;
 
+/**
+ * A modal-like non-blocking dialog that displays an indeterminate loading animation
+ * in the form of a circular spinner. This dialog is intended to be shown during
+ * long-running background tasks (e.g., model recognition, file loading, network calls)
+ * to inform the user that an operation is in progress.
+ *
+ * <p>The dialog uses a custom {@link SpinnerProgressBarUI} to transform a standard
+ * {@link JProgressBar} into a circular animated spinner without requiring any
+ * external libraries.
+ *
+ * <p>Example usage:
+ * <pre>
+ * LoadingDialog dialog = new LoadingDialog(parentFrame, "Processing...");
+ * dialog.setVisible(true);
+ * // Run background task...
+ * dialog.dispose();
+ * </pre>
+ *
+ * @author Bohdan Hrontkovskyi
+ * @since 14.11.2025
+ */
 public class LoadingDialog extends JDialog {
 
     private final JProgressBar progressBar;
     private final JLabel messageLabel;
 
+    /**
+     * Creates a new loading dialog containing a title, a message label,
+     * and a circular indeterminate progress indicator.
+     *
+     * @param parent  the parent frame used for positioning the dialog
+     * @param message the initial message to display above the spinner
+     */
     public LoadingDialog(Frame parent, String message) {
         super(parent, false);
         setSize(300, 120);
@@ -30,10 +58,29 @@ public class LoadingDialog extends JDialog {
         add(progressBar, BorderLayout.CENTER);
     }
 
+    /**
+     * Updates the text displayed above the spinner.
+     *
+     * @param message the new status message to display
+     */
     public void setMessage(String message) {
         messageLabel.setText(message);
     }
 
+    /**
+     * A custom UI delegate for {@link JProgressBar} that overrides the default
+     * indeterminate progress bar painting logic and replaces it with a circular
+     * animated spinner.
+     *
+     * <p>The spinner consists of:
+     * <ul>
+     *     <li>a faint circular background ring</li>
+     *     <li>a rotating colored arc representing progress motion</li>
+     * </ul>
+     *
+     * <p>The animation is driven by repainting the component on each frame and
+     * computing the arc's angle based on system time.
+     */
     private static class SpinnerProgressBarUI extends BasicProgressBarUI {
         @Override
         protected void paintIndeterminate(Graphics graphics, JComponent component) {

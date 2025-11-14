@@ -3,6 +3,7 @@ package ua.stetsenkoinna.recognition;
 import ua.stetsenkoinna.PetriObj.*;
 import ua.stetsenkoinna.graphnet.*;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
+import ua.stetsenkoinna.javamethod.JavaMethodParser;
 import ua.stetsenkoinna.pnml.CoordinateNormalizer;
 import ua.stetsenkoinna.pnml.PnmlParser;
 
@@ -13,9 +14,11 @@ import java.util.Map;
 public class ModelLoaderService {
 
     private final PnmlParser pnmlParser;
+    private final JavaMethodParser javaMethodParser;
 
-    public ModelLoaderService(PnmlParser pnmlParser) {
+    public ModelLoaderService(PnmlParser pnmlParser, JavaMethodParser javaMethodParser) {
         this.pnmlParser = pnmlParser;
+        this.javaMethodParser = javaMethodParser;
     }
 
     public GraphPetriNet loadModelFromFile(File modelFile) throws Exception {
@@ -23,14 +26,22 @@ public class ModelLoaderService {
 
         return switch (fileExtension) {
             case "pnml" -> this.importPnml(modelFile);
-            case "petriobg" -> this.importPetriObj(modelFile);
+            case "petriobj" -> this.importPetriObj(modelFile);
             default -> throw new IllegalArgumentException("Unsupported file type: " + fileExtension);
         };
     }
 
     private GraphPetriNet importPnml(File selectedModelFile) throws Exception {
         PetriNet petriNet = pnmlParser.parse(selectedModelFile);
+        return toGraphPetriNet(petriNet);
+    }
 
+    private GraphPetriNet importPetriObj(File selectedModelFile) throws Exception {
+        PetriNet petriNet = javaMethodParser.parse(selectedModelFile);
+        return toGraphPetriNet(petriNet);
+    }
+
+    private GraphPetriNet toGraphPetriNet(PetriNet petriNet) {
         Map<Integer, Point2D.Double> placeCoordinates = pnmlParser.getAllPlaceCoordinates();
         Map<Integer, Point2D.Double> transitionCoordinates = pnmlParser.getAllTransitionCoordinates();
 
@@ -122,10 +133,5 @@ public class ModelLoaderService {
         }
 
         return graphNet;
-    }
-
-    private GraphPetriNet importPetriObj(File selectedModelFile) {
-        // TODO: implement java-method loader
-        return new GraphPetriNet();
     }
 }

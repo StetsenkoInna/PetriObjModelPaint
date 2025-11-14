@@ -16,6 +16,7 @@ import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonit
 import ua.stetsenkoinna.graphreuse.GraphNetParametersFrame;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
 import ua.stetsenkoinna.config.ResourcePathConfig;
+import ua.stetsenkoinna.javamethod.JavaMethodParser;
 import ua.stetsenkoinna.pnml.CoordinateNormalizer;
 import ua.stetsenkoinna.pnml.PnmlParser;
 import ua.stetsenkoinna.pnml.PnmlGenerator;
@@ -2068,10 +2069,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                             File recognizedModelFile = get();
 
                             if (recognizedModelFile != null && recognizedModelFile.exists()) {
-                                ModelLoaderService modelLoader = new ModelLoaderService(new PnmlParser());
+                                ModelLoaderService modelLoader = new ModelLoaderService(new PnmlParser(), new JavaMethodParser());
                                 GraphPetriNet graphNet = modelLoader.loadModelFromFile(recognizedModelFile);
 
-                                getPetriNetsPanel().addGraphNet(graphNet);
+                                getPetriNetsPanel().setGraphNet(graphNet);
                                 graphNet.fixOverlappingArcs();
 
                                 timeStartField.setText("0");

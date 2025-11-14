@@ -4,6 +4,35 @@ import ua.stetsenkoinna.utils.MessageHelper;
 
 import java.awt.event.ActionEvent;
 
+/**
+ * A modal dialog that allows the user to configure settings required for connecting
+ * to an external Recognition API. The dialog
+ * collects two pieces of information:
+ *
+ * <ul>
+ *     <li><b>API URI</b> – the base URL of the recognition service</li>
+ *     <li><b>API Key</b> – the authentication token required for access to Roboflow API</li>
+ * </ul>
+ *
+ * <p>The dialog provides "Save" and "Cancel" buttons. If the user clicks “Save”
+ * and both fields are filled, the dialog closes and {@link #isConfirmed()} returns
+ * {@code true}. Otherwise, if cancelled or validation fails, no changes are confirmed.
+ *
+ * <p>Example usage:
+ * <pre>
+ * RecognitionApiSettingsDialog dialog =
+ *     new RecognitionApiSettingsDialog(parentFrame, currentUrl, currentKey);
+ * dialog.setVisible(true);
+ * if (dialog.isConfirmed()) {
+ *     String url = dialog.getApiUrl();
+ *     String key = dialog.getApiKey();
+ *     // Save settings...
+ * }
+ * </pre>
+ *
+ * @author  Bohdan Hrontkovskyi
+ * @since   14.11.2025
+ */
 public class RecognitionApiSettingsDialog extends javax.swing.JDialog {
 
     private final javax.swing.JTextField urlField;
@@ -11,6 +40,13 @@ public class RecognitionApiSettingsDialog extends javax.swing.JDialog {
 
     private boolean confirmed = false;
 
+    /**
+     * Creates a new settings dialog with pre-filled API URL and API Key.
+     *
+     * @param parent         the parent frame for positioning this dialog
+     * @param initialApiUrl  a previously saved API endpoint, or {@code null}
+     * @param initialApiKey  a previously saved API key, or {@code null}
+     */
     public RecognitionApiSettingsDialog(javax.swing.JFrame parent, String initialApiUrl, String initialApiKey) {
         super(parent, "Recognition API Settings", true);
 
@@ -26,6 +62,11 @@ public class RecognitionApiSettingsDialog extends javax.swing.JDialog {
         add(createButtonPanel(), java.awt.BorderLayout.SOUTH);
     }
 
+    /**
+     * Builds the main form containing labels and input fields for API URL and Roboflow Key.
+     *
+     * @return a JPanel configured for the dialog form
+     */
     private javax.swing.JPanel createFormPanel() {
         javax.swing.JPanel form = new javax.swing.JPanel(new java.awt.GridLayout(2, 2, 10, 10));
         form.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -39,6 +80,11 @@ public class RecognitionApiSettingsDialog extends javax.swing.JDialog {
         return form;
     }
 
+    /**
+     * Builds the button panel containing "Save" and "Cancel" buttons.
+     *
+     * @return a JPanel containing action buttons
+     */
     private javax.swing.JPanel createButtonPanel() {
         javax.swing.JPanel buttonPanel = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT));
 
@@ -55,6 +101,11 @@ public class RecognitionApiSettingsDialog extends javax.swing.JDialog {
         return buttonPanel;
     }
 
+    /**
+     * Validates input fields and closes the dialog if valid.
+     *
+     * @param actionEvent the triggered event
+     */
     private void onSave(ActionEvent actionEvent) {
        if (urlField.getText().trim().isEmpty() || keyField.getPassword().length == 0) {
            MessageHelper.showWarning(this, "Please fill in both the API URL and API Key fields.");
@@ -65,6 +116,11 @@ public class RecognitionApiSettingsDialog extends javax.swing.JDialog {
        dispose();
     }
 
+    /**
+     * Cancels the dialog, discarding any values entered.
+     *
+     * @param actionEvent the triggered event
+     */
     private void onCancel(ActionEvent actionEvent) {
         confirmed = false;
         dispose();
@@ -74,14 +130,29 @@ public class RecognitionApiSettingsDialog extends javax.swing.JDialog {
         // TODO: implement test connection feature
     }
 
+    /**
+     * Returns whether the dialog was confirmed by the user.
+     *
+     * @return {@code true} if the user clicked "Save"; {@code false} if cancelled
+     */
     public boolean isConfirmed() {
         return confirmed;
     }
 
+    /**
+     * Returns the API URL entered in the dialog.
+     *
+     * @return a trimmed string containing the API endpoint
+     */
     public String getApiUrl() {
         return urlField.getText().trim();
     }
 
+    /**
+     * Returns the API Key entered in the dialog.
+     *
+     * @return a trimmed string containing the API authentication key
+     */
     public String getApiKey() {
         return new String(keyField.getPassword()).trim();
     }
