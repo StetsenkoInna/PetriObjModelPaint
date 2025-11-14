@@ -11,6 +11,7 @@ import java.io.File;
 import java.util.Map;
 
 public class ModelLoaderService {
+
     private final PnmlParser pnmlParser;
 
     public ModelLoaderService(PnmlParser pnmlParser) {
@@ -64,12 +65,10 @@ public class ModelLoaderService {
             graphNet.getGraphPetriTransitionList().add(graphTransition);
         }
 
-        // Create GraphArcIn objects from ArcIn objects
         for (ArcIn arcIn : petriNet.getArcIn()) {
             GraphPetriPlace beginPlace = null;
             GraphPetriTransition endTransition = null;
 
-            // Find corresponding graph elements
             for (GraphPetriPlace gp : graphNet.getGraphPetriPlaceList()) {
                 if (gp.getPetriPlace().getNumber() == arcIn.getNumP()) {
                     beginPlace = gp;
@@ -94,12 +93,10 @@ public class ModelLoaderService {
             }
         }
 
-        // Create GraphArcOut objects from ArcOut objects
         for (ArcOut arcOut : petriNet.getArcOut()) {
             GraphPetriTransition beginTransition = null;
             GraphPetriPlace endPlace = null;
 
-            // Find corresponding graph elements
             for (GraphPetriTransition gt : graphNet.getGraphPetriTransitionList()) {
                 if (gt.getPetriTransition().getNumber() == arcOut.getNumT()) {
                     beginTransition = gt;
@@ -128,6 +125,7 @@ public class ModelLoaderService {
     }
 
     private GraphPetriNet importPetriObj(File selectedModelFile) {
+        // TODO: implement java-method loader
         return new GraphPetriNet();
     }
 }

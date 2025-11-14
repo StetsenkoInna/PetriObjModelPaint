@@ -8,6 +8,7 @@ import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.config.FilePathConfig;
 import ua.stetsenkoinna.config.UserDirectoryManager;
 import ua.stetsenkoinna.graphpresentation.importimage.ImportImageDialog;
+import ua.stetsenkoinna.graphpresentation.importimage.LoadingDialog;
 import ua.stetsenkoinna.graphpresentation.settings.RecognitionApiSettingsDialog;
 import ua.stetsenkoinna.graphpresentation.settings.RecognitionApiSettingsManager;
 import ua.stetsenkoinna.graphpresentation.statistic.StatisticMonitorDialog;
@@ -2049,24 +2050,45 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 RecognitionApiSettingsManager apiSettingsManager = new RecognitionApiSettingsManager(userDirectoryManager);
                 RecognitionApiClient apiClient = new RecognitionApiClient(apiSettingsManager.getApiUrl(), apiSettingsManager.getApiKey());
                 RecognitionService recognitionService = new RecognitionService(apiClient, userDirectoryManager);
-    
-                java.io.File recognizedModelFile = recognitionService.recognize(imageFile, configFile, requestedFileType);
-                
-                if (recognizedModelFile != null && recognizedModelFile.exists()) {
-                    ModelLoaderService modelLoader = new ModelLoaderService(new PnmlParser());
-                    GraphPetriNet graphNet = modelLoader.loadModelFromFile(recognizedModelFile);
 
-                    getPetriNetsPanel().addGraphNet(graphNet);
-                    graphNet.fixOverlappingArcs();
+                LoadingDialog loadingDialog = new LoadingDialog(this, "Recognizing Petri Net...");
+                loadingDialog.setVisible(true);
 
-                    timeStartField.setText("0");
-                    protocolTextArea.setText("---------Events protocol----------");
-                    statisticsTextArea.setText("---------STATISTICS---------");
+                SwingWorker<File, Void> worker = new SwingWorker<>() {
+                    @Override
+                    protected File doInBackground() throws Exception {
+                        return recognitionService.recognize(imageFile, configFile, requestedFileType);
+                    }
 
-                    getPetriNetsPanel().repaint();
+                    @Override
+                    protected void done() {
+                        loadingDialog.dispose();
 
-                    MessageHelper.showInfo(this, "Petri net recognized successfully");
-                }
+                        try {
+                            File recognizedModelFile = get();
+
+                            if (recognizedModelFile != null && recognizedModelFile.exists()) {
+                                ModelLoaderService modelLoader = new ModelLoaderService(new PnmlParser());
+                                GraphPetriNet graphNet = modelLoader.loadModelFromFile(recognizedModelFile);
+
+                                getPetriNetsPanel().addGraphNet(graphNet);
+                                graphNet.fixOverlappingArcs();
+
+                                timeStartField.setText("0");
+                                protocolTextArea.setText("---------Events protocol----------");
+                                statisticsTextArea.setText("---------STATISTICS---------");
+
+                                getPetriNetsPanel().repaint();
+
+                                MessageHelper.showInfo(PetriNetsFrame.this, "Petri net recognized successfully");
+                            }
+                        } catch (Exception ex) {
+                            MessageHelper.showException(PetriNetsFrame.this, "Error importing and recognizing image", ex);
+                        }
+                    }
+                };
+
+                worker.execute();
             }
         } catch (Exception ex) {
             MessageHelper.showException(this, "Error importing and recognizing image", ex);
