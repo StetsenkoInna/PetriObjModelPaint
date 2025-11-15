@@ -7,6 +7,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.util.UUID;
+import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -109,6 +110,30 @@ public class RecognitionApiClient {
         }
 
         return response.body();
+    }
+
+    /**
+     * Sends a health check request to the Recognition API to verify connectivity
+     * and the validity of the configured Roboflow API key.
+     *
+     * <p>This method performs an HTTP GET request to the "/api/health" endpoint of the
+     * Recognition API. It includes the API key in the "X-Roboflow-API-Key" header.
+     *
+     * @throws IOException if the request fails due to network issues, or if the API
+     *                     returns a non-200 HTTP status code
+     * @throws InterruptedException if the request is interrupted while waiting for
+     *                              the response
+     */
+    public void ping() throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl + "/api/health"))
+                .header("X-Roboflow-API-Key", apiKey)
+                .GET()
+                .build();
+        HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+        if (response.statusCode() != 200) {
+            throw new IOException("Health check failed with status " + response.statusCode());
+        }
     }
 
     /**

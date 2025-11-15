@@ -1,7 +1,9 @@
 package ua.stetsenkoinna.graphpresentation.settings;
 
+import ua.stetsenkoinna.recognition.RecognitionApiClient;
 import ua.stetsenkoinna.utils.MessageHelper;
 
+import javax.swing.*;
 import java.awt.event.ActionEvent;
 
 /**
@@ -88,15 +90,17 @@ public class RecognitionApiSettingsDialog extends javax.swing.JDialog {
     private javax.swing.JPanel createButtonPanel() {
         javax.swing.JPanel buttonPanel = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT));
 
-        // TODO: Add test connection button
         javax.swing.JButton saveButton = new javax.swing.JButton("Save");
         javax.swing.JButton cancelButton = new javax.swing.JButton("Cancel");
+        javax.swing.JButton testConnectionButton = new javax.swing.JButton("Test Connection");
 
         saveButton.addActionListener(this::onSave);
         cancelButton.addActionListener(this::onCancel);
+        testConnectionButton.addActionListener(this::onTestConnection);
 
         buttonPanel.add(saveButton);
         buttonPanel.add(cancelButton);
+        buttonPanel.add(testConnectionButton);
 
         return buttonPanel;
     }
@@ -126,8 +130,54 @@ public class RecognitionApiSettingsDialog extends javax.swing.JDialog {
         dispose();
     }
 
+    /**
+     * Handles the "Test Connection" button click in the Recognition API settings dialog.
+     *
+     * <p>This method reads the API URL and Roboflow API key from the text fields,
+     * validates that both are provided, and then asynchronously tests the connection
+     * to the Recognition API using a {@link SwingWorker}. The UI remains responsive
+     * during the check.
+     *
+     * <p>If the connection succeeds, an informational message is displayed. If it fails,
+     * an error message is shown. Any unexpected exceptions are also caught and displayed.
+     *
+     * @param actionEvent the triggered event
+     */
     private void onTestConnection(ActionEvent actionEvent) {
-        // TODO: implement test connection feature
+        String apiUrl = urlField.getText().trim();
+        String apiKey = new String(keyField.getPassword()).trim();
+
+        if (apiUrl.isEmpty() || apiKey.isEmpty()) {
+            MessageHelper.showWarning(this, "Please fill in both the API URL and API Key fields.");
+            return;
+        }
+
+        new SwingWorker<Boolean, Void>() {
+            @Override
+            protected Boolean doInBackground() {
+                try {
+                    RecognitionApiClient client = new RecognitionApiClient(apiUrl, apiKey);
+                    client.ping();
+                    return true;
+                } catch (Exception ex) {
+                    return false;
+                }
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    boolean success = get();
+                    if (success) {
+                        MessageHelper.showInfo(RecognitionApiSettingsDialog.this, "Connection successful!");
+                    } else {
+                        MessageHelper.showError(RecognitionApiSettingsDialog.this, "Cannot connect to Recognition API. Check URL and Roboflow API Key.");
+                    }
+                } catch (Exception ex) {
+                    MessageHelper.showException(RecognitionApiSettingsDialog.this, "Error testing connection", ex);
+                }
+            }
+        }.execute();
     }
 
     /**
