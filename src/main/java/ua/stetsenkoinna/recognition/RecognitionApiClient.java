@@ -7,7 +7,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.util.UUID;
-import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -31,7 +30,7 @@ import java.util.logging.Logger;
  *
  * <h2>Typical Usage</h2>
  * <pre>
- * RecognitionApiClient client = new RecognitionApiClient(apiUrl, apiKey);
+ * RecognitionApiClient client = new RecognitionApiClient(apiUrl);
  * InputStream result = client.recognize(imageFile, configFile, "pnml");
  * </pre>
  *
@@ -54,21 +53,16 @@ public class RecognitionApiClient {
     /** Base URL of the Recognition API (http://localhost:8000). */
     private final String apiUrl;
 
-    /** API key used for authentication (X-Roboflow-API-Key header). */
-    private final String apiKey;
-
     /**
-     * Creates a new Recognition API client using the provided API URL and API key.
+     * Creates a new Recognition API client using the provided API URL.
      *
      * @param apiUrl the target API root URL
-     * @param apiKey the Roboflow API authentication key
      */
-    public RecognitionApiClient(String apiUrl, String apiKey) {
+    public RecognitionApiClient(String apiUrl) {
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .build();
         this.apiUrl = apiUrl;
-        this.apiKey = apiKey;
     }
 
     /**
@@ -98,7 +92,6 @@ public class RecognitionApiClient {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(requestUrl))
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .header("X-Roboflow-API-Key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(multipartBody))
                 .build();
 
@@ -113,11 +106,10 @@ public class RecognitionApiClient {
     }
 
     /**
-     * Sends a health check request to the Recognition API to verify connectivity
-     * and the validity of the configured Roboflow API key.
+     * Sends a health check request to the Recognition API to verify connectivity.
      *
      * <p>This method performs an HTTP GET request to the "/api/health" endpoint of the
-     * Recognition API. It includes the API key in the "X-Roboflow-API-Key" header.
+     * Recognition API.
      *
      * @throws IOException if the request fails due to network issues, or if the API
      *                     returns a non-200 HTTP status code
@@ -127,7 +119,6 @@ public class RecognitionApiClient {
     public void ping() throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl + "/api/health"))
-                .header("X-Roboflow-API-Key", apiKey)
                 .GET()
                 .build();
         HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());

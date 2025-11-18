@@ -1187,7 +1187,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         // Import Image menu item
         importImageMenuItem = new javax.swing.JMenuItem();
-        importImageMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_A, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        importImageMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_J, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         importImageMenuItem.setText("Import Image");
         importImageMenuItem.addActionListener(this::importImageMenuItemActionPerformed);
         fileMenu.add(importImageMenuItem);
@@ -2049,7 +2049,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 
                 UserDirectoryManager userDirectoryManager = new UserDirectoryManager();
                 RecognitionApiSettingsManager apiSettingsManager = new RecognitionApiSettingsManager(userDirectoryManager);
-                RecognitionApiClient apiClient = new RecognitionApiClient(apiSettingsManager.getApiUrl(), apiSettingsManager.getApiKey());
+                RecognitionApiClient apiClient = new RecognitionApiClient(apiSettingsManager.getApiUrl());
                 RecognitionService recognitionService = new RecognitionService(apiClient, userDirectoryManager);
 
                 LoadingDialog loadingDialog = new LoadingDialog(this, "Recognizing Petri Net...");
@@ -2099,17 +2099,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void recognitionApiSettingsActionPerformed(java.awt.event.ActionEvent evt) {
         try {
             UserDirectoryManager userDirectoryManager = new UserDirectoryManager();
-            RecognitionApiSettingsManager settingsManager = new RecognitionApiSettingsManager(userDirectoryManager);
-            RecognitionApiSettingsDialog settingsDialog = new RecognitionApiSettingsDialog(this, settingsManager.getApiUrl(), settingsManager.getApiKey());
+            RecognitionApiSettingsManager apiSettingsManager = new RecognitionApiSettingsManager(userDirectoryManager);
+            RecognitionApiSettingsDialog settingsDialog = new RecognitionApiSettingsDialog(this, apiSettingsManager.getApiUrl());
             settingsDialog.setVisible(true);
 
             if (settingsDialog.isConfirmed()) {
                 String apiUrl = settingsDialog.getApiUrl();
-                String apiKey = settingsDialog.getApiKey();
 
-                settingsManager.setApiUrl(apiUrl);
-                settingsManager.setApiKey(apiKey);
-                settingsManager.save();
+                apiSettingsManager.setApiUrl(apiUrl);
+                apiSettingsManager.save();
 
                 MessageHelper.showInfo(this, "Settings saved successfully.");
             }
