@@ -14,8 +14,8 @@ public class GraphPetriPlace extends GraphPlace implements Serializable {
 
     private static int simpleInd=0;
 
+    private final int id; // UI element ID
     private final PetriP place;
-    private final int id;
   
     public GraphPetriPlace(PetriP P, int i){
         place = P;

@@ -10,23 +10,25 @@ import java.io.Serializable;
  */
 public class ArcOut implements Cloneable, Serializable {
 
+    private final PetriElementId id;
+    private int number;
     private int numP;
     private int numT;
     private int k;
     private String nameT;
     private String nameP;
     private static int next = 0;
-    private int number;
-    
+
     // whether k is a parameter; added by Katya 08.12.2016
     private boolean kIsParam = false;
     // param name
     private String kParamName = null;
 
     public ArcOut() {
-        k = 1;
+        id = PetriElementId.forArc();
         number = next;
         next++;
+        k = 1;
     }
 
     /**
@@ -35,11 +37,12 @@ public class ArcOut implements Cloneable, Serializable {
      * @param K arc multiplicity
      */
     public ArcOut(int T, int P, int K) {
+        id = PetriElementId.forArc();
+        number = next;
+        next++;
         numP = P;
         numT = T;
         k = K;
-        number = next;
-        next++;
     }
 
     /**
@@ -49,17 +52,35 @@ public class ArcOut implements Cloneable, Serializable {
      * @param K arc multiplicity
      */
     public ArcOut(PetriT T, PetriP P, int K) {
+        id = PetriElementId.forArc();
+        number = next;
+        next++;
         numP = P.getNumber();
         numT = T.getNumber();
         k = K;
         nameP = P.getName();
         nameT = T.getName();
-        number = next;
-        next++;
     }
 
     public ArcOut(ArcOut arcOut) {
         this(arcOut.getNumT(), arcOut.getNumP(), arcOut.getQuantity());
+    }
+
+    /**
+     * Constructor for loading from PNML with existing ID
+     *
+     * @param id Existing ID from PNML
+     * @param T number of transition
+     * @param P number of place
+     * @param K arc multiplicity
+     */
+    public ArcOut(String id, int T, int P, int K) {
+        this.id = PetriElementId.fromString(id);
+        number = next;
+        next++;
+        numP = P;
+        numT = T;
+        k = K;
     }
 
     public boolean kIsParam() {
@@ -194,6 +215,20 @@ public class ArcOut implements Cloneable, Serializable {
     public void printParameters() {
         System.out.println("This arc has direction from  transition  with number " + numT + " to place with number " + numP
                 + " and has " + k + " value of multiplicity");
+    }
+
+    /**
+     * @return the id
+     */
+    public String getId() {
+        return id != null ? id.getValue() : null;
+    }
+
+    /**
+     * @return the id wrapper
+     */
+    public PetriElementId getIdWrapper() {
+        return id;
     }
 
 }

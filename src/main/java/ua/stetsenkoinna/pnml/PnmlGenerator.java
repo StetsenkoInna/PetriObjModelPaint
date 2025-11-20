@@ -298,7 +298,8 @@ public class PnmlGenerator {
         // Generate input arcs (Place to Transition)
         for (ArcIn arcIn : arcIns) {
             Element arcElement = document.createElement(PnmlConstants.ELEMENT_ARC);
-            arcElement.setAttribute(PnmlConstants.ATTR_ID, "arc" + arcCounter++);
+            String arcId = arcIn.getId() != null ? arcIn.getId() : "arc" + arcCounter++;
+            arcElement.setAttribute(PnmlConstants.ATTR_ID, arcId);
             arcElement.setAttribute(PnmlConstants.ATTR_SOURCE, placeNumberToId.get(arcIn.getNumP()));
             arcElement.setAttribute(PnmlConstants.ATTR_TARGET, transitionNumberToId.get(arcIn.getNumT()));
             netElement.appendChild(arcElement);
@@ -342,7 +343,8 @@ public class PnmlGenerator {
         // Generate output arcs (Transition to Place)
         for (ArcOut arcOut : arcOuts) {
             Element arcElement = document.createElement(PnmlConstants.ELEMENT_ARC);
-            arcElement.setAttribute(PnmlConstants.ATTR_ID, "arc" + arcCounter++);
+            String arcId = arcOut.getId() != null ? arcOut.getId() : "arc" + arcCounter++;
+            arcElement.setAttribute(PnmlConstants.ATTR_ID, arcId);
             arcElement.setAttribute(PnmlConstants.ATTR_SOURCE, transitionNumberToId.get(arcOut.getNumT()));
             arcElement.setAttribute(PnmlConstants.ATTR_TARGET, placeNumberToId.get(arcOut.getNumP()));
             netElement.appendChild(arcElement);

@@ -9,9 +9,10 @@ import java.io.Serializable;
  */
 public class PetriP extends PetriMainElement implements Cloneable, Serializable {
 
-    private int mark;
+    private final PetriElementId id;
     private String name;
     private int number;
+    private int mark;
     private double mean;
     private static int next = 0;// лічильник об"єктів
     private int observedMax;
@@ -20,8 +21,6 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
     private boolean markIsParam = false;
     // param name
     private String markParamName = null;
-    
-    private String id; // for json unique number
 
     /**
      *
@@ -29,14 +28,14 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
      * @param m quantity of markers
      */
     public PetriP(String n, int m) {
+        id = PetriElementId.forPlace(n);
         name = n;
+        number = next;
+        next++;
         mark = m;
         mean = 0;
-        number = next; //додано 1.10.2012
-        next++;
         observedMax = m;
         observedMin = m;
-        id=null;
     }
     
      /**
@@ -55,8 +54,14 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
      * @param m quantity of markers
      */
     public PetriP(String id, String n, int m) {
-        this(n,m);
-        this.id = id;
+        this.id = PetriElementId.fromString(id);
+        name = n;
+        number = next;
+        next++;
+        mark = m;
+        mean = 0;
+        observedMax = m;
+        observedMin = m;
     }
 
     /**
@@ -235,14 +240,14 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
      * @return the id
      */
     public String getId() {
-        return id;
+        return id != null ? id.getValue() : null;
     }
 
     /**
-     * @param id the id to set
+     * @return the id wrapper
      */
-    public void setId(String id) {
-        this.id = id;
+    public PetriElementId getIdWrapper() {
+        return id;
     }
 
 }

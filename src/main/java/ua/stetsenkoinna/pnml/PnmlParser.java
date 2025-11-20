@@ -250,7 +250,7 @@ public class PnmlParser {
 
         for (int i = 0; i < arcNodes.getLength(); i++) {
             Element arcElement = (Element) arcNodes.item(i);
-            String id = arcElement.getAttribute(PnmlConstants.ATTR_ID);
+            String arcId = arcElement.getAttribute(PnmlConstants.ATTR_ID);
             String source = arcElement.getAttribute(PnmlConstants.ATTR_SOURCE);
             String target = arcElement.getAttribute(PnmlConstants.ATTR_TARGET);
 
@@ -292,7 +292,7 @@ public class PnmlParser {
                 // Place to Transition - Input Arc
                 int placeNum = placeIdToNumber.get(source);
                 int transitionNum = transitionIdToNumber.get(target);
-                ArcIn arcIn = new ArcIn(placeNum, transitionNum, weight);
+                ArcIn arcIn = new ArcIn(arcId, placeNum, transitionNum, weight);
                 arcIn.setNameP(source);
                 arcIn.setNameT(target);
 
@@ -314,7 +314,7 @@ public class PnmlParser {
                 // Transition to Place - Output Arc
                 int transitionNum = transitionIdToNumber.get(source);
                 int placeNum = placeIdToNumber.get(target);
-                ArcOut arcOut = new ArcOut(transitionNum, placeNum, weight);
+                ArcOut arcOut = new ArcOut(arcId, transitionNum, placeNum, weight);
                 arcOut.setNameT(source);
                 arcOut.setNameP(target);
 
