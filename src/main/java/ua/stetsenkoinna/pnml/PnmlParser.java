@@ -92,7 +92,7 @@ public class PnmlParser {
                     String markingText = textNodes.item(0).getTextContent();
                     try {
                         marking = Integer.parseInt(markingText);
-                    } catch (NumberFormatException _) {
+                    } catch (NumberFormatException e) {
 
                     }
                 }
@@ -306,7 +306,7 @@ public class PnmlParser {
                 if (textNodes.getLength() > 0) {
                     try {
                         weight = Integer.parseInt(textNodes.item(0).getTextContent());
-                    } catch (NumberFormatException _) {
+                    } catch (NumberFormatException e) {
 
                     }
                 }

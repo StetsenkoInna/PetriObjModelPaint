@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <xs:element name="pnml">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="net"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="net">
+        <xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="place"/>
+                <xs:element ref="transition"/>
+                <xs:element ref="arc"/>
+            </xs:choice>
+            <xs:attribute name="id" type="xs:ID" use="required"/>
+            <xs:attribute name="type" type="xs:string" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="place">
+        <xs:complexType mixed="true">
+            <xs:sequence>
+                <xs:element name="name" type="flexibleTextType"/>
+                <xs:element name="initialMarking" type="integerFlexibleTextType" minOccurs="0"/>
+            </xs:sequence>
+            <xs:attribute name="id" type="xs:ID" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="transition">
+        <xs:complexType mixed="true">
+            <xs:sequence>
+                <xs:element name="name" type="flexibleTextType"/>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element name="delay" type="doubleFlexibleTextType"/>
+                    <xs:element name="timeDelay" type="doubleFlexibleTextType"/>
+                    <xs:element name="priority" type="integerFlexibleTextType"/>
+                    <xs:element name="probability" type="doubleFlexibleTextType"/>
+                    <xs:element name="distribution" type="distributionLawType"/>
+                    <xs:element name="distributionLaw" type="distributionLawType"/>
+                </xs:choice>
+            </xs:sequence>
+            <xs:attribute name="id" type="xs:ID" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="arc">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="inscription" type="integerFlexibleTextType" minOccurs="0"/>
+            </xs:sequence>
+            <xs:attribute name="id" type="xs:ID" use="required"/>
+            <xs:attribute name="source" type="xs:IDREF" use="required"/>
+            <xs:attribute name="target" type="xs:IDREF" use="required"/>
+            <xs:attribute name="type" type="xs:string" use="optional"/> <!-- Для інгібіторних дуг -->
+        </xs:complexType>
+    </xs:element>
+    <xs:complexType name="flexibleTextType" mixed="true">
+        <xs:sequence>
+            <xs:element name="text" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="integerFlexibleTextType" mixed="true">
+        <xs:sequence>
+            <xs:element name="text" type="xs:integer" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="doubleFlexibleTextType" mixed="true">
+        <xs:sequence>
+            <xs:element name="text" type="xs:double" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="distributionLawType" mixed="true">
+        <xs:sequence>
+            <xs:element name="text" minOccurs="0">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:enumeration value="UNIF"/>
+                        <xs:enumeration value="NORM"/>
+                        <xs:enumeration value="EXP"/>
+                        <xs:enumeration value="LOGNORM"/>
+                        <xs:enumeration value="ERL"/>
+                        <xs:enumeration value="BINOMIAL"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+</xs:schema>

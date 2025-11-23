@@ -36,6 +36,7 @@ public class GraphArc implements Serializable {
         lineWidth = 1;
         firstArc = false;
         secondArc = false;
+        this.graphElement = new Line2D.Double();
     }
 
     public void drawGraphElement(Graphics2D g) {

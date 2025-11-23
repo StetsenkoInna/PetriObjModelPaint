@@ -19,7 +19,7 @@ public class GraphElement implements Serializable {
     }
 
     public void setNewCoordinates(Point2D p) {
-        // todo
+        //todo
     }
 
     public boolean isGraphElement(Point2D p) {

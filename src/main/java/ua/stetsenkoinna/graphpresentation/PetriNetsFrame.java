@@ -1,5 +1,6 @@
 package ua.stetsenkoinna.graphpresentation;
 
+import org.xml.sax.SAXException;
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.PetriObj.PetriP;
@@ -11,6 +12,10 @@ import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonit
 import ua.stetsenkoinna.graphreuse.GraphNetParametersFrame;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
 import ua.stetsenkoinna.config.ResourcePathConfig;
+import ua.stetsenkoinna.petritextrepr.dto.PetriNetDTO;
+import ua.stetsenkoinna.petritextrepr.pnmltransform.PetriNetEstablisher;
+import ua.stetsenkoinna.petritextrepr.pnmltransform.PnmlMapper;
+import ua.stetsenkoinna.pnml.PnmlCoordinatesCaptor;
 import ua.stetsenkoinna.pnml.PnmlParser;
 import ua.stetsenkoinna.pnml.PnmlGenerator;
 import ua.stetsenkoinna.PetriObj.PetriNet;
@@ -25,10 +30,7 @@ import ua.stetsenkoinna.LibNet.HiddenFromUI;
 
 import java.awt.*;
 import java.awt.event.*;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -50,10 +52,15 @@ import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
 import ua.stetsenkoinna.utils.MessageHelper;
 
 import java.awt.Dialog.ModalityType;
-import java.io.ObjectInputStream;
 import java.nio.file.Path;
+import javax.swing.filechooser.FileFilter;
 import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEditSupport;
+import javax.xml.XMLConstants;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.Schema;
+import javax.xml.validation.SchemaFactory;
+import javax.xml.validation.Validator;
 
 public class PetriNetsFrame extends javax.swing.JFrame {
 
@@ -1174,6 +1181,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         importPnmlMenuItem.addActionListener(this::importPnmlMenuItemActionPerformed);
         fileMenu.add(importPnmlMenuItem);
 
+        //Create Petri Net from text representation
+        createPetriNetFromTextRepresentation = new JMenuItem();
+        createPetriNetFromTextRepresentation.setText("From text representation");
+        createPetriNetFromTextRepresentation.addActionListener(this::fromTextRepresentationCreationPetriNetExecution);
+        //fileMenu.add(createPetriNetFromTextRepresentation);
+
         petriNetsFrameMenuBar.add(fileMenu);
 
         editMenu.setText("Edit");
@@ -1603,6 +1616,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         return true;
     }
 
+
     public void runNet() {
         protocolTextArea.setText("---------Events protocol----------");
         protocolTextArea.setText("---------STATISTICS---------");
@@ -1634,6 +1648,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, ex.getMessage(), ex);
         }
     }
+
+    // У класі PetriNetsFrame.java
 
     private RunPetriObjModel getRunPetriObjModel() {
         PetriSim petriSim = new PetriSim(
@@ -1676,6 +1692,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, ex.getMessage(), ex);
         }
     }
+
+    // У класі PetriNetsFrame.java
 
     private AnimRunPetriObjModel getAnimRunPetriObjModel() {
         AnimRunPetriSim petriSim = new AnimRunPetriSim(
@@ -1841,6 +1859,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             if (fdlg.getFile() != null) {
                 java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
 
+                //Чи має PNML-файл координати
+                if(!PnmlCoordinatesCaptor.hasCoordinates(selectedFile)){
+                    buildGraphPetriNet(selectedFile);
+                    return;
+                }
                 // Parse PNML file
                 PnmlParser parser = new PnmlParser();
                 PetriNet petriNet = parser.parse(selectedFile);
@@ -2082,6 +2105,90 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
 
     /**
+     * Connects the GUI with the API of drawing a Petri Net from its text representation.
+     * The procedure call causes opening of the window with selection the file.
+     * The user can select only the <b>.pnml</b> formatted file.
+     */
+    public void fromTextRepresentationCreationPetriNetExecution(ActionEvent evt){
+        Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.INFO, "The option to import from text representation has been just invoked.");
+
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileFilter(new FileFilter() {
+            @Override
+            public boolean accept(File f) {
+                return f.isDirectory() || f.getName().toLowerCase().endsWith(".pnml");
+            }
+
+            @Override
+            public String getDescription() {
+                return "PNML Files (*.pnml)";
+            }
+        });
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        int width = (int) (screen.width * 0.8);
+        int height = (int) (screen.height * 0.7);
+        chooser.setPreferredSize(new Dimension(width, height));
+        int result = chooser.showOpenDialog(this);
+
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File file = chooser.getSelectedFile();
+            buildGraphPetriNet(file);
+        }
+    }
+
+    private void buildGraphPetriNet(File file) {
+        try {
+            validatePnmlFile(file);
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.INFO, "PNML file validation successful.");
+
+            PetriNetDTO dto = PnmlMapper.parse(file);
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.INFO, "PNML Data converted to Petri Net DTO");
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.INFO, dto.dtoToLoggableString());
+
+            GraphPetriNet graphPetriNet = PetriNetEstablisher.establishPetriNetFromDto(dto);
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.INFO, "Graph Petri Net is formed");
+
+            getPetriNetsPanel().setGraphNet(graphPetriNet);
+            getPetriNetsPanel().repaint();
+
+        } catch (SAXException e) {
+            String errorMessage = e.getMessage();
+
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.WARNING, "PNML file structure is incorrect: " + e.getMessage());
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Incorrect structure of PNML file.\nDetails: " + errorMessage,
+                    "Validation Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        } catch (Exception e) {
+            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, "An exception has occurred: " + e.getMessage(), e);
+            JOptionPane.showMessageDialog(
+                    this,
+                    "An error occurred while processing the file: " + e.getMessage(),
+                    "Processing Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+
+    private void validatePnmlFile(File xmlFile) throws SAXException, IOException {
+        final String schemaPath = "/validate.xsd";
+
+        try (InputStream xsdStream = getClass().getResourceAsStream(schemaPath)) {
+            if (xsdStream == null) {
+                throw new IOException("Schema file not found in resources: " + schemaPath);
+            }
+
+            SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            Schema schema = factory.newSchema(new StreamSource(xsdStream));
+            Validator validator = schema.newValidator();
+            validator.validate(new StreamSource(xmlFile));
+        }
+    }
+
+    /**
      * @param args the command line arguments
      *
      * Direct usage is not recommended - use a separated launcher class instead
@@ -2111,108 +2218,116 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JMenu Animate;
-    private javax.swing.JMenuItem SaveGraphNet;
-    private javax.swing.JMenuItem SaveMethodInNetLibrary;
-    private javax.swing.JMenuItem SaveNetAsMethod;
-    private javax.swing.JMenuItem SavePetriNetAs;
-    private javax.swing.JMenuItem centerLocationOfGraphNet;
-    private javax.swing.JMenu editMenu;
-    private javax.swing.JMenuItem editNetParameters;
-    private javax.swing.JMenu fileMenu;
-    private javax.swing.JMenuItem itemAnimateEvent;
-    private javax.swing.JMenuItem itemAnimateNet;
-    private javax.swing.JMenuItem itemRunEvent;
-    private javax.swing.JMenuItem jMenuItem2;
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JTabbedPane jTabbedPane1;
-    private javax.swing.JList<String> leftMenuList;
-    private javax.swing.JPanel leftNenuPanel;
-    private javax.swing.JPanel modelingParametersPanel;
-    private javax.swing.JPanel modelingParametersPanel1;
-    private javax.swing.JPanel modelingParametersPanel2;
-    private javax.swing.JPanel modelingResultsPanel;
-    private javax.swing.JPanel modelingResultsPanel1;
-    private javax.swing.JPanel modelingResultsPanel2;
-    private javax.swing.JSplitPane modelingResultsSplitPane;
-    private javax.swing.JSplitPane modelingResultsSplitPane1;
-    private javax.swing.JSplitPane modelingResultsSplitPane2;
-    private javax.swing.JLabel netNameLabel;
-    private javax.swing.JLabel netNameLabel1;
-    private javax.swing.JLabel netNameLabel2;
-    private javax.swing.JTextField netNameTextField;
-    private javax.swing.JTextField netNameTextField1;
-    private javax.swing.JTextField netNameTextField2;
-    private javax.swing.JButton newArcButton;
-    private javax.swing.JButton newArcButton1;
-    private javax.swing.JButton newArcButton2;
-    private javax.swing.JMenuItem newMenuItem;
-    private javax.swing.JButton newPlaceButton;
-    private javax.swing.JButton newPlaceButton1;
-    private javax.swing.JButton newPlaceButton2;
-    private javax.swing.JButton newTransitionButton;
-    private javax.swing.JButton newTransitionButton1;
-    private javax.swing.JButton newTransitionButton2;
-    private javax.swing.JMenuItem openMenuItem;
-    private javax.swing.JMenuItem openMethodMenuItem;
-    private javax.swing.JMenuItem openMonitor;
-    private javax.swing.JCheckBoxMenuItem isStatisticMonitorEnabled;
-    private javax.swing.JPanel petriNetDesign;
-    private javax.swing.JPanel petriNetDesign1;
-    private javax.swing.JPanel petriNetDesign2;
-    private javax.swing.JScrollPane petriNetPanelScrollPane;
-    private javax.swing.JScrollPane petriNetPanelScrollPane1;
-    private javax.swing.JScrollPane petriNetPanelScrollPane2;
-    private javax.swing.JMenuBar petriNetsFrameMenuBar;
-    private javax.swing.JSplitPane petriNetsFrameSplitPane;
-    private javax.swing.JSplitPane petriNetsFrameSplitPane1;
-    private javax.swing.JSplitPane petriNetsFrameSplitPane2;
-    private javax.swing.JToolBar petriNetsFrameToolBar;
-    private javax.swing.JToolBar petriNetsFrameToolBar1;
-    private javax.swing.JToolBar petriNetsFrameToolBar2;
-    private javax.swing.JButton playPauseAnimationButton;
-    private javax.swing.JTextArea protocolTextArea;
-    private javax.swing.JScrollPane protokolScrollPane;
-    private javax.swing.JScrollPane protokolScrollPane1;
-    private javax.swing.JScrollPane protokolScrollPane2;
-    private javax.swing.JTextArea protokolTextArea1;
-    private javax.swing.JTextArea protokolTextArea2;
-    private javax.swing.JMenuItem redoMenuItem;
-    private javax.swing.JButton runEventButton1;
-    private javax.swing.JButton runEventButton2;
-    private javax.swing.JMenu runMenu;
-    private javax.swing.JButton runOneEventButton;
-    private javax.swing.JButton runPetriNetButton1;
-    private javax.swing.JButton runPetriNetButton2;
-    private javax.swing.JMenu save;
-    private javax.swing.JScrollPane scrollPane;
-    private javax.swing.JButton skipBackwardAnimationButton;
-    private javax.swing.JButton skipForwardAnimationButton;
-    private javax.swing.JLabel speedLabel;
-    private javax.swing.JSlider speedSlider;
-    private javax.swing.JMenu statisticMenu;
-    private javax.swing.JScrollPane statisticsScrollPane;
-    private javax.swing.JScrollPane statisticsScrollPane1;
-    private javax.swing.JScrollPane statisticsScrollPane2;
-    private javax.swing.JTextArea statisticsTextArea;
-    private javax.swing.JTextArea statisticsTextArea1;
-    private javax.swing.JTextArea statisticsTextArea2;
-    private javax.swing.JButton stopAnimationButton;
-    private javax.swing.JLabel timeModelingLabel;
-    private javax.swing.JLabel timeModelingLabel1;
-    private javax.swing.JLabel timeModelingLabel2;
-    private javax.swing.JTextField timeModelingTextField;
-    private javax.swing.JTextField timeModelingTextField1;
-    private javax.swing.JTextField timeModelingTextField2;
-    private javax.swing.JTextField timeStartField;
-    private javax.swing.JTextField timeStartField1;
-    private javax.swing.JTextField timeStartField2;
-    private javax.swing.JLabel timeStartLabel;
-    private javax.swing.JLabel timeStartLabel1;
-    private javax.swing.JLabel timeStartLabel2;
-    private javax.swing.JMenuItem undoMenuItem;
-    private javax.swing.JMenuItem importPnmlMenuItem;
-    private javax.swing.JMenuItem exportPnmlMenuItem;
+    private JMenu Animate;
+    private JMenuItem SaveGraphNet;
+    private JMenuItem SaveMethodInNetLibrary;
+    private JMenuItem SaveNetAsMethod;
+    private JMenuItem SavePetriNetAs;
+    private JMenuItem centerLocationOfGraphNet;
+    private JMenu editMenu;
+    private JMenuItem editNetParameters;
+    private JMenu fileMenu;
+    private JMenuItem itemAnimateEvent;
+    private JMenuItem itemAnimateNet;
+    private JMenuItem itemRunEvent;
+    private JMenuItem jMenuItem2;
+    private JPanel jPanel1;
+    private JTabbedPane jTabbedPane1;
+    private JList<String> leftMenuList;
+    private JPanel leftNenuPanel;
+    private JPanel modelingParametersPanel;
+    private JPanel modelingParametersPanel1;
+    private JPanel modelingParametersPanel2;
+    private JPanel modelingResultsPanel;
+    private JPanel modelingResultsPanel1;
+    private JPanel modelingResultsPanel2;
+    private JSplitPane modelingResultsSplitPane;
+    private JSplitPane modelingResultsSplitPane1;
+    private JSplitPane modelingResultsSplitPane2;
+    private JLabel netNameLabel;
+    private JLabel netNameLabel1;
+    private JLabel netNameLabel2;
+    private JTextField netNameTextField;
+    private JTextField netNameTextField1;
+    private JTextField netNameTextField2;
+    private JButton newArcButton;
+    private JButton newArcButton1;
+    private JButton newArcButton2;
+    private JMenuItem newMenuItem;
+    private JButton newPlaceButton;
+    private JButton newPlaceButton1;
+    private JButton newPlaceButton2;
+    private JButton newTransitionButton;
+    private JButton newTransitionButton1;
+    private JButton newTransitionButton2;
+    private JMenuItem openMenuItem;
+    private JMenuItem openMethodMenuItem;
+    private JMenuItem openMonitor;
+    private JCheckBoxMenuItem isStatisticMonitorEnabled;
+    private JPanel petriNetDesign;
+    private JPanel petriNetDesign1;
+    private JPanel petriNetDesign2;
+    private JScrollPane petriNetPanelScrollPane;
+    private JScrollPane petriNetPanelScrollPane1;
+    private JScrollPane petriNetPanelScrollPane2;
+    private JMenuBar petriNetsFrameMenuBar;
+    private JSplitPane petriNetsFrameSplitPane;
+    private JSplitPane petriNetsFrameSplitPane1;
+    private JSplitPane petriNetsFrameSplitPane2;
+    private JToolBar petriNetsFrameToolBar;
+    private JToolBar petriNetsFrameToolBar1;
+    private JToolBar petriNetsFrameToolBar2;
+    private JButton playPauseAnimationButton;
+    private JTextArea protocolTextArea;
+    private JScrollPane protokolScrollPane;
+    private JScrollPane protokolScrollPane1;
+    private JScrollPane protokolScrollPane2;
+    private JTextArea protokolTextArea1;
+    private JTextArea protokolTextArea2;
+    private JMenuItem redoMenuItem;
+    private JButton runEventButton1;
+    private JButton runEventButton2;
+    private JMenu runMenu;
+    private JButton runOneEventButton;
+    private JButton runPetriNetButton1;
+    private JButton runPetriNetButton2;
+    private JMenu save;
+    private JScrollPane scrollPane;
+    private JButton skipBackwardAnimationButton;
+    private JButton skipForwardAnimationButton;
+    private JLabel speedLabel;
+    private JSlider speedSlider;
+    private JMenu statisticMenu;
+    private JScrollPane statisticsScrollPane;
+    private JScrollPane statisticsScrollPane1;
+    private JScrollPane statisticsScrollPane2;
+    private JTextArea statisticsTextArea;
+    private JTextArea statisticsTextArea1;
+    private JTextArea statisticsTextArea2;
+    private JButton stopAnimationButton;
+    private JLabel timeModelingLabel;
+    private JLabel timeModelingLabel1;
+    private JLabel timeModelingLabel2;
+    private JTextField timeModelingTextField;
+    private JTextField timeModelingTextField1;
+    private JTextField timeModelingTextField2;
+    private JTextField timeStartField;
+    private JTextField timeStartField1;
+    private JTextField timeStartField2;
+    private JLabel timeStartLabel;
+    private JLabel timeStartLabel1;
+    private JLabel timeStartLabel2;
+    private JMenuItem undoMenuItem;
+    private JMenuItem importPnmlMenuItem;
+    private JMenuItem exportPnmlMenuItem;
+    /**
+     * A menu item which allows user to import Petri Net from text representation.
+     * The statement "Text representation" consists a description of Petri Net in some text format without any coordinates.
+     * The application draws the Petri Net on its own.
+     *
+     * @author Nazarii Montytskyi
+     */
+    private JMenuItem createPetriNetFromTextRepresentation;
     // End of variables declaration//GEN-END:variables
     private static PetriNetsPanel petriNetsPanel;
     private FileUse fileUse = new FileUse();
