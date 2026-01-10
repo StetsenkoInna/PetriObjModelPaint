@@ -51,7 +51,7 @@ mvn -version
 
 3. **Run the application:**
    ```bash
-   java -jar target/PetriObjModelPaint-1.2.1.jar
+   java -jar target/PetriObjModelPaint-1.2.0.jar
    ```
 
 #### Option 2: Use Convenience Scripts
@@ -142,7 +142,7 @@ mvn test
 ### Application Won't Start
 - Ensure Java 23+ is installed and in your PATH
 - Check that the JAR file was built successfully in `target/`
-- Try running with: `java -jar target/PetriObjModelPaint-1.2.1.jar`
+- Try running with: `java -jar target/PetriObjModelPaint-1.2.0.jar`
 
 ### Build Failures
 - Ensure Maven 3.6+ is installed
@@ -157,7 +157,7 @@ mvn test
 ### Performance Issues
 - For large nets, consider increasing Java heap size:
   ```bash
-  java -Xmx2g -jar target/PetriObjModelPaint-1.2.1.jar
+  java -Xmx2g -jar target/PetriObjModelPaint-1.2.0.jar
   ```
 
 ## Contributing
