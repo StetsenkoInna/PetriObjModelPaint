@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="n-4030-5EACC-0" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <page>
+        <name>
+          <text>n-4030-5EACC-0</text>
+        </name>
+        <place id="p-4030-5EB0F-2">
+          <name>
+            <text>p0</text>
+          </name>
+          <initialMarking>
+            <text>1</text>
+          </initialMarking>
+          <toolspecific tool="PetriObjModel" version="1.0">
+            <coordinates x="48.0" y="176.0"/>
+          </toolspecific>
+          <graphics>
+            <position x="48" y="176"/>
+          </graphics>
+        </place>
+        <place id="p-4030-5EB2C-3">
+          <name>
+            <text>p1</text>
+          </name>
+          <toolspecific tool="PetriObjModel" version="1.0">
+            <coordinates x="274.0" y="184.0"/>
+          </toolspecific>
+          <graphics>
+            <position x="274" y="184"/>
+          </graphics>
+        </place>
+        <transition id="t-4030-5EB33-4">
+          <name>
+            <text>t0</text>
+          </name>
+          <toolspecific tool="PetriObjModel" version="1.0">
+            <coordinates x="166.0" y="175.0"/>
+          </toolspecific>
+          <graphics>
+            <position x="166" y="175"/>
+          </graphics>
+        </transition>
+        <arc id="arc1" source="p-4030-5EB0F-2" target="t-4030-5EB33-4"/>
+        <arc id="arc2" source="t-4030-5EB33-4" target="p-4030-5EB2C-3"/>
+        <arc id="arc3" source="t-4030-5EB33-4" target="p-4030-5EB0F-2"/>
+    </page>
+  </net>
+</pnml>

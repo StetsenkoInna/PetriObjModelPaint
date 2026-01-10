@@ -29,19 +29,22 @@ import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.swing.JOptionPane;
-import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
+import ua.stetsenkoinna.graphpresentation.dragndrop.PnsDropHandler;
+import ua.stetsenkoinna.graphpresentation.dragndrop.UnifiedDropHandler;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteGraphElementsEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.PasteElementsEdit;
+import ua.stetsenkoinna.graphpresentation.dragndrop.PnmlDropHandler;
+
+import java.awt.dnd.DropTarget;
 
 /**
  * Creates new form PetriNetsPanel
@@ -936,6 +939,42 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         graphNet = new GraphPetriNet();
 
         repaint();
+    }
+
+    /**
+     * Enable drag and drop for both PNML and PNS files using a unified handler.
+     * This method should be preferred over enablePnmlDragAndDrop() and enablePnsDragAndDrop()
+     * to avoid conflicts between multiple DropTargets.
+     *
+     * @param parentFrame parent frame for dialogs
+     */
+    public void enableDragAndDrop(JFrame parentFrame) {
+        UnifiedDropHandler dropHandler = new UnifiedDropHandler(this, parentFrame);
+        new DropTarget(this, dropHandler);
+    }
+
+    /**
+     * Enable drag and drop for PNML files only.
+     * @deprecated Use {@link #enableDragAndDrop(JFrame)} instead to support multiple file formats.
+     *
+     * @param parentFrame parent frame for dialogs
+     */
+    @Deprecated
+    public void enablePnmlDragAndDrop(JFrame parentFrame) {
+        PnmlDropHandler dropHandler = new PnmlDropHandler(this, parentFrame);
+        new DropTarget(this, dropHandler);
+    }
+
+    /**
+     * Enable drag and drop for PNS files only.
+     * @deprecated Use {@link #enableDragAndDrop(JFrame)} instead to support multiple file formats.
+     *
+     * @param parentFrame parent frame for dialogs
+     */
+    @Deprecated
+    public void enablePnsDragAndDrop(JFrame parentFrame) {
+        PnsDropHandler dropHandler = new PnsDropHandler(this, parentFrame);
+        new DropTarget(this, dropHandler);
     }
 
     public void addGraphNet(GraphPetriNet net) {

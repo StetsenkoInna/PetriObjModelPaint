@@ -13,8 +13,8 @@ public class GraphPetriTransition extends GraphTransition implements Serializabl
 
     private static int simpleInd = 0;
 
+    private final int id; // UI element ID
     private final PetriT transition;
-    private final int id;
 
     public GraphPetriTransition(PetriT T, int i) {
         transition = T;

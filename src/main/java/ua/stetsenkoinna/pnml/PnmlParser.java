@@ -36,19 +36,18 @@ public class PnmlParser {
 
         // Get the root element
         Element root = document.getDocumentElement();
-        if (!"pnml".equals(root.getTagName())) {
-            throw new Exception("Invalid PNML file: root element must be 'pnml'");
+        if (!PnmlConstants.ELEMENT_PNML.equals(root.getTagName())) {
+            throw new Exception(PnmlConstants.ERROR_INVALID_ROOT);
         }
 
         // Get the net element
-        NodeList netNodes = root.getElementsByTagName("net");
+        NodeList netNodes = root.getElementsByTagName(PnmlConstants.ELEMENT_NET);
         if (netNodes.getLength() == 0) {
-            throw new Exception("No net element found in PNML file");
+            throw new Exception(PnmlConstants.ERROR_NO_NET);
         }
 
         Element netElement = (Element) netNodes.item(0);
-        String netId = netElement.getAttribute("id");
-        String netType = netElement.getAttribute("type");
+        String netId = netElement.getAttribute(PnmlConstants.ATTR_ID);
 
         // Parse places, transitions, and arcs
         ArrayList<PetriP> places = parsePlaces(netElement);
@@ -65,45 +64,28 @@ public class PnmlParser {
      */
     private ArrayList<PetriP> parsePlaces(Element netElement) {
         ArrayList<PetriP> places = new ArrayList<>();
-        NodeList placeNodes = netElement.getElementsByTagName("place");
+        NodeList placeNodes = netElement.getElementsByTagName(PnmlConstants.ELEMENT_PLACE);
 
         for (int i = 0; i < placeNodes.getLength(); i++) {
             Element placeElement = (Element) placeNodes.item(i);
-            String id = placeElement.getAttribute("id");
+            String id = placeElement.getAttribute(PnmlConstants.ATTR_ID);
 
             // Get place name
-            String name = id; // default to ID
-            NodeList nameNodes = placeElement.getElementsByTagName("name");
-            if (nameNodes.getLength() > 0) {
-                Element nameElement = (Element) nameNodes.item(0);
-                NodeList textNodes = nameElement.getElementsByTagName("text");
-                if (textNodes.getLength() > 0) {
-                    name = textNodes.item(0).getTextContent();
-                }
+            String name = XmlHelper.getTextContent(placeElement, PnmlConstants.ELEMENT_NAME);
+            if (name == null) {
+                name = id; // default to ID
             }
 
             // Get initial marking
-            int marking = 0;
-            NodeList markingNodes = placeElement.getElementsByTagName("initialMarking");
-            if (markingNodes.getLength() > 0) {
-                Element markingElement = (Element) markingNodes.item(0);
-                NodeList textNodes = markingElement.getElementsByTagName("text");
-                if (textNodes.getLength() > 0) {
-                    String markingText = textNodes.item(0).getTextContent();
-                    try {
-                        marking = Integer.parseInt(markingText);
-                    } catch (NumberFormatException _) {
-
-                    }
-                }
-            }
+            String markingText = XmlHelper.getTextContent(placeElement, PnmlConstants.ELEMENT_INITIAL_MARKING);
+            int marking = XmlHelper.parseIntSafe(markingText, 0);
 
             // Parse place parameters from toolspecific section
             String markingParam = null;
-            NodeList toolspecificNodes = placeElement.getElementsByTagName("toolspecific");
+            NodeList toolspecificNodes = placeElement.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
             for (int j = 0; j < toolspecificNodes.getLength(); j++) {
                 Element toolElement = (Element) toolspecificNodes.item(j);
-                if ("PetriObjModel".equals(toolElement.getAttribute("tool"))) {
+                if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
                     NodeList markingParamNodes = toolElement.getElementsByTagName("initialMarkingParameter");
                     if (markingParamNodes.getLength() > 0) {
                         markingParam = markingParamNodes.item(0).getTextContent();
@@ -114,7 +96,7 @@ public class PnmlParser {
             PetriP place = new PetriP(id, name, marking);
 
             // Set marking parameter if present
-            if (markingParam != null && !markingParam.trim().isEmpty()) {
+            if (XmlHelper.isNotEmpty(markingParam)) {
                 place.setMarkParam(markingParam);
             }
 
@@ -133,21 +115,16 @@ public class PnmlParser {
      */
     private ArrayList<PetriT> parseTransitions(Element netElement) {
         ArrayList<PetriT> transitions = new ArrayList<>();
-        NodeList transitionNodes = netElement.getElementsByTagName("transition");
+        NodeList transitionNodes = netElement.getElementsByTagName(PnmlConstants.ELEMENT_TRANSITION);
 
         for (int i = 0; i < transitionNodes.getLength(); i++) {
             Element transitionElement = (Element) transitionNodes.item(i);
-            String id = transitionElement.getAttribute("id");
+            String id = transitionElement.getAttribute(PnmlConstants.ATTR_ID);
 
             // Get transition name
-            String name = id; // default to ID
-            NodeList nameNodes = transitionElement.getElementsByTagName("name");
-            if (nameNodes.getLength() > 0) {
-                Element nameElement = (Element) nameNodes.item(0);
-                NodeList textNodes = nameElement.getElementsByTagName("text");
-                if (textNodes.getLength() > 0) {
-                    name = textNodes.item(0).getTextContent();
-                }
+            String name = XmlHelper.getTextContent(transitionElement, PnmlConstants.ELEMENT_NAME);
+            if (name == null) {
+                name = id; // default to ID
             }
 
             // Parse transition parameters from toolspecific section
@@ -163,18 +140,14 @@ public class PnmlParser {
             String probabilityParam = null;
             String distributionParam = null;
 
-            NodeList toolspecificNodes = transitionElement.getElementsByTagName("toolspecific");
+            NodeList toolspecificNodes = transitionElement.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
             for (int j = 0; j < toolspecificNodes.getLength(); j++) {
                 Element toolElement = (Element) toolspecificNodes.item(j);
-                if ("PetriObjModel".equals(toolElement.getAttribute("tool"))) {
+                if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
                     // Parse time delay or its parameter
                     NodeList delayNodes = toolElement.getElementsByTagName("timeDelay");
                     if (delayNodes.getLength() > 0) {
-                        try {
-                            timeDelay = Double.parseDouble(delayNodes.item(0).getTextContent());
-                        } catch (NumberFormatException e) {
-                            timeDelay = 0.0;
-                        }
+                        timeDelay = XmlHelper.parseDoubleSafe(delayNodes.item(0).getTextContent(), 0.0);
                     }
                     NodeList delayParamNodes = toolElement.getElementsByTagName("timeDelayParameter");
                     if (delayParamNodes.getLength() > 0) {
@@ -184,31 +157,19 @@ public class PnmlParser {
                     // Parse delay mean value
                     NodeList delayMeanNodes = toolElement.getElementsByTagName("delayMeanValue");
                     if (delayMeanNodes.getLength() > 0) {
-                        try {
-                            delayMeanValue = Double.parseDouble(delayMeanNodes.item(0).getTextContent());
-                        } catch (NumberFormatException e) {
-                            delayMeanValue = 0.0;
-                        }
+                        delayMeanValue = XmlHelper.parseDoubleSafe(delayMeanNodes.item(0).getTextContent(), 0.0);
                     }
 
                     // Parse standard deviation
                     NodeList stdDeviationNodes = toolElement.getElementsByTagName("standardDeviation");
                     if (stdDeviationNodes.getLength() > 0) {
-                        try {
-                            standardDeviation = Double.parseDouble(stdDeviationNodes.item(0).getTextContent());
-                        } catch (NumberFormatException e) {
-                            standardDeviation = 0.0;
-                        }
+                        standardDeviation = XmlHelper.parseDoubleSafe(stdDeviationNodes.item(0).getTextContent(), 0.0);
                     }
 
                     // Parse priority or its parameter
                     NodeList priorityNodes = toolElement.getElementsByTagName("priority");
                     if (priorityNodes.getLength() > 0) {
-                        try {
-                            priority = Integer.parseInt(priorityNodes.item(0).getTextContent());
-                        } catch (NumberFormatException e) {
-                            priority = 0;
-                        }
+                        priority = XmlHelper.parseIntSafe(priorityNodes.item(0).getTextContent(), 0);
                     }
                     NodeList priorityParamNodes = toolElement.getElementsByTagName("priorityParameter");
                     if (priorityParamNodes.getLength() > 0) {
@@ -218,11 +179,7 @@ public class PnmlParser {
                     // Parse probability or its parameter
                     NodeList probabilityNodes = toolElement.getElementsByTagName("probability");
                     if (probabilityNodes.getLength() > 0) {
-                        try {
-                            probability = Double.parseDouble(probabilityNodes.item(0).getTextContent());
-                        } catch (NumberFormatException e) {
-                            probability = 1.0;
-                        }
+                        probability = XmlHelper.parseDoubleSafe(probabilityNodes.item(0).getTextContent(), 1.0);
                     }
                     NodeList probabilityParamNodes = toolElement.getElementsByTagName("probabilityParameter");
                     if (probabilityParamNodes.getLength() > 0) {
@@ -262,16 +219,16 @@ public class PnmlParser {
             }
 
             // Set parameter names if present
-            if (timeDelayParam != null && !timeDelayParam.trim().isEmpty()) {
+            if (XmlHelper.isNotEmpty(timeDelayParam)) {
                 transition.setParameterParam(timeDelayParam);
             }
-            if (priorityParam != null && !priorityParam.trim().isEmpty()) {
+            if (XmlHelper.isNotEmpty(priorityParam)) {
                 transition.setPriorityParam(priorityParam);
             }
-            if (probabilityParam != null && !probabilityParam.trim().isEmpty()) {
+            if (XmlHelper.isNotEmpty(probabilityParam)) {
                 transition.setProbabilityParam(probabilityParam);
             }
-            if (distributionParam != null && !distributionParam.trim().isEmpty()) {
+            if (XmlHelper.isNotEmpty(distributionParam)) {
                 transition.setDistributionParam(distributionParam);
             }
 
@@ -289,38 +246,27 @@ public class PnmlParser {
      * Parse arcs from net element
      */
     private void parseArcs(Element netElement, ArrayList<ArcIn> arcIns, ArrayList<ArcOut> arcOuts) {
-        NodeList arcNodes = netElement.getElementsByTagName("arc");
+        NodeList arcNodes = netElement.getElementsByTagName(PnmlConstants.ELEMENT_ARC);
 
         for (int i = 0; i < arcNodes.getLength(); i++) {
             Element arcElement = (Element) arcNodes.item(i);
-            String id = arcElement.getAttribute("id");
-            String source = arcElement.getAttribute("source");
-            String target = arcElement.getAttribute("target");
+            String arcId = arcElement.getAttribute(PnmlConstants.ATTR_ID);
+            String source = arcElement.getAttribute(PnmlConstants.ATTR_SOURCE);
+            String target = arcElement.getAttribute(PnmlConstants.ATTR_TARGET);
 
             // Get arc weight
-            int weight = 1; // default weight
-            NodeList inscriptionNodes = arcElement.getElementsByTagName("inscription");
-            if (inscriptionNodes.getLength() > 0) {
-                Element inscriptionElement = (Element) inscriptionNodes.item(0);
-                NodeList textNodes = inscriptionElement.getElementsByTagName("text");
-                if (textNodes.getLength() > 0) {
-                    try {
-                        weight = Integer.parseInt(textNodes.item(0).getTextContent());
-                    } catch (NumberFormatException _) {
-
-                    }
-                }
-            }
+            String weightText = XmlHelper.getTextContent(arcElement, PnmlConstants.ELEMENT_INSCRIPTION);
+            int weight = XmlHelper.parseIntSafe(weightText, 1);
 
             // Parse toolspecific information for informational arcs and parameters
             boolean isInformational = false;
             String infParamName = null;
             String kParamName = null;
 
-            NodeList toolspecificNodes = arcElement.getElementsByTagName("toolspecific");
+            NodeList toolspecificNodes = arcElement.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
             for (int j = 0; j < toolspecificNodes.getLength(); j++) {
                 Element toolElement = (Element) toolspecificNodes.item(j);
-                if ("PetriObjModel".equals(toolElement.getAttribute("tool"))) {
+                if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
                     // Check for informational flag
                     NodeList infNodes = toolElement.getElementsByTagName("informational");
                     if (infNodes.getLength() > 0) {
@@ -346,7 +292,7 @@ public class PnmlParser {
                 // Place to Transition - Input Arc
                 int placeNum = placeIdToNumber.get(source);
                 int transitionNum = transitionIdToNumber.get(target);
-                ArcIn arcIn = new ArcIn(placeNum, transitionNum, weight);
+                ArcIn arcIn = new ArcIn(arcId, placeNum, transitionNum, weight);
                 arcIn.setNameP(source);
                 arcIn.setNameT(target);
 
@@ -354,12 +300,12 @@ public class PnmlParser {
                 arcIn.setInf(isInformational);
 
                 // Set informational parameter if present
-                if (infParamName != null && !infParamName.trim().isEmpty()) {
+                if (XmlHelper.isNotEmpty(infParamName)) {
                     arcIn.setInfParam(infParamName);
                 }
 
                 // Set multiplicity parameter if present
-                if (kParamName != null && !kParamName.trim().isEmpty()) {
+                if (XmlHelper.isNotEmpty(kParamName)) {
                     arcIn.setKParam(kParamName);
                 }
 
@@ -368,12 +314,12 @@ public class PnmlParser {
                 // Transition to Place - Output Arc
                 int transitionNum = transitionIdToNumber.get(source);
                 int placeNum = placeIdToNumber.get(target);
-                ArcOut arcOut = new ArcOut(transitionNum, placeNum, weight);
+                ArcOut arcOut = new ArcOut(arcId, transitionNum, placeNum, weight);
                 arcOut.setNameT(source);
                 arcOut.setNameP(target);
 
                 // Set multiplicity parameter if present
-                if (kParamName != null && !kParamName.trim().isEmpty()) {
+                if (XmlHelper.isNotEmpty(kParamName)) {
                     arcOut.setKParam(kParamName);
                 }
 
@@ -389,16 +335,16 @@ public class PnmlParser {
         boolean coordinatesFound = false;
 
         // First try to parse from tool-specific coordinates (preferred)
-        NodeList toolspecificNodes = placeElement.getElementsByTagName("toolspecific");
+        NodeList toolspecificNodes = placeElement.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
         for (int i = 0; i < toolspecificNodes.getLength() && !coordinatesFound; i++) {
             Element toolElement = (Element) toolspecificNodes.item(i);
-            if ("PetriObjModel".equals(toolElement.getAttribute("tool"))) {
-                NodeList coordinatesNodes = toolElement.getElementsByTagName("coordinates");
+            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
+                NodeList coordinatesNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_COORDINATES);
                 if (coordinatesNodes.getLength() > 0) {
                     Element coordElement = (Element) coordinatesNodes.item(0);
                     try {
-                        double x = Double.parseDouble(coordElement.getAttribute("x"));
-                        double y = Double.parseDouble(coordElement.getAttribute("y"));
+                        double x = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_X));
+                        double y = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_Y));
                         placeCoordinates.put(placeNumber, new java.awt.geom.Point2D.Double(x, y));
                         coordinatesFound = true;
                     } catch (NumberFormatException e) {
@@ -410,18 +356,19 @@ public class PnmlParser {
 
         // If no tool-specific coordinates found, try standard graphics coordinates
         if (!coordinatesFound) {
-            NodeList graphicsNodes = placeElement.getElementsByTagName("graphics");
-            if (graphicsNodes.getLength() > 0) {
-                Element graphicsElement = (Element) graphicsNodes.item(0);
-                NodeList positionNodes = graphicsElement.getElementsByTagName("position");
+            NodeList graphicsNodes = placeElement.getElementsByTagName(PnmlConstants.ELEMENT_GRAPHICS);
+            // Find graphics element with position child (not offset)
+            for (int i = 0; i < graphicsNodes.getLength() && !coordinatesFound; i++) {
+                Element graphicsElement = (Element) graphicsNodes.item(i);
+                NodeList positionNodes = graphicsElement.getElementsByTagName(PnmlConstants.ELEMENT_POSITION);
                 if (positionNodes.getLength() > 0) {
                     Element positionElement = (Element) positionNodes.item(0);
                     try {
-                        double x = Double.parseDouble(positionElement.getAttribute("x"));
-                        double y = Double.parseDouble(positionElement.getAttribute("y"));
-                        // Only use if coordinates are not (0,0) which is often a placeholder
+                        double x = Double.parseDouble(positionElement.getAttribute(PnmlConstants.ATTR_X));
+                        double y = Double.parseDouble(positionElement.getAttribute(PnmlConstants.ATTR_Y));
                         if (x != 0.0 || y != 0.0) {
                             placeCoordinates.put(placeNumber, new java.awt.geom.Point2D.Double(x, y));
+                            coordinatesFound = true;
                         }
                     } catch (NumberFormatException e) {
                         // Ignore invalid coordinates
@@ -438,16 +385,16 @@ public class PnmlParser {
         boolean coordinatesFound = false;
 
         // First try to parse from tool-specific coordinates (preferred)
-        NodeList toolspecificNodes = transitionElement.getElementsByTagName("toolspecific");
+        NodeList toolspecificNodes = transitionElement.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
         for (int i = 0; i < toolspecificNodes.getLength() && !coordinatesFound; i++) {
             Element toolElement = (Element) toolspecificNodes.item(i);
-            if ("PetriObjModel".equals(toolElement.getAttribute("tool"))) {
-                NodeList coordinatesNodes = toolElement.getElementsByTagName("coordinates");
+            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
+                NodeList coordinatesNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_COORDINATES);
                 if (coordinatesNodes.getLength() > 0) {
                     Element coordElement = (Element) coordinatesNodes.item(0);
                     try {
-                        double x = Double.parseDouble(coordElement.getAttribute("x"));
-                        double y = Double.parseDouble(coordElement.getAttribute("y"));
+                        double x = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_X));
+                        double y = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_Y));
                         transitionCoordinates.put(transitionNumber, new java.awt.geom.Point2D.Double(x, y));
                         coordinatesFound = true;
                     } catch (NumberFormatException e) {
@@ -459,18 +406,19 @@ public class PnmlParser {
 
         // If no tool-specific coordinates found, try standard graphics coordinates
         if (!coordinatesFound) {
-            NodeList graphicsNodes = transitionElement.getElementsByTagName("graphics");
-            if (graphicsNodes.getLength() > 0) {
-                Element graphicsElement = (Element) graphicsNodes.item(0);
-                NodeList positionNodes = graphicsElement.getElementsByTagName("position");
+            NodeList graphicsNodes = transitionElement.getElementsByTagName(PnmlConstants.ELEMENT_GRAPHICS);
+            // Find graphics element with position child (not offset)
+            for (int i = 0; i < graphicsNodes.getLength() && !coordinatesFound; i++) {
+                Element graphicsElement = (Element) graphicsNodes.item(i);
+                NodeList positionNodes = graphicsElement.getElementsByTagName(PnmlConstants.ELEMENT_POSITION);
                 if (positionNodes.getLength() > 0) {
                     Element positionElement = (Element) positionNodes.item(0);
                     try {
-                        double x = Double.parseDouble(positionElement.getAttribute("x"));
-                        double y = Double.parseDouble(positionElement.getAttribute("y"));
-                        // Only use if coordinates are not (0,0) which is often a placeholder
+                        double x = Double.parseDouble(positionElement.getAttribute(PnmlConstants.ATTR_X));
+                        double y = Double.parseDouble(positionElement.getAttribute(PnmlConstants.ATTR_Y));
                         if (x != 0.0 || y != 0.0) {
                             transitionCoordinates.put(transitionNumber, new java.awt.geom.Point2D.Double(x, y));
+                            coordinatesFound = true;
                         }
                     } catch (NumberFormatException e) {
                         // Ignore invalid coordinates

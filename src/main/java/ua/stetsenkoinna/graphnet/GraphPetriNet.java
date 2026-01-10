@@ -9,6 +9,7 @@ import ua.stetsenkoinna.PetriObj.ArcOut;
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.graphpresentation.GraphElement;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
+import ua.stetsenkoinna.utils.NetworkPositionCalculator;
 
 import java.awt.Color;
 import java.awt.Graphics;
@@ -578,19 +579,13 @@ public class GraphPetriNet implements Cloneable, Serializable {
     /**
      * Merges another GraphPetriNet into this one by adding all its elements.
      * The elements from the other net will be copied with new IDs to avoid conflicts.
-     * The new elements will be positioned to the right of the existing net.
+     * The new elements will be positioned to the right of the existing net using NetworkPositionCalculator.
      * @param other The GraphPetriNet to merge into this one
      */
     public void mergeGraphNet(GraphPetriNet other) {
         if (other == null) {
             return;
         }
-
-        // Calculate the offset for the new net to position it to the right of existing net
-        double existingNetRightEdge = this.getRightmostX();
-        double newNetLeftEdge = other.getLeftmostX();
-        double spacing = 100.0; // Gap between networks
-        double xOffset = existingNetRightEdge + spacing - newNetLeftEdge;
 
         // Create lists of all elements to copy
         List<GraphElement> elementsToCopy = new ArrayList<>();
@@ -604,13 +599,39 @@ public class GraphPetriNet implements Cloneable, Serializable {
             other.graphArcOutList
         );
 
-        // Shift the copied elements to the right of the existing net
+        // Create a temporary GraphPetriNet to hold the copied fragment for position calculation
+        GraphPetriNet tempNet = new GraphPetriNet();
         for (GraphElement element : fragment.elements) {
-            Point currentPos = new Point(
+            if (element instanceof GraphPetriPlace) {
+                tempNet.graphPetriPlaceList.add((GraphPetriPlace) element);
+            } else if (element instanceof GraphPetriTransition) {
+                tempNet.graphPetriTransitionList.add((GraphPetriTransition) element);
+            }
+        }
+
+        // Calculate optimal position using NetworkPositionCalculator
+        List<GraphPetriNet> existingNetworks = new ArrayList<>();
+        if (!NetworkPositionCalculator.isNetworkEmpty(this)) {
+            existingNetworks.add(this);
+        }
+
+        Point targetLocation = NetworkPositionCalculator.calculateTargetPosition(
+            existingNetworks,
+            tempNet,
+            null  // No drop location for merge operation
+        );
+
+        // Move the copied elements to the calculated position
+        Point currentCenter = tempNet.getCurrentLocation();
+        double xOffset = targetLocation.getX() - currentCenter.getX();
+        double yOffset = targetLocation.getY() - currentCenter.getY();
+
+        for (GraphElement element : fragment.elements) {
+            Point newPos = new Point(
                 (int) (element.getGraphElementCenter().getX() + xOffset),
-                (int) element.getGraphElementCenter().getY()
+                (int) (element.getGraphElementCenter().getY() + yOffset)
             );
-            element.setNewCoordinates(currentPos);
+            element.setNewCoordinates(newPos);
         }
 
         // Add copied elements to this net's lists

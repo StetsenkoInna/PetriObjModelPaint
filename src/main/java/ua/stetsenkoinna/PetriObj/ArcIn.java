@@ -11,6 +11,8 @@ import java.io.Serializable;
  */
 public class ArcIn implements Cloneable, Serializable {
 
+    private final PetriElementId id;
+    private int number;
     private int numP;
     private int numT;
     private int k;
@@ -18,7 +20,6 @@ public class ArcIn implements Cloneable, Serializable {
     private String nameP;
     private String nameT;
     private static int next = 0;
-    private int number;
 
     // whether k and inf are parameters; added by Katya 08.12.2016
     private boolean kIsParam = false;
@@ -28,9 +29,10 @@ public class ArcIn implements Cloneable, Serializable {
     private String infParamName = null;
 
     public ArcIn() {
-        k = 1;
+        id = PetriElementId.forArc();
         number = next;
         next++;
+        k = 1;
     }
 
     /**
@@ -40,12 +42,13 @@ public class ArcIn implements Cloneable, Serializable {
      *
      */
     public ArcIn(int P, int T, int K) {
+        id = PetriElementId.forArc();
+        number = next;
+        next++;
         numP = P;
         numT = T;
         k = K;
         inf = false;
-        number = next;
-        next++;
     }
 
     /**
@@ -54,14 +57,15 @@ public class ArcIn implements Cloneable, Serializable {
      * @param T number of transition
      */
     public ArcIn(PetriP P, PetriT T) {
+        id = PetriElementId.forArc();
+        number = next;
+        next++;
         numP = P.getNumber();
         numT = T.getNumber();
         k = 1;
         inf = false;
         nameP = P.getName();
         nameT = T.getName();
-        number = next;
-        next++;
     }
 
     /**
@@ -71,14 +75,15 @@ public class ArcIn implements Cloneable, Serializable {
      * @param K arc multiplicity
      */
     public ArcIn(PetriP P, PetriT T, int K) {
+        id = PetriElementId.forArc();
+        number = next;
+        next++;
         numP = P.getNumber();
         numT = T.getNumber();
         k = K;
         inf = false;
         nameP = P.getName();
         nameT = T.getName();
-        number = next;
-        next++;
     }
 
     /**
@@ -89,19 +94,38 @@ public class ArcIn implements Cloneable, Serializable {
      * @param isInf arc is informational
      */
     public ArcIn(PetriP P, PetriT T, int K, boolean isInf) {
+        id = PetriElementId.forArc();
+        number = next;
+        next++;
         numP = P.getNumber();
         numT = T.getNumber();
         k = K;
         inf = isInf;
         nameP = P.getName();
         nameT = T.getName();
-        number = next;
-        next++;
     }
 
     public ArcIn(ArcIn arcIn) {
         this(arcIn.getNumP(), arcIn.getNumT(), arcIn.getQuantity());
         inf = arcIn.getIsInf();
+    }
+
+    /**
+     * Constructor for loading from PNML with existing ID
+     *
+     * @param id Existing ID from PNML
+     * @param P number of place
+     * @param T number of transition
+     * @param K arc multiplicity
+     */
+    public ArcIn(String id, int P, int T, int K) {
+        this.id = PetriElementId.fromString(id);
+        number = next;
+        next++;
+        numP = P;
+        numT = T;
+        k = K;
+        inf = false;
     }
 
     public boolean kIsParam() {
@@ -274,6 +298,20 @@ public class ArcIn implements Cloneable, Serializable {
     public ArcIn clone() throws CloneNotSupportedException {
         super.clone();
         return new ArcIn(numP, numT, k);
+    }
+
+    /**
+     * @return the id
+     */
+    public String getId() {
+        return id != null ? id.getValue() : null;
+    }
+
+    /**
+     * @return the id wrapper
+     */
+    public PetriElementId getIdWrapper() {
+        return id;
     }
 
 }
