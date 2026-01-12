@@ -13,6 +13,10 @@ import javax.swing.JOptionPane;
  */
 public class PetriT extends PetriMainElement implements Cloneable, Serializable {
 
+    private final PetriElementId id;
+    private String name;
+    private int number;
+
     private final ArrayList<Double> timeOut = new ArrayList<>();
     private final ArrayList<Integer> inP = new ArrayList<>();
     private final ArrayList<Integer> inPwithInf = new ArrayList<>();
@@ -20,9 +24,6 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
     private final ArrayList<Integer> quantInwithInf = new ArrayList<>();
     private final ArrayList<Integer> outP = new ArrayList<>();
     private final ArrayList<Integer> quantOut = new ArrayList<>();
-
-    private String id; //  unique number for server
-    private String name;
 
     private int buffer;
     private int priority;
@@ -35,7 +36,6 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
     private String distribution;
 
     private int num;  // номер каналу багатоканального переходу, що відповідає найближчий події
-    private int number; // номер переходу за списком
     private double mean;  // спостережуване середнє значення кількості активних каналів переходу
     private int observedMax;
     private int observedMin;
@@ -62,7 +62,10 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
      * @param tS timed delay
      */
     public PetriT(String n, double tS) {
+        id = PetriElementId.forTransition(n);
         name = n;
+        number = next;
+        next++;
         parametr = tS;
         paramDeviation = 0;
         timeServ = parametr;
@@ -76,8 +79,6 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
         priority = 0;
         probability = 1.0;
         distribution = null;
-        number = next;
-        next++;
         timeOut.add(Double.MAX_VALUE); // не очікується вихід маркерів з каналів переходу
         this.minEvent();
     }
@@ -118,8 +119,25 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
      * @param tS timed delay
      */
     public PetriT(String id, String n, double tS) {
-       this(n,tS);
-       this.id = id;
+       this.id = PetriElementId.fromString(id);
+       name = n;
+       number = next;
+       next++;
+       parametr = tS;
+       paramDeviation = 0;
+       timeServ = parametr;
+       buffer = 0;
+
+       minTime = Double.MAX_VALUE;
+       num = 0;
+       mean = 0;
+       observedMax = buffer;
+       observedMin = buffer;
+       priority = 0;
+       probability = 1.0;
+       distribution = null;
+       timeOut.add(Double.MAX_VALUE);
+       this.minEvent();
     }
 
     /**
@@ -500,7 +518,8 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
             }
         }
         if (getOutP().isEmpty()) {
-            throw new ExceptionInvalidTimeDelay("Transition " + this.getName() + " hasn't output positions!");
+            Logger.getLogger(PetriT.class.getName()).log(Level.WARNING,
+                "Transition " + this.getName() + " has no output places (acts as a sink transition)");
         }
     }
 
@@ -819,14 +838,14 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
      * @return the id
      */
     public String getId() {
-        return id;
+        return id != null ? id.getValue() : null;
     }
 
     /**
-     * @param id the id to set
+     * @return the id wrapper
      */
-    public void setId(String id) {
-        this.id = id;
+    public PetriElementId getIdWrapper() {
+        return id;
     }
 
 }

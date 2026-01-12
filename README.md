@@ -51,7 +51,7 @@ mvn -version
 
 3. **Run the application:**
    ```bash
-   java -jar target/PetriObjModelPaint-1.2.0.jar
+   java -jar target/PetriObjModelPaint-1.2.1.jar
    ```
 
 #### Option 2: Use Convenience Scripts
@@ -87,6 +87,13 @@ The application supports importing and exporting Petri nets in PNML format:
 - **Menu:** Save → Export to PNML (Ctrl+P)
 - **Format:** ISO/IEC 15909 compliant PNML files
 - **Preservation:** All Petri net properties and custom attributes
+
+### Element IDs
+All Petri net elements (places, transitions, arcs) are assigned unique, human-readable IDs:
+- **Format:** `{type}-{name}-{uuid}` (e.g., `p-buffer-a3f2b8c1`, `t-process-5d8f3e2a`)
+- **Auto-generated:** IDs are automatically created when elements are added
+- **Preserved:** Existing IDs are maintained when importing PNML files
+- **Type-safe:** IDs are wrapped in `PetriElementId` class for compile-time validation
 
 ## Project Structure
 
