@@ -51,7 +51,7 @@ mvn -version
 
 3. **Run the application:**
    ```bash
-   java -jar target/PetriObjModelPaint-1.2.0.jar
+   java -jar target/PetriObjModelPaint-1.2.1.jar
    ```
 
 #### Option 2: Use Convenience Scripts
