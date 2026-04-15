@@ -2,8 +2,7 @@ package ua.stetsenkoinna.PetriObj;
 
 import java.io.Serializable;
 import java.util.*;
-import javax.swing.JSlider;
-import javax.swing.JTextArea;
+import java.util.function.Consumer;
 
 /**
  * This class is Petri simulator. <br>
@@ -73,16 +72,6 @@ public class PetriSim implements Cloneable, Serializable {
         id = null; // server set id
     }
 
-    /**
-     * Constructs the Petri simulator with given Petri net and time modeling
-     *
-     * @param net Petri net that describes the dynamics of object
-     * @param delaySlider use for control of the speed of the animation 
-     */    
-    public PetriSim(PetriNet net, JSlider delaySlider) {
-        this(net); // for animation
-    }
-    
     @Override
     public PetriSim clone() throws CloneNotSupportedException{
         super.clone();
@@ -147,6 +136,36 @@ public class PetriSim implements Cloneable, Serializable {
      */
     public void doT() {
 
+    }
+
+    /**
+     * Hook called just before a transition fires its input arc (tokens enter).
+     * Override in subclass to add pre-firing behaviour (e.g. animation).
+     */
+    protected void beforeActIn(PetriT tr) {}
+
+    /**
+     * Hook called just after a transition fires its input arc (tokens enter).
+     * Override in subclass to add post-firing behaviour (e.g. animation, delay).
+     */
+    protected void afterActIn(PetriT tr) {}
+
+    /**
+     * Hook called just before a transition fires its output arc (tokens leave).
+     */
+    protected void beforeActOut(PetriT tr) {}
+
+    /**
+     * Hook called just after a transition fires its output arc (tokens leave).
+     */
+    protected void afterActOut(PetriT tr) {}
+
+    /**
+     * Returns true if the current simulation step should be interrupted.
+     * Override to implement pause/halt support (e.g. in animated subclass).
+     */
+    protected boolean shouldInterrupt() {
+        return false;
     }
 
     /**
@@ -315,52 +334,62 @@ public class PetriSim implements Cloneable, Serializable {
     /**
      * It does the transitions input markers
      */
-    public void input() {//вхід маркерів в переходи Петрі-об'єкта
-
-       ArrayList<PetriT> activeT = this.findActiveT();     //формування списку активних переходів
-
-        if (activeT.isEmpty() && isBufferEmpty()) { //зупинка імітації за умови, що
-            //не має переходів, які запускаються,і не має маркерів у переходах
+    public void input() {
+        ArrayList<PetriT> activeT = this.findActiveT();
+        if (activeT.isEmpty() && isBufferEmpty()) {
             timeMin = Double.MAX_VALUE;
-            //eventMin = null;  // 19.07.2018 by Sasha animation
         } else {
-            while (!activeT.isEmpty()) {//запуск переходів доки можливо
-                this.doConflikt(activeT).actIn(listP, this.getCurrentTime()); //розв'язання конфліктів
-                activeT = this.findActiveT(); //оновлення списку активних переходів
+            while (!activeT.isEmpty()) {
+                PetriT tr = this.doConflikt(activeT);
+                beforeActIn(tr);
+                tr.actIn(listP, this.getCurrentTime());
+                afterActIn(tr);
+                if (shouldInterrupt()) return;
+                activeT = this.findActiveT();
             }
-            this.eventMin();//знайти найближчу подію та ії час
+            this.eventMin();
         }
     }
     
       /**
      * It does the transitions output markers
      */
-   
-    public void output(){
-            if (this.getCurrentTime() <= this.getSimulationTime()) {
-            eventMin.actOut(listP, this.getCurrentTime());//здійснення події
+    public void output() {
+        if (this.getCurrentTime() <= this.getSimulationTime()) {
+            beforeActOut(eventMin);
+            eventMin.actOut(listP, this.getCurrentTime());
+            afterActOut(eventMin);
+            if (shouldInterrupt()) return;
             if (eventMin.getBuffer() > 0) {
                 boolean u = true;
                 while (u) {
                     eventMin.minEvent();
                     if (eventMin.getMinTime() == this.getCurrentTime()) {
-                        eventMin.actOut(listP,this.getCurrentTime());
+                        beforeActOut(eventMin);
+                        eventMin.actOut(listP, this.getCurrentTime());
+                        afterActOut(eventMin);
+                        if (shouldInterrupt()) return;
                     } else {
                         u = false;
                     }
                 }
             }
             for (PetriT transition : listT) {
-                //ВАЖЛИВО!!Вихід з усіх переходів, що час виходу маркерів == поточний момент час.
                 if (transition.getBuffer() > 0 && transition.getMinTime() == this.getCurrentTime()) {
-                    transition.actOut(listP, this.getCurrentTime());//Вихід маркерів з переходу, що відповідає найближчому моменту часу
+                    beforeActOut(transition);
+                    transition.actOut(listP, this.getCurrentTime());
+                    afterActOut(transition);
+                    if (shouldInterrupt()) return;
                     if (transition.getBuffer() > 0) {
                         boolean u = true;
                         while (u) {
                             transition.minEvent();
                             if (transition.getMinTime() == this.getCurrentTime()) {
+                                beforeActOut(transition);
                                 transition.actOut(listP, this.getCurrentTime());
-                             } else {
+                                afterActOut(transition);
+                                if (shouldInterrupt()) return;
+                            } else {
                                 u = false;
                             }
                         }
@@ -477,12 +506,12 @@ public class PetriSim implements Cloneable, Serializable {
     }
     
         
-    public void printMark(JTextArea area) {
-        area.append("\n Mark in Net  " + this.getName() + "   \n");
+    public void printMark(Consumer<String> output) {
+        output.accept("\n Mark in Net  " + this.getName() + "   \n");
         for (PetriP position : listP) {
-            area.append(position.getMark() + "  ");
+            output.accept(position.getMark() + "  ");
         }
-        area.append("\n");
+        output.accept("\n");
     }
    
     /**

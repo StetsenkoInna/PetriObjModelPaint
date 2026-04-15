@@ -1621,7 +1621,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     m.setStatisticMonitor(statisticGraphMonitor);
                 }
                 m.go(Double.parseDouble(timeModelingTextField.getText()));
-                getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea);
+                getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea::append);
 
                 getPetriNetsPanel().repaint();
 
@@ -1671,8 +1671,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     model.setStatisticMonitor(statisticGraphMonitor);
                 }
                 model.go(Double.parseDouble(timeModelingTextField.getText()));
-                getPetriNetsPanel().getGraphNet().printStatistics(
-                        statisticsTextArea);
+                getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea::append);
 
                 getPetriNetsPanel().repaint();
             }
@@ -1725,7 +1724,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     petriSim.printMark();
                     petriSim.step();
                     // System.out.println("at the result we have such state of net places:");
-                    petriSim.printMark(protocolTextArea);
+                    petriSim.printMark(protocolTextArea::append);
                     getPetriNetsPanel().repaint();
                 }
             } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
@@ -1733,7 +1732,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         Level.SEVERE, null, ex);
             }
         }
-        getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea);
+        getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea::append);
     }
 
     void animateEvent() {
@@ -1765,7 +1764,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     object.printMark();
                     object.step();
                     // System.out.println("at the result we have such state of net places:");
-                    object.printMark(protocolTextArea);
+                    object.printMark(protocolTextArea::append);
 
                     getPetriNetsPanel().repaint();
                 }
@@ -1774,7 +1773,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         Level.SEVERE, null, ex);
             }
         }
-        getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea);
+        getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea::append);
     }
 
     private void centerLocationOfGraphNetActionPerformed(

@@ -1,13 +1,11 @@
 package ua.stetsenkoinna.PetriObj;
 
-import ua.stetsenkoinna.graphpresentation.statistic.dto.data.PetriElementStatisticDto;
-import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticConsoleMonitor;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-import javax.swing.JTextArea;
+import java.util.function.Consumer;
 
 /**
  * This class provides constructing Petri object model.<br>
@@ -30,7 +28,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
     
     private String id; // unique number for server
 
-    private StatisticConsoleMonitor statisticConsoleMonitor;
+    private SimulationStatisticCollector statisticCollector;
     
     public PetriObjModel(ArrayList<PetriSim> listObj) {
         this(listObj, new StateTime());
@@ -157,25 +155,21 @@ public class PetriObjModel implements Serializable, Cloneable  {
                 }
             }
 
-            List<PetriElementStatisticDto> currentStatistic = new ArrayList<>();
             if (isStatistics()) {
                 for (PetriSim e : getListObj()) {
                    if (min > 0) {
                         if(min<this.getSimulationTime())
                             e.doStatistics((min - this.getCurrentTime()) / min);
-                            //статистика за час "дельта т", для спільних позицій потрібно статистику збирати тільки один раз
                         else
-                            e.doStatistics((this.getSimulationTime() - this.getCurrentTime()) / this.getSimulationTime()); 
+                            e.doStatistics((this.getSimulationTime() - this.getCurrentTime()) / this.getSimulationTime());
                     }
-                    if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
-                        int petriObjId = e.getNumObj();
-                        currentStatistic.addAll(statisticConsoleMonitor.getNetWatchListStatistic(petriObjId, e.getNet()));
+                    if (statisticCollector != null && statisticCollector.shouldCollect(getCurrentTime())) {
+                        statisticCollector.onTimeStep(getCurrentTime(), e.getNet(), e.getNumObj());
                     }
                 }
-            }
-            if (!currentStatistic.isEmpty()) {
-                statisticConsoleMonitor.setLastStatisticCollectionTime(getCurrentTime());
-                statisticConsoleMonitor.sendStatistic(getCurrentTime(), currentStatistic);
+                if (statisticCollector != null && statisticCollector.shouldCollect(getCurrentTime())) {
+                    statisticCollector.flush(getCurrentTime());
+                }
             }
            this.setCurrentTime(min);
             
@@ -258,17 +252,10 @@ public class PetriObjModel implements Serializable, Cloneable  {
                 }
             }
         }
-        if (isLastStatisticSegment()) {
+        if (statisticCollector != null) {
             double time = getCurrentTime() - getSimulationTime() <= getSimulationTime() ? getCurrentTime() : getSimulationTime();
-            List<PetriElementStatisticDto> statistic = new ArrayList<>();
-            for (PetriSim e : getListObj()) {
-                int petriObjId = e.getNumObj();
-                statistic.addAll(statisticConsoleMonitor.getNetWatchListStatistic(petriObjId, e.getNet()));
-            }
-            statisticConsoleMonitor.sendStatistic(time, statistic);
-        }
-        if (isStatisticMonitorEnabled()) {
-            statisticConsoleMonitor.shutdownStatisticUpdate();
+            statisticCollector.onSimulationEnd(time, getListObj());
+            statisticCollector.shutdown();
         }
         getListObj().sort(PetriSim.getComparatorByNum()); // return the initial order in the list for a correct output of the results (in SMO test)
     }
@@ -279,19 +266,17 @@ public class PetriObjModel implements Serializable, Cloneable  {
      * @param info string for printing
      * @param area specifies where simulation protocol is printed
      */
-    public void printInfo(String info, JTextArea area){
+    public void printInfo(String info, Consumer<String> output){
         if(isProtocolPrint())
-            area.append(info);
+            output.accept(info);
     }
     /**
      * Prints the quantity for each position of Petri net
-     *
-     * @param area specifies where simulation protocol is printed
      */
-    public void printMark(JTextArea area){
+    public void printMark(Consumer<String> output){
         if (isProtocolPrint()) {
             for (PetriSim e : listObj) {
-                e.printMark(area);
+                e.printMark(output);
             }
         }
     }
@@ -445,21 +430,14 @@ public class PetriObjModel implements Serializable, Cloneable  {
         }
     }
 
-    public void setStatisticMonitor(StatisticConsoleMonitor statisticConsoleMonitor) {
-        this.statisticConsoleMonitor = statisticConsoleMonitor;
+    public void setStatisticCollector(SimulationStatisticCollector statisticCollector) {
+        this.statisticCollector = statisticCollector;
     }
 
-    private boolean isStatisticMonitorEnabled() {
-        return statisticConsoleMonitor != null && statisticConsoleMonitor.isValidMonitor() && statisticConsoleMonitor.getMonitoringEnabled();
-    }
-
-    private boolean isStatisticCollectionTime() {
-        return isStatisticMonitorEnabled() && (getCurrentTime() >= statisticConsoleMonitor.getDataCollectionStartTime() &&
-                getCurrentTime() - statisticConsoleMonitor.getLastStatisticCollectionTime() >= statisticConsoleMonitor.getDataCollectionStep());
-    }
-
-    private boolean isLastStatisticSegment() {
-        return isStatisticMonitorEnabled() && statisticConsoleMonitor.getDataCollectionStartTime() <= getSimulationTime();
+    /** @deprecated Use {@link #setStatisticCollector(SimulationStatisticCollector)} */
+    @Deprecated
+    public void setStatisticMonitor(SimulationStatisticCollector statisticCollector) {
+        this.statisticCollector = statisticCollector;
     }
 
 }

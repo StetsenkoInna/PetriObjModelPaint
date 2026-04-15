@@ -3,7 +3,7 @@ package ua.stetsenkoinna.graphpresentation.undoable_edits;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
-import ua.stetsenkoinna.graphpresentation.GraphElement;
+import ua.stetsenkoinna.graphnet.GraphElement;
 import javax.swing.undo.AbstractUndoableEdit;
 
 /**

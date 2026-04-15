@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.graphpresentation.statistic.events;
 
-import ua.stetsenkoinna.graphpresentation.statistic.dto.data.PetriElementStatisticDto;
+import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
 import ua.stetsenkoinna.graphpresentation.statistic.services.FormulaBuilderService;
 import ua.stetsenkoinna.graphpresentation.statistic.services.FormulaBuilderServiceImpl;
 

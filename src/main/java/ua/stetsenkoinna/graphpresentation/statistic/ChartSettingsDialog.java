@@ -4,8 +4,8 @@
  */
 package ua.stetsenkoinna.graphpresentation.statistic;
 
-import ua.stetsenkoinna.graphpresentation.statistic.dto.configs.ChartConfigDto;
-import ua.stetsenkoinna.graphpresentation.statistic.dto.configs.DataCollectionConfigDto;
+import ua.stetsenkoinna.api.dto.ChartConfigDto;
+import ua.stetsenkoinna.api.dto.DataCollectionConfigDto;
 import ua.stetsenkoinna.graphpresentation.statistic.services.ChartBuilderService;
 
 import javax.swing.*;

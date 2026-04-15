@@ -1,5 +1,6 @@
 package ua.stetsenkoinna.graphpresentation;
 
+import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.PetriObj.PetriP;
 import java.awt.*;

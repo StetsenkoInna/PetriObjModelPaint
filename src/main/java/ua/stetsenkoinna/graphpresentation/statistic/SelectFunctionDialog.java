@@ -4,7 +4,7 @@
  */
 package ua.stetsenkoinna.graphpresentation.statistic;
 
-import ua.stetsenkoinna.graphpresentation.statistic.enums.PetriStatisticFunction;
+import ua.stetsenkoinna.api.enums.PetriStatisticFunction;
 
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;

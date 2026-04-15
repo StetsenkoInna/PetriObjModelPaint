@@ -4,6 +4,7 @@
  */
 package ua.stetsenkoinna.graphpresentation;
 
+import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import java.awt.Color;
 import java.awt.Graphics2D;

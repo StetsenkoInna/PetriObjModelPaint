@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.graphpresentation.statistic.services;
 
-import ua.stetsenkoinna.graphpresentation.statistic.dto.configs.ChartConfigDto;
+import ua.stetsenkoinna.api.dto.ChartConfigDto;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.chart.XYChart;
 

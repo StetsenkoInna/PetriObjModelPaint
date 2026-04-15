@@ -2,7 +2,7 @@ package ua.stetsenkoinna.graphpresentation.statistic.services;
 
 import com.sun.javafx.charts.Legend;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.drawings.ChartAnnotationData;
-import ua.stetsenkoinna.graphpresentation.statistic.dto.configs.ChartConfigDto;
+import ua.stetsenkoinna.api.dto.ChartConfigDto;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.drawings.ChartDrawingConfig;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.drawings.ChartLineData;
 import ua.stetsenkoinna.config.ResourcePathConfig;

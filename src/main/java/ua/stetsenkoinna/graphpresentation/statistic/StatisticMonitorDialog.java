@@ -5,15 +5,15 @@
 package ua.stetsenkoinna.graphpresentation.statistic;
 
 import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
-import ua.stetsenkoinna.graphpresentation.statistic.dto.configs.DataCollectionConfigDto;
+import ua.stetsenkoinna.api.dto.DataCollectionConfigDto;
 import ua.stetsenkoinna.graphpresentation.statistic.services.ChartBuilderService;
 import ua.stetsenkoinna.graphpresentation.statistic.services.LineChartBuilderService;
-import ua.stetsenkoinna.graphpresentation.statistic.dto.configs.ChartConfigDto;
-import ua.stetsenkoinna.graphpresentation.statistic.dto.data.PetriElementStatisticDto;
-import ua.stetsenkoinna.graphpresentation.statistic.enums.PetriStatisticFunction;
+import ua.stetsenkoinna.api.dto.ChartConfigDto;
+import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
+import ua.stetsenkoinna.api.enums.PetriStatisticFunction;
 import ua.stetsenkoinna.graphpresentation.statistic.services.FormulaBuilderService;
 import ua.stetsenkoinna.graphpresentation.statistic.services.FormulaBuilderServiceImpl;
-import ua.stetsenkoinna.graphpresentation.statistic.services.StatisticMonitorService;
+import ua.stetsenkoinna.api.statistic.StatisticMonitorService;
 import ua.stetsenkoinna.config.ResourcePathConfig;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.chart.XYChart;

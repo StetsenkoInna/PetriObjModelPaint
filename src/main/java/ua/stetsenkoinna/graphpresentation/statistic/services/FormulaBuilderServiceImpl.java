@@ -4,8 +4,8 @@ import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphpresentation.GraphTransition;
 import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
-import ua.stetsenkoinna.graphpresentation.statistic.dto.data.PetriElementStatisticDto;
-import ua.stetsenkoinna.graphpresentation.statistic.enums.PetriStatisticFunction;
+import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
+import ua.stetsenkoinna.api.enums.PetriStatisticFunction;
 
 import java.util.*;
 import java.util.regex.Matcher;

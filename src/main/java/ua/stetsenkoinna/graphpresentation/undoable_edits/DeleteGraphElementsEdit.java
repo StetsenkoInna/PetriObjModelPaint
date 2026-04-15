@@ -5,7 +5,7 @@ import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
-import ua.stetsenkoinna.graphpresentation.GraphElement;
+import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
 import java.awt.Color;
 import java.util.ArrayList;

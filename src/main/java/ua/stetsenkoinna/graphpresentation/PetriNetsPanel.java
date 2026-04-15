@@ -31,6 +31,8 @@ import java.util.logging.Logger;
 
 import javax.swing.*;
 
+import ua.stetsenkoinna.graphnet.GraphElement;
+import ua.stetsenkoinna.graphnet.GraphElementIdGenerator;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
@@ -930,6 +932,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         choosenArc = null;
 
         id = 0;
+        GraphElementIdGenerator.reset();
         PetriP.initNext();
         PetriT.initNext();
         ArcIn.initNext(); //додано Інна 20.11.2012
@@ -1002,6 +1005,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             id = maxIdPetriNet;
         }
         id++;
+        GraphElementIdGenerator.ensureAtLeast(id);
 
         repaint();
     }
@@ -1031,7 +1035,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
      */
     public static int getIdElement() {  //edited by Inna 1.10.2018
-        return id++;
+        return GraphElementIdGenerator.next();
     }
 
     /**

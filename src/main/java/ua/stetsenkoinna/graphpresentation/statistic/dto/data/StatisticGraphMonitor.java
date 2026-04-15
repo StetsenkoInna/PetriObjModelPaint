@@ -1,7 +1,9 @@
 package ua.stetsenkoinna.graphpresentation.statistic.dto.data;
 
+import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
+import ua.stetsenkoinna.api.statistic.StatisticMonitor;
+import ua.stetsenkoinna.api.statistic.StatisticMonitorService;
 import ua.stetsenkoinna.graphpresentation.statistic.events.StatisticGraphUpdateWorker;
-import ua.stetsenkoinna.graphpresentation.statistic.services.StatisticMonitorService;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;

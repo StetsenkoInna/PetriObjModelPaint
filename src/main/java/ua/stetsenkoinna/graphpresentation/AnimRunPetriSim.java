@@ -59,32 +59,35 @@ public class AnimRunPetriSim extends PetriSim {
        super.setId(id); // server set id
    }
     
-   @Override
-   public void input() {
-       //вхід маркерів в переходи Петрі-об'єкта
-        ArrayList<PetriT> activeT = this.findActiveT(); //формування списку активних переходів
-        if (activeT.isEmpty() && isBufferEmpty()) { //зупинка імітації за умови, що
-            //не має переходів, які запускаються,
-            timeMin = Double.MAX_VALUE;
-        } else {
-            while (!activeT.isEmpty()) { //запуск переходів доки можливо
-                PetriT tr = this.doConflikt(activeT);
-                panel.animateP(tr.getInP());
-                panel.animateIn(tr);
-                tr.actIn(super.getNet().getListP(), super.getCurrentTime()); //розв'язання конфліктів
-                panel.animateT(tr);
-                doAfterStep();
-                /* support for early termination of the simulation */
-                if (halted) {
-                    return;
-                }
-                activeT = this.findActiveT(); //оновлення списку активних переходів
-            }
-            this.eventMin();//знайти найближчу подію та ії час
-        }
-   }
-    
-     
+    @Override
+    protected void beforeActIn(PetriT tr) {
+        panel.animateP(tr.getInP());
+        panel.animateIn(tr);
+    }
+
+    @Override
+    protected void afterActIn(PetriT tr) {
+        panel.animateT(tr);
+        doAfterStep();
+    }
+
+    @Override
+    protected void beforeActOut(PetriT tr) {
+        panel.animateT(tr);
+        panel.animateOut(tr);
+    }
+
+    @Override
+    protected void afterActOut(PetriT tr) {
+        panel.animateP(tr.getOutP());
+        doAfterStep();
+    }
+
+    @Override
+    protected boolean shouldInterrupt() {
+        return halted;
+    }
+
     private void doAfterStep() {
         try {
             if (delaySlider != null) {
@@ -126,63 +129,6 @@ public class AnimRunPetriSim extends PetriSim {
     }
    
     @Override
-    public void output() {
-        if (super.getCurrentTime() <= super.getSimulationTime()) {
-            panel.animateT(eventMin);
-            panel.animateOut(eventMin);
-            eventMin.actOut(super.getNet().getListP(),super.getCurrentTime());//здійснення події
-            panel.animateP(eventMin.getOutP());
-            doAfterStep();
-            /* support for early termination of the simulation */
-            if (halted) {
-                return;
-            }
-            if (eventMin.getBuffer() > 0) {
-                boolean u = true;
-                while (u) {
-                    eventMin.minEvent();
-                    if (eventMin.getMinTime() == super.getCurrentTime()) {
-                        panel.animateT(eventMin);
-                        panel.animateOut(eventMin);
-                        eventMin.actOut(super.getNet().getListP(),super.getCurrentTime());
-                        panel.animateP(eventMin.getOutP());
-                        doAfterStep();
-                        /* support for early termination of the simulation */
-                        if (halted) {
-                            return;
-                        }
-                    } else {
-                        u = false;
-                    }
-                }
-            }
-            for (PetriT transition : super.getNet().getListT()) { //ВАЖЛИВО!!Вихід з усіх переходів, що час виходу маркерів == поточний момент час.
-                
-                if (transition.getBuffer() > 0 && transition.getMinTime() == super.getCurrentTime()) {
-                    panel.animateT(transition); // 24.07.2018
-                    panel.animateOut(transition); // 24.07.2018
-                    transition.actOut(super.getNet().getListP(),super.getCurrentTime());//Вихід маркерів з переходу, що відповідає найближчому моменту часу
-                    panel.animateP(transition.getOutP()); // 24.07.2018
-                    if (transition.getBuffer() > 0) {
-                        boolean u = true;
-                        while (u) {
-                            transition.minEvent();
-                            if (transition.getMinTime() == super.getCurrentTime()) {
-                                panel.animateT(transition); // 24.07.2018
-                                panel.animateOut(transition); // 24.07.2018
-                                transition.actOut(super.getNet().getListP(),super.getCurrentTime());
-                                panel.animateP(transition.getOutP()); // 24.07.2018
-                            } else {
-                                u = false;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    @Override
     public void step() //один крок,використовується для одного об'єкту мережа Петрі(наприклад, покрокова імітація мережі Петрі в графічному редакторі)
     {
         area.append("\n Next event, current time = " + getCurrentTime());
@@ -217,7 +163,7 @@ public class AnimRunPetriSim extends PetriSim {
                 activeT = this.findActiveT(); //оновлення списку активних переходів
             }
             area.append("\n Markers enter transitions:");
-            this.printMark(area);//друкувати поточне маркування
+            this.printMark(area::append);//друкувати поточне маркування
 
             this.eventMin();//знайти найближчу подію та ії час
 
@@ -241,7 +187,7 @@ public class AnimRunPetriSim extends PetriSim {
                     return;
                 }
                 area.append("\n Markers leave a transition " + eventMin.getName());
-                this.printMark(area);//друкувати поточне маркування
+                this.printMark(area::append);//друкувати поточне маркування
 
                 if (eventMin.getBuffer() > 0) {
                     boolean u = true;
@@ -259,7 +205,7 @@ public class AnimRunPetriSim extends PetriSim {
                         }
                     }
                     area.append("\n Markers leave a transition buffer " + eventMin.getName());
-                    this.printMark(area);//друкувати поточне маркування
+                    this.printMark(area::append);//друкувати поточне маркування
                 }
 
                 for (PetriT transition : super.getNet().getListT()) {
@@ -273,7 +219,7 @@ public class AnimRunPetriSim extends PetriSim {
                             return;
                         }
                     	area.append("\n Markers leave a transition " + transition.getName());
-                        this.printMark(area);//друкувати поточне маркування
+                        this.printMark(area::append);//друкувати поточне маркування
                         if (transition.getBuffer() > 0) {
                             boolean u = true;
                             while (u) {
@@ -292,7 +238,7 @@ public class AnimRunPetriSim extends PetriSim {
                                 }
                             }
                             area.append("\n Markers leave a transition buffer " + transition.getName());
-                            this.printMark(area);//друкувати поточне маркування
+                            this.printMark(area::append);//друкувати поточне маркування
                         }
                     }
                 }

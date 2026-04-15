@@ -5,7 +5,7 @@ import ua.stetsenkoinna.PetriObj.PetriP;
 import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.PetriObj.StateTime;
-import ua.stetsenkoinna.graphpresentation.statistic.dto.data.PetriElementStatisticDto;
+import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonitor;
 
 import java.util.ArrayList;
@@ -64,7 +64,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{
                 return;
             }
         }
-        super.printMark(area);
+        super.printMark(area::append);
         ArrayList<AnimRunPetriSim> conflictObj = new ArrayList<>();
         Random r = new Random();
 
@@ -103,7 +103,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{
 
             super.setCurrentTime(min); // просування часу
 
-            super.printInfo(" \n Time progress: time = " + super.getCurrentTime() + "\n", area);
+            printInfo(" \n Time progress: time = " + super.getCurrentTime() + "\n");
 
             if (super.getCurrentTime() <= timeModeling) {
 
@@ -140,15 +140,14 @@ public class AnimRunPetriObjModel extends PetriObjModel{
                     num = 0;
                 }
 
-                super.printInfo(" Selected object  " + conflictObj.get(num).getName() + "\n" + " NextEvent " + "\n", area);
+                printInfo(" Selected object  " + conflictObj.get(num).getName() + "\n" + " NextEvent " + "\n");
 
                 for (AnimRunPetriSim list : getRunlist()) {
                     if (list.getNumObj() == conflictObj.get(num).getNumObj()) {
-                        super.printInfo(" time =   " + super.getCurrentTime()
+                        printInfo(" time =   " + super.getCurrentTime()
                                 + "   Event '" + list.getEventMin().getName()
                                 + "'\n" + "                       is occuring for the object   "
-                                + list.getName() + "\n", area
-                        );
+                                + list.getName() + "\n");
                         list.doT();
                         list.output(); /* вихід маркерів з переходів */
                         /* support for early termination of the simulation */
@@ -157,8 +156,8 @@ public class AnimRunPetriObjModel extends PetriObjModel{
                         }
                     }
                 }
-                super.printInfo("Markers leave transitions:", area);
-                super.printMark(area);
+                printInfo("Markers leave transitions:");
+                super.printMark(area::append);
 
                 super.getListObj().sort(PetriSim.getComparatorByPriority());
                 for (AnimRunPetriSim e : getRunlist()) {
@@ -169,8 +168,8 @@ public class AnimRunPetriObjModel extends PetriObjModel{
                         }
                 }
 
-                super.printInfo("Markers enter transitions:", area);
-                super.printMark(area);
+                printInfo("Markers enter transitions:");
+                super.printMark(area::append);
             }
         }
 
@@ -233,7 +232,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{
     public void printMark(){
         if (isProtocolPrint()) {
             for (AnimRunPetriSim e : getRunlist()) {
-                e.printMark(area);
+                e.printMark(area::append);
             }
         }
     }

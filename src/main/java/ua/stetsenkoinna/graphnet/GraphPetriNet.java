@@ -7,8 +7,6 @@ import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.PetriObj.ArcIn;
 import ua.stetsenkoinna.PetriObj.ArcOut;
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
-import ua.stetsenkoinna.graphpresentation.GraphElement;
-import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
 import ua.stetsenkoinna.utils.NetworkPositionCalculator;
 
 import java.awt.Color;
@@ -20,7 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.swing.JTextArea;
+import java.util.function.Consumer;
 
 /**
  * This class owns the information on the graphic elements and provides creation
@@ -419,7 +417,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
         if (element instanceof GraphPetriPlace) {
             GraphPetriPlace newPlace = new GraphPetriPlace(
                     new PetriP(((GraphPetriPlace) element).getPetriPlace()),
-                    PetriNetsPanel.getIdElement()
+                    GraphElementIdGenerator.next()
             );
 
             newPlace.setNewCoordinates(element.getGraphElementCenter());
@@ -430,7 +428,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
         if (element instanceof GraphPetriTransition) {
             GraphPetriTransition newTransition = new GraphPetriTransition(
                     new PetriT(((GraphPetriTransition) element).getPetriTransition()),
-                    PetriNetsPanel.getIdElement()
+                    GraphElementIdGenerator.next()
             );
 
             newTransition.setNewCoordinates(element.getGraphElementCenter());
@@ -448,7 +446,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
         if (element instanceof GraphPetriPlace) {
             GraphPetriPlace newPlace = new GraphPetriPlace(
                     new PetriP(((GraphPetriPlace) element).getPetriPlace()),
-                    PetriNetsPanel.getIdElement()
+                    GraphElementIdGenerator.next()
             );
             newPlace.setNewCoordinates(element.getGraphElementCenter());
             return newPlace;
@@ -457,7 +455,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
         if (element instanceof GraphPetriTransition) {
             GraphPetriTransition newTransition = new GraphPetriTransition(
                     new PetriT(((GraphPetriTransition) element).getPetriTransition()),
-                    PetriNetsPanel.getIdElement()
+                    GraphElementIdGenerator.next()
             );
             newTransition.setNewCoordinates(element.getGraphElementCenter());
             return newTransition;
@@ -654,20 +652,19 @@ public class GraphPetriNet implements Cloneable, Serializable {
         }
     }
 
-    public void printStatistics(JTextArea area) {
+    public void printStatistics(Consumer<String> output) {
 
-        area.append("\n Statistics of Petri net places:\n");
+        output.accept("\n Statistics of Petri net places:\n");
         for (GraphPetriPlace grP : graphPetriPlaceList) {
             PetriP P = grP.getPetriPlace();
-            area.append("Place " + P.getName() + ": mean value = " + P.getMean() + "\n"
-                    + "         max value = " + Double.toString(P.getObservedMax()) + "\n"
-                    + "         min value = " + Double.toString(P.getObservedMin()) + "\n");
-
+            output.accept("Place " + P.getName() + ": mean value = " + P.getMean() + "\n"
+                    + "         max value = " + P.getObservedMax() + "\n"
+                    + "         min value = " + P.getObservedMin() + "\n");
         }
-        area.append("\n Statistics of Petri net transitions:\n");
+        output.accept("\n Statistics of Petri net transitions:\n");
         for (GraphPetriTransition grT : graphPetriTransitionList) {
             PetriT T = grT.getPetriTransition();
-            area.append("Transition " + T.getName() + " has mean value " + T.getMean() + "\n"
+            output.accept("Transition " + T.getName() + " has mean value " + T.getMean() + "\n"
                     + "         max value = " + T.getObservedMax() + "\n"
                     + "         min value = " + T.getObservedMin() + "\n");
         }

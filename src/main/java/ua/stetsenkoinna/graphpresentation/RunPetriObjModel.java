@@ -4,7 +4,7 @@ import ua.stetsenkoinna.PetriObj.PetriObjModel;
 import ua.stetsenkoinna.PetriObj.PetriP;
 import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.PetriObj.PetriT;
-import ua.stetsenkoinna.graphpresentation.statistic.dto.data.PetriElementStatisticDto;
+import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonitor;
 
 import java.util.*;
@@ -122,7 +122,7 @@ public class RunPetriObjModel extends PetriObjModel{
                     }
                 }
                 printInfo("Markers leave transitions:");
-                this.printMark(area);
+                this.printMark(area::append);
                 Collections.shuffle(getListObj());
                 // need for correct functioning of Petri object's shared resource
                 
@@ -181,7 +181,7 @@ public class RunPetriObjModel extends PetriObjModel{
     public void printMark(){
         if (isProtocolPrint()) {
             for (PetriSim e : super.getListObj()) {
-                e.printMark(area);
+                e.printMark(area::append);
             }
         }
     }

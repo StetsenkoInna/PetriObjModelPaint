@@ -1,7 +1,7 @@
 package ua.stetsenkoinna.graphpresentation.statistic.events;
 
-import ua.stetsenkoinna.graphpresentation.statistic.dto.data.PetriElementStatisticDto;
-import ua.stetsenkoinna.graphpresentation.statistic.services.StatisticMonitorService;
+import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
+import ua.stetsenkoinna.api.statistic.StatisticMonitorService;
 
 import javax.swing.*;
 import java.util.Comparator;

@@ -5,7 +5,7 @@ import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.PetriObj.PetriObjModel;
 import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.LibNet.NetLibrary;
-import ua.stetsenkoinna.graphpresentation.statistic.dto.configs.DataCollectionConfigDto;
+import ua.stetsenkoinna.api.dto.DataCollectionConfigDto;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticConsoleMonitor;
 
 import java.util.ArrayList;
