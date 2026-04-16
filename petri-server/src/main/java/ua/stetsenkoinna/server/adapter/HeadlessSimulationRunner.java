@@ -4,7 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ua.stetsenkoinna.PetriObj.PetriNet;
 import ua.stetsenkoinna.PetriObj.PetriObjModel;
+import ua.stetsenkoinna.PetriObj.PetriP;
 import ua.stetsenkoinna.PetriObj.PetriSim;
+import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.api.simulation.SimulationRequest;
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
 import ua.stetsenkoinna.pnml.PnmlParser;
@@ -16,6 +18,10 @@ import java.util.ArrayList;
 public class HeadlessSimulationRunner implements Runnable {
 
     private static final Logger log = LoggerFactory.getLogger(HeadlessSimulationRunner.class);
+
+    // PetriP and PetriT use static counters for element numbering.
+    // Net construction must be serialized so that counters stay at 0 per net.
+    private static final Object NET_BUILD_LOCK = new Object();
 
     private final SimulationRequest request;
     private final SimulationSession session;
@@ -33,7 +39,12 @@ public class HeadlessSimulationRunner implements Runnable {
     public void run() {
         session.setStatus(SimulationStatus.RUNNING);
         try {
-            PetriNet net = new PnmlParser().parseXml(request.getNetXml());
+            PetriNet net;
+            synchronized (NET_BUILD_LOCK) {
+                PetriP.initNext();
+                PetriT.initNext();
+                net = new PnmlParser().parseXml(request.getNetXml());
+            }
             PetriSim sim = new PetriSim(net);
 
             ArrayList<PetriSim> objects = new ArrayList<>();
