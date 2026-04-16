@@ -5,6 +5,12 @@ spring:
   application:
     name: petri-server
 
+springdoc:
+  swagger-ui:
+    path: /docs
+  api-docs:
+    path: /openapi.json
+
 logging:
   level:
     ua.stetsenkoinna: INFO

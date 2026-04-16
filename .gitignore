@@ -7,5 +7,5 @@ target/
 dependency-reduced-pom.xml
 temp/
 /.claude/settings.local.json
-/docs/
+/plans/
 /CLAUDE.md
