@@ -14,32 +14,18 @@
     <packaging>jar</packaging>
 
     <dependencies>
-        <!-- Annotation processor (compile-time only) -->
         <dependency>
             <groupId>ua.stetsenkoinna</groupId>
-            <artifactId>petri-annotation</artifactId>
-            <scope>provided</scope>
+            <artifactId>petri-math</artifactId>
         </dependency>
         <dependency>
             <groupId>org.netbeans.external</groupId>
             <artifactId>AbsoluteLayout</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.javaparser</groupId>
-            <artifactId>javaparser-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-math3</artifactId>
-        </dependency>
-        <dependency>
             <groupId>com.google.auto.service</groupId>
             <artifactId>auto-service</artifactId>
             <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.openhft</groupId>
-            <artifactId>compiler</artifactId>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -83,11 +69,6 @@
                             <groupId>com.google.auto.service</groupId>
                             <artifactId>auto-service</artifactId>
                             <version>1.1.1</version>
-                        </path>
-                        <path>
-                            <groupId>ua.stetsenkoinna</groupId>
-                            <artifactId>petri-annotation</artifactId>
-                            <version>${project.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
