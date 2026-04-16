@@ -2,7 +2,7 @@ package ua.stetsenkoinna.graphpresentation.undoable_edits;
 
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
-import ua.stetsenkoinna.graphpresentation.GraphArc;
+import ua.stetsenkoinna.graphnet.GraphArc;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
 import javax.swing.undo.AbstractUndoableEdit;
 

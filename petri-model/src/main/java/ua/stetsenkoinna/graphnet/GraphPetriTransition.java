@@ -1,7 +1,6 @@
 package ua.stetsenkoinna.graphnet;
 
 import ua.stetsenkoinna.PetriObj.PetriT;
-import ua.stetsenkoinna.graphpresentation.GraphTransition;
 import java.awt.Graphics2D;
 import java.io.Serializable;
 

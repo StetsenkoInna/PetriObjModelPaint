@@ -36,6 +36,7 @@ import ua.stetsenkoinna.graphnet.GraphElementIdGenerator;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
+import ua.stetsenkoinna.graphnet.GraphArc;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphpresentation.dragndrop.PnsDropHandler;

@@ -2,7 +2,7 @@ package ua.stetsenkoinna.graphpresentation.statistic.services;
 
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
-import ua.stetsenkoinna.graphpresentation.GraphTransition;
+import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
 import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
 import ua.stetsenkoinna.api.enums.PetriStatisticFunction;
@@ -423,7 +423,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
                 .map(GraphPetriPlace::getName)
                 .collect(Collectors.toList());
         List<String> transitionNames = petriNet.getGraphPetriTransitionList().stream()
-                .map(GraphTransition::getName)
+                .map(GraphPetriTransition::getName)
                 .collect(Collectors.toList());
         if (petriStatisticFunction.getFunctionType().equals(PetriStatisticFunction.FunctionArgumentElementType.PLACE)) {
             if (argument != null) {

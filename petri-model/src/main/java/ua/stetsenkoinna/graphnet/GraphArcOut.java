@@ -1,7 +1,6 @@
 package ua.stetsenkoinna.graphnet;
 
 import ua.stetsenkoinna.PetriObj.ArcOut;
-import ua.stetsenkoinna.graphpresentation.GraphArc;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
