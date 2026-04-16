@@ -15,11 +15,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>ua.stetsenkoinna</groupId>
-            <artifactId>petri-annotation</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
         </dependency>
@@ -43,13 +38,8 @@
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>ua.stetsenkoinna</groupId>
-                            <artifactId>petri-annotation</artifactId>
-                            <version>${project.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
+                    <!-- Disable annotation processing to avoid bootstrap cycle: processor lives in this module -->
+                    <proc>none</proc>
                 </configuration>
             </plugin>
         </plugins>

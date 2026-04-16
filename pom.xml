@@ -10,7 +10,6 @@
     <version>1.2.1</version>
 
     <modules>
-        <module>petri-annotation</module>
         <module>petri-math</module>
         <module>petri-api</module>
         <module>petri-model</module>
@@ -81,11 +80,6 @@
                 <version>4.13.2</version>
             </dependency>
             <!-- Internal modules -->
-            <dependency>
-                <groupId>ua.stetsenkoinna</groupId>
-                <artifactId>petri-annotation</artifactId>
-                <version>${project.version}</version>
-            </dependency>
             <dependency>
                 <groupId>ua.stetsenkoinna</groupId>
                 <artifactId>petri-math</artifactId>
