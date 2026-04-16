@@ -12,6 +12,7 @@
     <modules>
         <module>petri-annotation</module>
         <module>petri-math</module>
+        <module>petri-api</module>
         <module>petri-app-monolith</module>
     </modules>
 
@@ -87,6 +88,11 @@
             <dependency>
                 <groupId>ua.stetsenkoinna</groupId>
                 <artifactId>petri-math</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ua.stetsenkoinna</groupId>
+                <artifactId>petri-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

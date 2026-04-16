@@ -19,6 +19,10 @@
             <artifactId>petri-math</artifactId>
         </dependency>
         <dependency>
+            <groupId>ua.stetsenkoinna</groupId>
+            <artifactId>petri-api</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.netbeans.external</groupId>
             <artifactId>AbsoluteLayout</artifactId>
         </dependency>
