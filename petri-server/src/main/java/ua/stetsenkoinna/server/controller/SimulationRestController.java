@@ -12,7 +12,7 @@ import ua.stetsenkoinna.api.simulation.SimulationStatus;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/simulation")
+@RequestMapping(ApiVersions.V1 + "/simulation")
 public class SimulationRestController {
 
     private final SimulationService simulationService;

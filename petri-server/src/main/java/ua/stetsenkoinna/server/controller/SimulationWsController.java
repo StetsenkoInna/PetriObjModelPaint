@@ -5,6 +5,8 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.stereotype.Controller;
 import ua.stetsenkoinna.api.simulation.SimulationService;
 
+import static ua.stetsenkoinna.server.controller.ApiVersions.WS_V1;
+
 @Controller
 public class SimulationWsController {
 
@@ -14,7 +16,7 @@ public class SimulationWsController {
         this.simulationService = simulationService;
     }
 
-    @MessageMapping("/sim/{id}/control")
+    @MessageMapping(WS_V1 + "/sim/{id}/control")
     public void control(@DestinationVariable String id, String command) {
         switch (command.trim().toUpperCase()) {
             case "PAUSE"  -> simulationService.pause(id);

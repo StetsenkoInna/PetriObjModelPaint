@@ -7,6 +7,7 @@ import ua.stetsenkoinna.api.simulation.SimulationService;
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
 import ua.stetsenkoinna.server.adapter.HeadlessSimulationRunner;
 import ua.stetsenkoinna.server.adapter.SimulationStatusMessage;
+import ua.stetsenkoinna.server.controller.ApiVersions;
 
 @Service
 public class SimulationServiceImpl implements SimulationService {
@@ -40,7 +41,7 @@ public class SimulationServiceImpl implements SimulationService {
         session.requestPause();
         session.setStatus(SimulationStatus.PAUSED);
         messaging.convertAndSend(
-                "/topic/sim/" + sessionId + "/status",
+                "/topic" + ApiVersions.WS_V1 + "/sim/" + sessionId + "/status",
                 new SimulationStatusMessage(sessionId, SimulationStatus.PAUSED)
         );
     }
@@ -52,7 +53,7 @@ public class SimulationServiceImpl implements SimulationService {
         session.requestResume();
         session.setStatus(SimulationStatus.RUNNING);
         messaging.convertAndSend(
-                "/topic/sim/" + sessionId + "/status",
+                "/topic" + ApiVersions.WS_V1 + "/sim/" + sessionId + "/status",
                 new SimulationStatusMessage(sessionId, SimulationStatus.RUNNING)
         );
     }

@@ -11,6 +11,7 @@ import ua.stetsenkoinna.api.simulation.SimulationStatus;
 import ua.stetsenkoinna.server.adapter.SimulationInterruptedException;
 import ua.stetsenkoinna.server.adapter.SimulationStepMessage;
 import ua.stetsenkoinna.server.adapter.SimulationStatusMessage;
+import ua.stetsenkoinna.server.controller.ApiVersions;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,9 +22,14 @@ public class WebSocketStatisticSink implements SimulationStatisticCollector {
     private final SimpMessagingTemplate messaging;
     private final List<PetriElementStatisticDto> buffer = new ArrayList<>();
 
+    private final String stepsTopic;
+    private final String statusTopic;
+
     public WebSocketStatisticSink(SimulationSession session, SimpMessagingTemplate messaging) {
         this.session = session;
         this.messaging = messaging;
+        this.stepsTopic  = "/topic" + ApiVersions.WS_V1 + "/sim/" + session.getId() + "/steps";
+        this.statusTopic = "/topic" + ApiVersions.WS_V1 + "/sim/" + session.getId() + "/status";
     }
 
     @Override
@@ -68,7 +74,7 @@ public class WebSocketStatisticSink implements SimulationStatisticCollector {
     public void flush(double currentTime) {
         if (buffer.isEmpty()) return;
         messaging.convertAndSend(
-                "/topic/sim/" + session.getId() + "/steps",
+                stepsTopic,
                 new SimulationStepMessage(session.getId(), currentTime, List.copyOf(buffer))
         );
         buffer.clear();
@@ -89,7 +95,7 @@ public class WebSocketStatisticSink implements SimulationStatisticCollector {
             }
         }
         messaging.convertAndSend(
-                "/topic/sim/" + session.getId() + "/steps",
+                stepsTopic,
                 new SimulationStepMessage(session.getId(), simulationEndTime, finalStats)
         );
     }
@@ -98,7 +104,7 @@ public class WebSocketStatisticSink implements SimulationStatisticCollector {
     public void shutdown() {
         session.setStatus(SimulationStatus.FINISHED);
         messaging.convertAndSend(
-                "/topic/sim/" + session.getId() + "/status",
+                statusTopic,
                 new SimulationStatusMessage(session.getId(), SimulationStatus.FINISHED)
         );
     }
