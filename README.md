@@ -60,15 +60,28 @@ Server starts at `http://localhost:8080`.
 
 ## REST API (v1)
 
+### Session control
+
 | Method | Path | Body / Response |
 |--------|------|----------------|
 | `POST` | `/api/v1/simulation/start` | `{ "netXml": "...", "simulationTime": 100 }` → `{ "sessionId": "..." }` |
+| `POST` | `/api/v1/simulation/stream` | `{ "netXml": "..." }` → `text/event-stream` (see below) |
 | `POST` | `/api/v1/simulation/{id}/pause` | — |
 | `POST` | `/api/v1/simulation/{id}/resume` | — |
 | `POST` | `/api/v1/simulation/{id}/stop` | — |
 | `GET`  | `/api/v1/simulation/{id}/status` | `{ "status": "RUNNING" }` |
 
 Statuses: `PENDING` `RUNNING` `PAUSED` `FINISHED` `HALTED`
+
+### SSE streaming (`/stream`)
+
+Query params: `simulationTime` (default 3600) · `timeStep` (default 1.0) · `snapshotInterval` · `animationDelayMs` (default 0)
+
+Each SSE event:
+```json
+{ "current_time": 1.0, "step_number": 42, "markings": {"p1": 3}, "buffers": {"t1": 1}, "progress": 0.001 }
+```
+Stream terminates with `data: [DONE]`. The first event (`event: session`) carries `sessionId` for control calls.
 
 ---
 
@@ -95,6 +108,18 @@ PetriObjModelPaint/
 ├── petri-server/      # Spring Boot server
 └── pom.xml            # Parent POM
 ```
+
+---
+
+## Integration Guide
+
+Full documentation for integrating `petri-server` into external systems (web frontends,
+Python backends, microservices):
+
+**[docs/petri-server-integration.md](docs/petri-server-integration.md)**
+
+Covers: SSE streaming with code examples (JS, Python, curl), WebSocket/STOMP usage,
+session control, PNML requirements, transport comparison, and text2pnml integration notes.
 
 ---
 

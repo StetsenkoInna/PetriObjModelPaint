@@ -19,10 +19,6 @@ public class HeadlessSimulationRunner implements Runnable {
 
     private static final Logger log = LoggerFactory.getLogger(HeadlessSimulationRunner.class);
 
-    // PetriP and PetriT use static counters for element numbering.
-    // Net construction must be serialized so that counters stay at 0 per net.
-    private static final Object NET_BUILD_LOCK = new Object();
-
     private final SimulationRequest request;
     private final SimulationSession session;
     private final WebSocketStatisticSink sink;
@@ -40,7 +36,7 @@ public class HeadlessSimulationRunner implements Runnable {
         session.setStatus(SimulationStatus.RUNNING);
         try {
             PetriNet net;
-            synchronized (NET_BUILD_LOCK) {
+            synchronized (NetBuildLock.LOCK) {
                 PetriP.initNext();
                 PetriT.initNext();
                 net = new PnmlParser().parseXml(request.getNetXml());
