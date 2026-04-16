@@ -14,6 +14,7 @@
         <module>petri-api</module>
         <module>petri-model</module>
         <module>petri-swing-ui</module>
+        <module>petri-server</module>
     </modules>
 
     <properties>

@@ -1,0 +1,10 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: petri-server
+
+logging:
+  level:
+    ua.stetsenkoinna: INFO

@@ -2,10 +2,12 @@ package ua.stetsenkoinna.pnml;
 
 import org.w3c.dom.*;
 import ua.stetsenkoinna.PetriObj.*;
+import org.xml.sax.InputSource;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +25,20 @@ public class PnmlParser {
     private final Map<Integer, java.awt.geom.Point2D.Double> transitionCoordinates = new HashMap<>();
 
     /**
+     * Parse PNML from an XML string.
+     *
+     * @param xml PNML document as a string
+     * @return PetriNet object
+     * @throws Exception if parsing fails
+     */
+    public PetriNet parseXml(String xml) throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document document = builder.parse(new InputSource(new StringReader(xml)));
+        return buildNet(document);
+    }
+
+    /**
      * Parse PNML file and create PetriNet object
      *
      * @param file PNML file to parse
@@ -32,15 +48,15 @@ public class PnmlParser {
     public PetriNet parse(File file) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
-        Document document = builder.parse(file);
+        return buildNet(builder.parse(file));
+    }
 
-        // Get the root element
+    private PetriNet buildNet(Document document) throws Exception {
         Element root = document.getDocumentElement();
         if (!PnmlConstants.ELEMENT_PNML.equals(root.getTagName())) {
             throw new Exception(PnmlConstants.ERROR_INVALID_ROOT);
         }
 
-        // Get the net element
         NodeList netNodes = root.getElementsByTagName(PnmlConstants.ELEMENT_NET);
         if (netNodes.getLength() == 0) {
             throw new Exception(PnmlConstants.ERROR_NO_NET);
@@ -49,7 +65,6 @@ public class PnmlParser {
         Element netElement = (Element) netNodes.item(0);
         String netId = netElement.getAttribute(PnmlConstants.ATTR_ID);
 
-        // Parse places, transitions, and arcs
         ArrayList<PetriP> places = parsePlaces(netElement);
         ArrayList<PetriT> transitions = parseTransitions(netElement);
         ArrayList<ArcIn> arcIns = new ArrayList<>();
