@@ -33,6 +33,8 @@ import javax.swing.JTextArea;
 import javax.swing.JScrollPane;
 
 import ua.stetsenkoinna.config.FilePathConfig;
+import ua.stetsenkoinna.LibNet.NetLibrary;
+import java.lang.reflect.Method;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
@@ -647,241 +649,53 @@ public class FileUse {
         return grOutArc;
     }
 
-    @Deprecated
-    public PetriNet convertMethodToPetriNet(String methodText) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay { // added by Katya 16.10.2016
-        System.out.println(methodText);
-             
-        ArrayList<PetriP> d_P = new ArrayList<>();
-        ArrayList<PetriT> d_T = new ArrayList<>();
-        ArrayList<ArcIn> d_In = new ArrayList<>();
-        ArrayList<ArcOut> d_Out = new ArrayList<>();
 
-        String invalidMethodTextMessage = "Method text is invalid.";
-
-        Pattern pattern = Pattern.compile(Pattern.quote("d_P.add(new PetriP(\"") + "(.*?)" + Pattern.quote("\",") + "(.*?)" + Pattern.quote("));"));
-        Matcher matcher = pattern.matcher(methodText);
-        while (matcher.find()) {
-            String match1 = matcher.group(1);
-            String match2 = matcher.group(2);
-            String pName = match1;
-            String markStr = match2;
-            int mark = SafeParsingUtils.tryParseInt(markStr) // added by Katya 08.12.2016
-                ? Integer.parseInt(markStr)
-                : 0;
-            d_P.add(new PetriP(pName, mark));
-
-            if (!SafeParsingUtils.tryParseInt(markStr)) { // added by Katya 08.12.2016
-                d_P.get(d_P.size() - 1).setMarkParam(markStr);
-            }
-        }
-        // pattern = Pattern.compile(Pattern.quote("d_T.add(new PetriT(\"") + "(.*?)" + Pattern.quote("\",") + "(.*?)" + Pattern.quote("));"));
-        pattern = Pattern.compile("d_T\\.add\\(new PetriT\\(\"(.*?)\",([^,)]*),?(.*?)\\)\\);");
-        matcher = pattern.matcher(methodText);
-        while (matcher.find()) {
-            String match1 = matcher.group(1);
-            String match2 = matcher.group(2);
-            String probability = matcher.group(3);
-            String tName = match1;
-            String parametrStr = match2;
-            double parametr = SafeParsingUtils.tryParseDouble(parametrStr) // added by Katya 08.12.2016
-                ? Double.parseDouble(parametrStr)
-                : 0;
-            PetriT place = new PetriT(tName, parametr);
-            if (!SafeParsingUtils.tryParseDouble(parametrStr)) { // added by Katya 08.12.2016
-                place.setParameterParam(parametrStr);
-            }
-            if (!(probability == null || probability.isBlank())) {
-                try {
-                    double prob = Double.parseDouble(probability);
-                    place.setProbability(prob);
-                } catch (NumberFormatException e) {
-                    // do nothing
+    public String openMethod(PetriNetsPanel panel, String methodFullName, JFrame frame) throws ExceptionInvalidNetStructure {
+        String methodName = methodFullName.substring(0, methodFullName.indexOf("("));
+        try {
+            Method method = null;
+            for (Method m : NetLibrary.class.getDeclaredMethods()) {
+                if (m.getName().equals(methodName) &&
+                        java.lang.reflect.Modifier.isPublic(m.getModifiers()) &&
+                        java.lang.reflect.Modifier.isStatic(m.getModifiers())) {
+                    method = m;
+                    break;
                 }
             }
-            d_T.add(place);
-            
-        }
-
-        pattern = Pattern.compile(Pattern.quote("d_T.get(") + "(.*?)" + Pattern.quote(").setDistribution(") + "(.*?)" + Pattern.quote(", d_T.get("));
-        matcher = pattern.matcher(methodText);
-        while (matcher.find()) {
-            String match1 = matcher.group(1);
-            String match2 = matcher.group(2);
-            int j = Integer.parseInt(match1);
-            String distribution = match2;
-            if ("\"exp\"".equals(distribution) || "\"unif\"".equals(distribution) || "\"norm\"".equals(distribution)) { // modified by Katya 08.12.2016
-                String distributionValue = distribution.substring(1, distribution.length() - 1);
-                d_T.get(j).setDistribution(distributionValue, d_T.get(j).getTimeServ());
-            } else {
-                d_T.get(j).setDistributionParam(distribution);
+            if (method == null) {
+                MessageHelper.showError(frame, "Method '" + methodName + "' not found in NetLibrary");
+                return null;
             }
+            Object[] args = buildDefaultArgs(method.getParameterTypes());
+            PetriNet net = (PetriNet) method.invoke(null, args);
+            PetriNetsFrame petriNetsFrame = (PetriNetsFrame) frame;
+            JScrollPane pane = petriNetsFrame.GetPetriNetPanelScrollPane();
+            Point paneCenter = new Point(pane.getLocation().x + pane.getBounds().width / 2,
+                    pane.getLocation().y + pane.getBounds().height / 2);
+            GraphPetriNet graphNet = generateGraphNetBySimpleNet(panel, net, paneCenter);
+            panel.addGraphNet(graphNet);
+            String pnetName = graphNet.getPetriNet().getName();
+            panel.repaint();
+            return pnetName;
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof ExceptionInvalidNetStructure ex) throw ex;
+            MessageHelper.showException(frame, "Error creating Petri net from library", e);
+            return null;
+        } catch (IllegalAccessException e) {
+            MessageHelper.showException(frame, "Cannot access NetLibrary method", e);
+            return null;
         }
-
-        pattern = Pattern.compile(Pattern.quote("d_T.get(") + "(.*?)" + Pattern.quote(").setParamDeviation(") + "(.*?)" + Pattern.quote(");"));
-        matcher = pattern.matcher(methodText);
-        while (matcher.find()) {
-            String match1 = matcher.group(1);
-            String match2 = matcher.group(2);
-            int j = Integer.parseInt(match1);
-            try {
-                double paramDeviation = Double.parseDouble(match2);
-                d_T.get(j).setParamDeviation(paramDeviation);
-            } catch (NumberFormatException e) {
-                d_T.get(j).setParamDeviation(0);
-            }
-        }
-
-        pattern = Pattern.compile(Pattern.quote("d_T.get(") + "(.*?)" + Pattern.quote(").setPriority(") + "(.*?)" + Pattern.quote(");"));
-        matcher = pattern.matcher(methodText);
-        while (matcher.find()) {
-            String match1 = matcher.group(1);
-            String match2 = matcher.group(2);
-            int j = Integer.parseInt(match1);
-            String priorityStr = match2;
-            int priority = SafeParsingUtils.tryParseInt(priorityStr) // added by Katya 08.12.2016
-                ? Integer.parseInt(priorityStr)
-                : 0;
-            d_T.get(j).setPriority(priority);
-            if (!SafeParsingUtils.tryParseInt(priorityStr)) { // added by Katya 08.12.2016
-                d_T.get(j).setPriorityParam(priorityStr);
-            }
-        }
-
-        pattern = Pattern.compile(Pattern.quote("d_T.get(") + "(.*?)" + Pattern.quote(").setProbability(") + "(.*?)" + Pattern.quote(");"));
-        matcher = pattern.matcher(methodText);
-        while (matcher.find()) {
-            String match1 = matcher.group(1);
-            String match2 = matcher.group(2);
-            int j = Integer.parseInt(match1);
-            String probabilityStr = match2;
-            double probability = SafeParsingUtils.tryParseDouble(probabilityStr) // added by Katya 08.12.2016
-                ? Double.parseDouble(probabilityStr)
-                : 1;
-            d_T.get(j).setProbability(probability);
-            if (!SafeParsingUtils.tryParseDouble(probabilityStr)) { // added by Katya 08.12.2016
-                d_T.get(j).setProbabilityParam(probabilityStr);
-            }
-        }
-
-        pattern = Pattern.compile(Pattern.quote("d_In.add(new ArcIn(d_P.get(") + "(.*?)" + Pattern.quote("),d_T.get(")
-                + "(.*?)" + Pattern.quote("),") + "(.*?)" + Pattern.quote("));"));
-        matcher = pattern.matcher(methodText);
-        while (matcher.find()) {
-            String match1 = matcher.group(1);
-            String match2 = matcher.group(2);
-            String match3 = matcher.group(3);
-            int numP = Integer.parseInt(match1);
-            int numT = Integer.parseInt(match2);
-            String quantityStr = match3;
-            int quantity = SafeParsingUtils.tryParseInt(quantityStr) // added by Katya 08.12.2016
-                ? Integer.parseInt(quantityStr)
-                : 1;
-            d_In.add(new ArcIn(d_P.get(numP), d_T.get(numT), quantity));
-            if (!SafeParsingUtils.tryParseInt(quantityStr)) { // added by Katya 08.12.2016
-                d_In.get(d_In.size() - 1).setKParam(quantityStr);
-            }
-        }
-
-        pattern = Pattern.compile(Pattern.quote("d_In.get(") + "(.*?)" + Pattern.quote(").setInf(") + "(.*?)" + Pattern.quote(");")); // modified by Katya 08.12.2016
-        matcher = pattern.matcher(methodText);
-        while (matcher.find()) {
-            String match1 = matcher.group(1);
-            String match2 = matcher.group(2);
-            int j = Integer.parseInt(match1);
-            if ("true".equals(match2)) {
-                d_In.get(j).setInf(true);
-            } else {
-                d_In.get(j).setInfParam(match2);
-            }
-        }
-
-        pattern = Pattern.compile(Pattern.quote("d_Out.add(new ArcOut(d_T.get(") + "(.*?)" + Pattern.quote("),d_P.get(")
-                + "(.*?)" + Pattern.quote("),") + "(.*?)" + Pattern.quote("));"));
-        matcher = pattern.matcher(methodText);
-        while (matcher.find()) {
-            String match1 = matcher.group(1);
-            String match2 = matcher.group(2);
-            String match3 = matcher.group(3);
-            int numT = Integer.parseInt(match1);
-            int numP = Integer.parseInt(match2);
-            String quantityStr = match3;
-            int quantity = SafeParsingUtils.tryParseInt(quantityStr) // added by Katya 08.12.2016
-                ? Integer.parseInt(quantityStr)
-                : 1;
-            //System.out.println("q_Out "+quantity);
-            d_Out.add(new ArcOut(d_T.get(numT), d_P.get(numP), quantity));
-            if (!SafeParsingUtils.tryParseInt(quantityStr)) { // added by Katya 08.12.2016
-                d_Out.get(d_Out.size() - 1).setKParam(quantityStr);
-            }
-        }
-
-        String netName = "SampleNet" ;
-        pattern = Pattern.compile(Pattern.quote("PetriNet d_Net = new PetriNet(\"") + "(.*?)" + Pattern.quote("\","));
-        matcher = pattern.matcher(methodText);
-        if (matcher.find()) {
-            netName = matcher.group(1);
-        }
-        return new PetriNet(netName, d_P, d_T, d_In, d_Out);
     }
 
-    public String openMethod(PetriNetsPanel panel, String methodFullName, JFrame frame) throws ExceptionInvalidNetStructure { // added by Katya 16.10.2016
-        String methodName = methodFullName.substring(0, methodFullName.indexOf("(")); // modified by Katya 22.11.2016 (till the "try" block)
-        String paramsString = methodFullName.substring(methodFullName.indexOf("(") + 1);
-        paramsString = paramsString.substring(0, paramsString.length() - 1);
-        String pnetName = "";
-        FileInputStream fis = null;
-        try {
-            StringBuilder libraryText = new StringBuilder();
-
-            Path path = FilePathConfig.getNetLibraryPath();
-            // Check if file exists
-            if (path == null) {
-                throw new FileNotFoundException("NetLibrary.java not found in any configured location. Working directory: " +
-                    System.getProperty("user.dir"));
-            }
-
-            String pathNetLibrary = path.toString();
-            fis = new FileInputStream(pathNetLibrary); // modified by Katya 23.10.2016, by Inna 29.09.2018
-
-            int content;
-            while ((content = fis.read()) != -1) {
-		libraryText.append((char) content);
-            }
-            String methodBeginning = "public static PetriNet " + methodName + "("; // modified by Katya 20.11.2016
-            String methodEnding = "return d_Net;";
-            String methodText;
-
-            Pattern pattern = Pattern.compile(Pattern.quote(methodBeginning) + Pattern.quote(paramsString) + Pattern.quote(")") + "([[^}]^\\r]*)" + Pattern.quote(methodEnding)); // modified by Katya 22.11.2016
-            Matcher matcher = pattern.matcher(libraryText.toString());
-            if(matcher.find()){
-                 methodText = methodBeginning + paramsString + ")" + matcher.group(1) + methodEnding + "}"; // modified by Katya 22.11.2016
-            } 
-            else {
-                throw new FileNotFoundException("Method '" + methodName + "' with parameters '" + paramsString + "' not found in NetLibrary.java");
-            }
-            PetriNetsFrame petriNetsFrame = (PetriNetsFrame)frame;
-            JScrollPane pane = petriNetsFrame.GetPetriNetPanelScrollPane();
-            Point paneCenter = new Point(pane.getLocation().x+pane.getBounds().width/2, pane.getLocation().y+pane.getBounds().height/2);
-            GraphPetriNet net = generateGraphNetBySimpleNet(panel ,convertMethodToPetriNet(methodText), paneCenter);
-            panel.addGraphNet(net);
-            pnetName = net.getPetriNet().getName();
-            panel.repaint();
-        } catch (FileNotFoundException e) {
-            MessageHelper.showException(frame, "Method not found in NetLibrary", e);
-        } catch (IOException ex) {
-            MessageHelper.showException(frame, "Error reading NetLibrary file", ex);
-        } catch (ExceptionInvalidTimeDelay ex) {
-            MessageHelper.showException(frame, "Invalid time delay in Petri net", ex);
-        } finally {
-            try {
-                if (fis != null) {
-                    fis.close();
-                }
-            } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
-            }
+    private Object[] buildDefaultArgs(Class<?>[] types) {
+        Object[] args = new Object[types.length];
+        for (int i = 0; i < types.length; i++) {
+            if (types[i] == int.class) args[i] = 1;
+            else if (types[i] == double.class) args[i] = 1.0;
+            else args[i] = "Net";
         }
-        return pnetName;
+        return args;
     }
     
     public static String replaceGroup(String regex, String source, int groupToReplace, String replacement) {

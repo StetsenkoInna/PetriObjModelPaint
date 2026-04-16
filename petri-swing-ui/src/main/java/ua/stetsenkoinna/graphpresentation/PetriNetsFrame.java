@@ -5,7 +5,8 @@ import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.PetriObj.PetriP;
 import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.PetriObj.PetriT;
-import ua.stetsenkoinna.config.FilePathConfig;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
 import ua.stetsenkoinna.graphpresentation.statistic.StatisticMonitorDialog;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonitor;
 import ua.stetsenkoinna.graphreuse.GraphNetParametersFrame;
@@ -108,66 +109,23 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public final AnimateEventAction animateEventAction = animationControls.animateEventAction;
 
     private void UpdateNetLibraryMethodsCombobox() {
-        ArrayList<String> methodNamesList = new ArrayList<>();
-        FileInputStream fis = null;
-        try {
-            StringBuilder libraryText = new StringBuilder();
-
-            // Use FilePathConfig for cross-platform path resolution
-            Path path = FilePathConfig.getNetLibraryPath();
-
-            // Check if file exists
-            if (path == null) {
-                System.out.println("NetLibrary.java file not found in any configured location.");
-                System.out.println("Working directory: " + System.getProperty("user.dir"));
-                System.out.println("Searched paths:");
-                for (String searchPath : FilePathConfig.getNetLibrarySearchPaths()) {
-                    System.out.println("  - " + searchPath);
-                }
-                return;
-            }
-
-            String pathNetLibrary = path.toString();
-
-            fis = new FileInputStream(pathNetLibrary);
-            int content;
-            while ((content = fis.read()) != -1) {
-                libraryText.append((char) content);
-            }
-            Pattern pattern = Pattern.compile(Pattern
-                    .quote("public static PetriNet CreateNet")
-                    + "(\\w+\\([^)]*\\))"
-                    + Pattern.quote(" throws"));
-            Matcher matcher = pattern.matcher(libraryText.toString());
-            while (matcher.find()) {
-                methodNamesList.add("CreateNet" + matcher.group(1));
-            }
-        } catch (FileNotFoundException e) {
-            String errorMessage = e.getMessage();
-            if (errorMessage == null || errorMessage.trim().isEmpty()) {
-                errorMessage = "NetLibrary.java file not found";
-            }
-            System.out.println("File not found error: " + errorMessage);
-        } catch (IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
-                    "Error reading NetLibrary.java file", ex);
-        } finally {
-            try {
-                if (fis != null) {
-                    fis.close();
-                }
-            } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(
-                        Level.SEVERE, null, ex);
-            }
-        }
-        // Filter out methods that don't work (commented methods in NetLibrary.java)
         ArrayList<String> workingMethods = new ArrayList<>();
-        for (String name : methodNamesList) {
-            // Add methods that are known to work (not commented out in NetLibrary.java)
-            if (!isMethodCommentedOut(name)) {
-                workingMethods.add(name);
+
+        for (Method method : NetLibrary.class.getDeclaredMethods()) {
+            if (!Modifier.isPublic(method.getModifiers()) ||
+                    !Modifier.isStatic(method.getModifiers()) ||
+                    method.getReturnType() != PetriNet.class ||
+                    method.isAnnotationPresent(HiddenFromUI.class)) {
+                continue;
             }
+            StringBuilder sig = new StringBuilder(method.getName()).append("(");
+            Parameter[] params = method.getParameters();
+            for (int i = 0; i < params.length; i++) {
+                if (i > 0) sig.append(", ");
+                sig.append(params[i].getType().getSimpleName()).append(" ").append(params[i].getName());
+            }
+            sig.append(")");
+            workingMethods.add(sig.toString());
         }
 
         workingMethods.sort(String.CASE_INSENSITIVE_ORDER);
@@ -176,48 +134,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             leftMenuListModel.addElement(name);
         }
         dialogPanel.setComboOptions(workingMethods);
-    }
-
-    /**
-     * Checks if a method with the given name is marked with @HiddenFromUI annotation
-     * Uses reflection to inspect NetLibrary methods for the annotation
-     * @param name The method name to check (e.g., "CreateNetMalware()")
-     * @return true if the method is marked as hidden, false otherwise
-     */
-    private boolean isMethodCommentedOut(String name) {
-        try {
-            // Extract the actual method name from the full name
-            String methodName = name;
-            if (methodName.startsWith("CreateNet")) {
-                methodName = methodName.substring(0, methodName.indexOf("("));
-            }
-
-            // Get all methods from NetLibrary class
-            Method[] methods = NetLibrary.class.getDeclaredMethods();
-
-            for (Method method : methods) {
-                // Check if this is the method we're looking for
-                if (method.getName().equals(methodName)) {
-                    // Check if method has @HiddenFromUI annotation
-                    HiddenFromUI hiddenAnnotation = method.getAnnotation(HiddenFromUI.class);
-                    if (hiddenAnnotation != null) {
-                        // Log the reason why it's hidden (optional)
-                        System.out.println("Method " + methodName + " is hidden: " + hiddenAnnotation.value());
-                        return true;
-                    }
-                    // If method exists but no annotation, it's not hidden
-                    return false;
-                }
-            }
-
-            // If method not found, assume it's not hidden
-            return false;
-
-        } catch (Exception e) {
-            // If any error occurs during reflection, log it and assume method is not hidden
-            System.err.println("Error checking method annotation for " + name + ": " + e.getMessage());
-            return false;
-        }
     }
 
     /**
