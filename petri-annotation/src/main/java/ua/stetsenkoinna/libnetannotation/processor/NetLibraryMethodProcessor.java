@@ -1,6 +1,5 @@
 package ua.stetsenkoinna.libnetannotation.processor;
 
-import com.google.auto.service.AutoService;
 import ua.stetsenkoinna.libnetannotation.annotation.NetLibraryMethod;
 
 import javax.annotation.processing.*;
@@ -13,9 +12,8 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import java.util.Set;
 
-@AutoService(Processor.class)
-@SupportedAnnotationTypes("ua.stetsenkoinna.annotation.NetLibraryMethod")
-@SupportedSourceVersion(SourceVersion.RELEASE_8)
+@SupportedAnnotationTypes("ua.stetsenkoinna.libnetannotation.annotation.NetLibraryMethod")
+@SupportedSourceVersion(SourceVersion.RELEASE_23)
 public class NetLibraryMethodProcessor extends AbstractProcessor {
 
     @Override
