@@ -14,7 +14,7 @@
         <module>petri-math</module>
         <module>petri-api</module>
         <module>petri-model</module>
-        <module>petri-app-monolith</module>
+        <module>petri-swing-ui</module>
     </modules>
 
     <properties>
