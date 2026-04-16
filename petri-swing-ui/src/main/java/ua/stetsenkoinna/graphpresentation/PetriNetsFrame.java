@@ -1374,6 +1374,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 getPetriNetsPanel().getGraphNet().changeLocation(center);
 
                 String methodFullName = leftMenuList.getSelectedValue();
+                if (methodFullName == null) {
+                    return;
+                }
                 String pnetName = fileUse.openMethod(getPetriNetsPanel(),
                         methodFullName, PetriNetsFrame.this);
                 if (pnetName != null) {
