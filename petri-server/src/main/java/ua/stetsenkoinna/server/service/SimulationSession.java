@@ -1,6 +1,7 @@
 package ua.stetsenkoinna.server.service;
 
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
+import ua.stetsenkoinna.server.dto.SimulationResultDto;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -14,6 +15,7 @@ public class SimulationSession {
     private final AtomicBoolean pauseRequested = new AtomicBoolean(false);
 
     private volatile Thread thread;
+    private volatile SimulationResultDto result;
 
     public SimulationSession(String id) {
         this.id = id;
@@ -38,4 +40,8 @@ public class SimulationSession {
     public Thread getThread() { return thread; }
 
     public void setThread(Thread thread) { this.thread = thread; }
+
+    public SimulationResultDto getResult() { return result; }
+
+    public void setResult(SimulationResultDto result) { this.result = result; }
 }

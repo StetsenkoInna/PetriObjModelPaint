@@ -8,9 +8,12 @@ import ua.stetsenkoinna.PetriObj.PetriSim;
 import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.PetriObj.SimulationStatisticCollector;
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
+import ua.stetsenkoinna.server.dto.SimulationResultDto;
 import ua.stetsenkoinna.server.service.SimulationSession;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
@@ -112,14 +115,27 @@ public class SseSimulationSink implements SimulationStatisticCollector {
     public void onSimulationEnd(double simulationEndTime, Iterable<PetriSim> objects) {
         Map<String, Integer> finalMarkings = new LinkedHashMap<>();
         Map<String, Integer> finalBuffers = new LinkedHashMap<>();
+        List<SimulationResultDto.PlaceResultDto> places = new ArrayList<>();
+        List<SimulationResultDto.TransitionResultDto> transitions = new ArrayList<>();
+
         for (PetriSim sim : objects) {
             for (PetriP p : sim.getNet().getListP()) {
                 finalMarkings.put(p.getId(), p.getMark());
+                places.add(new SimulationResultDto.PlaceResultDto(
+                        p.getId(), p.getName(), p.getMark(),
+                        p.getMean(), p.getObservedMin(), p.getObservedMax()
+                ));
             }
             for (PetriT t : sim.getNet().getListT()) {
                 finalBuffers.put(t.getId(), t.getBuffer());
+                transitions.add(new SimulationResultDto.TransitionResultDto(
+                        t.getId(), t.getName(), t.getBuffer(),
+                        t.getMean(), t.getObservedMin(), t.getObservedMax()
+                ));
             }
         }
+
+        session.setResult(new SimulationResultDto(simulationTime, simulationEndTime, stepCount, places, transitions));
         enqueue(new SimulationFrame(simulationEndTime, stepCount, finalMarkings, finalBuffers, 1.0));
     }
 

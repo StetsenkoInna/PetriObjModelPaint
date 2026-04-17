@@ -12,6 +12,7 @@ import ua.stetsenkoinna.server.adapter.SimulationInterruptedException;
 import ua.stetsenkoinna.server.adapter.SimulationStepMessage;
 import ua.stetsenkoinna.server.adapter.SimulationStatusMessage;
 import ua.stetsenkoinna.server.controller.ApiVersions;
+import ua.stetsenkoinna.server.dto.SimulationResultDto;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -83,17 +84,32 @@ public class WebSocketStatisticSink implements SimulationStatisticCollector {
     @Override
     public void onSimulationEnd(double simulationEndTime, Iterable<PetriSim> objects) {
         List<PetriElementStatisticDto> finalStats = new ArrayList<>();
+        List<SimulationResultDto.PlaceResultDto> places = new ArrayList<>();
+        List<SimulationResultDto.TransitionResultDto> transitions = new ArrayList<>();
+        double simulationTime = 0;
+
         for (PetriSim sim : objects) {
-            for (PetriP place : sim.getNet().getListP()) {
+            simulationTime = sim.getSimulationTime();
+            for (PetriP p : sim.getNet().getListP()) {
                 finalStats.add(new PetriElementStatisticDto(
-                        sim.getNumObj(),
-                        place.getName(),
-                        place.getObservedMin(),
-                        place.getObservedMax(),
-                        place.getMean()
+                        sim.getNumObj(), p.getName(),
+                        p.getObservedMin(), p.getObservedMax(), p.getMean()
+                ));
+                places.add(new SimulationResultDto.PlaceResultDto(
+                        p.getId(), p.getName(), p.getMark(),
+                        p.getMean(), p.getObservedMin(), p.getObservedMax()
+                ));
+            }
+            for (PetriT t : sim.getNet().getListT()) {
+                transitions.add(new SimulationResultDto.TransitionResultDto(
+                        t.getId(), t.getName(), t.getBuffer(),
+                        t.getMean(), t.getObservedMin(), t.getObservedMax()
                 ));
             }
         }
+
+        session.setResult(new SimulationResultDto(simulationTime, simulationEndTime,
+                0, places, transitions));
         messaging.convertAndSend(
                 stepsTopic,
                 new SimulationStepMessage(session.getId(), simulationEndTime, finalStats)

@@ -10,6 +10,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import ua.stetsenkoinna.api.simulation.SimulationRequest;
 import ua.stetsenkoinna.api.simulation.SimulationService;
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
+import ua.stetsenkoinna.server.dto.SimulationResultDto;
+import ua.stetsenkoinna.server.service.SimulationSession;
+import ua.stetsenkoinna.server.service.SimulationSessionRegistry;
 import ua.stetsenkoinna.server.service.SseSimulationService;
 
 import java.util.Map;
@@ -20,11 +23,14 @@ public class SimulationRestController {
 
     private final SimulationService simulationService;
     private final SseSimulationService sseSimulationService;
+    private final SimulationSessionRegistry registry;
 
     public SimulationRestController(SimulationService simulationService,
-                                    SseSimulationService sseSimulationService) {
+                                    SseSimulationService sseSimulationService,
+                                    SimulationSessionRegistry registry) {
         this.simulationService = simulationService;
         this.sseSimulationService = sseSimulationService;
+        this.registry = registry;
     }
 
     // ------------------------------------------------------------------ WebSocket flow
@@ -62,6 +68,23 @@ public class SimulationRestController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(Map.of("status", status.name()));
+    }
+
+    /**
+     * Returns aggregated simulation statistics after the run completes.
+     * 404 — session not found. 202 — session exists but simulation not finished yet.
+     */
+    @GetMapping("/{id}/result")
+    public ResponseEntity<SimulationResultDto> result(@PathVariable String id) {
+        SimulationSession session = registry.get(id);
+        if (session == null) {
+            return ResponseEntity.notFound().build();
+        }
+        SimulationResultDto result = session.getResult();
+        if (result == null) {
+            return ResponseEntity.accepted().build();
+        }
+        return ResponseEntity.ok(result);
     }
 
     // ------------------------------------------------------------------ SSE streaming flow
