@@ -60,7 +60,13 @@ mvn spring-boot:run -pl petri-server
 
 ## REST API (v1)
 
-### Керування сесією
+### Мережа
+
+| Метод | Шлях | Тіло / Відповідь |
+|-------|------|-----------------|
+| `POST` | `/api/v1/net/parse` | `{ "netXml": "..." }` → місця, переходи, дуги з координатами |
+
+### Симуляція
 
 | Метод | Шлях | Тіло / Відповідь |
 |-------|------|-----------------|
@@ -69,9 +75,26 @@ mvn spring-boot:run -pl petri-server
 | `POST` | `/api/v1/simulation/{id}/pause` | — |
 | `POST` | `/api/v1/simulation/{id}/resume` | — |
 | `POST` | `/api/v1/simulation/{id}/stop` | — |
-| `GET`  | `/api/v1/simulation/{id}/status` | `{ "status": "RUNNING" }` |
+| `GET`  | `/api/v1/simulation/{id}/status` | `{ "status": "RUNNING" \| "PAUSED" \| "FINISHED" \| ... }` |
+| `GET`  | `/api/v1/simulation/{id}/result` | Агрегована статистика після завершення; 202 поки виконується |
 
 Статуси: `PENDING` `RUNNING` `PAUSED` `FINISHED` `HALTED`
+
+### Формат результату
+
+```json
+{
+  "simulation_time": 3600, "final_time": 3600, "total_steps": 18432,
+  "places":      [{ "id": "p1", "name": "Queue", "final_marking": 2, "mean_marking": 1.73, "observed_min": 0, "observed_max": 8 }],
+  "transitions": [{ "id": "t1", "name": "Service", "final_buffer": 0, "mean_buffer": 0.87, "observed_min": 0, "observed_max": 3 }]
+}
+```
+
+### Healthcheck
+
+| Метод | Шлях | Опис |
+|-------|------|------|
+| `GET` | `/health` | Spring Boot Actuator health check |
 
 ### SSE-стрімінг (`/stream`)
 

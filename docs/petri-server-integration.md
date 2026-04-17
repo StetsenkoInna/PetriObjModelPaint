@@ -11,6 +11,21 @@ results through one of two transports:
 
 Both transports share the same pause / resume / stop REST control endpoints.
 
+## Full API Reference
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/net/parse` | Parse PNML → structured JSON |
+| `POST` | `/api/v1/simulation/start` | Start simulation (WebSocket flow) |
+| `POST` | `/api/v1/simulation/stream` | Start simulation (SSE flow) |
+| `POST` | `/api/v1/simulation/{id}/pause` | Pause |
+| `POST` | `/api/v1/simulation/{id}/resume` | Resume |
+| `POST` | `/api/v1/simulation/{id}/stop` | Stop |
+| `GET`  | `/api/v1/simulation/{id}/status` | Session status |
+| `GET`  | `/api/v1/simulation/{id}/result` | Aggregated statistics after run |
+| `GET`  | `/health` | Health check |
+| `GET`  | `/docs` | Swagger UI |
+
 ---
 
 ## Base URL
@@ -59,6 +74,56 @@ standard ISO/IEC 15909 envelope:
 
 The `id` attributes on `<place>` and `<transition>` become the keys in `markings` and
 `buffers` maps returned by the simulation.
+
+---
+
+## PNML Parse Endpoint
+
+Validates and parses a PNML document into a structured JSON representation without running a simulation.
+Useful for previewing net topology or populating a UI before launching a simulation.
+
+### Request
+
+```
+POST /api/v1/net/parse
+Content-Type: application/json
+```
+
+**Body**
+
+```json
+{ "netXml": "<pnml>...</pnml>" }
+```
+
+### Response `200 OK`
+
+```json
+{
+  "places": [
+    { "id": "p1", "name": "Queue", "initial_marking": 3, "x": 100.0, "y": 200.0 }
+  ],
+  "transitions": [
+    {
+      "id": "t1", "name": "Service",
+      "mean": 2.0, "deviation": 0.0, "distribution": "exp",
+      "priority": 0, "probability": 1.0,
+      "x": 300.0, "y": 200.0
+    }
+  ],
+  "arcs": [
+    { "id": "a1", "source": "p1", "target": "t1", "weight": 1, "type": "normal" },
+    { "id": "a2", "source": "t1", "target": "p1out", "weight": 1, "type": "normal" }
+  ]
+}
+```
+
+| Field | Notes |
+|-------|-------|
+| `x`, `y` | `null` when absent from the PNML `<toolspecific>` block |
+| `arc.type` | `"normal"` for regular arcs; `"inhibitor"` for informational/inhibitor arcs |
+| `arc.source/target` | Place→Transition for input arcs; Transition→Place for output arcs |
+
+Returns `400 Bad Request` with `{"error": "..."}` on invalid PNML.
 
 ---
 
@@ -255,6 +320,61 @@ curl -X POST http://localhost:8080/api/v1/simulation/550e8400-.../stop
 
 ---
 
+## Simulation Result Endpoint
+
+Returns aggregated statistics collected over the full simulation run.
+Only available after the simulation has finished.
+
+```
+GET /api/v1/simulation/{id}/result
+```
+
+| HTTP Status | Meaning |
+|-------------|---------|
+| `200 OK` | Run complete — body contains statistics |
+| `202 Accepted` | Session exists but simulation still running |
+| `404 Not Found` | Session not found |
+
+### Response `200 OK`
+
+```json
+{
+  "simulation_time": 3600.0,
+  "final_time": 3600.0,
+  "total_steps": 14823,
+  "places": [
+    {
+      "id": "p1",
+      "name": "Queue",
+      "final_marking": 2,
+      "mean_marking": 1.42,
+      "observed_min": 0,
+      "observed_max": 7
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "name": "Service",
+      "final_buffer": 0,
+      "mean_buffer": 0.88,
+      "observed_min": 0.0,
+      "observed_max": 3.0
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `simulation_time` | `double` | Requested simulation time |
+| `final_time` | `double` | Actual clock value when simulation ended |
+| `total_steps` | `int` | Total transition firings |
+| `places[].mean_marking` | `double` | Time-averaged token count over the run |
+| `transitions[].mean_buffer` | `double` | Time-averaged channel occupancy |
+
+---
+
 ## WebSocket / STOMP Endpoint
 
 Endpoint: `ws://localhost:8080/ws` (SockJS fallback available)
@@ -370,6 +490,17 @@ current_time  step_number  markings  buffers  progress
 ```
 
 This means the same frontend rendering code works against both backends.
+
+---
+
+## Health Check
+
+Spring Boot Actuator health endpoint — returns component status and disk/memory indicators.
+
+```bash
+curl http://localhost:8080/health
+# → {"status":"UP","components":{...}}
+```
 
 ---
 
