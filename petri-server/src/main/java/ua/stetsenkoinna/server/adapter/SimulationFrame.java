@@ -6,7 +6,7 @@ import java.util.Map;
 
 /**
  * Single SSE snapshot emitted by the streaming simulation endpoint.
- * Field names match the Python text2pnml SSE format exactly.
+ * Field names follow the standard Petri net simulation SSE format.
  */
 public record SimulationFrame(
         @JsonProperty("current_time") double currentTime,
