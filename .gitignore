@@ -6,3 +6,7 @@ target/
 ./nbproject/private/
 dependency-reduced-pom.xml
 temp/
+/.claude/settings.local.json
+/plans/
+/CLAUDE.md
+
