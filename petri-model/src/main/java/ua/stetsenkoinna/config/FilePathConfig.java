@@ -6,8 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Centralized file path configuration for the application.
@@ -17,7 +17,7 @@ import java.util.logging.Logger;
  */
 public class FilePathConfig {
 
-    private static final Logger LOGGER = Logger.getLogger(FilePathConfig.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(FilePathConfig.class);
     private static final Properties properties = new Properties();
 
     // Default path configurations (fallback if properties file is not found)
@@ -40,10 +40,10 @@ public class FilePathConfig {
             if (input != null) {
                 properties.load(input);
             } else {
-                LOGGER.log(Level.WARNING, "application.properties not found, using default paths");
+                LOGGER.warn("application.properties not found, using default paths");
             }
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Failed to load application.properties, using default paths", e);
+            LOGGER.warn("Failed to load application.properties, using default paths", e);
         }
     }
 
@@ -61,7 +61,7 @@ public class FilePathConfig {
         if (customPath != null && !customPath.isEmpty()) {
             Path path = Paths.get(userDir, customPath);
             if (Files.exists(path)) {
-                LOGGER.log(Level.INFO, "Found NetLibrary.java at custom path: {0}", path);
+                LOGGER.info("Found NetLibrary.java at custom path: {}", path);
                 return path;
             }
         }
@@ -70,12 +70,12 @@ public class FilePathConfig {
         for (String pathStr : DEFAULT_NET_LIBRARY_PATHS) {
             Path path = Paths.get(userDir, pathStr);
             if (Files.exists(path)) {
-                LOGGER.log(Level.INFO, "Found NetLibrary.java at: {0}", path);
+                LOGGER.info("Found NetLibrary.java at: {}", path);
                 return path;
             }
         }
 
-        LOGGER.log(Level.SEVERE, "NetLibrary.java not found in any configured path. Working directory: {0}", userDir);
+        LOGGER.error("NetLibrary.java not found in any configured path. Working directory: {}", userDir);
         return null;
     }
 
