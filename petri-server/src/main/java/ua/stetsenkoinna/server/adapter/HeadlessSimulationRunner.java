@@ -2,18 +2,11 @@ package ua.stetsenkoinna.server.adapter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ua.stetsenkoinna.PetriObj.PetriNet;
 import ua.stetsenkoinna.PetriObj.PetriObjModel;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriSim;
-import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.api.simulation.SimulationRequest;
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
-import ua.stetsenkoinna.pnml.PnmlParser;
 import ua.stetsenkoinna.server.service.SimulationSession;
 import ua.stetsenkoinna.server.service.WebSocketStatisticSink;
-
-import java.util.ArrayList;
 
 public class HeadlessSimulationRunner implements Runnable {
 
@@ -35,22 +28,7 @@ public class HeadlessSimulationRunner implements Runnable {
     public void run() {
         session.setStatus(SimulationStatus.RUNNING);
         try {
-            PetriNet net;
-            synchronized (NetBuildLock.LOCK) {
-                PetriP.initNext();
-                PetriT.initNext();
-                net = new PnmlParser().parseXml(request.getNetXml());
-            }
-            PetriSim sim = new PetriSim(net);
-
-            ArrayList<PetriSim> objects = new ArrayList<>();
-            objects.add(sim);
-
-            PetriObjModel model = new PetriObjModel(session.getId(), objects);
-            model.setIsProtokol(false);
-            model.setIsStatistics(true);
-            model.setStatisticCollector(sink);
-
+            PetriObjModel model = SimulationModelFactory.build(session.getId(), request.getNetXml(), sink);
             model.go(request.getSimulationTime());
 
         } catch (SimulationInterruptedException e) {
