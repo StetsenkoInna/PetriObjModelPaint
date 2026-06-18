@@ -2,12 +2,17 @@ package ua.stetsenkoinna.PetriObj;
 
 import java.io.Serializable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * This class for creating the place of Petri net.
  *
  *  @author Inna V. Stetsenko
  */
 public class PetriP extends PetriMainElement implements Cloneable, Serializable {
+
+    private static final Logger log = LoggerFactory.getLogger(PetriP.class);
 
     private final PetriElementId id;
     private String name;
@@ -232,7 +237,7 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
     }
 
     public void printParameters() {
-        System.out.println("Place " + name + "has such parametrs: \n"
+        log.info("Place " + name + "has such parametrs: \n"
                 + " number " + number + ", mark " + mark);
     }
 

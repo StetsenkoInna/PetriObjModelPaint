@@ -2,8 +2,9 @@ package ua.stetsenkoinna.PetriObj;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class provides constructing Petri net
@@ -11,6 +12,8 @@ import java.util.logging.Logger;
  * @author Inna V. Stetsenko
  */
 public class PetriNet implements Cloneable, Serializable {
+
+    private static final Logger log = LoggerFactory.getLogger(PetriNet.class);
 
     /**
      * @return the ListIn
@@ -68,7 +71,7 @@ public class PetriNet implements Cloneable, Serializable {
                     throw new ExceptionInvalidTimeDelay("Error: Transition " + transition.getName() + " has empty list of input places"); //генерувати виключення???
                 }
             } catch (ExceptionInvalidTimeDelay ex) {
-                Logger.getLogger(PetriNet.class.getName()).log(Level.SEVERE, null, ex);
+                log.error("Failed to wire transition input/output places", ex);
             }
         }
 
@@ -266,7 +269,7 @@ public class PetriNet implements Cloneable, Serializable {
      */
     public void printArcs() //додано 1.10.2012
     {
-        System.out.println("Petri net " + name + " arcs: " + getListIn().length + " input arcs snd " + getListOut().length + " output arcs");
+        log.info("Petri net {} arcs: {} input arcs snd {} output arcs", name, getListIn().length, getListOut().length);
 
         for (ArcIn arcs : getListIn()) {
             arcs.print();
@@ -280,18 +283,18 @@ public class PetriNet implements Cloneable, Serializable {
      *
      */
     public void printMark() {
-        System.out.print("Mark in Net  " + this.getName() + "   ");
+        StringBuilder sb = new StringBuilder("Mark in Net  " + this.getName() + "   ");
         for (PetriP position: ListP) {
-            System.out.print(position.getMark() + "  ");
+            sb.append(position.getMark()).append("  ");
         }
-        System.out.println();
+        log.info(sb.toString());
     }
     public void printBuffer() {
-        System.out.print("Buffer in Net  " + this.getName() + "   ");
+        StringBuilder sb = new StringBuilder("Buffer in Net  " + this.getName() + "   ");
         for (PetriT transition: ListT) {
-            System.out.print(transition.getBuffer() + "  ");
+            sb.append(transition.getBuffer()).append("  ");
         }
-        System.out.println();
+        log.info(sb.toString());
     }
     
     @Override

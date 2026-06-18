@@ -4,6 +4,9 @@ import java.io.Serializable;
 import java.util.*;
 import java.util.function.Consumer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * This class is Petri simulator. <br>
  * The object of this class simulates dynamics of functioning according to Petri
@@ -12,6 +15,8 @@ import java.util.function.Consumer;
  *  @author Inna V. Stetsenko
  */
 public class PetriSim implements Cloneable, Serializable {
+
+    private static final Logger log = LoggerFactory.getLogger(PetriSim.class);
 
     private static int next = 1; //лічильник створених об"єктів
 
@@ -257,14 +262,14 @@ public class PetriSim implements Cloneable, Serializable {
      */
     public void step() {
         // використовується для одного об'єкту мережа Петрі
-        System.out.println("Next Step  " + "time=" + this.getCurrentTime());
+        log.info("Next Step  time={}", this.getCurrentTime());
 
         this.printMark(); //друкувати поточне маркування
         ArrayList<PetriT> activeT = this.findActiveT(); //формування списку активних переходів
 
         if ((activeT.isEmpty() && isBufferEmpty()) || this.getCurrentTime() >= getSimulationTime()) {
             //зупинка імітації за умови, що немає переходів, які запускаються, і немає маркерів у переходах, або вичерпаний час моделювання
-            System.out.println("STOP in Net  " + this.getName());
+            log.info("STOP in Net  {}", this.getName());
             timeMin = getSimulationTime();
             for (PetriP p : listP) {
                 p.changeMean((timeMin - this.getCurrentTime()) / getSimulationTime());
@@ -451,7 +456,7 @@ public class PetriSim implements Cloneable, Serializable {
         while (this.getCurrentTime() <= getSimulationTime() && !isStop()) {
             this.step();
             if (isStop()) {
-                System.out.println("STOP in net  " + this.getName());
+                log.info("STOP in net  {}", this.getName());
             }
         }
     }
@@ -466,7 +471,7 @@ public class PetriSim implements Cloneable, Serializable {
         while (this.getCurrentTime() < time && !isStop()) {
             this.step();
             if (isStop()) {
-                System.out.println("STOP in net  " + this.getName());
+                log.info("STOP in net  {}", this.getName());
             }
         }
     }
@@ -491,18 +496,18 @@ public class PetriSim implements Cloneable, Serializable {
      * Do printing the current marking of Petri net
      */
     public void printMark() {
-        System.out.print("Mark in Net  " + this.getName() + "   ");
+        StringBuilder sb = new StringBuilder("Mark in Net  " + this.getName() + "   ");
         for (PetriP position : listP) {
-            System.out.print(position.getMark() + "  ");
+            sb.append(position.getMark()).append("  ");
         }
-        System.out.println();
+        log.info(sb.toString());
     }
     public void printBuffer(){
-    System.out.print("Buffer in Net  " + this.getName() + "   ");
+        StringBuilder sb = new StringBuilder("Buffer in Net  " + this.getName() + "   ");
         for (PetriT transition : listT) {
-            System.out.print(transition.getBuffer() + "  ");
+            sb.append(transition.getBuffer()).append("  ");
         }
-        System.out.println();
+        log.info(sb.toString());
     }
     
         

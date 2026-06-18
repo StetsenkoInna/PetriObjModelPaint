@@ -2,9 +2,10 @@ package ua.stetsenkoinna.PetriObj;
 
 import java.io.Serializable;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.JOptionPane;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class for creating the transition of Petri net
@@ -12,6 +13,8 @@ import javax.swing.JOptionPane;
  *  @author Inna V. Stetsenko
  */
 public class PetriT extends PetriMainElement implements Cloneable, Serializable {
+
+    private static final Logger log = LoggerFactory.getLogger(PetriT.class);
 
     private final PetriElementId id;
     private String name;
@@ -405,7 +408,7 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
                 timeServ = parametr; // детерміноване значення
             }
         } catch (ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(PetriT.class.getName()).log(Level.SEVERE, null, ex);
+            log.error("Failed to compute service time", ex);
         }
         return timeServ;
     }
@@ -518,8 +521,7 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
             }
         }
         if (getOutP().isEmpty()) {
-            Logger.getLogger(PetriT.class.getName()).log(Level.WARNING,
-                "Transition " + this.getName() + " has no output places (acts as a sink transition)");
+            log.warn("Transition {} has no output places (acts as a sink transition)", this.getName());
         }
     }
 
@@ -641,24 +643,24 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
 
     public void print() {
         for (double time: timeOut) {
-            System.out.println(time + "   " + this.getName());
+            log.info("{}   {}", time, this.getName());
         }
     }
 
     public void printParameters() {
-        System.out.println("Transition " + name + " has such parameters: \n"
+        StringBuilder sb = new StringBuilder("Transition " + name + " has such parameters: \n"
                 + " number " + number + ", probability " + probability + ", priority " + priority
                 + "\n parameter " + parametr + ", distribution " + distribution
                 + ", time of service (generate) " + this.getTimeServ());
-        System.out.println("This transition has input places with such numbers: ");
+        sb.append("\nThis transition has input places with such numbers: ");
         for (Integer in : inP) {
-            System.out.print(in.toString() + "  ");
+            sb.append(in.toString()).append("  ");
         }
-        System.out.println("\n and output places with such numbers: ");
+        sb.append("\n and output places with such numbers: ");
         for (Integer out : getOutP()) {
-            System.out.print(out.toString() + "  ");
+            sb.append(out.toString()).append("  ");
         }
-        System.out.println("\n");
+        log.info(sb.toString());
     }
 
     /**
@@ -825,12 +827,12 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
     public void printEventMoments() {
         if (moments) {
             EventMoments events = new EventMoments(inMoments, outMoments);
-            System.out.println(this.getName());
+            log.info(this.getName());
             for (EventMoments.Interval interval : events.getList()) {
-                System.out.println(interval.getIn() + "  " + interval.getOut());
+                log.info("{}  {}", interval.getIn(), interval.getOut());
             }
         } else{
-            System.out.println("Set parameter 'moments' = true");
+            log.info("Set parameter 'moments' = true");
         }
     }
     

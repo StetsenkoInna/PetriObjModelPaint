@@ -23,8 +23,12 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import ua.stetsenkoinna.libnetannotation.annotation.NetLibraryMethod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NetLibraryManager {
+
+    private static final Logger log = LoggerFactory.getLogger(NetLibraryManager.class);
 
     private static final String NET_LIBRARY_DYNAMIC_NAME = NetLibrary.class.getSimpleName().concat("Dynamic");
     private static final String JAVA_CLASSPATH = System.getProperty("java.class.path");
@@ -115,7 +119,7 @@ public class NetLibraryManager {
         final JavaParser javaParser = new JavaParser();
         final ParseResult<CompilationUnit> parseResult = javaParser.parse(libNetFile);
         if (!parseResult.isSuccessful()) {
-            System.out.println("Failed to parse libNetFile!");
+            log.warn("Failed to parse libNetFile!");
             throw new Exception(parseResult.getProblem(0).getVerboseMessage());
         }
 
@@ -139,7 +143,7 @@ public class NetLibraryManager {
         final JavaParser javaParser = new JavaParser();
         final ParseResult<CompilationUnit> parseResult = javaParser.parse(libNetFile);
         if (!parseResult.isSuccessful()) {
-            System.out.println("Failed to parse libNetFile!");
+            log.warn("Failed to parse libNetFile!");
             throw new Exception(parseResult.getProblem(0).getVerboseMessage());
         }
 
@@ -150,7 +154,7 @@ public class NetLibraryManager {
         final ParseResult<MethodDeclaration> methodParseResult = javaParser.parseMethodDeclaration(methodText);
 
         if (!methodParseResult.isSuccessful()) {
-            System.out.println("Failed to parse methodDeclaration text!");
+            log.warn("Failed to parse methodDeclaration text!");
             throw new Exception(methodParseResult.getProblem(0).getVerboseMessage());
         }
 
