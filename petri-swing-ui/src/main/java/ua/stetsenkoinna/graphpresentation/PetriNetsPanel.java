@@ -431,8 +431,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             current = null;
 
         }
-        /* if(current!=null)System.out.println("remove : "+current.getName()+"  "+s.getName());
-        else System.out.println("remove : current null");*/
         graphNet.delGraphElement(s); //added by Inna 4.12.2012
 
         repaint();
@@ -559,8 +557,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
                     isSettingArc = false;
                 }
-                // System.out.println("after added tie we have such graph net:");
-                // graphNet.print();
             }
 
             isSettingArc = false;//26.01.2013

@@ -27,7 +27,6 @@ import ua.stetsenkoinna.LibNet.HiddenFromUI;
 
 import java.awt.*;
 import java.awt.event.*;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,8 +35,6 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 import java.lang.reflect.Method;
 
 import javax.swing.*;
@@ -53,7 +50,6 @@ import ua.stetsenkoinna.utils.MessageHelper;
 
 import java.awt.Dialog.ModalityType;
 import java.io.ObjectInputStream;
-import java.nio.file.Path;
 import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEditSupport;
 
@@ -1477,7 +1473,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }// GEN-LAST:event_editNetParametersActionPerformed
 
     private boolean isCorrectNet() throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
-       // System.out.println(petriNetsPanel.getGraphNet().getGraphPetriPlaceList().size());
         if (getPetriNetsPanel().getGraphNet() == null) {
             errorFrame.setErrorMessage(" Graph image of Petri Net does not exist yet. Paint it or read it from file.");
             errorFrame.setVisible(true);
@@ -1634,10 +1629,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     PetriSim petriSim = new PetriSim(getPetriNetsPanel().getGraphNet().getPetriNet());
                     petriSim.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                     petriSim.setTimeCurr(Double.parseDouble(timeStartField.getText()));
-                    // System.out.println("in the beginning we have such state of net places:");
                     petriSim.printMark();
                     petriSim.step();
-                    // System.out.println("at the result we have such state of net places:");
                     petriSim.printMark(protocolTextArea::append);
                     getPetriNetsPanel().repaint();
                 }
@@ -1673,10 +1666,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     object.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
                     object.setTimeCurr(Double.parseDouble(timeStartField.getText()));
 
-                    // System.out.println("in the begining we have such state of net places:");
                     object.printMark();
                     object.step();
-                    // System.out.println("at the result we have such state of net places:");
                     object.printMark(protocolTextArea::append);
 
                     getPetriNetsPanel().repaint();

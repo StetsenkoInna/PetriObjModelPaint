@@ -230,7 +230,6 @@ public class AnimRunPetriSim extends PetriSim {
                             while (u) {
                                 transition.minEvent();
                                 if (transition.getMinTime() == getCurrentTime()) {
-                                    // System.out.println("MinTime="+TEvent.getMinTime());
                                 	transition.actOut(super.getNet().getListP(),super.getCurrentTime());
                                 	doAfterStep();
                                         /* support for early termination of the simulation */

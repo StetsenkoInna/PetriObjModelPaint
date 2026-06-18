@@ -40,7 +40,6 @@ import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
-import ua.stetsenkoinna.utils.SafeParsingUtils;
 import ua.stetsenkoinna.utils.MessageHelper;
 
 import java.awt.geom.Point2D;
@@ -100,7 +99,6 @@ public class FileUse {
         try (FileInputStream fis = new FileInputStream(file);
              ObjectInputStream ois = new ObjectInputStream(fis)) {
 
-            // System.out.println("Opening file '" + filePath + "'");
             Object loadedObject = ois.readObject();
 
             GraphPetriNet net;
@@ -292,7 +290,6 @@ public class FileUse {
                 tempDir.mkdirs();
             }
             File file = new File(tempDir, name + ".pns");
-            // System.out.println("Saving path = " + file.getAbsolutePath());
             fos = new FileOutputStream(file);
             oos = new ObjectOutputStream(fos);
             oos.writeObject(pnet);
@@ -1094,7 +1091,6 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
 
             String c = f.readLine();
             while (c != null && !c.contains("}") && n > 0) {
-                //   System.out.println("n= "+n+ ",   line= "+c);
                 n -= 1;
                 f.seek(n);
                 c = f.readLine();
