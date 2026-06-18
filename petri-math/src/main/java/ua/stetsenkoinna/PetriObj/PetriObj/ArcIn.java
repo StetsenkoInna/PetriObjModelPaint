@@ -2,6 +2,9 @@ package ua.stetsenkoinna.PetriObj;
 
 import java.io.Serializable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * This class for creating the arc between place and transition of Petri net
  * (and directed from place to transion) numP - number of place numT - number of
@@ -10,6 +13,8 @@ import java.io.Serializable;
  *  @author Inna V. Stetsenko
  */
 public class ArcIn implements Cloneable, Serializable {
+
+    private static final Logger log = LoggerFactory.getLogger(ArcIn.class);
 
     private final PetriElementId id;
     private int number;
@@ -274,17 +279,17 @@ public class ArcIn implements Cloneable, Serializable {
      */
     public void print() {
         if (nameP != null && nameT != null) {
-            System.out.println(" P=  " + nameP + ", T=  " + nameT + ", inf= " + getIsInf() + ", k= " + getQuantity());
+            log.info(" P=  " + nameP + ", T=  " + nameT + ", inf= " + getIsInf() + ", k= " + getQuantity());
         } else {
-            System.out.println(" P= P" + numP + ", T= T" + numT + ", inf= " + getIsInf() + ", k= " + getQuantity());
+            log.info(" P= P" + numP + ", T= T" + numT + ", inf= " + getIsInf() + ", k= " + getQuantity());
         }
     }
 
     public void printParameters() {
-        System.out.println("This arc has direction from  place with number " + numP + " to transition with number " + numT
+        log.info("This arc has direction from  place with number " + numP + " to transition with number " + numT
                 + " and has " + k + " value of multiplicity, ");
         if (inf) {
-            System.out.println(" and is informational.");
+            log.info(" and is informational.");
         }
     }
 

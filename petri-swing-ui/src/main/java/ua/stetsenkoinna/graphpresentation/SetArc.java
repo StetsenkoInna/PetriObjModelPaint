@@ -161,7 +161,7 @@ public class SetArc extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void cancelButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancelButtonActionPerformed
-        chosenTie = null;        // TODO add your handling code here:
+        chosenTie = null;
         this.setVisible(false);
     }//GEN-LAST:event_cancelButtonActionPerformed
 
@@ -178,7 +178,6 @@ public class SetArc extends javax.swing.JFrame {
     }//GEN-LAST:event_okButtonActionPerformed
 
     private void infParamNameFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_infParamNameFieldActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_infParamNameFieldActionPerformed
 
     private void setQuantity() { // modified by Katya 08.12.2016

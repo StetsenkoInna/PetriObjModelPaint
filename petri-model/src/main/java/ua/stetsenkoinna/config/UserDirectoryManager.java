@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The {@code UserDirectoryManager} class is responsible for managing the local
@@ -37,7 +37,7 @@ import java.util.logging.Logger;
 public class UserDirectoryManager {
 
     /** Logger for tracking directory operations and errors. */
-    private static final Logger LOGGER = Logger.getLogger(UserDirectoryManager.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserDirectoryManager.class);
 
     /** The name of the hidden application directory within the user's home folder. */
     private static final String APP_FOLDER_NAME = ".PetriObjModelPaint";
@@ -86,10 +86,10 @@ public class UserDirectoryManager {
         try {
             if (!Files.exists(dir)) {
                 Files.createDirectories(dir);
-                LOGGER.log(Level.INFO, "Created directory: " + dir);
+                LOGGER.info("Created directory: {}", dir);
             }
         } catch (IOException ex) {
-            LOGGER.log(Level.SEVERE, "Failed to create directory: " + dir, ex);
+            LOGGER.error("Failed to create directory: {}", dir, ex);
         }
     }
 
@@ -136,7 +136,7 @@ public class UserDirectoryManager {
         Path file = getFilePath(filename, type);
         if (!Files.exists(file)) {
             Files.createFile(file);
-            LOGGER.log(Level.INFO, "Created " + type.getFolderName() + " file: " + file);
+            LOGGER.info("Created {} file: {}", type.getFolderName(), file);
         }
     }
 
@@ -149,7 +149,7 @@ public class UserDirectoryManager {
      */
     public void deleteFile(String filename, AppDirectoryType type) throws IOException {
         Files.deleteIfExists(getFilePath(filename, type));
-        LOGGER.log(Level.INFO, "Deleted file: " + filename + " in " + type.getFolderName() + " directory");
+        LOGGER.info("Deleted file: {} in {} directory", filename, type.getFolderName());
     }
 
     /**
@@ -174,9 +174,9 @@ public class UserDirectoryManager {
             for (Path file: stream) {
                 Files.deleteIfExists(file);
             }
-            LOGGER.log(Level.INFO, "Directory cleared: " + dir);
+            LOGGER.info("Directory cleared: {}", dir);
         } catch (IOException ex) {
-            LOGGER.log(Level.SEVERE, "Failed to clear directory: " + dir, ex);
+            LOGGER.error("Failed to clear directory: {}", dir, ex);
         }
     }
 

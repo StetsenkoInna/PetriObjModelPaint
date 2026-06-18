@@ -2,6 +2,9 @@ package ua.stetsenkoinna.PetriObj;
 
 import java.io.Serializable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * This class for creating the arc between transition and place of Petri
  * net (and directed from transion to place)
@@ -9,6 +12,8 @@ import java.io.Serializable;
  *  @author Inna V. Stetsenko
  */
 public class ArcOut implements Cloneable, Serializable {
+
+    private static final Logger log = LoggerFactory.getLogger(ArcOut.class);
 
     private final PetriElementId id;
     private int number;
@@ -195,9 +200,9 @@ public class ArcOut implements Cloneable, Serializable {
      */
     public void print() {
         if (nameP != null && nameT != null) {
-            System.out.println(" T=  " + nameT + ", P=  " + nameP + ", k= " + getQuantity());
+            log.info(" T=  " + nameT + ", P=  " + nameP + ", k= " + getQuantity());
         } else {
-            System.out.println(" T= T" + numT + ", P= P" + numP + ", k= " + getQuantity());
+            log.info(" T= T" + numT + ", P= P" + numP + ", k= " + getQuantity());
         }
     }
 
@@ -213,7 +218,7 @@ public class ArcOut implements Cloneable, Serializable {
     }
 
     public void printParameters() {
-        System.out.println("This arc has direction from  transition  with number " + numT + " to place with number " + numP
+        log.info("This arc has direction from  transition  with number " + numT + " to place with number " + numP
                 + " and has " + k + " value of multiplicity");
     }
 

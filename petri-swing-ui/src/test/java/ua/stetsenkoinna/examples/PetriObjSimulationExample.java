@@ -1,4 +1,4 @@
-package ua.stetsenkoinna.LibTest;
+package ua.stetsenkoinna.examples;
 
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
@@ -22,8 +22,11 @@ import java.util.ArrayList;
  *    2.2) Define the collection step interval. default: 1
  *
  * 3) Assign the monitor to the model object.
+ *
+ * <p>Standalone runnable example (has its own {@code main}); kept in test sources so it
+ * stays out of the production JAR.
  */
-public class TestPetriObjSimulation {  //Результати співпадають з аналітичними обрахунками
+public class PetriObjSimulationExample {  //Результати співпадають з аналітичними обрахунками
       public static void main(String[] args) throws ExceptionInvalidTimeDelay, ExceptionInvalidNetStructure {
           // цей фрагмент для запуску імітації моделі з заданною мережею Петрі на інтервалі часу timeModeling
           PetriObjModel model = getModel();
@@ -38,7 +41,7 @@ public class TestPetriObjSimulation {  //Результати співпадаю
           model.setIsProtokol(false);
           double timeModeling = 1000000;
           model.go(timeModeling);
-          
+
          //Цей фрагмент для виведення результатів моделювання на консоль
           System.out.println("Mean value of queue");
           for (int j = 1; j < 5; j++) {
@@ -49,33 +52,33 @@ public class TestPetriObjSimulation {  //Результати співпадаю
               System.out.println(1.0 - model.getListObj().get(j).getNet().getListP()[1].getMean());
           }
           System.out.println(2.0 - model.getListObj().get(4).getNet().getListP()[1].getMean());
-          
+
           System.out.println("Estimation precision");
           double[] valuesQueue = {1.786,0.003,0.004,0.00001};
-                 
+
            System.out.println(" Mean value of queue  precision: ");
            for (int j = 1; j < 5; j++) {
               double inaccuracy = ( model.getListObj().get(j).getNet().getListP()[0].getMean()-valuesQueue[j-1])/valuesQueue[j-1]*100;
               inaccuracy = Math.abs(inaccuracy);
               System.out.println(inaccuracy+" %");
           }
-           
+
            double[] valuesChannel = {0.714,0.054,0.062,0.036};
-           
+
            System.out.println(" Mean value of channel worked  precision: ");
-                    
+
            for (int j = 1; j < 4; j++) {
               double inaccuracy = ( 1.0 - model.getListObj().get(j).getNet().getListP()[1].getMean()-valuesChannel[j-1])/valuesChannel[j-1]*100;
              inaccuracy = Math.abs(inaccuracy);
-              
+
               System.out.println(inaccuracy+" %");
           }
             double inaccuracy = ( 2.0 - model.getListObj().get(4).getNet().getListP()[1].getMean()-valuesChannel[3])/valuesChannel[3]*100;
             inaccuracy = Math.abs(inaccuracy);
-           
+
            System.out.println(inaccuracy+" %");
-      } 
-      
+      }
+
       // метод для конструювання моделі масового обслуговування з 4 СМО
       public static PetriObjModel getModel() throws ExceptionInvalidTimeDelay, ExceptionInvalidNetStructure{
           ArrayList<PetriSim> list = new ArrayList<>();

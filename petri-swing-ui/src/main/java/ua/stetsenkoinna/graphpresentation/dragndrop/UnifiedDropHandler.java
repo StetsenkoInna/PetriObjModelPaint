@@ -10,8 +10,8 @@ import java.awt.datatransfer.Transferable;
 import java.awt.dnd.*;
 import java.io.File;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Unified handler for multiple file format drag and drop operations.
@@ -24,7 +24,7 @@ import java.util.logging.Logger;
  */
 public class UnifiedDropHandler implements DropTargetListener {
 
-    private static final Logger LOGGER = Logger.getLogger(UnifiedDropHandler.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(UnifiedDropHandler.class);
 
     private final PetriNetsPanel panel;
     private final JFrame parentFrame;
@@ -104,21 +104,21 @@ public class UnifiedDropHandler implements DropTargetListener {
 
                 if (fileName.endsWith(".pnml")) {
                     // Delegate to PNML handler
-                    LOGGER.log(Level.INFO, "Processing PNML file: {0}", file.getName());
+                    LOGGER.info("Processing PNML file: {}", file.getName());
                     if (importPnmlFile(file, dropLocation)) {
                         atLeastOneSuccess = true;
                     }
 
                 } else if (fileName.endsWith(".pns")) {
                     // Delegate to PNS handler
-                    LOGGER.log(Level.INFO, "Processing PNS file: {0}", file.getName());
+                    LOGGER.info("Processing PNS file: {}", file.getName());
                     if (importPnsFile(file, dropLocation)) {
                         atLeastOneSuccess = true;
                     }
 
                 } else {
                     // Unsupported file type
-                    LOGGER.log(Level.WARNING, "Unsupported file type: {0}", file.getName());
+                    LOGGER.warn("Unsupported file type: {}", file.getName());
                     MessageHelper.showError(parentFrame,
                         "Unsupported file type: " + file.getName() + "\n\n" +
                         "Supported formats:\n" +
@@ -130,7 +130,7 @@ public class UnifiedDropHandler implements DropTargetListener {
             dtde.dropComplete(atLeastOneSuccess);
 
         } catch (Exception ex) {
-            LOGGER.log(Level.SEVERE, "Error during file drop", ex);
+            LOGGER.error("Error during file drop", ex);
             MessageHelper.showException(parentFrame, "Error during file drop", ex);
             dtde.dropComplete(false);
         }
@@ -159,7 +159,7 @@ public class UnifiedDropHandler implements DropTargetListener {
             // Since we've already validated the file, we just need to trigger import
             return callPnmlHandler(file, dropLocation);
         } catch (Exception ex) {
-            LOGGER.log(Level.SEVERE, "Error importing PNML file: " + file.getName(), ex);
+            LOGGER.error("Error importing PNML file: " + file.getName(), ex);
             MessageHelper.showException(parentFrame, "Error importing PNML file: " + file.getName(), ex);
             return false;
         }
@@ -178,7 +178,7 @@ public class UnifiedDropHandler implements DropTargetListener {
             // Since we've already validated the file, we just need to trigger import
             return callPnsHandler(file, dropLocation);
         } catch (Exception ex) {
-            LOGGER.log(Level.SEVERE, "Error importing PNS file: " + file.getName(), ex);
+            LOGGER.error("Error importing PNS file: " + file.getName(), ex);
             MessageHelper.showException(parentFrame, "Error importing PNS file: " + file.getName(), ex);
             return false;
         }
@@ -194,7 +194,7 @@ public class UnifiedDropHandler implements DropTargetListener {
             method.setAccessible(true);
             return (boolean) method.invoke(pnmlHandler, file, dropLocation);
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Error calling PNML handler", e);
+            LOGGER.error("Error calling PNML handler", e);
             return false;
         }
     }
@@ -209,7 +209,7 @@ public class UnifiedDropHandler implements DropTargetListener {
             method.setAccessible(true);
             return (boolean) method.invoke(pnsHandler, file, dropLocation);
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Error calling PNS handler", e);
+            LOGGER.error("Error calling PNS handler", e);
             return false;
         }
     }

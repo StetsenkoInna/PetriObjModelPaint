@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.Consumer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * This class provides constructing Petri object model.<br>
  * List of Petri-objects contains Petri-objects with links between them.<br>
@@ -18,6 +21,8 @@ import java.util.function.Consumer;
  * @author Inna V. Stetsenko
  */
 public class PetriObjModel implements Serializable, Cloneable  {
+
+    private static final Logger log = LoggerFactory.getLogger(PetriObjModel.class);
 
     private final ArrayList<LinkByPlaces> links;
 
@@ -78,7 +83,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
                 break;
             }
        }
-        if(num <0 ) System.out.println("No such PetriSim "+sim.getName()+ " in model's list of objects.");
+        if(num <0 ) log.warn("No such PetriSim {} in model's list of objects.", sim.getName());
        
         return num;
     }
@@ -174,7 +179,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
            this.setCurrentTime(min);
             
             if (isProtocolPrint()) {
-                System.out.println(" Time progress: time = " + this.getCurrentTime() + "\n");
+                log.info(" Time progress: time = " + this.getCurrentTime() + "\n");
             }
             if (this.getCurrentTime() <= this.getSimulationTime()) {
 
@@ -188,9 +193,9 @@ public class PetriObjModel implements Serializable, Cloneable  {
                 int num;
                 int max;
                 if (isProtocolPrint()) {
-                    System.out.println(" List of conflicting objects  " + "\n");
+                    log.info(" List of conflicting objects  " + "\n");
                     for (int ii = 0; ii < conflictObj.size(); ii++) {
-                        System.out.println(" K [ " + ii + "  ] = " + conflictObj.get(ii).getName() + "\n");
+                        log.info(" K [ " + ii + "  ] = " + conflictObj.get(ii).getName() + "\n");
                     }
                 }
 
@@ -213,13 +218,13 @@ public class PetriObjModel implements Serializable, Cloneable  {
                 }
 
                 if (isProtocolPrint()) {
-                    System.out.println(" Selected object  " + conflictObj.get(num).getName() + "\n" + " NextEvent " + "\n");
+                    log.info(" Selected object  " + conflictObj.get(num).getName() + "\n" + " NextEvent " + "\n");
                 }
 
                 for (PetriSim sim: getListObj()) {
                     if (sim.getNumObj() == conflictObj.get(num).getNumObj()) {
                         if (isProtocolPrint()) {
-                            System.out.println(
+                            log.info(
                                     " time =   " + this.getCurrentTime() + "   Event '" + sim.getEventMin().getName() + "'\n"
                                     + "                       is occuring for the object   " + sim.getName() + "\n"
                             );
@@ -229,7 +234,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
                     }
                 }
                 if (isProtocolPrint()) {
-                    System.out.println("Markers output:");
+                    log.info("Markers output:");
                     for (PetriSim sim : getListObj()) //ДРУК поточного маркірування
                     {
                         sim.printMark();
@@ -245,7 +250,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
 
                 }
                 if (isProtocolPrint()) {
-                    System.out.println("Markers input:");
+                    log.info("Markers input:");
                     for (PetriSim e : getListObj()){ //ДРУК поточного маркірування
                           e.printMark();
                     }
@@ -293,20 +298,20 @@ public class PetriObjModel implements Serializable, Cloneable  {
     }
     
     public void printStatistics(){
-       System.out.println("State of places and transitions:");
+       log.info("State of places and transitions:");
         for (PetriSim e : listObj) {
                 e.printMark();
                 e.printBuffer();
-        } 
-       
+        }
+
         if (this.isStatistics()) {
             for (PetriSim e : listObj) {
-               System.out.println("\nMean value of markers in places and mean value of buffers in transitions for "+e.getName()+" object");
+               log.info("\nMean value of markers in places and mean value of buffers in transitions for "+e.getName()+" object");
                 for(PetriP p: e.getNet().getListP()) {
-                   System.out.println(p.getName()+"  "+p.getMean());
+                   log.info(p.getName()+"  "+p.getMean());
                }
                 for(PetriT tr: e.getNet().getListT()) {
-                   System.out.println(tr.getName()+"  "+tr.getMean());
+                   log.info(tr.getName()+"  "+tr.getMean());
                }
             }
         }
@@ -345,7 +350,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
              one.getNet().getListP()[numberOne] = other.getNet().getListP()[numberOther];   // combine places
              links.add(new LinkByPlaces(one, numberOne, other, numberOther));
          } else {
-             System.out.println("ERROR: no such PetriSim objects in model's list of objects");
+             log.error("no such PetriSim objects in model's list of objects");
          }
      }
    
@@ -423,9 +428,9 @@ public class PetriObjModel implements Serializable, Cloneable  {
    }
     
     public void printLinks(){
-        System.out.println(" number of links "+links.size());
+        log.info(" number of links "+links.size());
         for(LinkByPlaces li:links ){
-            System.out.println(li.getOne().getName()+".p["+ li.getNumPlaceOne()+"] -> "+
+            log.info(li.getOne().getName()+".p["+ li.getNumPlaceOne()+"] -> "+
                                 li.getOther().getName()+".p["+ li.getNumPlaceOther()+"] ");
         }
     }

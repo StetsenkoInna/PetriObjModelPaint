@@ -15,6 +15,10 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
             <groupId>ua.stetsenkoinna</groupId>
             <artifactId>petri-math</artifactId>
         </dependency>

@@ -5,20 +5,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import ua.stetsenkoinna.PetriObj.PetriNet;
 import ua.stetsenkoinna.PetriObj.PetriObjModel;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriSim;
-import ua.stetsenkoinna.PetriObj.PetriT;
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
-import ua.stetsenkoinna.pnml.PnmlParser;
-import ua.stetsenkoinna.server.adapter.NetBuildLock;
 import ua.stetsenkoinna.server.adapter.SimulationFrame;
 import ua.stetsenkoinna.server.adapter.SimulationInterruptedException;
+import ua.stetsenkoinna.server.adapter.SimulationModelFactory;
 import ua.stetsenkoinna.server.adapter.SseSimulationSink;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -72,18 +65,7 @@ public class SseSimulationService {
         Thread.ofVirtual().name("sim-sse-" + session.getId()).start(() -> {
             session.setStatus(SimulationStatus.RUNNING);
             try {
-                PetriNet net;
-                synchronized (NetBuildLock.LOCK) {
-                    PetriP.initNext();
-                    PetriT.initNext();
-                    net = new PnmlParser().parseXml(netXml);
-                }
-                PetriSim sim = new PetriSim(net);
-                ArrayList<PetriSim> objects = new ArrayList<>(List.of(sim));
-                PetriObjModel model = new PetriObjModel(session.getId(), objects);
-                model.setIsProtokol(false);
-                model.setIsStatistics(true);
-                model.setStatisticCollector(sink);
+                PetriObjModel model = SimulationModelFactory.build(session.getId(), netXml, sink);
                 model.go(params.simulationTime());
             } catch (SimulationInterruptedException e) {
                 log.info("SSE simulation {} halted by request", session.getId());

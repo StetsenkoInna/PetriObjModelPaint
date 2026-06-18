@@ -11,7 +11,7 @@ import ua.stetsenkoinna.api.simulation.SimulationStatus;
 import ua.stetsenkoinna.server.adapter.SimulationInterruptedException;
 import ua.stetsenkoinna.server.adapter.SimulationStepMessage;
 import ua.stetsenkoinna.server.adapter.SimulationStatusMessage;
-import ua.stetsenkoinna.server.controller.ApiVersions;
+import ua.stetsenkoinna.server.controller.WsDestinations;
 import ua.stetsenkoinna.server.dto.SimulationResultDto;
 
 import java.util.ArrayList;
@@ -29,8 +29,8 @@ public class WebSocketStatisticSink implements SimulationStatisticCollector {
     public WebSocketStatisticSink(SimulationSession session, SimpMessagingTemplate messaging) {
         this.session = session;
         this.messaging = messaging;
-        this.stepsTopic  = "/topic" + ApiVersions.WS_V1 + "/sim/" + session.getId() + "/steps";
-        this.statusTopic = "/topic" + ApiVersions.WS_V1 + "/sim/" + session.getId() + "/status";
+        this.stepsTopic  = WsDestinations.steps(session.getId());
+        this.statusTopic = WsDestinations.status(session.getId());
     }
 
     @Override

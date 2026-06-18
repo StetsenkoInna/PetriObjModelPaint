@@ -8,6 +8,8 @@ import ua.stetsenkoinna.PetriObj.ArcIn;
 import ua.stetsenkoinna.PetriObj.ArcOut;
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.utils.NetworkPositionCalculator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.awt.Color;
 import java.awt.Graphics;
@@ -27,6 +29,8 @@ import java.util.function.Consumer;
  * @author Инна
  */
 public class GraphPetriNet implements Cloneable, Serializable {
+
+    private static final Logger log = LoggerFactory.getLogger(GraphPetriNet.class);
 
     private static final int bigNumber = 10000; // для правильного коригування нумерації позицій та переходів
 
@@ -122,7 +126,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
     }
 
     public void print() {
-        System.out.println("Information about GraphPetriNet");
+        log.info("Information about GraphPetriNet");
         for (PetriP pp : this.getPetriPList()) {
             pp.printParameters();
         }
