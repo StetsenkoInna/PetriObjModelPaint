@@ -17,7 +17,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class StatisticConsoleMonitor extends StatisticMonitor implements SimulationStatisticCollector {
+
+    private static final Logger log = LoggerFactory.getLogger(StatisticConsoleMonitor.class);
 
     /** Accumulator for the current time-step (flushed in flush()). */
     private final List<PetriElementStatisticDto> stepAccumulator = new ArrayList<>();
@@ -130,20 +135,21 @@ public class StatisticConsoleMonitor extends StatisticMonitor implements Simulat
     // ────────────────────────────────────────────────────────────────────────
 
     public void printHeader() {
-        if (isMonitoringEnabled) {
-            System.out.println("-----------------------------------------------");
-            System.out.printf("%-20s | %-20s%n", "Petri Object Index", "Watch Elements");
-            System.out.println("-----------------------------------------------");
-            for (Map.Entry<Integer, List<String>> entry : getWatchMap().entrySet()) {
-                Integer index = entry.getKey();
-                List<String> watchElements = entry.getValue();
-                System.out.printf("%-20d | %-20s%n", index, watchElements);
-            }
-            System.out.println("-----------------------------------------------");
-            System.out.println();
-            System.out.println("-----------------------------------------------");
-            System.out.printf("%-20s | %-20s%n", "Time", "Formula Value");
-            System.out.println("-----------------------------------------------");
+        if (!isMonitoringEnabled) {
+            return;
         }
+        String divider = "-----------------------------------------------";
+        StringBuilder sb = new StringBuilder("\n");
+        sb.append(divider).append('\n');
+        sb.append(String.format("%-20s | %-20s%n", "Petri Object Index", "Watch Elements"));
+        sb.append(divider).append('\n');
+        for (Map.Entry<Integer, List<String>> entry : getWatchMap().entrySet()) {
+            sb.append(String.format("%-20d | %-20s%n", entry.getKey(), entry.getValue()));
+        }
+        sb.append(divider).append("\n\n");
+        sb.append(divider).append('\n');
+        sb.append(String.format("%-20s | %-20s%n", "Time", "Formula Value"));
+        sb.append(divider);
+        log.info(sb.toString());
     }
 }

@@ -6,7 +6,13 @@ import ua.stetsenkoinna.graphpresentation.statistic.services.FormulaBuilderServi
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class StatisticConsoleUpdateWorker implements Runnable {
+
+    private static final Logger log = LoggerFactory.getLogger(StatisticConsoleUpdateWorker.class);
+
     private final String formula;
     private final double currentTime;
     private final List<PetriElementStatisticDto> statisticDtos;
@@ -22,6 +28,6 @@ public class StatisticConsoleUpdateWorker implements Runnable {
     @Override
     public void run() {
         double result = (double) formulaBuilderService.calculateFormula(formula, statisticDtos);
-        System.out.printf("%-20s | %-20s%n", currentTime, result);
+        log.info(String.format("%-20s | %-20s", currentTime, result));
     }
 }

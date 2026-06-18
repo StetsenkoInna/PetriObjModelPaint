@@ -24,8 +24,8 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.awt.Point;
 
 import javax.swing.JFrame;
@@ -52,6 +52,8 @@ import java.util.Objects;
  * @author Olya &  Inna
  */
 public class FileUse {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileUse.class);
 
     private final String PATTERN = ".pns";
     
@@ -159,7 +161,7 @@ public class FileUse {
                 "• Using a backup copy of the file\n" +
                 "• Re-saving the file from the original source\n" +
                 "• Importing from PNML format instead (File → Import PNML)");
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, "EOF error during file reading", ex);
+            LOGGER.error("EOF error during file reading", ex);
         } catch (IOException ex) {
             MessageHelper.showException(frame, "Error reading file", ex);
         } catch (CloneNotSupportedException ex) {
@@ -190,19 +192,19 @@ public class FileUse {
             oos.writeObject(panel.getGraphNet());
             oos.close();
         } catch (IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         } finally {
             try {
                 assert fos != null;
                 fos.close();
             } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
             try {
                 assert oos != null;
                 oos.close();
             } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
         }
     }
@@ -217,26 +219,26 @@ public class FileUse {
         ObjectOutputStream oos = null;
         try {
             fdlg.setFilenameFilter(null);
-            System.out.println("Saving GraphNet as '" + fdlg.getDirectory() + fdlg.getFile() + "'");
+            LOGGER.info("Saving GraphNet as '{}{}'", fdlg.getDirectory(), fdlg.getFile());
             net.createPetriNet(fdlg.getFile());
             fos = new FileOutputStream(fdlg.getDirectory() + fdlg.getFile() + PATTERN);
             oos = new ObjectOutputStream(fos);
             oos.writeObject(net);
             oos.close();
         } catch (IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         } finally {
             try {
                 assert fos != null;
                 fos.close();
             } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
             try {
                 assert oos != null;
                 oos.close();
             } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
         }
     }
@@ -251,26 +253,26 @@ public class FileUse {
         ObjectOutputStream oos = null;
         try {
             fdlg.setFilenameFilter(null);
-            System.out.println("Saving PetriNet as '" + fdlg.getDirectory() + fdlg.getFile() + "'");
+            LOGGER.info("Saving PetriNet as '{}{}'", fdlg.getDirectory(), fdlg.getFile());
             panel.getGraphNet().createPetriNet(fdlg.getFile());
             fos = new FileOutputStream(fdlg.getDirectory() + fdlg.getFile() + PATTERN);
             oos = new ObjectOutputStream(fos);
             oos.writeObject(panel.getGraphNet().getPetriNet());
             oos.close();
         } catch (IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         } finally {
             try {
                 assert fos != null;
                 fos.close();
             } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
             try {
                 assert oos != null;
                 oos.close();
             } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
         }
     }
@@ -296,21 +298,21 @@ public class FileUse {
             oos.writeObject(pnet);
             oos.close();
         } catch (IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         } catch (ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         } finally {
             try {
                 assert fos != null;
                 fos.close();
             } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
             try {
                 assert oos != null;
                 oos.close();
             } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
         }
         return true;

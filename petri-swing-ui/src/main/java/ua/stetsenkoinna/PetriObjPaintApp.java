@@ -3,8 +3,8 @@ package ua.stetsenkoinna;
 import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
 import ua.stetsenkoinna.utils.MessageHelper;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import javax.swing.JFrame;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
@@ -14,6 +14,8 @@ import javax.swing.UnsupportedLookAndFeelException;
  * Configured as the executable JAR's {@code Main-Class} (see petri-swing-ui/pom.xml).
  */
 public class PetriObjPaintApp {
+
+    private static final Logger log = LoggerFactory.getLogger(PetriObjPaintApp.class);
 
     public static void main(String[] args) {
         applyNimbusLookAndFeel();
@@ -39,7 +41,7 @@ public class PetriObjPaintApp {
             }
         } catch (ClassNotFoundException | InstantiationException | IllegalAccessException
                  | UnsupportedLookAndFeelException ex) {
-            Logger.getLogger(PetriObjPaintApp.class.getName()).log(Level.SEVERE, null, ex);
+            log.error("Failed to apply Nimbus look and feel", ex);
         }
     }
 }

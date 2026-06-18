@@ -34,8 +34,8 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.lang.reflect.Method;
@@ -58,6 +58,8 @@ import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEditSupport;
 
 public class PetriNetsFrame extends javax.swing.JFrame {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PetriNetsFrame.class);
 
     public Timer timer; // timer that starts repainting while simulation
     private final MethodNameDialogPanel dialogPanel = new MethodNameDialogPanel();
@@ -207,7 +209,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             //Load .pns file from resources
             InputStream resourceStream = ResourcePathConfig.getResourceAsStream(getClass(), ResourcePathConfig.getPnsFilePath(fileName));
             if (resourceStream == null) {
-                System.out.println("Resource not found: " + ResourcePathConfig.getPnsFilePath(fileName));
+                LOGGER.warn("Resource not found: {}", ResourcePathConfig.getPnsFilePath(fileName));
                 return;
             }
 
@@ -219,18 +221,18 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             getPetriNetsPanel().repaint();
 
         } catch (FileNotFoundException e) {
-            System.out.println("Such file was not found");
+            LOGGER.warn("Such file was not found", e);
         } catch (ClassNotFoundException | IOException ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         } catch (CloneNotSupportedException ex) {
-            Logger.getLogger(FileUse.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         } finally {
             try {
                 if (ois != null) {
                     ois.close();
                 }
             } catch (IOException ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
         }
     }
@@ -1299,8 +1301,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     netNameTextField.setText(pnetName);
                 }
             } catch (ExceptionInvalidNetStructure ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(
-                        Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
         }// TODO add your handling code here:
     }//GEN-LAST:event_leftMenuListMouseClicked
@@ -1397,8 +1398,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 netNameTextField.setText(pnetName);
             }
         } catch (ExceptionInvalidNetStructure ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
-                    null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }// GEN-LAST:event_openMenuItemActionPerformed
 
@@ -1416,8 +1416,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             fileUse.saveNetAsMethod(getPetriNetsPanel().getGraphNet(),
                     statisticsTextArea);
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
-                    null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
 
     }// GEN-LAST:event_SaveNetAsMethodActionPerformed
@@ -1428,11 +1427,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             try {
                 if (!fileUse.saveGraphNet(net, netNameTextField.getText()
                         .trim())) {
-                    System.out.println("Graph net was not saved");
+                    LOGGER.warn("Graph net was not saved");
                 }
             } catch (ExceptionInvalidNetStructure ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(
-                        Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
         }
 
@@ -1442,8 +1440,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         try {
             fileUse.savePetriNetAs(getPetriNetsPanel(), this);
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
-                    null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }// GEN-LAST:event_SavePetriNetAsActionPerformed
 
@@ -1451,8 +1448,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         try {
             fileUse.saveGraphNetAs(getPetriNetsPanel(), this);
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
-                    null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }// GEN-LAST:event_jMenuItem2ActionPerformed
 
@@ -1476,8 +1472,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 reUseFrame.setVisible(true);
             }
         } catch (ExceptionInvalidNetStructure ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE,
-                    null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }// GEN-LAST:event_editNetParametersActionPerformed
 
@@ -1548,13 +1543,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     try {
                         statisticGraphMonitor.getWorkerStateLatch().await(3, TimeUnit.SECONDS);
                     } catch (InterruptedException e) {
-                        System.out.println(e.getMessage());
+                        LOGGER.warn(e.getMessage(), e);
                         Thread.currentThread().interrupt();
                     }
                 }
             }
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, ex.getMessage(), ex);
+            LOGGER.error(ex.getMessage(), ex);
         }
     }
 
@@ -1595,7 +1590,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 getPetriNetsPanel().repaint();
             }
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(PetriNetsFrame.class.getName()).log(Level.SEVERE, ex.getMessage(), ex);
+            LOGGER.error(ex.getMessage(), ex);
         }
     }
 
@@ -1647,8 +1642,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     getPetriNetsPanel().repaint();
                 }
             } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(
-                        Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
         }
         getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea::append);
@@ -1688,8 +1682,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     getPetriNetsPanel().repaint();
                 }
             } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(
-                        Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
         }
         getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea::append);
@@ -1700,8 +1693,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // added by Inna 21.02.2016
         JPanel panel = this.getPetriNetsPanel();
         JScrollPane pane = petriNetPanelScrollPane;
-        System.out
-                .println(pane.getLocation().x + "  " + pane.getBounds().width);
+        LOGGER.debug("{}  {}", pane.getLocation().x, pane.getBounds().width);
         Point center = new Point(pane.getLocation().x + pane.getBounds().width
                 / 2, pane.getLocation().y + pane.getBounds().height / 2);
         this.getPetriNetsPanel().getGraphNet().changeLocation(center);
@@ -1747,8 +1739,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     netNameTextField.setText(pnetName);
                 }
             } catch (ExceptionInvalidNetStructure ex) {
-                Logger.getLogger(PetriNetsFrame.class.getName()).log(
-                        Level.SEVERE, null, ex);
+                LOGGER.error("Unexpected error", ex);
             }
         });
         dialog.setVisible(true);
@@ -2018,8 +2009,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 }
             }
         } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(PetriNetsFrame.class.getName())
-                    .log(java.util.logging.Level.SEVERE, null, ex);
+            LOGGER.error("Failed to apply look and feel", ex);
         }
 		/* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {

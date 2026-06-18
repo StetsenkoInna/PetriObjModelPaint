@@ -40,6 +40,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import static javax.swing.JOptionPane.showMessageDialog;
 
 /**
@@ -48,6 +51,7 @@ import static javax.swing.JOptionPane.showMessageDialog;
  * @author Andrii Kachmar
  */
 public class LineChartBuilderService implements ChartBuilderService {
+    private static final Logger log = LoggerFactory.getLogger(LineChartBuilderService.class);
     private ChartConfigDto chartConfigDto;
     private final ChartDrawingConfig chartDrawing;
     private Integer currentSeriesId;
@@ -564,7 +568,7 @@ public class LineChartBuilderService implements ChartBuilderService {
                 ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", file);
                 showMessageDialog(null, "Chart image successfully saved", "Chart image export", JOptionPane.PLAIN_MESSAGE);
             } catch (IOException e) {
-                e.printStackTrace();
+                log.error("Failed to save chart image", e);
                 showMessageDialog(null, "Failed to save chart image", "Chart image export", JOptionPane.ERROR_MESSAGE);
             }
         });
@@ -595,7 +599,7 @@ public class LineChartBuilderService implements ChartBuilderService {
             }
             showMessageDialog(null, "Chart data successfully exported", "Chart data export", JOptionPane.PLAIN_MESSAGE);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to export chart data", e);
             showMessageDialog(null, "Failed to export chart data", "Chart data export", JOptionPane.ERROR_MESSAGE);
         }
     }

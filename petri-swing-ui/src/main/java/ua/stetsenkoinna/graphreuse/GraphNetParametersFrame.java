@@ -4,8 +4,8 @@ import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
 import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.graphpresentation.FileUse;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.DefaultCellEditor;
 import javax.swing.JComboBox;
@@ -23,6 +23,8 @@ import java.awt.*;
  * @author Ольга
  */
 public class GraphNetParametersFrame extends javax.swing.JFrame {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GraphNetParametersFrame.class);
 
     /**
      * Creates new form PetriObjectFrame
@@ -144,7 +146,7 @@ public class GraphNetParametersFrame extends javax.swing.JFrame {
             
             this.setSize(new Dimension(944, 546)); // added by Katya 08.12.2016
         } catch (ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(GraphNetParametersFrame.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }
     
@@ -242,9 +244,9 @@ public class GraphNetParametersFrame extends javax.swing.JFrame {
             graphPetriNet.setGraphArcOutList(tieOutTableModel.createGraphPetriArcOutList());
             fileUse.saveGraphNetAs(graphPetriNet, this);
         } catch (ExceptionInvalidNetStructure ex) {
-            Logger.getLogger(GraphNetParametersFrame.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         } catch (ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(GraphNetParametersFrame.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }//GEN-LAST:event_saveAsButtonActionPerformed
 
@@ -258,7 +260,7 @@ public class GraphNetParametersFrame extends javax.swing.JFrame {
             graphPetriNet.setGraphArcOutList(tieOutTableModel.createGraphPetriArcOutList());
             fileUse.saveGraphNet(graphPetriNet, graphPetriNet.getPetriNet().getName());
         } catch (ExceptionInvalidNetStructure ex) {
-            Logger.getLogger(GraphNetParametersFrame.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }//GEN-LAST:event_saveButtonActionPerformed
 
