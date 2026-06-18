@@ -331,11 +331,9 @@ public class SetTransition extends javax.swing.JFrame {
         if ((destributionComboBox.getSelectedIndex()==2)||(destributionComboBox.getSelectedIndex()==3)) 
         paramDeviationTextField.setEditable(true);
      
-       // TODO add your handling code here:
     }//GEN-LAST:event_destributionComboBoxActionPerformed
 
     private void probabilityTextFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_probabilityTextFieldActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_probabilityTextFieldActionPerformed
 
     private void setTName(){

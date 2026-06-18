@@ -1223,31 +1223,24 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void timeStartField2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timeStartField2ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_timeStartField2ActionPerformed
 
     private void netNameTextField2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_netNameTextField2ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_netNameTextField2ActionPerformed
 
     private void runEventButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_runEventButton2ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_runEventButton2ActionPerformed
 
     private void runPetriNetButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_runPetriNetButton2ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_runPetriNetButton2ActionPerformed
 
     private void newArcButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newArcButton2ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_newArcButton2ActionPerformed
 
     private void newTransitionButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newTransitionButton2ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_newTransitionButton2ActionPerformed
 
     private void newPlaceButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newPlaceButton2ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_newPlaceButton2ActionPerformed
 
     private void newArcButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newArcButtonActionPerformed
@@ -1299,7 +1292,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             } catch (ExceptionInvalidNetStructure ex) {
                 LOGGER.error("Unexpected error", ex);
             }
-        }// TODO add your handling code here:
+        }
     }//GEN-LAST:event_leftMenuListMouseClicked
 
     private void itemResetNetActionPerformed(java.awt.event.ActionEvent evt) {
@@ -1333,31 +1326,24 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_redoMenuItemActionPerformed
 
     private void timeStartField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timeStartField1ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_timeStartField1ActionPerformed
 
     private void netNameTextField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_netNameTextField1ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_netNameTextField1ActionPerformed
 
     private void runEventButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_runEventButton1ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_runEventButton1ActionPerformed
 
     private void runPetriNetButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_runPetriNetButton1ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_runPetriNetButton1ActionPerformed
 
     private void newArcButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newArcButton1ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_newArcButton1ActionPerformed
 
     private void newTransitionButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newTransitionButton1ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_newTransitionButton1ActionPerformed
 
     private void newPlaceButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newPlaceButton1ActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_newPlaceButton1ActionPerformed
 
     private void speedSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_speedSliderStateChanged
@@ -1365,11 +1351,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_speedSliderStateChanged
 
     private void timeStartFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timeStartFieldActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_timeStartFieldActionPerformed
 
     private void netNameTextFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_netNameTextFieldActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_netNameTextFieldActionPerformed
 
     private void openMonitorActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openMonitorActionPerformed
@@ -1690,7 +1674,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         this.getPetriNetsPanel().getGraphNet().changeLocation(center);
 
         panel.repaint();
-        // TODO add your handling code here:
     }// GEN-LAST:event_centerLocationOfGraphNetActionPerformed
 
     private void openMethodMenuItemActionPerformed(
