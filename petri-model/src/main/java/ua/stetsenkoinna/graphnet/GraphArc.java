@@ -8,7 +8,12 @@ import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.io.Serializable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class GraphArc implements Serializable {
+
+    private static final Logger log = LoggerFactory.getLogger(GraphArc.class);
 
     private Line2D graphElement;
     private GraphElement beginElement;
@@ -201,7 +206,7 @@ public class GraphArc implements Serializable {
     public boolean isEnoughDistance(Point2D p) { return graphElement.ptSegDist(p) < 3; }
 
     public void printTwoState() {
-        System.out.println(this.beginElement.getName() + "-> " + this.firstArc + ", " + this.secondArc);
+        log.info("{}-> {}, {}", this.beginElement.getName(), this.firstArc, this.secondArc);
     }
 
     public Line2D getGraphElement() { return graphElement; }
