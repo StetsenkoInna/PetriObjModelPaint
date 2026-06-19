@@ -94,7 +94,7 @@ Statuses: `PENDING` `RUNNING` `PAUSED` `FINISHED` `HALTED`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | Spring Boot Actuator health check |
+| `GET` | `/actuator/health` | Spring Boot Actuator health check |
 
 ### SSE streaming (`/stream`)
 
