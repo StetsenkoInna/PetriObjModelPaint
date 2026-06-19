@@ -22,8 +22,6 @@ import java.io.ObjectOutputStream;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
 import java.util.ArrayList;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.awt.Point;
@@ -695,67 +693,6 @@ public class FileUse {
             else args[i] = "Net";
         }
         return args;
-    }
-    
-    public static String replaceGroup(String regex, String source, int groupToReplace, String replacement) {
-        StringBuilder result = new StringBuilder(source);
-        
-        boolean hasSequencesToProcess = true;
-        Pattern pattern = Pattern.compile(regex);
-        while (hasSequencesToProcess) {
-            Matcher m = pattern.matcher(source);
-            if (!m.find()) {
-                hasSequencesToProcess = false;
-            } else {
-                result = new StringBuilder(result.replace(m.start(groupToReplace), m.end(groupToReplace), replacement).toString());
-                
-            }
-        }
-        
-        return result.toString();
-    }
-    
-    /**
-     * Process the code of NetLibrary.java, specifically, in methods that have arguments, 
-     * remove them from method's signature and replace their usage in the code with 
-     * string parameter names, so that the compiled method can be called without supplying
-     * any arguments.
-     * @param code NetLibrary.java source code
-     * @return processed code ready for compilation
-     */
-    public String preProcessNetLibraryCode(String code) {      
-        // remove arguments from method header
-        code = code.replaceAll("public\\s+static\\s+PetriNet\\s+(\\w+)\\s*\\((.+)\\)", "public static PetriNet $1()");
-        Matcher matcher = Pattern.compile("d_P\\.add\\(new PetriP\\(\"([^\"]+)\",\\s*(\\w+)\\)\\);").matcher(code);
-
-        StringBuilder sb = new StringBuilder();
-        while (matcher.find()) {
-            String markersParameter = matcher.group(2);
-            boolean isInt;
-            try {
-                int markers = Integer.parseInt(markersParameter);
-                isInt = true;
-            } catch (NumberFormatException e) {
-                isInt = false;
-            }
-            if (!isInt) {
-                String placeName = matcher.group(1);
-                String variableName = placeName;
-                String replacement = 
-                        "PetriP " + variableName + " = new PetriP(\""+placeName+"\", 0);\n"
-                        + variableName + ".setMarkParam(\""+markersParameter+"\");\n" 
-                        + "d_P.add("+variableName+");";
-                matcher.appendReplacement(sb, replacement);
-            } 
-            matcher.appendReplacement(sb, matcher.group(0));
-        }
-        matcher.appendTail(sb);
-        code = sb.toString();
-        code = code.replaceAll("d_T\\.add\\(new PetriT\\(\"([^\"]+)\",\\s*(\\w+)\\)\\);",
-                "PetriT $1 = new PetriT(\"$1\",0);\n" 
-                        + "$1.setParametrParam(\"$2\");\n" 
-                        + "d_T.add($1);");
-        return code;
     }
 
     public void saveNetAsMethod(GraphPetriNet pnet, JTextArea area) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
