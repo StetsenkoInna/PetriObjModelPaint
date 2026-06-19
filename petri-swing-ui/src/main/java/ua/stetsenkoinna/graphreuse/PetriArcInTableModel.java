@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.graphreuse;
 
-import ua.stetsenkoinna.PetriObj.ArcIn;
+import ua.stetsenkoinna.petriobj.ArcIn;
 import java.util.ArrayList;
 import javax.swing.table.AbstractTableModel;
 import ua.stetsenkoinna.graphnet.GraphArcIn;

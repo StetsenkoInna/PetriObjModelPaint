@@ -1,4 +1,4 @@
-package ua.stetsenkoinna.PetriObj;
+package ua.stetsenkoinna.petriobj;
 
 import org.junit.After;
 import org.junit.Before;

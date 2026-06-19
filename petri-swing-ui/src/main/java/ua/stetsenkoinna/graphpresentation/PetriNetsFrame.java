@@ -1,10 +1,10 @@
 package ua.stetsenkoinna.graphpresentation;
 
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriSim;
-import ua.stetsenkoinna.PetriObj.PetriT;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidNetStructure;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidTimeDelay;
+import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriSim;
+import ua.stetsenkoinna.petriobj.PetriT;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import ua.stetsenkoinna.graphpresentation.statistic.StatisticMonitorDialog;
@@ -15,15 +15,15 @@ import ua.stetsenkoinna.config.ResourcePathConfig;
 import ua.stetsenkoinna.pnml.CoordinateNormalizer;
 import ua.stetsenkoinna.pnml.PnmlParser;
 import ua.stetsenkoinna.pnml.PnmlGenerator;
-import ua.stetsenkoinna.PetriObj.PetriNet;
-import ua.stetsenkoinna.PetriObj.ArcIn;
-import ua.stetsenkoinna.PetriObj.ArcOut;
+import ua.stetsenkoinna.petriobj.PetriNet;
+import ua.stetsenkoinna.petriobj.ArcIn;
+import ua.stetsenkoinna.petriobj.ArcOut;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
-import ua.stetsenkoinna.LibNet.NetLibrary;
-import ua.stetsenkoinna.LibNet.HiddenFromUI;
+import ua.stetsenkoinna.libnet.NetLibrary;
+import ua.stetsenkoinna.libnet.HiddenFromUI;
 
 import java.awt.*;
 import java.awt.event.*;

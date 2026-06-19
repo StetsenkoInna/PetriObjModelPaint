@@ -1,4 +1,4 @@
-package ua.stetsenkoinna.PetriObj;
+package ua.stetsenkoinna.petriobj;
 
 /**
  * This exception is generated when user tries to construct Petri net with transition 

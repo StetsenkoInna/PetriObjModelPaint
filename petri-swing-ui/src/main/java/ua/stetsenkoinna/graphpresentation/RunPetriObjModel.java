@@ -1,9 +1,9 @@
 package ua.stetsenkoinna.graphpresentation;
 
-import ua.stetsenkoinna.PetriObj.PetriObjModel;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriSim;
-import ua.stetsenkoinna.PetriObj.PetriT;
+import ua.stetsenkoinna.petriobj.PetriObjModel;
+import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriSim;
+import ua.stetsenkoinna.petriobj.PetriT;
 import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonitor;
 

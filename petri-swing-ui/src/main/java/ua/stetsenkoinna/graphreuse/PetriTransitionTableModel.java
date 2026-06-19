@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.graphreuse;
 
-import ua.stetsenkoinna.PetriObj.PetriT;
+import ua.stetsenkoinna.petriobj.PetriT;
 
 import java.util.ArrayList;
 

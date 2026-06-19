@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.graphnet;
 
-import ua.stetsenkoinna.PetriObj.PetriT;
+import ua.stetsenkoinna.petriobj.PetriT;
 import java.awt.Graphics2D;
 import java.io.Serializable;
 

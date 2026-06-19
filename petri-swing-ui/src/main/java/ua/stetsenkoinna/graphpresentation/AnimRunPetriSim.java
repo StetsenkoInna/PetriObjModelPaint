@@ -1,10 +1,10 @@
 package ua.stetsenkoinna.graphpresentation;
 
-import ua.stetsenkoinna.PetriObj.PetriNet;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriSim;
-import ua.stetsenkoinna.PetriObj.PetriT;
-import ua.stetsenkoinna.PetriObj.StateTime;
+import ua.stetsenkoinna.petriobj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriSim;
+import ua.stetsenkoinna.petriobj.PetriT;
+import ua.stetsenkoinna.petriobj.StateTime;
 
 import java.util.ArrayList;
 import javax.swing.JSlider;

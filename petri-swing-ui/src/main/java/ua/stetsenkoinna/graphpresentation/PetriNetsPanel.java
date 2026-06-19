@@ -1,10 +1,10 @@
 package ua.stetsenkoinna.graphpresentation;
 
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriT;
-import ua.stetsenkoinna.PetriObj.ArcIn;
-import ua.stetsenkoinna.PetriObj.ArcOut;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidNetStructure;
+import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriT;
+import ua.stetsenkoinna.petriobj.ArcIn;
+import ua.stetsenkoinna.petriobj.ArcOut;
 
 import java.awt.BasicStroke;
 import java.awt.Color;

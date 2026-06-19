@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.graphpresentation.undoable_edits;
 
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidNetStructure;
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;

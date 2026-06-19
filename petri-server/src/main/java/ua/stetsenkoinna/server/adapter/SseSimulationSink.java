@@ -2,11 +2,11 @@ package ua.stetsenkoinna.server.adapter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ua.stetsenkoinna.PetriObj.PetriNet;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriSim;
-import ua.stetsenkoinna.PetriObj.PetriT;
-import ua.stetsenkoinna.PetriObj.SimulationStatisticCollector;
+import ua.stetsenkoinna.petriobj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriSim;
+import ua.stetsenkoinna.petriobj.PetriT;
+import ua.stetsenkoinna.petriobj.SimulationStatisticCollector;
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
 import ua.stetsenkoinna.server.dto.SimulationResultDto;
 import ua.stetsenkoinna.server.service.SimulationSession;

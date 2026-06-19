@@ -22,9 +22,9 @@ public class FilePathConfig {
 
     // Default path configurations (fallback if properties file is not found)
     private static final String[] DEFAULT_NET_LIBRARY_PATHS = {
-        "petri-math/src/main/java/ua/stetsenkoinna/LibNet/NetLibrary.java",
-        "src/main/java/ua/stetsenkoinna/LibNet/NetLibrary.java",
-        "src/LibNet/NetLibrary.java"
+        "petri-math/src/main/java/ua/stetsenkoinna/libnet/NetLibrary.java",
+        "src/main/java/ua/stetsenkoinna/libnet/NetLibrary.java",
+        "src/libnet/NetLibrary.java"
     };
 
     static {

@@ -1,4 +1,4 @@
-package ua.stetsenkoinna.PetriObj;
+package ua.stetsenkoinna.petriobj;
 
 /**
  *

@@ -2,7 +2,7 @@ package ua.stetsenkoinna.graphpresentation;
 
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
-import ua.stetsenkoinna.PetriObj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriP;
 import java.awt.*;
 import ua.stetsenkoinna.utils.SafeParsingUtils;
 

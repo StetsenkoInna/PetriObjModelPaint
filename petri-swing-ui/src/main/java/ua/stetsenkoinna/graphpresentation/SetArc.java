@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.graphpresentation;
 
-import ua.stetsenkoinna.PetriObj.*;
+import ua.stetsenkoinna.petriobj.*;
 import ua.stetsenkoinna.graphnet.*;
 import ua.stetsenkoinna.utils.SafeParsingUtils;
 
