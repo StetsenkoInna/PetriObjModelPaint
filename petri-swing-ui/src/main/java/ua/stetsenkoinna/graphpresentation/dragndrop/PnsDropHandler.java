@@ -2,8 +2,8 @@ package ua.stetsenkoinna.graphpresentation.dragndrop;
 
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
-import ua.stetsenkoinna.graphpresentation.FileUse;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
+import ua.stetsenkoinna.graphpresentation.SimpleNetGraphBuilder;
 import ua.stetsenkoinna.petriobj.PetriNet;
 import ua.stetsenkoinna.utils.MessageHelper;
 
@@ -36,7 +36,6 @@ public class PnsDropHandler implements DropTargetListener {
 
     private final PetriNetsPanel panel;
     private final JFrame parentFrame;
-    private final FileUse fileUse;
 
     /**
      * Creates a new PNS drop handler.
@@ -53,7 +52,6 @@ public class PnsDropHandler implements DropTargetListener {
         }
         this.panel = panel;
         this.parentFrame = parentFrame;
-        this.fileUse = new FileUse();
     }
 
     @Override
@@ -293,8 +291,8 @@ public class PnsDropHandler implements DropTargetListener {
             // Use drop location as the center point for the generated layout
             Point centerPoint = dropLocation != null ? dropLocation : new Point(400, 300);
 
-            // Convert using FileUse.generateGraphNetBySimpleNet
-            GraphPetriNet graphNet = fileUse.generateGraphNetBySimpleNet(panel, petriNet, centerPoint);
+            // Build a laid-out graph from the legacy plain net
+            GraphPetriNet graphNet = SimpleNetGraphBuilder.build(petriNet, centerPoint);
 
             if (graphNet != null) {
                 LOGGER.info("Successfully converted legacy format to GraphPetriNet");
