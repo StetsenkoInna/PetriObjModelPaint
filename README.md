@@ -1,6 +1,6 @@
 # PetriObjModelPaint
 
-Petri net graphical editor and simulator (v2.0.0). Multi-module Maven project:
+Petri net graphical editor and simulator (v2.0.1). Multi-module Maven project:
 
 | Module | Purpose |
 |--------|---------|
