@@ -23,7 +23,7 @@ Both transports share the same pause / resume / stop REST control endpoints.
 | `POST` | `/api/v1/simulation/{id}/stop` | Stop |
 | `GET`  | `/api/v1/simulation/{id}/status` | Session status |
 | `GET`  | `/api/v1/simulation/{id}/result` | Aggregated statistics after run |
-| `GET`  | `/health` | Health check |
+| `GET`  | `/actuator/health` | Health check |
 | `GET`  | `/docs` | Swagger UI |
 
 ---
@@ -498,7 +498,7 @@ This means the same frontend rendering code works against both backends.
 Spring Boot Actuator health endpoint — returns component status and disk/memory indicators.
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:8080/actuator/health
 # → {"status":"UP","components":{...}}
 ```
 
