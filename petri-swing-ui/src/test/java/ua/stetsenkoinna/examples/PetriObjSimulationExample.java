@@ -1,10 +1,10 @@
 package ua.stetsenkoinna.examples;
 
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
-import ua.stetsenkoinna.PetriObj.PetriObjModel;
-import ua.stetsenkoinna.PetriObj.PetriSim;
-import ua.stetsenkoinna.LibNet.NetLibrary;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidNetStructure;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidTimeDelay;
+import ua.stetsenkoinna.petriobj.PetriObjModel;
+import ua.stetsenkoinna.petriobj.PetriSim;
+import ua.stetsenkoinna.libnet.NetLibrary;
 import ua.stetsenkoinna.api.dto.DataCollectionConfigDto;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticConsoleMonitor;
 

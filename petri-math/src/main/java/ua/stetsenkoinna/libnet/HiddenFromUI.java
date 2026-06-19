@@ -1,4 +1,4 @@
-package ua.stetsenkoinna.LibNet;
+package ua.stetsenkoinna.libnet;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

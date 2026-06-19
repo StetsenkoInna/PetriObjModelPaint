@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.pnml;
 
-import ua.stetsenkoinna.PetriObj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriNet;
 import java.util.Map;
 
 /**

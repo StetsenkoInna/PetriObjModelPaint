@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.graphpresentation;
 
-import ua.stetsenkoinna.PetriObj.PetriMainElement;
+import ua.stetsenkoinna.petriobj.PetriMainElement;
 import java.util.ArrayList;
 
 /**

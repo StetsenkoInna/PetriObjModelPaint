@@ -1,4 +1,4 @@
-package ua.stetsenkoinna.PetriObj;
+package ua.stetsenkoinna.petriobj;
 
 import java.util.HashSet;
 import java.util.Set;

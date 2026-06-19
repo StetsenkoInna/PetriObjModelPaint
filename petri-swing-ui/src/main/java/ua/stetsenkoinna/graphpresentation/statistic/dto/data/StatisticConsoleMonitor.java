@@ -1,8 +1,8 @@
 package ua.stetsenkoinna.graphpresentation.statistic.dto.data;
 
-import ua.stetsenkoinna.PetriObj.PetriNet;
-import ua.stetsenkoinna.PetriObj.PetriSim;
-import ua.stetsenkoinna.PetriObj.SimulationStatisticCollector;
+import ua.stetsenkoinna.petriobj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriSim;
+import ua.stetsenkoinna.petriobj.SimulationStatisticCollector;
 import ua.stetsenkoinna.api.dto.DataCollectionConfigDto;
 import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
 import ua.stetsenkoinna.api.statistic.StatisticMonitor;

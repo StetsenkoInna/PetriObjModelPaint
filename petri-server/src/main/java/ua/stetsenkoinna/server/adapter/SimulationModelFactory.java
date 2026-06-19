@@ -1,11 +1,11 @@
 package ua.stetsenkoinna.server.adapter;
 
-import ua.stetsenkoinna.PetriObj.PetriNet;
-import ua.stetsenkoinna.PetriObj.PetriObjModel;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriSim;
-import ua.stetsenkoinna.PetriObj.PetriT;
-import ua.stetsenkoinna.PetriObj.SimulationStatisticCollector;
+import ua.stetsenkoinna.petriobj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriObjModel;
+import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriSim;
+import ua.stetsenkoinna.petriobj.PetriT;
+import ua.stetsenkoinna.petriobj.SimulationStatisticCollector;
 import ua.stetsenkoinna.pnml.PnmlParser;
 
 import java.util.ArrayList;

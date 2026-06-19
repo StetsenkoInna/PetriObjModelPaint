@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.graphreuse;
 
-import ua.stetsenkoinna.PetriObj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriP;
 import java.util.ArrayList;
 import javax.swing.table.AbstractTableModel;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;

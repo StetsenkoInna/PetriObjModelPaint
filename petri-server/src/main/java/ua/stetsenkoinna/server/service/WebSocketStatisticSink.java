@@ -1,11 +1,11 @@
 package ua.stetsenkoinna.server.service;
 
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import ua.stetsenkoinna.PetriObj.PetriNet;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriSim;
-import ua.stetsenkoinna.PetriObj.PetriT;
-import ua.stetsenkoinna.PetriObj.SimulationStatisticCollector;
+import ua.stetsenkoinna.petriobj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriSim;
+import ua.stetsenkoinna.petriobj.PetriT;
+import ua.stetsenkoinna.petriobj.SimulationStatisticCollector;
 import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
 import ua.stetsenkoinna.server.adapter.SimulationInterruptedException;

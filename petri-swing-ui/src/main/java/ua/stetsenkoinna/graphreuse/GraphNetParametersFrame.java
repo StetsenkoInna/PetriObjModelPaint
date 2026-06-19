@@ -1,7 +1,7 @@
 package ua.stetsenkoinna.graphreuse;
 
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidNetStructure;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.graphpresentation.FileUse;
 
 import org.slf4j.Logger;

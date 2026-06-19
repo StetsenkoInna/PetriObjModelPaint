@@ -5,7 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import ua.stetsenkoinna.PetriObj.PetriObjModel;
+import ua.stetsenkoinna.petriobj.PetriObjModel;
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
 import ua.stetsenkoinna.server.adapter.SimulationFrame;
 import ua.stetsenkoinna.server.adapter.SimulationInterruptedException;

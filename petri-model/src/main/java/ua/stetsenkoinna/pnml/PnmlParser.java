@@ -1,7 +1,7 @@
 package ua.stetsenkoinna.pnml;
 
 import org.w3c.dom.*;
-import ua.stetsenkoinna.PetriObj.*;
+import ua.stetsenkoinna.petriobj.*;
 import org.xml.sax.InputSource;
 
 import javax.xml.parsers.DocumentBuilder;

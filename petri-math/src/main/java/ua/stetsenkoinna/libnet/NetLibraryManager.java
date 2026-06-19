@@ -1,6 +1,6 @@
-package ua.stetsenkoinna.LibNet;
+package ua.stetsenkoinna.libnet;
 
-import ua.stetsenkoinna.PetriObj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriNet;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;

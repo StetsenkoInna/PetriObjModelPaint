@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.api.statistic;
 
-import ua.stetsenkoinna.PetriObj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriNet;
 import ua.stetsenkoinna.api.dto.DataCollectionConfigDto;
 import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
 

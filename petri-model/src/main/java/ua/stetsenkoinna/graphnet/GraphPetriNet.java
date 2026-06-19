@@ -1,12 +1,12 @@
 package ua.stetsenkoinna.graphnet;
 
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
-import ua.stetsenkoinna.PetriObj.PetriNet;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriT;
-import ua.stetsenkoinna.PetriObj.ArcIn;
-import ua.stetsenkoinna.PetriObj.ArcOut;
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidNetStructure;
+import ua.stetsenkoinna.petriobj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriT;
+import ua.stetsenkoinna.petriobj.ArcIn;
+import ua.stetsenkoinna.petriobj.ArcOut;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.utils.NetworkPositionCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

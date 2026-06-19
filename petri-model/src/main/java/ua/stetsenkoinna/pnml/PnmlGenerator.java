@@ -2,7 +2,7 @@ package ua.stetsenkoinna.pnml;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import ua.stetsenkoinna.PetriObj.*;
+import ua.stetsenkoinna.petriobj.*;
 import ua.stetsenkoinna.graphnet.*;
 
 import javax.xml.parsers.DocumentBuilder;

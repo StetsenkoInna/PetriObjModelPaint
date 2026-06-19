@@ -1,4 +1,4 @@
-package ua.stetsenkoinna.PetriObj;
+package ua.stetsenkoinna.petriobj;
 
 /**
  * Abstraction for statistics collection during simulation.

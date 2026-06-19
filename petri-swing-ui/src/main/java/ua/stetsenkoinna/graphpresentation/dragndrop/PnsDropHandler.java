@@ -4,7 +4,7 @@ import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphpresentation.FileUse;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
-import ua.stetsenkoinna.PetriObj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriNet;
 import ua.stetsenkoinna.utils.MessageHelper;
 
 import javax.swing.*;
