@@ -46,8 +46,6 @@ public class FileUse {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileUse.class);
 
     private final String PATTERN = ".pns";
-    
-    Class netLibraryClass;
 
     public String openFile(PetriNetsPanel panel, JFrame frame) throws ExceptionInvalidNetStructure {
         String pnetName = "";
@@ -429,8 +427,5 @@ public void saveNetAsMethod(PetriNet pnet, JTextArea area) throws ExceptionInval
         } catch (IOException ex) {
             MessageHelper.showException(area, "Error saving method to NetLibrary", ex);
         }
-        
-        // Force to recompile the class next time any method from there is used
-        netLibraryClass = null;
     }
 }
