@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.pnml;
 
-import ua.stetsenkoinna.PetriObj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.utils.MessageHelper;
 

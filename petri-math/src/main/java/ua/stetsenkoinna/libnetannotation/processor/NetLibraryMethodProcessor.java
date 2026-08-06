@@ -29,10 +29,10 @@ public class NetLibraryMethodProcessor extends AbstractProcessor {
                             method
                     );
                 }
-                if (!typeUtils.isSameType(method.getReturnType(), elementUtils.getTypeElement("ua.stetsenkoinna.PetriObj.PetriNet").asType())) {
+                if (!typeUtils.isSameType(method.getReturnType(), elementUtils.getTypeElement("ua.stetsenkoinna.petriobj.PetriNet").asType())) {
                     processingEnv.getMessager().printMessage(
                             Diagnostic.Kind.ERROR,
-                            "Method " + method.getSimpleName() + " should return ua.stetsenkoinna.PetriObj.PetriNet",
+                            "Method " + method.getSimpleName() + " should return ua.stetsenkoinna.petriobj.PetriNet",
                             method
                     );
                 }

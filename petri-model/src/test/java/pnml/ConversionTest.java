@@ -4,7 +4,7 @@ import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-import ua.stetsenkoinna.PetriObj.*;
+import ua.stetsenkoinna.petriobj.*;
 import ua.stetsenkoinna.graphnet.*;
 import ua.stetsenkoinna.pnml.PnmlParser;
 

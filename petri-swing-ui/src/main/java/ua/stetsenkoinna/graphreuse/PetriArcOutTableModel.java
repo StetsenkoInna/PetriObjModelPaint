@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.graphreuse;
 
-import ua.stetsenkoinna.PetriObj.ArcOut;
+import ua.stetsenkoinna.petriobj.ArcOut;
 import java.util.ArrayList;
 import javax.swing.table.AbstractTableModel;
 import ua.stetsenkoinna.graphnet.GraphArcOut;

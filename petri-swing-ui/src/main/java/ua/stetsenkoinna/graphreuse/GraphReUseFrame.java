@@ -4,11 +4,11 @@
  */
 package ua.stetsenkoinna.graphreuse;
 
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidTimeDelay;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidNetStructure;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidTimeDelay;
 import ua.stetsenkoinna.graphpresentation.FileUse;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import javax.swing.DefaultCellEditor;
 import javax.swing.JComboBox;
 import javax.swing.JTable;
@@ -21,6 +21,8 @@ import ua.stetsenkoinna.graphnet.GraphPetriNet;
  * @author Ольга
  */
 public class GraphReUseFrame extends javax.swing.JFrame {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GraphReUseFrame.class);
 
     /**
      * Creates new form PetriObjectFrame
@@ -159,9 +161,9 @@ public class GraphReUseFrame extends javax.swing.JFrame {
             graphPetriNet.setGraphArcOutList(arcOutTableModel.createGraphPetriArcOutList());
             fileUse.saveGraphNetAs(graphPetriNet, this);
         } catch (ExceptionInvalidNetStructure ex) {
-            Logger.getLogger(GraphReUseFrame.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         } catch (ExceptionInvalidTimeDelay ex) {
-            Logger.getLogger(GraphReUseFrame.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }//GEN-LAST:event_saveAsButtonActionPerformed
 
@@ -175,7 +177,7 @@ public class GraphReUseFrame extends javax.swing.JFrame {
             graphPetriNet.setGraphArcOutList(arcOutTableModel.createGraphPetriArcOutList());
             fileUse.saveGraphNet(graphPetriNet, graphPetriNet.getPetriNet().getName());
         } catch (ExceptionInvalidNetStructure ex) {
-            Logger.getLogger(GraphReUseFrame.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }//GEN-LAST:event_saveButtonActionPerformed
 

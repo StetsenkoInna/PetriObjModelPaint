@@ -2,9 +2,9 @@ package ua.stetsenkoinna.graphpresentation.dragndrop;
 
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
-import ua.stetsenkoinna.graphpresentation.FileUse;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
-import ua.stetsenkoinna.PetriObj.PetriNet;
+import ua.stetsenkoinna.graphpresentation.SimpleNetGraphBuilder;
+import ua.stetsenkoinna.petriobj.PetriNet;
 import ua.stetsenkoinna.utils.MessageHelper;
 
 import javax.swing.*;
@@ -16,8 +16,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.ObjectInputStream;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Handler for PNS (Petri Net Serialized) file drag and drop operations.
@@ -30,13 +30,12 @@ import java.util.logging.Logger;
  */
 public class PnsDropHandler implements DropTargetListener {
 
-    private static final Logger LOGGER = Logger.getLogger(PnsDropHandler.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(PnsDropHandler.class);
     private static final String FILE_EXTENSION = ".pns";
     private static final long MIN_FILE_SIZE = 50; // Minimum size for a valid serialized object
 
     private final PetriNetsPanel panel;
     private final JFrame parentFrame;
-    private final FileUse fileUse;
 
     /**
      * Creates a new PNS drop handler.
@@ -53,7 +52,6 @@ public class PnsDropHandler implements DropTargetListener {
         }
         this.panel = panel;
         this.parentFrame = parentFrame;
-        this.fileUse = new FileUse();
     }
 
     @Override
@@ -113,7 +111,7 @@ public class PnsDropHandler implements DropTargetListener {
             dtde.dropComplete(atLeastOneSuccess);
 
         } catch (Exception ex) {
-            LOGGER.log(Level.SEVERE, "Error during file drop", ex);
+            LOGGER.error("Error during file drop", ex);
             MessageHelper.showException(parentFrame, "Error during file drop", ex);
             dtde.dropComplete(false);
         }
@@ -182,18 +180,18 @@ public class PnsDropHandler implements DropTargetListener {
             panel.addGraphNet(net);
             panel.repaint();
 
-            LOGGER.log(Level.INFO, "Successfully imported PNS file: {0}", file.getName());
+            LOGGER.info("Successfully imported PNS file: {}", file.getName());
             return true;
 
         } catch (java.io.FileNotFoundException e) {
             MessageHelper.showError(parentFrame, "File not found: " + file.getAbsolutePath());
-            LOGGER.log(Level.WARNING, "File not found: " + file.getAbsolutePath(), e);
+            LOGGER.warn("File not found: " + file.getAbsolutePath(), e);
             return false;
 
         } catch (ClassNotFoundException ex) {
             MessageHelper.showException(parentFrame,
                 "Cannot open file: incompatible file format or missing classes\nFile: " + file.getName(), ex);
-            LOGGER.log(Level.SEVERE, "Class not found while loading file: " + file.getName(), ex);
+            LOGGER.error("Class not found while loading file: " + file.getName(), ex);
             return false;
 
         } catch (java.io.EOFException ex) {
@@ -209,29 +207,29 @@ public class PnsDropHandler implements DropTargetListener {
                 "• Using a backup copy of the file\n" +
                 "• Re-saving the file from the original source\n" +
                 "• Importing from PNML format instead (File → Import PNML)");
-            LOGGER.log(Level.SEVERE, "EOF error during file reading: " + file.getName(), ex);
+            LOGGER.error("EOF error during file reading: " + file.getName(), ex);
             return false;
 
         } catch (java.io.IOException ex) {
             MessageHelper.showException(parentFrame, "Error reading file: " + file.getName(), ex);
-            LOGGER.log(Level.SEVERE, "IO error while reading file: " + file.getName(), ex);
+            LOGGER.error("IO error while reading file: " + file.getName(), ex);
             return false;
 
         } catch (CloneNotSupportedException ex) {
             MessageHelper.showException(parentFrame, "Error processing file data: " + file.getName(), ex);
-            LOGGER.log(Level.SEVERE, "Clone not supported error: " + file.getName(), ex);
+            LOGGER.error("Clone not supported error: " + file.getName(), ex);
             return false;
 
         } catch (ClassCastException ex) {
             MessageHelper.showException(parentFrame,
                 "Unsupported file format: " + file.getName() + "\n\n" +
                 "Expected GraphPetriNet or PetriNet, but found incompatible type.", ex);
-            LOGGER.log(Level.SEVERE, "Unsupported file format: " + file.getName(), ex);
+            LOGGER.error("Unsupported file format: " + file.getName(), ex);
             return false;
 
         } catch (Exception ex) {
             MessageHelper.showException(parentFrame, "Unexpected error importing file: " + file.getName(), ex);
-            LOGGER.log(Level.SEVERE, "Unexpected error during import: " + file.getName(), ex);
+            LOGGER.error("Unexpected error during import: " + file.getName(), ex);
             return false;
         }
     }
@@ -288,16 +286,16 @@ public class PnsDropHandler implements DropTargetListener {
             // The layout will be auto-generated using the same algorithm as File → Open
             PetriNet petriNet = (PetriNet) loadedObject;
 
-            LOGGER.log(Level.INFO, "Converting legacy PetriNet format for file: {0}", file.getName());
+            LOGGER.info("Converting legacy PetriNet format for file: {}", file.getName());
 
             // Use drop location as the center point for the generated layout
             Point centerPoint = dropLocation != null ? dropLocation : new Point(400, 300);
 
-            // Convert using FileUse.generateGraphNetBySimpleNet
-            GraphPetriNet graphNet = fileUse.generateGraphNetBySimpleNet(panel, petriNet, centerPoint);
+            // Build a laid-out graph from the legacy plain net
+            GraphPetriNet graphNet = SimpleNetGraphBuilder.build(petriNet, centerPoint);
 
             if (graphNet != null) {
-                LOGGER.log(Level.INFO, "Successfully converted legacy format to GraphPetriNet");
+                LOGGER.info("Successfully converted legacy format to GraphPetriNet");
             }
 
             return graphNet;
@@ -332,7 +330,7 @@ public class PnsDropHandler implements DropTargetListener {
                     trans.getPetriTransition().getTimeOut().add(Double.MAX_VALUE);
                     trans.getPetriTransition().setBuffer(0);
                 }
-                LOGGER.log(Level.INFO, "Cleared buffers for {0} transitions", transitionsWithNonZeroBuffers.length);
+                LOGGER.info("Cleared buffers for {} transitions", transitionsWithNonZeroBuffers.length);
             }
         }
     }

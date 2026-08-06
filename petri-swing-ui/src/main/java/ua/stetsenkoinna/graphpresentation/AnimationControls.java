@@ -7,6 +7,8 @@ import ua.stetsenkoinna.graphpresentation.actions.RewindAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunNetAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunOneEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class is responsible for contolling the state of the net
@@ -15,6 +17,8 @@ import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
  * @author Leonid
  */
 public class AnimationControls {
+
+    private static final Logger log = LoggerFactory.getLogger(AnimationControls.class);
     
     public static enum State {
         /**
@@ -81,7 +85,7 @@ public class AnimationControls {
                 frame.timer.start();
                 frame.runEvent();
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Animation control error", e);
             } finally {
                 frame.enableInput();
                 frame.timer.stop();
@@ -144,7 +148,7 @@ public class AnimationControls {
                 frame.timer.start();
                 frame.animateNet();
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Animation control error", e);
             } finally {
                 frame.enableInput();
                 frame.timer.stop();
@@ -188,7 +192,7 @@ public class AnimationControls {
                 frame.timer.start();
                 frame.animateEvent();
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Animation control error", e);
             } finally {
                 frame.enableInput();
                 frame.timer.stop();
@@ -284,7 +288,7 @@ public class AnimationControls {
                     frame.timer.start();
                     frame.runNet();
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    log.error("Animation control error", e);
                 } finally {
                     frame.enableInput();
                     frame.timer.stop();

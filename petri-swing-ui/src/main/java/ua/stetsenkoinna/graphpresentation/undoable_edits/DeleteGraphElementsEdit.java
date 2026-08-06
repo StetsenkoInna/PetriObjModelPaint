@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.graphpresentation.undoable_edits;
 
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidNetStructure;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
@@ -12,13 +12,18 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.swing.undo.AbstractUndoableEdit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Represents an undoable action of removing a number of graph elements
  * (places and/or transitions)
  * @author Leonid
  */
 public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(DeleteGraphElementsEdit.class);
+
     private final PetriNetsPanel panel;
     
     /**
@@ -84,7 +89,7 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
                 panel.getGraphNet().getGraphPetriTransitionList().add(
                         (GraphPetriTransition)element);
             } else {
-                System.out.println("Unknown element while redoing delete"); // todo remove
+                log.warn("Unknown element while redoing delete");
             }
         }
         
@@ -129,7 +134,7 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
             try {
                panel.getGraphNet().delGraphElement(element);
             } catch (ExceptionInvalidNetStructure e) {
-                e.printStackTrace();
+                log.error("Unexpected error while redoing delete", e);
                 // theoretically this exception should never happen here
             }
         }

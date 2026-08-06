@@ -1,17 +1,22 @@
 package ua.stetsenkoinna.graphpresentation.undoable_edits;
 
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidNetStructure;
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
 import javax.swing.undo.AbstractUndoableEdit;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author Leonid
  */
 public class PasteElementsEdit extends AbstractUndoableEdit {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(PasteElementsEdit.class);
+
     private final PetriNetsPanel panel;
     
     /**
@@ -36,7 +41,7 @@ public class PasteElementsEdit extends AbstractUndoableEdit {
             try {
                panel.getGraphNet().delGraphElement(element);
             } catch (ExceptionInvalidNetStructure e) {
-                e.printStackTrace();
+                log.error("Unexpected error while undoing paste", e);
                 // theoretically this exception should never happen here
             }
         }

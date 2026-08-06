@@ -1,0 +1,322 @@
+package ua.stetsenkoinna.petriobj;
+
+import java.io.Serializable;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * This class for creating the arc between place and transition of Petri net
+ * (and directed from place to transion) numP - number of place numT - number of
+ * transition k - arc multiplicity inf - flag of information arc
+ *
+ *  @author Inna V. Stetsenko
+ */
+public class ArcIn implements Cloneable, Serializable {
+
+    private static final Logger log = LoggerFactory.getLogger(ArcIn.class);
+
+    private final PetriElementId id;
+    private int number;
+    private int numP;
+    private int numT;
+    private int k;
+    boolean inf;
+    private String nameP;
+    private String nameT;
+    private static int next = 0;
+
+    // whether k and inf are parameters; added by Katya 08.12.2016
+    private boolean kIsParam = false;
+    private boolean infIsParam = false;
+    // param names
+    private String kParamName = null;
+    private String infParamName = null;
+
+    public ArcIn() {
+        id = PetriElementId.forArc();
+        number = next;
+        next++;
+        k = 1;
+    }
+
+    /**
+     * @param P number of place
+     * @param T number of transition
+     * @param K arc multiplicity
+     *
+     */
+    public ArcIn(int P, int T, int K) {
+        id = PetriElementId.forArc();
+        number = next;
+        next++;
+        numP = P;
+        numT = T;
+        k = K;
+        inf = false;
+    }
+
+    /**
+     *
+     * @param P number of place
+     * @param T number of transition
+     */
+    public ArcIn(PetriP P, PetriT T) {
+        id = PetriElementId.forArc();
+        number = next;
+        next++;
+        numP = P.getNumber();
+        numT = T.getNumber();
+        k = 1;
+        inf = false;
+        nameP = P.getName();
+        nameT = T.getName();
+    }
+
+    /**
+     *
+     * @param P number of place
+     * @param T number of transition
+     * @param K arc multiplicity
+     */
+    public ArcIn(PetriP P, PetriT T, int K) {
+        id = PetriElementId.forArc();
+        number = next;
+        next++;
+        numP = P.getNumber();
+        numT = T.getNumber();
+        k = K;
+        inf = false;
+        nameP = P.getName();
+        nameT = T.getName();
+    }
+
+    /**
+     *
+     * @param P number of place
+     * @param T number of transition
+     * @param K arc multiplicity
+     * @param isInf arc is informational
+     */
+    public ArcIn(PetriP P, PetriT T, int K, boolean isInf) {
+        id = PetriElementId.forArc();
+        number = next;
+        next++;
+        numP = P.getNumber();
+        numT = T.getNumber();
+        k = K;
+        inf = isInf;
+        nameP = P.getName();
+        nameT = T.getName();
+    }
+
+    public ArcIn(ArcIn arcIn) {
+        this(arcIn.getNumP(), arcIn.getNumT(), arcIn.getQuantity());
+        inf = arcIn.getIsInf();
+    }
+
+    /**
+     * Constructor for loading from PNML with existing ID
+     *
+     * @param id Existing ID from PNML
+     * @param P number of place
+     * @param T number of transition
+     * @param K arc multiplicity
+     */
+    public ArcIn(String id, int P, int T, int K) {
+        this.id = PetriElementId.fromString(id);
+        number = next;
+        next++;
+        numP = P;
+        numT = T;
+        k = K;
+        inf = false;
+    }
+
+    public boolean kIsParam() {
+        return kIsParam;
+    }
+    
+    public boolean infIsParam() {
+        return infIsParam;
+    }
+    
+    public String getKParamName() {
+        return kParamName;
+    }
+    
+    public String getInfParamName() {
+        return infParamName;
+    }
+    
+    public void setKParam(String paramName) {
+        if (paramName == null) {
+            kIsParam = false;
+            kParamName = null;
+        } else {
+            kIsParam = true;
+            kParamName = paramName;
+            k = 1;
+        }
+    }
+    
+    public void setInfParam(String paramName) {
+        if (paramName == null) {
+            infIsParam = false;
+            infParamName = null;
+        } else {
+            infIsParam = true;
+            infParamName = paramName;
+            inf = false;
+        }
+    }
+
+    /**
+     * Set the counter of input arcs to zero.
+     */
+    public static void initNext(){ //ініціалізація лічильника нульовим значенням
+            next = 0;
+    }
+
+    /**
+     *
+     * @return arc multiplicity
+     */
+    public int getQuantity() {
+        return k;
+    }
+
+    /**
+     *
+     * @param K value of arc multiplicity
+     */
+    public void setQuantity(int K) {
+        k = K;
+    }
+
+    /**
+     *
+     * @return the number of place that is the beginning of the arc
+     */
+    public int getNumP() {
+        return numP;
+    }
+
+    /**
+     *
+     * @param n number of place that is the beginning of the arc
+     */
+    public void setNumP(int n) {
+        numP = n;
+    }
+
+    /**
+     *
+     * @return number of transition that is the end of the arc
+     */
+    public int getNumT() {
+        return numT;
+    }
+
+    /**
+     *
+     * @param n number of transition that is the end of the arc
+     */
+    public void setNumT(int n) {
+        numT = n;
+    }
+
+    /**
+     *
+     * @return transition name
+     */
+    public String getNameT() {
+        return nameT;
+    }
+
+    /**
+     *
+     * @param s transition name
+     */
+    public void setNameT(String s) {
+        nameT = s;
+    }
+
+    /**
+     *
+     * @return name of place that is the beginning of the arc
+     */
+    public String getNameP() {
+        return nameP;
+    }
+
+    /**
+     *
+     * @param s name of place that is the beginning of the arc
+     */
+    public void setNameP(String s) {
+        nameP = s;
+    }
+
+    /**
+     *
+     * @return true if arc is informational
+     */
+    public boolean getIsInf() {
+        return inf;
+    }
+
+    /**
+     *
+     * @param i equals true if arc must be informational
+     */
+    public void setInf(boolean i) {
+        inf = i;
+    }
+
+    /**
+     *
+     */
+    public void print() {
+        if (nameP != null && nameT != null) {
+            log.info(" P=  " + nameP + ", T=  " + nameT + ", inf= " + getIsInf() + ", k= " + getQuantity());
+        } else {
+            log.info(" P= P" + numP + ", T= T" + numT + ", inf= " + getIsInf() + ", k= " + getQuantity());
+        }
+    }
+
+    public void printParameters() {
+        log.info("This arc has direction from  place with number " + numP + " to transition with number " + numT
+                + " and has " + k + " value of multiplicity, ");
+        if (inf) {
+            log.info(" and is informational.");
+        }
+    }
+
+    /**
+     *
+     * @return ArcIn object with parameters which copy current parameters of
+ this arc
+     * @throws java.lang.CloneNotSupportedException if Petri net has invalid structure
+     */
+    @Override
+    public ArcIn clone() throws CloneNotSupportedException {
+        super.clone();
+        return new ArcIn(numP, numT, k);
+    }
+
+    /**
+     * @return the id
+     */
+    public String getId() {
+        return id != null ? id.getValue() : null;
+    }
+
+    /**
+     * @return the id wrapper
+     */
+    public PetriElementId getIdWrapper() {
+        return id;
+    }
+
+}

@@ -1,6 +1,6 @@
 # PetriObjModelPaint
 
-Petri net graphical editor and simulator (v2.0.0). Multi-module Maven project:
+Petri net graphical editor and simulator (v2.0.1). Multi-module Maven project:
 
 | Module | Purpose |
 |--------|---------|
@@ -94,7 +94,7 @@ Statuses: `PENDING` `RUNNING` `PAUSED` `FINISHED` `HALTED`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | Spring Boot Actuator health check |
+| `GET` | `/actuator/health` | Spring Boot Actuator health check |
 
 ### SSE streaming (`/stream`)
 

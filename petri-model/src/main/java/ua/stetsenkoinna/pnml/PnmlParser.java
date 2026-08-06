@@ -1,7 +1,7 @@
 package ua.stetsenkoinna.pnml;
 
 import org.w3c.dom.*;
-import ua.stetsenkoinna.PetriObj.*;
+import ua.stetsenkoinna.petriobj.*;
 import org.xml.sax.InputSource;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -288,6 +288,15 @@ public class PnmlParser {
                         isInformational = "true".equals(infNodes.item(0).getTextContent());
                     }
 
+                    // Check for arc type (inhibitor/read arcs map to informational arcs)
+                    NodeList arcTypeNodes = toolElement.getElementsByTagName("arcType");
+                    if (arcTypeNodes.getLength() > 0) {
+                        String arcType = arcTypeNodes.item(0).getTextContent();
+                        if ("inhibitor".equalsIgnoreCase(arcType) || "read".equalsIgnoreCase(arcType)) {
+                            isInformational = true;
+                        }
+                    }
+
                     // Check for informational parameter
                     NodeList infParamNodes = toolElement.getElementsByTagName("informationalParameter");
                     if (infParamNodes.getLength() > 0) {
@@ -299,6 +308,15 @@ public class PnmlParser {
                     if (kParamNodes.getLength() > 0) {
                         kParamName = kParamNodes.item(0).getTextContent();
                     }
+                }
+            }
+
+            // Standard PNML inhibitor-arc marker: <type value="inhibitorArc"/>
+            NodeList typeNodes = arcElement.getElementsByTagName("type");
+            for (int j = 0; j < typeNodes.getLength(); j++) {
+                String typeValue = ((Element) typeNodes.item(j)).getAttribute("value");
+                if (typeValue.toLowerCase().contains("inhibitor")) {
+                    isInformational = true;
                 }
             }
 

@@ -12,12 +12,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Petri net formula builder service
  *
  * @author Andrii Kachmar
  */
 public class FormulaBuilderServiceImpl implements FormulaBuilderService {
+    private static final Logger log = LoggerFactory.getLogger(FormulaBuilderServiceImpl.class);
     private PetriNetsFrame petriNetParent;
     private static final List<String> OPERATORS = Arrays.asList("+", "-", "*", "/");
     private static final Pattern VALID_CHARACTERS = Pattern.compile("^[A-Za-z0-9_.;() +\\-*/\\u0400-\\u04FF]*$");
@@ -311,7 +315,7 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
                 result = ExpressionEvaluateUtil.evaluateExpression(numericExpression.toString());
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to evaluate formula expression", e);
         }
         return result;
     }

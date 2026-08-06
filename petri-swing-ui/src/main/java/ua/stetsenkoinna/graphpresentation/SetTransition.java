@@ -12,7 +12,7 @@ package ua.stetsenkoinna.graphpresentation;
 
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
-import ua.stetsenkoinna.PetriObj.*;
+import ua.stetsenkoinna.petriobj.*;
 import java.awt.*;
 import ua.stetsenkoinna.utils.SafeParsingUtils;
 
@@ -331,11 +331,9 @@ public class SetTransition extends javax.swing.JFrame {
         if ((destributionComboBox.getSelectedIndex()==2)||(destributionComboBox.getSelectedIndex()==3)) 
         paramDeviationTextField.setEditable(true);
      
-       // TODO add your handling code here:
     }//GEN-LAST:event_destributionComboBoxActionPerformed
 
     private void probabilityTextFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_probabilityTextFieldActionPerformed
-        // TODO add your handling code here:
     }//GEN-LAST:event_probabilityTextFieldActionPerformed
 
     private void setTName(){

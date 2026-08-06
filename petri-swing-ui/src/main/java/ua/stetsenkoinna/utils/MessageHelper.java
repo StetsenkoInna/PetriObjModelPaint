@@ -2,8 +2,8 @@ package ua.stetsenkoinna.utils;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility for displaying messages to users via dialog windows.
@@ -13,7 +13,7 @@ import java.util.logging.Logger;
  */
 public class MessageHelper {
 
-    private static final Logger LOGGER = Logger.getLogger(MessageHelper.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(MessageHelper.class);
 
     // Default parent component (can be set to the application's main window)
     private static Component defaultParent = null;
@@ -44,7 +44,7 @@ public class MessageHelper {
      * @param message the message text
      */
     public static void showInfo(Component parent, String message) {
-        LOGGER.log(Level.INFO, message);
+        LOGGER.info(message);
         Component parentComponent = parent != null ? parent : defaultParent;
         JOptionPane.showMessageDialog(parentComponent, message, "Information", JOptionPane.INFORMATION_MESSAGE);
     }
@@ -65,7 +65,7 @@ public class MessageHelper {
      * @param message the warning text
      */
     public static void showWarning(Component parent, String message) {
-        LOGGER.log(Level.WARNING, message);
+        LOGGER.warn(message);
         Component parentComponent = parent != null ? parent : defaultParent;
         JOptionPane.showMessageDialog(parentComponent, message, "Warning", JOptionPane.WARNING_MESSAGE);
     }
@@ -86,7 +86,7 @@ public class MessageHelper {
      * @param message the error text
      */
     public static void showError(Component parent, String message) {
-        LOGGER.log(Level.SEVERE, message);
+        LOGGER.error(message);
         Component parentComponent = parent != null ? parent : defaultParent;
         JOptionPane.showMessageDialog(parentComponent, message, "Error", JOptionPane.ERROR_MESSAGE);
     }
@@ -109,7 +109,7 @@ public class MessageHelper {
      * @param ex the exception
      */
     public static void showException(Component parent, String message, Exception ex) {
-        LOGGER.log(Level.SEVERE, message, ex);
+        LOGGER.error(message, ex);
         Component parentComponent = parent != null ? parent : defaultParent;
 
         String fullMessage = message + "\n\nDetails: " + ex.getClass().getSimpleName() +
@@ -136,7 +136,7 @@ public class MessageHelper {
      * @param ex the exception
      */
     public static void showDetailedException(Component parent, String message, Exception ex) {
-        LOGGER.log(Level.SEVERE, message, ex);
+        LOGGER.error(message, ex);
         Component parentComponent = parent != null ? parent : defaultParent;
 
         // Create a panel with the main message and "Show Details" button

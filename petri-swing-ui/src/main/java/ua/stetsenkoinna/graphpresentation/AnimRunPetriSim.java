@@ -1,20 +1,25 @@
 package ua.stetsenkoinna.graphpresentation;
 
-import ua.stetsenkoinna.PetriObj.PetriNet;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriSim;
-import ua.stetsenkoinna.PetriObj.PetriT;
-import ua.stetsenkoinna.PetriObj.StateTime;
+import ua.stetsenkoinna.petriobj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriSim;
+import ua.stetsenkoinna.petriobj.PetriT;
+import ua.stetsenkoinna.petriobj.StateTime;
 
 import java.util.ArrayList;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author Саша
  */
 public class AnimRunPetriSim extends PetriSim {
+
+    private static final Logger log = LoggerFactory.getLogger(AnimRunPetriSim.class);
 
     private final JTextArea area; // specifies where simulation protokol is printed
     private final PetriNetsPanel panel;
@@ -124,7 +129,7 @@ public class AnimRunPetriSim extends PetriSim {
                 }
             }
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            log.error("Animation simulation interrupted", e);
         }
     }
    
@@ -225,7 +230,6 @@ public class AnimRunPetriSim extends PetriSim {
                             while (u) {
                                 transition.minEvent();
                                 if (transition.getMinTime() == getCurrentTime()) {
-                                    // System.out.println("MinTime="+TEvent.getMinTime());
                                 	transition.actOut(super.getNet().getListP(),super.getCurrentTime());
                                 	doAfterStep();
                                         /* support for early termination of the simulation */

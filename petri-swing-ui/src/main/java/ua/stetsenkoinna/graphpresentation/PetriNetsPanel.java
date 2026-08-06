@@ -1,10 +1,10 @@
 package ua.stetsenkoinna.graphpresentation;
 
-import ua.stetsenkoinna.PetriObj.ExceptionInvalidNetStructure;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriT;
-import ua.stetsenkoinna.PetriObj.ArcIn;
-import ua.stetsenkoinna.PetriObj.ArcOut;
+import ua.stetsenkoinna.petriobj.ExceptionInvalidNetStructure;
+import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriT;
+import ua.stetsenkoinna.petriobj.ArcIn;
+import ua.stetsenkoinna.petriobj.ArcOut;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -26,8 +26,9 @@ import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TimerTask;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 
@@ -55,6 +56,8 @@ import java.awt.dnd.DropTarget;
  * @author Ольга
  */
 public class PetriNetsPanel extends javax.swing.JPanel {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PetriNetsPanel.class);
 
     /**
      * Creates new form PetriNetsPanel
@@ -155,7 +158,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                             choosen = null;
                             current = null;
                         } catch (ExceptionInvalidNetStructure ex) {
-                            Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.error("Unexpected error", ex);
                         }
                     }
                     if (!choosenElements.isEmpty()) {
@@ -205,7 +208,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
                                 PetriNetsFrame.getUndoSupport().postEdit(edit);
                             } catch (ExceptionInvalidNetStructure ex) {
-                                Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
+                                LOGGER.error("Unexpected error", ex);
                             } finally {
                                 choosenElements.clear();
                                 PetriNetsPanel.this.setDefaultColorGraphElements();//27.07.2018
@@ -378,17 +381,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     private void printPointLocation(Point point, String s) {
         if (point != null) {
-            System.out.println(s + "  " + point.getX());
+            LOGGER.debug("{}  {}", s, point.getX());
         } else {
-            System.out.println("NULL");
+            LOGGER.debug("NULL");
         }
     }
 
     private void printArraySize(List<GraphElement> list, String s) {
         if (list != null) {
-            System.out.println(s + "  " + list.size());
+            LOGGER.debug("{}  {}", s, list.size());
         } else {
-            System.out.println("NULL");
+            LOGGER.debug("NULL");
         }
     }
 
@@ -428,8 +431,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             current = null;
 
         }
-        /* if(current!=null)System.out.println("remove : "+current.getName()+"  "+s.getName());
-        else System.out.println("remove : current null");*/
         graphNet.delGraphElement(s); //added by Inna 4.12.2012
 
         repaint();
@@ -556,8 +557,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
                     isSettingArc = false;
                 }
-                // System.out.println("after added tie we have such graph net:");
-                // graphNet.print();
             }
 
             isSettingArc = false;//26.01.2013
@@ -1128,7 +1127,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             Thread.sleep(sleepDelay);
         } catch (InterruptedException ex) {
-            Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }
 
@@ -1140,7 +1139,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             Thread.sleep(sleepDelay);
         } catch (InterruptedException ex) {
-            Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }
 
@@ -1153,7 +1152,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             Thread.sleep(sleepDelay);
         } catch (InterruptedException ex) {
-            Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }
 
@@ -1165,7 +1164,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             Thread.sleep(sleepDelay);
         } catch (InterruptedException ex) {
-            Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }
 
@@ -1178,7 +1177,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             Thread.sleep(sleepDelay);
         } catch (InterruptedException ex) {
-            Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }
 
@@ -1190,7 +1189,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             Thread.sleep(sleepDelay);
         } catch (InterruptedException ex) {
-            Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }
 
@@ -1203,7 +1202,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             Thread.sleep(sleepDelay);
         } catch (InterruptedException ex) {
-            Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }
 
@@ -1215,7 +1214,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             Thread.sleep(sleepInterval);
         } catch (InterruptedException ex) {
-            Logger.getLogger(PetriNetsPanel.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.error("Unexpected error", ex);
         }
     }
 

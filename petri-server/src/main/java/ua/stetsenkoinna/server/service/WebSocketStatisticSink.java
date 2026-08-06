@@ -1,17 +1,17 @@
 package ua.stetsenkoinna.server.service;
 
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import ua.stetsenkoinna.PetriObj.PetriNet;
-import ua.stetsenkoinna.PetriObj.PetriP;
-import ua.stetsenkoinna.PetriObj.PetriSim;
-import ua.stetsenkoinna.PetriObj.PetriT;
-import ua.stetsenkoinna.PetriObj.SimulationStatisticCollector;
+import ua.stetsenkoinna.petriobj.PetriNet;
+import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriSim;
+import ua.stetsenkoinna.petriobj.PetriT;
+import ua.stetsenkoinna.petriobj.SimulationStatisticCollector;
 import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
 import ua.stetsenkoinna.server.adapter.SimulationInterruptedException;
 import ua.stetsenkoinna.server.adapter.SimulationStepMessage;
 import ua.stetsenkoinna.server.adapter.SimulationStatusMessage;
-import ua.stetsenkoinna.server.controller.ApiVersions;
+import ua.stetsenkoinna.server.controller.WsDestinations;
 import ua.stetsenkoinna.server.dto.SimulationResultDto;
 
 import java.util.ArrayList;
@@ -29,8 +29,8 @@ public class WebSocketStatisticSink implements SimulationStatisticCollector {
     public WebSocketStatisticSink(SimulationSession session, SimpMessagingTemplate messaging) {
         this.session = session;
         this.messaging = messaging;
-        this.stepsTopic  = "/topic" + ApiVersions.WS_V1 + "/sim/" + session.getId() + "/steps";
-        this.statusTopic = "/topic" + ApiVersions.WS_V1 + "/sim/" + session.getId() + "/status";
+        this.stepsTopic  = WsDestinations.steps(session.getId());
+        this.statusTopic = WsDestinations.status(session.getId());
     }
 
     @Override
