@@ -84,24 +84,39 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     private List<GraphElement> copiedElements;
 
-    private static PetriNetsPanel instance; // TODO: remove and find a better way
+    /** False for a panel that only displays a net, e.g. while animating a whole model. */
+    private final boolean editable;
 
     public List<GraphElement> getChoosenElements() {
         return choosenElements;
     }
 
     public PetriNetsPanel(JTextField textField) {
-        instance = this;
+        this(textField, true);
+    }
+
+    /**
+     * @param textField field showing the name of the net on display, may be null
+     * @param editable false to build a view-only panel: the net can be zoomed and animated
+     *        but not drawn on, which is what the per-object views of a Petri-object model
+     *        animation need
+     */
+    public PetriNetsPanel(JTextField textField, boolean editable) {
+        this.editable = editable;
         initComponents();
         this.setBackground(Color.WHITE);
 
         nameTextField = textField;
         this.setNullPanel(); // починаємо заново створювати усі списки графічних елементів  //додано 3.12.2012
-        setFocusable(true);
+        setFocusable(editable);
+
+        addMouseWheelListener(new MouseWheelHendler());
+        if (!editable) {
+            return;
+        }
 
         addMouseListener(new MouseHandler());
         addMouseMotionListener(new MouseMotionHandler());
-        addMouseWheelListener(new MouseWheelHendler());
 
         this.addKeyListener(new KeyAdapter() {
             @Override
@@ -111,7 +126,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                         removeArc(choosenArc);
 
                         /* saving this edit for possible undoing */
-                        DeleteArcEdit edit = new DeleteArcEdit(instance, choosenArc);
+                        DeleteArcEdit edit = new DeleteArcEdit(PetriNetsPanel.this, choosenArc);
                         PetriNetsFrame.getUndoSupport().postEdit(edit);
 
                         choosenArc = null;
@@ -152,7 +167,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                             // TODO: restoring removed arcs too 
                             /* save this action into undo manager so that it can be undone */
                             DeleteGraphElementsEdit edit
-                                    = new DeleteGraphElementsEdit(instance, choosen,
+                                    = new DeleteGraphElementsEdit(PetriNetsPanel.this, choosen,
                                             inArcsToBeRemoved, outArcsToBeRemoved);
                             PetriNetsFrame.getUndoSupport().postEdit(edit);
                             choosen = null;
@@ -202,7 +217,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                                 }
                                 /* save this action into undo manager so that it can be undone */
                                 DeleteGraphElementsEdit edit
-                                        = new DeleteGraphElementsEdit(instance,
+                                        = new DeleteGraphElementsEdit(PetriNetsPanel.this,
                                                 new ArrayList(choosenElements),
                                                 inArcsToBeRemoved, outArcsToBeRemoved);
 
@@ -702,7 +717,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
                                 }
                                 /* saving the action of adding an GraphArcOut for possible undoing */
-                                AddArcEdit edit = new AddArcEdit(instance, currentArc);
+                                AddArcEdit edit = new AddArcEdit(PetriNetsPanel.this, currentArc);
                                 PetriNetsFrame.getUndoSupport().postEdit(edit);
                             }
 
@@ -739,7 +754,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                                     }
                                 }
                                 /* saving the action of adding an GraphArcOut for possible undoing */
-                                AddArcEdit edit = new AddArcEdit(instance, currentArc);
+                                AddArcEdit edit = new AddArcEdit(PetriNetsPanel.this, currentArc);
                                 PetriNetsFrame.getUndoSupport().postEdit(edit);
                             }
                         }

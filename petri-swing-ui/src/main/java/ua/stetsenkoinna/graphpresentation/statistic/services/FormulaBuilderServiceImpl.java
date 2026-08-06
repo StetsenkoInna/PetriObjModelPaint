@@ -1,6 +1,7 @@
 package ua.stetsenkoinna.graphpresentation.statistic.services;
 
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
+import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
@@ -417,7 +418,19 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
 
 
     private List<String> getElementSuggestions(PetriStatisticFunction petriStatisticFunction, String argument) {
-        GraphPetriNet petriNet = getCurrentGraphNet();
+        // An argument may address another Petri-object of the model, as in "O1.P2"; then the
+        // names to suggest come from that object's net, and keep the prefix.
+        String prefix = "";
+        String typed = argument;
+        if (argument != null) {
+            Matcher matcher = ARGUMENT_WITH_ID_PATTERN.matcher(argument);
+            if (matcher.matches()) {
+                prefix = "O" + matcher.group(1) + ".";
+                typed = matcher.group(2);
+            }
+        }
+
+        GraphPetriNet petriNet = getGraphNetFor(argument);
         if (petriStatisticFunction == null || petriNet == null) {
             return new ArrayList<>();
         }
@@ -429,17 +442,18 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         List<String> transitionNames = petriNet.getGraphPetriTransitionList().stream()
                 .map(GraphPetriTransition::getName)
                 .collect(Collectors.toList());
+        String started = typed;
         if (petriStatisticFunction.getFunctionType().equals(PetriStatisticFunction.FunctionArgumentElementType.PLACE)) {
-            if (argument != null) {
+            if (started != null) {
                 placeNames = placeNames.stream()
-                        .filter(name -> name.toUpperCase().startsWith(argument.toUpperCase()))
+                        .filter(name -> name.toUpperCase().startsWith(started.toUpperCase()))
                         .toList();
             }
             elements.addAll(placeNames);
         } else if (petriStatisticFunction.getFunctionType().equals(PetriStatisticFunction.FunctionArgumentElementType.TRANSITION)) {
-            if (argument != null) {
+            if (started != null) {
                 transitionNames = transitionNames.stream()
-                        .filter(name -> name.toUpperCase().startsWith(argument.toUpperCase()))
+                        .filter(name -> name.toUpperCase().startsWith(started.toUpperCase()))
                         .toList();
             }
             elements.addAll(transitionNames);
@@ -447,7 +461,34 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
             elements.addAll(placeNames);
             elements.addAll(transitionNames);
         }
-        return elements;
+        if (prefix.isEmpty()) {
+            return elements;
+        }
+        String withPrefix = prefix;
+        return elements.stream().map(name -> withPrefix + name).collect(Collectors.toList());
+    }
+
+    /**
+     * Resolves which net an argument names its element in.
+     *
+     * @param argument a formula argument, possibly prefixed with the object index
+     * @return the net of the addressed Petri-object, or the net on the canvas when the
+     *         argument carries no prefix or the model has no such object
+     */
+    private GraphPetriNet getGraphNetFor(String argument) {
+        if (argument == null || petriNetParent == null) {
+            return getCurrentGraphNet();
+        }
+        Matcher matcher = ARGUMENT_WITH_ID_PATTERN.matcher(argument);
+        if (!matcher.matches()) {
+            return getCurrentGraphNet();
+        }
+        GraphPetriObjModel model = petriNetParent.getObjectModel();
+        int index = Integer.parseInt(matcher.group(1));
+        if (model == null || index < 0 || index >= model.getObjectCount()) {
+            return getCurrentGraphNet();
+        }
+        return model.getObject(index).getGraphNet();
     }
 
     private Map.Entry<Integer, String> getArgumentIdNameEntry(String argument) {
@@ -528,9 +569,14 @@ public class FormulaBuilderServiceImpl implements FormulaBuilderService {
         if (argument == null || argument.isEmpty()) {
             return false;
         }
-        GraphPetriNet net = getCurrentGraphNet();
+        GraphPetriNet net = getGraphNetFor(argument);
         if (net == null) {
             return false;
+        }
+        // The object prefix has already selected the net; what is left is the element name.
+        Matcher prefixed = ARGUMENT_WITH_ID_PATTERN.matcher(argument);
+        if (prefixed.matches()) {
+            argument = prefixed.group(2);
         }
         List<String> elements = new ArrayList<>();
         List<String> places = net.getGraphPetriPlaceList().stream()

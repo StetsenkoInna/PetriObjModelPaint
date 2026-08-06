@@ -40,6 +40,9 @@ import java.lang.reflect.Method;
 import javax.swing.*;
 
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
+import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
+import ua.stetsenkoinna.graphpresentation.objmodel.ModelStructureFrame;
+import ua.stetsenkoinna.graphpresentation.objmodel.NetEditorBridge;
 import ua.stetsenkoinna.graphpresentation.actions.AnimateEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.PlayPauseAction;
 import ua.stetsenkoinna.graphpresentation.actions.RewindAction;
@@ -53,9 +56,12 @@ import java.io.ObjectInputStream;
 import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEditSupport;
 
-public class PetriNetsFrame extends javax.swing.JFrame {
+public class PetriNetsFrame extends javax.swing.JFrame implements NetEditorBridge {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PetriNetsFrame.class);
+
+    /** The structure window of the Petri-object model, created the first time it is opened. */
+    private ModelStructureFrame modelStructureFrame;
 
     public Timer timer; // timer that starts repainting while simulation
     private final MethodNameDialogPanel dialogPanel = new MethodNameDialogPanel();
@@ -179,6 +185,90 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             undoMenuItem.setEnabled(undoManager.canUndo());
             redoMenuItem.setEnabled(undoManager.canRedo());
         });
+
+        addModelMenu();
+    }
+
+    /**
+     * Adds the menu that opens the structure layer, where several nets are composed into one
+     * Petri-object model.
+     */
+    private void addModelMenu() {
+        JMenu modelMenu = new JMenu("Model");
+        JMenuItem structureItem = new JMenuItem("Petri-object model structure...");
+        structureItem.setToolTipText("Compose several Petri-objects into one model and link them");
+        structureItem.addActionListener(e -> openModelStructure());
+        modelMenu.add(structureItem);
+        getJMenuBar().add(modelMenu);
+    }
+
+    /**
+     * Opens the structure window, seeding it with the net on the canvas the first time so the
+     * user starts from what they already drew rather than from an empty model.
+     */
+    private void openModelStructure() {
+        if (modelStructureFrame == null || !modelStructureFrame.isDisplayable()) {
+            modelStructureFrame = new ModelStructureFrame(this, this, seedObjectModel());
+        }
+        modelStructureFrame.setVisible(true);
+        modelStructureFrame.toFront();
+    }
+
+    private GraphPetriObjModel seedObjectModel() {
+        GraphPetriNet canvasNet = getPetriNetsPanel().getGraphNet();
+        if (canvasNet == null || canvasNet.getGraphPetriPlaceList().isEmpty()) {
+            return new GraphPetriObjModel();
+        }
+        String name = netNameTextField.getText().isBlank() ? "Model" : netNameTextField.getText().trim();
+        return GraphPetriObjModel.singleObject(canvasNet, name);
+    }
+
+    // ------------------------------------------------------------------ NetEditorBridge
+
+    @Override
+    public void openNet(GraphPetriNet net, String name) {
+        getPetriNetsPanel().setGraphNet(net);
+        netNameTextField.setText(name);
+        getPetriNetsPanel().repaint();
+        toFront();
+    }
+
+    @Override
+    public GraphPetriNet getCanvasNet() {
+        return getPetriNetsPanel().getGraphNet();
+    }
+
+    @Override
+    public Point getCanvasCentre() {
+        JScrollPane pane = GetPetriNetPanelScrollPane();
+        return new Point(pane.getLocation().x + pane.getBounds().width / 2,
+                pane.getLocation().y + pane.getBounds().height / 2);
+    }
+
+    @Override
+    public double getSimulationTime() {
+        try {
+            return Double.parseDouble(timeModelingTextField.getText().trim());
+        } catch (NumberFormatException malformed) {
+            return 1000.0;
+        }
+    }
+
+    @Override
+    public StatisticGraphMonitor createStatisticMonitor(boolean blocking) {
+        if (statisticMonitorDialog == null || !isStatisticMonitorEnabled.isSelected()) {
+            return null;
+        }
+        return new StatisticGraphMonitor(statisticMonitorDialog, blocking);
+    }
+
+    /**
+     * @return the Petri-object model being composed in the structure window, or {@code null}
+     *         when that window was never opened; used by the statistics module to resolve
+     *         the {@code O<n>.} prefix of a formula
+     */
+    public GraphPetriObjModel getObjectModel() {
+        return modelStructureFrame != null ? modelStructureFrame.getModel() : null;
     }
     
     private JButton createPtrnButton(String title, String tooltip) {

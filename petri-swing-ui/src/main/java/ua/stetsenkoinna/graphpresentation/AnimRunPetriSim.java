@@ -24,7 +24,7 @@ public class AnimRunPetriSim extends PetriSim {
     private final JTextArea area; // specifies where simulation protokol is printed
     private final PetriNetsPanel panel;
     private final JSlider delaySlider;
-    private final AnimRunPetriObjModel parentModel;
+    private AnimRunPetriObjModel parentModel;
     
     /**
      * Whether the simulation is paused (by pressing pause button)
@@ -250,6 +250,19 @@ public class AnimRunPetriSim extends PetriSim {
         }
     }
  
+    /**
+     * Attaches this Petri-object to the model that drives it.
+     *
+     * <p>Every object of a composed model is drawn on a panel of its own, so the objects
+     * have to exist before the model can be built; this closes the loop afterwards, which
+     * is what makes pause and stop reach them.
+     *
+     * @param parentModel the model this object belongs to
+     */
+    public void setParentModel(AnimRunPetriObjModel parentModel) {
+        this.parentModel = parentModel;
+    }
+
     public void setPaused(boolean paused) {
         this.paused = paused;
     }

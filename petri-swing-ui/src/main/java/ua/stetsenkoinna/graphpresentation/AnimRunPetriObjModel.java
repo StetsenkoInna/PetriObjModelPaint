@@ -48,6 +48,22 @@ public class AnimRunPetriObjModel extends PetriObjModel{
         super.setListObj(list);
     }
 
+    /**
+     * Builds an animated model out of Petri-objects that are already bound to their views.
+     *
+     * <p>Every object of a composed model is drawn on a panel of its own, so the animated
+     * simulators cannot be derived from the nets here — the caller creates them, each with
+     * its own panel, and they become the model's object list directly.
+     *
+     * @param objects the animated Petri-objects, sharing one {@link StateTime}
+     * @param area where the events protocol is printed
+     */
+    public AnimRunPetriObjModel(ArrayList<AnimRunPetriSim> objects, JTextArea area) {
+        super(new ArrayList<>(objects));
+        this.area = area;
+        this.runlist = objects;
+    }
+
     @Override
     public void go(double timeModeling) {
         // виведення протоколу подій та результатів моделювання у об"єкт класу JTextArea
@@ -92,7 +108,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{
                         }
                     }
                     if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
-                        currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
+                        currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(e.getStatisticId(), e.getNet()));
                     }
                 }
             }
@@ -176,7 +192,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{
         if (isLastStatisticSegment()) {
             List<PetriElementStatisticDto> statistic = new ArrayList<>();
             for (PetriSim e : getListObj()) {
-                statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
+                statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(e.getStatisticId(), e.getNet()));
             }
             statisticGraphMonitor.asyncStatisticSend(getCurrentTime(), statistic);
         }

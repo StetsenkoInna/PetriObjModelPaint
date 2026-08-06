@@ -64,7 +64,7 @@ public class RunPetriObjModel extends PetriObjModel{
                         }
                     }
                     if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
-                        currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
+                        currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(e.getStatisticId(), e.getNet()));
                     }
                 }
             }
@@ -141,7 +141,7 @@ public class RunPetriObjModel extends PetriObjModel{
             double time = getCurrentTime() - getSimulationTime() <= getSimulationTime() ? getCurrentTime() : getSimulationTime();
             List<PetriElementStatisticDto> statistic = new ArrayList<>();
             for (PetriSim e : super.getListObj()) {
-                statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
+                statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(e.getStatisticId(), e.getNet()));
             }
             statisticGraphMonitor.asyncStatisticSend(time, statistic);
         }
