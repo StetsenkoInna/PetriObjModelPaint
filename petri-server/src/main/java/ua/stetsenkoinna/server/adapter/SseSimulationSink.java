@@ -33,16 +33,16 @@ public class SseSimulationSink implements SimulationStatisticCollector {
     private static final Logger log = LoggerFactory.getLogger(SseSimulationSink.class);
 
     private final BlockingQueue<Optional<SimulationFrame>> queue;
-    private final SimulationSession session;
+    protected final SimulationSession session;
     private final double timeStep;
     private final Integer snapshotInterval;
-    private final double simulationTime;
+    protected final double simulationTime;
 
     private final Map<String, Integer> currentMarkings = new LinkedHashMap<>();
     private final Map<String, Integer> currentBuffers = new LinkedHashMap<>();
 
     private double nextSnapshotAt;
-    private int stepCount = 0;
+    protected int stepCount = 0;
 
     public SseSimulationSink(BlockingQueue<Optional<SimulationFrame>> queue,
                               SimulationSession session,
