@@ -90,6 +90,13 @@ public class PnmlModelGenerator {
         objectElement.setAttribute(PnmlConstants.ATTR_PRIORITY, String.valueOf(object.getPriority()));
         objectElement.setAttribute(PnmlConstants.ATTR_X, String.valueOf(object.getPosition().x));
         objectElement.setAttribute(PnmlConstants.ATTR_Y, String.valueOf(object.getPosition().y));
+        if (object.getWidth() > 0 && object.getHeight() > 0) {
+            objectElement.setAttribute(PnmlConstants.ATTR_WIDTH, String.valueOf(object.getWidth()));
+            objectElement.setAttribute(PnmlConstants.ATTR_HEIGHT, String.valueOf(object.getHeight()));
+        }
+        if (object.isCollapsed()) {
+            objectElement.setAttribute(PnmlConstants.ATTR_COLLAPSED, "true");
+        }
         toolspecific.appendChild(objectElement);
 
         NetTemplateRef template = object.getTemplate();

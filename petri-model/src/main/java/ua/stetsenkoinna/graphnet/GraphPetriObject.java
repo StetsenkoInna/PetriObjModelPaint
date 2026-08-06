@@ -23,6 +23,9 @@ public class GraphPetriObject implements Serializable {
     private int priority;
     private Point position;
     private NetTemplateRef template;
+    private int width;
+    private int height;
+    private boolean collapsed;
 
     /**
      * @param name display name of the Petri-object
@@ -86,6 +89,39 @@ public class GraphPetriObject implements Serializable {
 
     public void setPosition(Point position) {
         this.position = position == null ? new Point(DEFAULT_POSITION) : position;
+    }
+
+    /**
+     * Size of the object's frame on the canvas. Zero means the frame was never sized — a
+     * reader then picks a size that fits the net.
+     *
+     * @return width of the frame in canvas units, or 0
+     */
+    public int getWidth() {
+        return width;
+    }
+
+    /**
+     * @return height of the frame in canvas units, or 0
+     */
+    public int getHeight() {
+        return height;
+    }
+
+    public void setSize(int width, int height) {
+        this.width = Math.max(0, width);
+        this.height = Math.max(0, height);
+    }
+
+    /**
+     * @return true if the object's frame is shown collapsed to a single node
+     */
+    public boolean isCollapsed() {
+        return collapsed;
+    }
+
+    public void setCollapsed(boolean collapsed) {
+        this.collapsed = collapsed;
     }
 
     /**

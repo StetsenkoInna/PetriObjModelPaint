@@ -66,6 +66,9 @@ public final class PnmlConstants {
     public static final String ATTR_TARGET_ELEMENT = "targetElement";
     public static final String ATTR_QUANTITY = "quantity";
     public static final String ATTR_INFORMATIONAL = "informational";
+    public static final String ATTR_WIDTH = "width";
+    public static final String ATTR_HEIGHT = "height";
+    public static final String ATTR_COLLAPSED = "collapsed";
 
     // Link type values, kept stable regardless of how the enum constants are named
     public static final String LINK_TYPE_PLACE_FUSION = "placeFusion";

@@ -140,6 +140,11 @@ public class PnmlModelParser {
             object.setPosition(new Point(
                     XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_X), 0),
                     XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_Y), 0)));
+            object.setSize(
+                    XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_WIDTH), 0),
+                    XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_HEIGHT), 0));
+            object.setCollapsed(
+                    Boolean.parseBoolean(objectElement.getAttribute(PnmlConstants.ATTR_COLLAPSED)));
         }
         object.setTemplate(readTemplate(metadataScope));
         return object;
