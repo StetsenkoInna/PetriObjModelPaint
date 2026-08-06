@@ -1,7 +1,11 @@
 package ua.stetsenkoinna.pnml;
 
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Helper class for XML operations in PNML parsing/generation
@@ -10,6 +14,46 @@ final class XmlHelper {
 
     private XmlHelper() {
         // Utility class
+    }
+
+    /**
+     * Collects the direct children of an element that carry the given tag name.
+     *
+     * <p>Unlike {@link Element#getElementsByTagName(String)} this does not descend into
+     * nested pages, which matters as soon as one document holds several Petri-objects.
+     */
+    static List<Element> directChildren(Element parent, String tagName) {
+        List<Element> children = new ArrayList<>();
+        NodeList nodes = parent.getChildNodes();
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Node node = nodes.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE && tagName.equals(node.getNodeName())) {
+                children.add((Element) node);
+            }
+        }
+        return children;
+    }
+
+    /**
+     * @return the first direct child with the given tag name, or {@code null} if there is none
+     */
+    static Element firstDirectChild(Element parent, String tagName) {
+        List<Element> children = directChildren(parent, tagName);
+        return children.isEmpty() ? null : children.getFirst();
+    }
+
+    /**
+     * Reads {@code <tagName><text>…</text></tagName>} from the direct children only.
+     *
+     * @return the text, or {@code null} when the element or its text node is missing
+     */
+    static String getDirectTextContent(Element parent, String tagName) {
+        Element child = firstDirectChild(parent, tagName);
+        if (child == null) {
+            return null;
+        }
+        Element text = firstDirectChild(child, PnmlConstants.ELEMENT_TEXT);
+        return text == null ? null : text.getTextContent();
     }
 
     /**
