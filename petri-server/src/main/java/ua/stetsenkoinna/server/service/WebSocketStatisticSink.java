@@ -92,7 +92,7 @@ public class WebSocketStatisticSink implements SimulationStatisticCollector {
             simulationTime = sim.getSimulationTime();
             for (PetriP p : sim.getNet().getListP()) {
                 finalStats.add(new PetriElementStatisticDto(
-                        sim.getNumObj(), p.getName(),
+                        sim.getStatisticId(), p.getName(),
                         p.getObservedMin(), p.getObservedMax(), p.getMean()
                 ));
                 places.add(new SimulationResultDto.PlaceResultDto(

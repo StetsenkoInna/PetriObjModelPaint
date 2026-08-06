@@ -18,6 +18,9 @@ public class PetriSim implements Cloneable, Serializable {
 
     private static final Logger log = LoggerFactory.getLogger(PetriSim.class);
 
+    /** Value of {@link #getObjIndex()} for a Petri-object that does not belong to a model yet. */
+    public static final int UNASSIGNED_INDEX = -1;
+
     private static int next = 1; //лічильник створених об"єктів
 
     private final PetriNet net;
@@ -28,6 +31,7 @@ public class PetriSim implements Cloneable, Serializable {
     private StateTime timeState;
     private String name;
     private int numObj; //поточний номер створюваного об"єкта
+    private int objIndex = UNASSIGNED_INDEX;
     private int priority;
     private int numP;
     private int numT;
@@ -122,6 +126,51 @@ public class PetriSim implements Cloneable, Serializable {
      */
     public int getNumObj() {
         return numObj;
+    }
+
+    /**
+     * Position of this Petri-object in the object list of the {@link PetriObjModel} that
+     * owns it, assigned when the model is built.
+     *
+     * <p>Unlike {@link #getNumObj()}, which counts every Petri-object ever created in the
+     * JVM, this index is stable, zero-based and independent of how many simulations ran
+     * before. It is the index used to address a Petri-object in statistic formulas
+     * ({@code O0.P1}, {@code O1.T2}, …) and in {@link PetriObjLink} declarations.
+     *
+     * @return the zero-based index in the model, or {@link #UNASSIGNED_INDEX} when this
+     *         Petri-object is not part of a model
+     */
+    public int getObjIndex() {
+        return objIndex;
+    }
+
+    /**
+     * Assigns the position of this Petri-object in its model. Called by
+     * {@link PetriObjModel} — application code has no reason to invoke it.
+     *
+     * @param objIndex the zero-based index in the model's object list
+     */
+    public void setObjIndex(int objIndex) {
+        this.objIndex = objIndex;
+    }
+
+    /**
+     * @return {@link #getObjIndex()} when this Petri-object belongs to a model, and the
+     *         legacy creation counter otherwise, so statistic consumers always get a value
+     */
+    public int getStatisticId() {
+        return objIndex == UNASSIGNED_INDEX ? numObj : objIndex;
+    }
+
+    /**
+     * Drops the inter-object arcs of every transition of this Petri-object.
+     *
+     * @see PetriT#clearExternalArcs()
+     */
+    public void clearExternalArcs() {
+        for (PetriT transition : listT) {
+            transition.clearExternalArcs();
+        }
     }
 
     /**
@@ -255,6 +304,16 @@ public class PetriSim implements Cloneable, Serializable {
     
     public static Comparator<PetriSim> getComparatorByNum() {
         return Comparator.comparingInt(PetriSim::getNumObj);
+    }
+
+    /**
+     * Orders Petri-objects by their position in the model, falling back to the creation
+     * counter for objects that do not belong to a model.
+     *
+     * @return comparator restoring the declared order of a model's object list
+     */
+    public static Comparator<PetriSim> getComparatorByIndex() {
+        return Comparator.comparingInt(PetriSim::getStatisticId);
     }
 
     /**

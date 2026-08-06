@@ -24,7 +24,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
 
     private static final Logger log = LoggerFactory.getLogger(PetriObjModel.class);
 
-    private final ArrayList<LinkByPlaces> links;
+    private final ArrayList<PetriObjLink> links;
 
     private ArrayList<PetriSim> listObj;
     private boolean protocolPrint = true;
@@ -48,6 +48,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
         this.timeState = timeState;
         links = new ArrayList<>();
         this.listObj.forEach(sim -> sim.setTimeState(timeState));
+        indexObjects();
     }
 
     @Override
@@ -56,23 +57,24 @@ public class PetriObjModel implements Serializable, Cloneable  {
         ArrayList<PetriSim> copyList = new ArrayList<>();
 
         for (PetriSim sim : this.listObj) {
-            copyList.add(sim.clone());  //  error: we must reproduce shared places
+            copyList.add(sim.clone());
         }
         PetriObjModel clone = new PetriObjModel(copyList);
-        //  reproduce combine places
- 
-        for (LinkByPlaces li : links) {
-            int one = this.getNumInList(li.getOne());
-            int other = this.getNumInList(li.getOther());
- 
-            if (one >= 0 && other >= 0) {
-                PetriSim oneClone = clone.getListObj().get(one);
-                PetriSim otherClone = clone.getListObj().get(other);
-                clone.linkObjectsCombiningPlaces(oneClone, li.getNumPlaceOne(),
-                        otherClone, li.getNumPlaceOther());
-            }
-        }
+        // The copies are unlinked nets, so replaying the declarations rebuilds the very
+        // same shared places and inter-object arcs the original has.
+        clone.links.addAll(this.links);
+        clone.applyLinks();
         return clone;
+    }
+
+    /**
+     * Numbers the Petri-objects by their position in the list, which is what link
+     * declarations and statistic formulas address them by.
+     */
+    private void indexObjects() {
+        for (int i = 0; i < listObj.size(); i++) {
+            listObj.get(i).setObjIndex(i);
+        }
     }
     
     public int getNumInList(PetriSim sim){
@@ -122,6 +124,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
     public void setListObj(ArrayList<PetriSim> List) {
         listObj = List;
         this.listObj.forEach(sim -> sim.setTimeState(timeState));
+        indexObjects();
     }
 
     /**
@@ -169,7 +172,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
                             e.doStatistics((this.getSimulationTime() - this.getCurrentTime()) / this.getSimulationTime());
                     }
                     if (statisticCollector != null && statisticCollector.shouldCollect(getCurrentTime())) {
-                        statisticCollector.onTimeStep(getCurrentTime(), e.getNet(), e.getNumObj());
+                        statisticCollector.onTimeStep(getCurrentTime(), e.getNet(), e.getStatisticId());
                     }
                 }
                 if (statisticCollector != null && statisticCollector.shouldCollect(getCurrentTime())) {
@@ -262,7 +265,7 @@ public class PetriObjModel implements Serializable, Cloneable  {
             statisticCollector.onSimulationEnd(time, getListObj());
             statisticCollector.shutdown();
         }
-        getListObj().sort(PetriSim.getComparatorByNum()); // return the initial order in the list for a correct output of the results (in SMO test)
+        getListObj().sort(PetriSim.getComparatorByIndex()); // return the initial order in the list for a correct output of the results (in SMO test)
     }
 
     /**
@@ -345,16 +348,149 @@ public class PetriObjModel implements Serializable, Cloneable  {
     }
     
     public void linkObjectsCombiningPlaces(PetriSim one, int numberOne, PetriSim other, int numberOther) {
-        
-         if (listObj.contains(one) && listObj.contains(other)) {
-             one.getNet().getListP()[numberOne] = other.getNet().getListP()[numberOther];   // combine places
-             links.add(new LinkByPlaces(one, numberOne, other, numberOther));
-         } else {
-             log.error("no such PetriSim objects in model's list of objects");
-         }
-     }
-   
-     public void clearLinks(){ //added 29.11.2017 by Inna
+        int oneIndex = getNumInList(one);
+        int otherIndex = getNumInList(other);
+        if (oneIndex < 0 || otherIndex < 0) {
+            log.error("no such PetriSim objects in model's list of objects");
+            return;
+        }
+        linkObjectsCombiningPlaces(oneIndex, numberOne, otherIndex, numberOther);
+    }
+
+    /**
+     * Merges a place of one Petri-object with a place of another: from now on both objects
+     * see the same marking through the same {@link PetriP} instance.
+     *
+     * @param oneObject index of the object whose place slot is redirected
+     * @param onePlace index of that place inside the object's net
+     * @param otherObject index of the object that owns the resulting shared place
+     * @param otherPlace index of that place inside the other object's net
+     */
+    public void linkObjectsCombiningPlaces(int oneObject, int onePlace, int otherObject, int otherPlace) {
+        addLink(PetriObjLink.placeFusion(oneObject, onePlace, otherObject, otherPlace));
+    }
+
+    /**
+     * Makes a transition of one Petri-object deliver tokens straight into a place of
+     * another one, without the source object owning a matching output place.
+     *
+     * @param sourceObject index of the object that owns the firing transition
+     * @param sourceTransition index of that transition inside the source object's net
+     * @param targetObject index of the object that owns the receiving place
+     * @param targetPlace index of that place inside the target object's net
+     * @param quantity how many tokens each firing delivers
+     */
+    public void linkTransitionToPlace(int sourceObject, int sourceTransition,
+                                      int targetObject, int targetPlace, int quantity) {
+        addLink(PetriObjLink.transitionToPlace(sourceObject, sourceTransition,
+                targetObject, targetPlace, quantity));
+    }
+
+    /**
+     * Adds a place of one Petri-object to the firing condition of a transition of another
+     * one — consuming its tokens, or only testing them when the arc is informational.
+     *
+     * @param sourceObject index of the object that owns the place
+     * @param sourcePlace index of that place inside the source object's net
+     * @param targetObject index of the object that owns the transition
+     * @param targetTransition index of that transition inside the target object's net
+     * @param quantity arc multiplicity
+     * @param informational {@code true} to test the marking without consuming it
+     */
+    public void linkPlaceToTransition(int sourceObject, int sourcePlace,
+                                      int targetObject, int targetTransition,
+                                      int quantity, boolean informational) {
+        addLink(PetriObjLink.placeToTransition(sourceObject, sourcePlace,
+                targetObject, targetTransition, quantity, informational));
+    }
+
+    /**
+     * Records a link declaration and wires it into the object graph.
+     *
+     * @param link the link to add
+     * @throws IllegalArgumentException if the link addresses an object or an element that
+     *         this model does not have
+     */
+    public void addLink(PetriObjLink link) {
+        wire(link);
+        links.add(link);
+    }
+
+    /**
+     * @return the link declarations of this model, in the order they were added
+     */
+    public List<PetriObjLink> getLinks() {
+        return Collections.unmodifiableList(links);
+    }
+
+    /**
+     * Wires every declared link into the object graph.
+     *
+     * <p>Meant for a model whose Petri-objects are freshly built — that is, whose places are
+     * not shared and whose transitions carry no {@link ExternalArc} yet. Inter-object arcs
+     * are dropped first, but a place fusion cannot be undone, so replaying the declarations
+     * over an already linked model would chain fusions further instead of reproducing them.
+     */
+    public void applyLinks() {
+        for (PetriSim sim : listObj) {
+            sim.clearExternalArcs();
+        }
+        for (PetriObjLink link : links) {
+            wire(link);
+        }
+    }
+
+    /**
+     * Turns a single declaration into the corresponding shared place or external arc.
+     */
+    private void wire(PetriObjLink link) {
+        PetriSim source = objectAt(link.getSourceObject(), link);
+        PetriSim target = objectAt(link.getTargetObject(), link);
+        switch (link.getType()) {
+            case PLACE_FUSION -> {
+                PetriP[] sourcePlaces = source.getNet().getListP();
+                PetriP shared = placeAt(target, link.getTargetElement(), link);
+                checkElementIndex(link.getSourceElement(), sourcePlaces.length, "place", link);
+                sourcePlaces[link.getSourceElement()] = shared;
+            }
+            case TRANSITION_TO_PLACE -> transitionAt(source, link.getSourceElement(), link)
+                    .addExternalOutput(placeAt(target, link.getTargetElement(), link), link.getQuantity());
+            case PLACE_TO_TRANSITION -> transitionAt(target, link.getTargetElement(), link)
+                    .addExternalInput(placeAt(source, link.getSourceElement(), link),
+                            link.getQuantity(), link.isInformational());
+        }
+    }
+
+    private PetriSim objectAt(int index, PetriObjLink link) {
+        if (index >= listObj.size()) {
+            throw new IllegalArgumentException(
+                    "Link " + link + " refers to Petri-object " + index
+                            + " but the model has only " + listObj.size());
+        }
+        return listObj.get(index);
+    }
+
+    private PetriP placeAt(PetriSim sim, int index, PetriObjLink link) {
+        PetriP[] places = sim.getNet().getListP();
+        checkElementIndex(index, places.length, "place", link);
+        return places[index];
+    }
+
+    private PetriT transitionAt(PetriSim sim, int index, PetriObjLink link) {
+        PetriT[] transitions = sim.getNet().getListT();
+        checkElementIndex(index, transitions.length, "transition", link);
+        return transitions[index];
+    }
+
+    private static void checkElementIndex(int index, int size, String element, PetriObjLink link) {
+        if (index >= size) {
+            throw new IllegalArgumentException(
+                    "Link " + link + " refers to " + element + " " + index
+                            + " but the net has only " + size);
+        }
+    }
+
+    public void clearLinks(){ //added 29.11.2017 by Inna
          links.clear();
      }
 
@@ -402,36 +538,10 @@ public class PetriObjModel implements Serializable, Cloneable  {
     }
 
     
-   private static class LinkByPlaces {
-        PetriSim one, other;
-        int numOne, numOther;
-
-        LinkByPlaces(PetriSim simOne, int nOne, PetriSim simOther, int nOther){
-            one = simOne;
-            other = simOther;
-            numOne = nOne;
-            numOther = nOther;
-        }
-
-        private PetriSim getOne(){
-            return one;
-        }
-        private PetriSim getOther(){
-            return other;
-        }
-        private int getNumPlaceOne(){
-             return numOne;
-         }
-        private int getNumPlaceOther(){
-             return numOther;
-         }
-   }
-    
     public void printLinks(){
-        log.info(" number of links "+links.size());
-        for(LinkByPlaces li:links ){
-            log.info(li.getOne().getName()+".p["+ li.getNumPlaceOne()+"] -> "+
-                                li.getOther().getName()+".p["+ li.getNumPlaceOther()+"] ");
+        log.info(" number of links {}", links.size());
+        for (PetriObjLink link : links) {
+            log.info(link.toString());
         }
     }
 
