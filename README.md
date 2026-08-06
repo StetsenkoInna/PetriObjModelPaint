@@ -35,94 +35,34 @@ Output:
 
 ---
 
-## Run the Desktop UI (Swing)
+## Desktop UI (Swing)
 
 ```bash
 java -jar petri-swing-ui/target/petri-swing-ui.jar
 ```
 
+Self-contained visual editor and simulator, no server required: draw a net, run it with
+live animation, watch statistics charts, save nets to the net library and import/export PNML.
+
+**[docs/desktop-ui.md](docs/desktop-ui.md)** — full guide: editor, animation controls,
+statistics module, net library, PNML import/export.
+
 ---
 
-## Run the Server
+## Server (Spring Boot)
 
 ```bash
 java -jar petri-server/target/petri-server.jar
+# or: mvn spring-boot:run -pl petri-server
 ```
 
-Or via Maven (rebuilds before starting):
+REST + SSE + WebSocket API for running simulations from external systems (web frontends,
+Python backends, microservices). Starts at `http://localhost:8080`, interactive docs at
+`http://localhost:8080/docs`.
 
-```bash
-mvn spring-boot:run -pl petri-server
-```
-
-Server starts at `http://localhost:8080`.
-
-| URL | Description |
-|-----|-------------|
-| `http://localhost:8080/docs` | Swagger UI (interactive API docs) |
-| `http://localhost:8080/openapi.json` | OpenAPI spec (JSON) |
-
----
-
-## REST API (v1)
-
-### Net
-
-| Method | Path | Body / Response |
-|--------|------|----------------|
-| `POST` | `/api/v1/net/parse` | `{ "netXml": "..." }` → places, transitions, arcs with coordinates |
-
-### Simulation
-
-| Method | Path | Body / Response |
-|--------|------|----------------|
-| `POST` | `/api/v1/simulation/start` | `{ "netXml": "...", "simulationTime": 100 }` → `{ "sessionId": "..." }` |
-| `POST` | `/api/v1/simulation/stream` | `{ "netXml": "..." }` → `text/event-stream` (see below) |
-| `POST` | `/api/v1/simulation/{id}/pause` | — |
-| `POST` | `/api/v1/simulation/{id}/resume` | — |
-| `POST` | `/api/v1/simulation/{id}/stop` | — |
-| `GET`  | `/api/v1/simulation/{id}/status` | `{ "status": "RUNNING" \| "PAUSED" \| "FINISHED" \| ... }` |
-| `GET`  | `/api/v1/simulation/{id}/result` | Aggregated stats after run; 202 while still running |
-
-Statuses: `PENDING` `RUNNING` `PAUSED` `FINISHED` `HALTED`
-
-### Result shape
-
-```json
-{
-  "simulation_time": 3600, "final_time": 3600, "total_steps": 18432,
-  "places":      [{ "id": "p1", "name": "Queue", "final_marking": 2, "mean_marking": 1.73, "observed_min": 0, "observed_max": 8 }],
-  "transitions": [{ "id": "t1", "name": "Service", "final_buffer": 0, "mean_buffer": 0.87, "observed_min": 0, "observed_max": 3 }]
-}
-```
-
-### Health
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/actuator/health` | Spring Boot Actuator health check |
-
-### SSE streaming (`/stream`)
-
-Query params: `simulationTime` (default 3600) · `timeStep` (default 1.0) · `snapshotInterval` · `animationDelayMs` (default 0)
-
-Each SSE event:
-```json
-{ "current_time": 1.0, "step_number": 42, "markings": {"p1": 3}, "buffers": {"t1": 1}, "progress": 0.001 }
-```
-Stream terminates with `data: [DONE]`. The first event (`event: session`) carries `sessionId` for control calls.
-
----
-
-## WebSocket (STOMP over SockJS)
-
-Endpoint: `ws://localhost:8080/ws`
-
-| Direction | Address |
-|-----------|---------|
-| Subscribe to steps | `/topic/v1/sim/{id}/steps` |
-| Subscribe to status | `/topic/v1/sim/{id}/status` |
-| Control (client → server) | `/app/v1/sim/{id}/control` with body `PAUSE` / `RESUME` / `STOP` |
+**[docs/petri-server-integration.md](docs/petri-server-integration.md)** — full guide:
+REST API reference, SSE streaming, WebSocket/STOMP, session control, PNML requirements,
+text2pnml integration.
 
 ---
 
@@ -137,24 +77,3 @@ PetriObjModelPaint/
 ├── petri-server/      # Spring Boot server
 └── pom.xml            # Parent POM
 ```
-
----
-
-## Integration Guide
-
-Full documentation for integrating `petri-server` into external systems (web frontends,
-Python backends, microservices):
-
-**[docs/petri-server-integration.md](docs/petri-server-integration.md)**
-
-Covers: SSE streaming with code examples (JS, Python, curl), WebSocket/STOMP usage,
-session control, PNML requirements, transport comparison, and text2pnml integration notes.
-
----
-
-## PNML
-
-Import/export support for PNML format (ISO/IEC 15909).
-
-- **Import**: File → Import PNML (Ctrl+I)
-- **Export**: Save → Export to PNML (Ctrl+P)
