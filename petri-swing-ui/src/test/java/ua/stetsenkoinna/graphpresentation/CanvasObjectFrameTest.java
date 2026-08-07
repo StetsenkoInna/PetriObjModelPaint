@@ -1,16 +1,25 @@
 package ua.stetsenkoinna.graphpresentation;
 
 import org.junit.Test;
+import ua.stetsenkoinna.graphnet.FramePort;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
+import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.libnet.NetLibrary;
+import ua.stetsenkoinna.petriobj.ArcIn;
+import ua.stetsenkoinna.petriobj.ArcOut;
+import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriT;
 
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
+import java.lang.reflect.Method;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -85,6 +94,109 @@ public class CanvasObjectFrameTest {
 
         assertEquals(before + dx, place.getGraphElementCenter().getX(), 0.001);
         assertEquals(dx, frame.getBounds().x);
+    }
+
+    /**
+     * Two frames, each holding one place and one transition of their own, with no links
+     * between them yet.
+     */
+    private static PetriNetsPanel twoFramedObjectsPanel() throws Exception {
+        PetriP.initNext();
+        PetriT.initNext();
+        ArcIn.initNext();
+        ArcOut.initNext();
+
+        PetriNetsPanel panel = new PetriNetsPanel(null, false);
+        GraphPetriPlace placeA = new GraphPetriPlace(new PetriP("PA", 1), 0);
+        placeA.setNewCoordinates(new Point2D.Double(80, 80));
+        GraphPetriTransition transitionA = new GraphPetriTransition(new PetriT("TA", 1.0), 1);
+        transitionA.setNewCoordinates(new Point2D.Double(180, 80));
+        panel.getGraphNet().getGraphPetriPlaceList().add(placeA);
+        panel.getGraphNet().getGraphPetriTransitionList().add(transitionA);
+        panel.addObjectFrame(new GraphObjectFrame("A", new Rectangle(0, 0, 300, 300)));
+
+        GraphPetriPlace placeB = new GraphPetriPlace(new PetriP("PB", 0), 2);
+        placeB.setNewCoordinates(new Point2D.Double(480, 80));
+        GraphPetriTransition transitionB = new GraphPetriTransition(new PetriT("TB", 1.0), 3);
+        transitionB.setNewCoordinates(new Point2D.Double(580, 80));
+        panel.getGraphNet().getGraphPetriPlaceList().add(placeB);
+        panel.getGraphNet().getGraphPetriTransitionList().add(transitionB);
+        panel.addObjectFrame(new GraphObjectFrame("B", new Rectangle(400, 0, 300, 300)));
+
+        return panel;
+    }
+
+    private static FramePort portOf(PetriNetsPanel panel, GraphObjectFrame frame, String elementName) {
+        for (FramePort port : panel.getCanvasModel().portsOf(frame)) {
+            if (port.getLabel().equals(elementName)) {
+                return port;
+            }
+        }
+        throw new AssertionError("no port for " + elementName);
+    }
+
+    /** Drives {@code finishPortDrag} the way a completed drag from one port to another would. */
+    private static void dragPort(PetriNetsPanel panel, FramePort from, FramePort to) throws Exception {
+        java.lang.reflect.Field fromField = PetriNetsPanel.class.getDeclaredField("draggedFromPort");
+        fromField.setAccessible(true);
+        fromField.set(panel, from);
+
+        Method finish = PetriNetsPanel.class.getDeclaredMethod("finishPortDrag", FramePort.class);
+        finish.setAccessible(true);
+        finish.invoke(panel, to);
+    }
+
+    @Test
+    public void draggingBetweenTwoPlacePortsSharesThePlace() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        List<GraphObjectFrame> frames = panel.getCanvasModel().getFrames();
+        FramePort pa = portOf(panel, frames.get(0), "PA");
+        FramePort pb = portOf(panel, frames.get(1), "PB");
+
+        dragPort(panel, pa, pb);
+
+        assertEquals(1, panel.getCanvasModel().getFusions().size());
+        assertTrue(panel.getCanvasModel().getFusions().getFirst().involves((GraphPetriPlace) pa.getElement()));
+    }
+
+    @Test
+    public void draggingFromAPlacePortToATransitionPortAddsAnInputArc() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        List<GraphObjectFrame> frames = panel.getCanvasModel().getFrames();
+        FramePort pa = portOf(panel, frames.get(0), "PA");
+        FramePort tb = portOf(panel, frames.get(1), "TB");
+
+        dragPort(panel, pa, tb);
+
+        assertEquals(1, panel.getGraphNet().getGraphArcInList().size());
+        assertEquals(pa.getElement(), panel.getGraphNet().getGraphArcInList().getFirst().getBeginElement());
+        assertEquals(tb.getElement(), panel.getGraphNet().getGraphArcInList().getFirst().getEndElement());
+    }
+
+    @Test
+    public void draggingFromATransitionPortToAPlacePortAddsAnOutputArc() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        List<GraphObjectFrame> frames = panel.getCanvasModel().getFrames();
+        FramePort ta = portOf(panel, frames.get(0), "TA");
+        FramePort pb = portOf(panel, frames.get(1), "PB");
+
+        dragPort(panel, ta, pb);
+
+        assertEquals(1, panel.getGraphNet().getGraphArcOutList().size());
+        assertEquals(ta.getElement(), panel.getGraphNet().getGraphArcOutList().getFirst().getBeginElement());
+        assertEquals(pb.getElement(), panel.getGraphNet().getGraphArcOutList().getFirst().getEndElement());
+    }
+
+    @Test
+    public void droppingAPortDragOnEmptySpaceCreatesNothing() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        FramePort pa = portOf(panel, panel.getCanvasModel().getFrames().getFirst(), "PA");
+
+        dragPort(panel, pa, null);
+
+        assertTrue(panel.getCanvasModel().getFusions().isEmpty());
+        assertTrue(panel.getGraphNet().getGraphArcInList().isEmpty());
+        assertTrue(panel.getGraphNet().getGraphArcOutList().isEmpty());
     }
 
     @Test

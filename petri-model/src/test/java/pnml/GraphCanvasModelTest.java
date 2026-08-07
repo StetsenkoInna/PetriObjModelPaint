@@ -1,8 +1,10 @@
 package pnml;
 
 import org.junit.Test;
+import ua.stetsenkoinna.graphnet.FramePort;
 import ua.stetsenkoinna.graphnet.GraphArcFactory;
 import ua.stetsenkoinna.graphnet.GraphCanvasModel;
+import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
@@ -15,10 +17,13 @@ import ua.stetsenkoinna.petriobj.PetriObjModel;
 import ua.stetsenkoinna.petriobj.PetriP;
 import ua.stetsenkoinna.petriobj.PetriT;
 
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.geom.Point2D;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -124,10 +129,38 @@ public class GraphCanvasModelTest {
 
         canvas.joinPlaces(inputOfSink, outputOfSource);
 
-        // Joining moves the shared place onto the master, which is inside the second frame.
         GraphPetriObjModel model = canvas.toObjModel();
         assertTrue(model.getLinks().stream()
                 .anyMatch(link -> link.getType() == PetriObjLinkType.PLACE_FUSION));
+    }
+
+    @Test
+    public void joiningTwoFramedPlacesLeavesBothWhereTheyWereInsideTheirOwnObject() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphPetriPlace outputOfSource = canvas.getNet().getGraphPetriPlaceList().get(1);
+        GraphPetriPlace inputOfSink = canvas.getNet().getGraphPetriPlaceList().get(2);
+        Point2D beforeSource = outputOfSource.getGraphElementCenter();
+        Point2D beforeSink = inputOfSink.getGraphElementCenter();
+
+        canvas.joinPlaces(inputOfSink, outputOfSource);
+
+        assertEquals("moving a place to coincide with one deep inside another frame "
+                        + "would corrupt that frame's own layout",
+                beforeSource, outputOfSource.getGraphElementCenter());
+        assertEquals(beforeSink, inputOfSink.getGraphElementCenter());
+    }
+
+    @Test
+    public void twoFreePlacesCannotBeSharedEither() {
+        // Both belong to the same implicit "free elements" object once the canvas is split,
+        // exactly like two places drawn inside the same frame — joining them would be just as
+        // meaningless.
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Simple", new GraphPetriNet());
+        GraphPetriPlace first = place(canvas, "A", 1, 40, 40);
+        GraphPetriPlace second = place(canvas, "B", 0, 400, 400);
+
+        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(first, second));
     }
 
     @Test
@@ -200,5 +233,68 @@ public class GraphCanvasModelTest {
         assertEquals(1, again.getLinks().size());
         assertEquals(PetriObjLinkType.TRANSITION_TO_PLACE, again.getLinks().getFirst().getType());
         assertSame(canvas.getNet(), canvas.getNet());
+    }
+
+    @Test
+    public void everyOwnedElementGetsExactlyOnePort() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphObjectFrame source = canvas.getFrames().getFirst();
+
+        List<FramePort> ports = canvas.portsOf(source);
+
+        assertEquals("two places and one transition", 3, ports.size());
+        List<GraphElement> portedElements = ports.stream().map(FramePort::getElement).toList();
+        for (GraphPetriPlace place : canvas.getNet().getGraphPetriPlaceList()) {
+            if (canvas.ownerOf(place) == source) {
+                assertTrue(place.getName() + " must have a port", portedElements.contains(place));
+            }
+        }
+        for (GraphPetriTransition transition : canvas.getNet().getGraphPetriTransitionList()) {
+            if (canvas.ownerOf(transition) == source) {
+                assertTrue(transition.getName() + " must have a port", portedElements.contains(transition));
+            }
+        }
+    }
+
+    @Test
+    public void portsSitOnTheFramesBorderBelowTheHeader() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphObjectFrame source = canvas.getFrames().getFirst();
+        Rectangle bounds = source.getBounds();
+
+        for (FramePort port : canvas.portsOf(source)) {
+            Point p = port.getPosition();
+            boolean onVerticalEdge = p.x == bounds.x || p.x == bounds.x + bounds.width;
+            boolean onHorizontalEdge = p.y == bounds.y + GraphObjectFrame.HEADER_HEIGHT
+                    || p.y == bounds.y + bounds.height;
+            assertTrue("port must sit exactly on the frame's border, was " + p,
+                    onVerticalEdge || onHorizontalEdge);
+            assertTrue("port must not be above the header", p.y >= bounds.y + GraphObjectFrame.HEADER_HEIGHT);
+            assertTrue(p.x >= bounds.x && p.x <= bounds.x + bounds.width);
+            assertTrue(p.y <= bounds.y + bounds.height);
+        }
+    }
+
+    @Test
+    public void portAtFindsTheNearestPortAndNothingFarAway() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphObjectFrame source = canvas.getFrames().getFirst();
+        FramePort target = canvas.portsOf(source).getFirst();
+
+        assertSame(target.getElement(), canvas.portAt(target.getPosition()).getElement());
+        assertNull(canvas.portAt(new Point2D.Double(
+                source.getBounds().getCenterX(), source.getBounds().getCenterY())));
+    }
+
+    @Test
+    public void resizingAFrameMovesItsPorts() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphObjectFrame source = canvas.getFrames().getFirst();
+        Point before = canvas.portsOf(source).getFirst().getPosition();
+
+        source.setBounds(new Rectangle(source.getBounds().x, source.getBounds().y, 600, 600));
+        Point after = canvas.portsOf(source).getFirst().getPosition();
+
+        assertTrue("a port must move when its frame is resized", !before.equals(after));
     }
 }

@@ -124,6 +124,97 @@ public class GraphCanvasModel implements Serializable {
         return null;
     }
 
+    // ------------------------------------------------------------------ ports
+
+    /**
+     * Computes the port markers a frame shows on its border: one per place and one per
+     * transition it owns, evenly spaced around the perimeter below the header.
+     *
+     * <p>Ports are what a locked object is connected to other objects through, since its own
+     * elements can no longer be dragged directly on the shared canvas. Nothing about a port
+     * is stored — it is derived fresh from the frame's current bounds and its current
+     * elements every time, so moving or resizing a frame, or editing its net, keeps the ports
+     * in step without any bookkeeping of its own.
+     *
+     * @param frame the object to compute ports for
+     * @return the frame's ports, places first then transitions, both in net order
+     */
+    public List<FramePort> portsOf(GraphObjectFrame frame) {
+        List<GraphElement> owned = new ArrayList<>();
+        for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
+            if (ownerOf(place) == frame) {
+                owned.add(place);
+            }
+        }
+        for (GraphPetriTransition transition : net.getGraphPetriTransitionList()) {
+            if (ownerOf(transition) == frame) {
+                owned.add(transition);
+            }
+        }
+        List<PerimeterPoint> positions = perimeterPositions(frame.getBounds(), owned.size());
+        List<FramePort> ports = new ArrayList<>(owned.size());
+        for (int i = 0; i < owned.size(); i++) {
+            PerimeterPoint p = positions.get(i);
+            ports.add(new FramePort(owned.get(i), p.point(), p.edge()));
+        }
+        return ports;
+    }
+
+    /**
+     * @param point a point on the canvas
+     * @return the port under that point, across every frame, or {@code null}
+     */
+    public FramePort portAt(Point2D point) {
+        for (GraphObjectFrame frame : frames) {
+            for (FramePort port : portsOf(frame)) {
+                if (port.isNear(point)) {
+                    return port;
+                }
+            }
+        }
+        return null;
+    }
+
+    private record PerimeterPoint(Point point, FramePort.Edge edge) {}
+
+    /**
+     * Spaces {@code count} points evenly around the perimeter of a frame's bounds, excluding
+     * the header strip, starting just past the top-left corner and going clockwise.
+     */
+    private static List<PerimeterPoint> perimeterPositions(Rectangle bounds, int count) {
+        List<PerimeterPoint> points = new ArrayList<>(count);
+        if (count <= 0) {
+            return points;
+        }
+        int left = bounds.x;
+        int top = bounds.y + GraphObjectFrame.HEADER_HEIGHT;
+        int width = bounds.width;
+        int height = bounds.height - GraphObjectFrame.HEADER_HEIGHT;
+        double perimeter = 2.0 * (width + height);
+        for (int i = 0; i < count; i++) {
+            // Offset by half a step so a port never lands exactly on a corner.
+            double distance = perimeter * (i + 0.5) / count;
+            points.add(pointAtDistance(left, top, width, height, distance));
+        }
+        return points;
+    }
+
+    private static PerimeterPoint pointAtDistance(int left, int top, int width, int height, double distance) {
+        if (distance < width) {
+            return new PerimeterPoint(new Point((int) (left + distance), top), FramePort.Edge.TOP);
+        }
+        distance -= width;
+        if (distance < height) {
+            return new PerimeterPoint(new Point(left + width, (int) (top + distance)), FramePort.Edge.RIGHT);
+        }
+        distance -= height;
+        if (distance < width) {
+            return new PerimeterPoint(new Point((int) (left + width - distance), top + height), FramePort.Edge.BOTTOM);
+        }
+        distance -= width;
+        return new PerimeterPoint(new Point(left, (int) (top + height - distance)), FramePort.Edge.LEFT);
+    }
+
     /**
      * Joins two places into one shared place.
      *
@@ -143,6 +234,11 @@ public class GraphCanvasModel implements Serializable {
             throw new IllegalArgumentException(
                     "Both places belong to the same Petri-object — a shared place joins two different objects");
         }
+        // Places keep whatever position they already have — the two owners are always
+        // different by this point, so moving one onto the other would displace it out of its
+        // own object's layout (or, for a free place, away from wherever it was drawn) for no
+        // benefit: a framed fusion is drawn as a port-to-port line, which does not depend on
+        // where either place actually sits.
         GraphPlaceFusion fusion = new GraphPlaceFusion(master, joined, masterOwner, joinedOwner);
         fusions.add(fusion);
         return fusion;

@@ -34,6 +34,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 
+import ua.stetsenkoinna.graphnet.FramePort;
+import ua.stetsenkoinna.graphnet.GraphArcFactory;
 import ua.stetsenkoinna.graphnet.GraphCanvasModel;
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphElementIdGenerator;
@@ -112,6 +114,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private GraphObjectFrame ownerBeforeDrag;
     private Point2D positionBeforeDrag;
 
+    /** The port a cross-object link is being dragged from, if any, and where the pointer is now. */
+    private FramePort draggedFromPort;
+    private Point draggedPortCurrentPoint;
+    /** The port under the pointer, highlighted as the drag's likely target. */
+    private FramePort hoveredPort;
+
     public List<GraphElement> getChoosenElements() {
         return choosenElements;
     }
@@ -147,6 +155,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_DELETE || e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
+                    // A selected Petri-object frame is deleted as a whole, the same way its
+                    // context-menu "Remove" does — but only when nothing more specific (an
+                    // arc, a single element, a rubber-band selection) is also selected, so
+                    // Delete keeps its existing per-element meaning everywhere else.
+                    if (selectedFrame != null && choosenArc == null && choosen == null
+                            && choosenElements.isEmpty()) {
+                        confirmRemoveObjectFrame(selectedFrame);
+                    }
                     if (choosenArc != null) {
                         removeArc(choosenArc);
 
@@ -271,6 +287,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_V) {
                     pasteAction();
                 }
+
+                // Duplicating a Petri-object is a distinct gesture from copy/paste of plain
+                // elements, since it also carries the object's name, priority and template —
+                // Ctrl+D matches what the frame's own context menu offers.
+                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_D && selectedFrame != null) {
+                    duplicateObject(selectedFrame);
+                }
             }
         });
 
@@ -392,6 +415,23 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             fusion.draw(g2, false);
         }
         paintObjectFrames(g2, true);
+        paintPorts(g2);
+        for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
+            if (fusion.isBetweenFrames()) {
+                Point masterPort = portPositionOf(fusion.getMasterOwner(), fusion.getMaster());
+                Point joinedPort = portPositionOf(fusion.getJoinedOwner(), fusion.getJoined());
+                if (masterPort != null && joinedPort != null) {
+                    fusion.drawBetweenPorts(g2, masterPort, joinedPort, false);
+                }
+            }
+        }
+        if (draggedFromPort != null && draggedPortCurrentPoint != null) {
+            Color previous = g2.getColor();
+            g2.setColor(Color.GRAY);
+            Point from = draggedFromPort.getPosition();
+            g2.drawLine(from.x, from.y, draggedPortCurrentPoint.x, draggedPortCurrentPoint.y);
+            g2.setColor(previous);
+        }
 
         if (currentArc != null) {
             currentArc.drawGraphElement(g2);
@@ -446,6 +486,34 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             frame.draw(g2, index, frame == selectedFrame, countElementsIn(frame));
         }
+    }
+
+    /**
+     * Draws every frame's ports on top of everything else, collapsed frames included — a
+     * port is how a locked object is still connected to others, so it stays reachable
+     * whether or not its internals are on screen.
+     */
+    private void paintPorts(Graphics2D g2) {
+        for (GraphObjectFrame frame : canvasModel.getFrames()) {
+            for (FramePort port : canvasModel.portsOf(frame)) {
+                port.draw(g2, port == draggedFromPort || port == hoveredPort);
+            }
+        }
+    }
+
+    /**
+     * @param frame the object the element belongs to
+     * @param element one of that object's own places or transitions
+     * @return the position of the element's port on the frame's border, or {@code null} if
+     *         it does not (currently) have one
+     */
+    private Point portPositionOf(GraphObjectFrame frame, GraphElement element) {
+        for (FramePort port : canvasModel.portsOf(frame)) {
+            if (port.getElement() == element) {
+                return port.getPosition();
+            }
+        }
+        return null;
     }
 
     private void printPointLocation(Point point, String s) {
@@ -671,6 +739,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return;
         }
         addObjectFrame(new GraphObjectFrame(name.trim(), boundsAround(selection)));
+
+        // The grouped elements are now locked inside their new frame — highlighting them as
+        // "selected" afterward would be stale and, unlike before, no longer something Delete
+        // or a drag could act on directly.
+        for (GraphElement element : selection) {
+            element.setColor(Color.BLACK);
+        }
+        choosenElements.clear();
+        choosen = null;
     }
 
     /**
@@ -777,6 +854,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
     }
 
+    /**
+     * Opens the dedicated editor for one Petri-object's own net — implemented alongside the
+     * port-based cross-object linking this replaces direct element dragging with.
+     *
+     * @param frame the object to edit
+     */
+    private void openObjectEditor(GraphObjectFrame frame) {
+        // TODO: dedicated per-object editor window
+    }
+
     private void confirmRemoveObjectFrame(GraphObjectFrame frame) {
         if (MessageHelper.showConfirmation(dialogOwner(),
                 "Remove the Petri-object frame '" + frame.getName() + "'? Its net stays on the canvas.")) {
@@ -828,6 +915,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            // A port always starts a link — no tool needs to be active first, since making
+            // cross-object connections is the one thing a port is for.
+            FramePort port = canvasModel.portAt(scaledCurrentMousePoint);
+            if (port != null && SwingUtilities.isLeftMouseButton(ev)) {
+                draggedFromPort = port;
+                draggedPortCurrentPoint = scaledCurrentMousePoint;
+                repaint();
+                return;
+            }
+
             startTimer();
 
             if (SwingUtilities.isLeftMouseButton(ev)) {
@@ -845,6 +942,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                         scaledCurrentMousePoint.x - grabbed.getBounds().x,
                         scaledCurrentMousePoint.y - grabbed.getBounds().y);
                 setCursor(new Cursor(resizedFrame != null ? Cursor.SE_RESIZE_CURSOR : Cursor.MOVE_CURSOR));
+                repaint();
+                return;
+            }
+
+            // Elements inside a Petri-object are edited in that object's own window, not
+            // dragged around on the shared canvas — a click landing anywhere else in the
+            // frame (not its header or resize handle) selects the object itself instead of
+            // whatever net element happens to be underneath.
+            GraphObjectFrame frameAtPoint = canvasModel.frameAt(scaledCurrentMousePoint);
+            if (frameAtPoint != null) {
+                selectedFrame = frameAtPoint;
+                if (current != null) {
+                    current.setColor(Color.BLACK);
+                    current = null;
+                }
+                isSettingArc = false;
                 repaint();
                 return;
             }
@@ -938,6 +1051,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            // The rest of the frame — its locked interior — selects the object on a single
+            // click; a double click opens that object's own editor, the only place its net
+            // can actually be changed.
+            GraphObjectFrame frameAtPoint = canvasModel.frameAt(scaledCurrentMousePoint);
+            if (frameAtPoint != null) {
+                selectedFrame = frameAtPoint;
+                if (ev.getClickCount() >= 2) {
+                    openObjectEditor(frameAtPoint);
+                }
+                repaint();
+                return;
+            }
+
             if (current == null && currentArc == null) { // previous click was empty
 
                 //  PetriNetsPanel.this.printPointLocation(prevMouseLocation, "clear");
@@ -1006,6 +1132,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            if (draggedFromPort != null) {
+                finishPortDrag(canvasModel.portAt(scaledCurrentMousePoint));
+                repaint();
+                return;
+            }
+
             removeTimer();
 
             if (draggedFrame != null || resizedFrame != null) {
@@ -1053,6 +1185,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (currentArc != null) {
                 currentArc.setColor(Color.BLUE);
                 current = find(scaledCurrentMousePoint);
+                if (current != null && canvasModel.ownerOf(current) != null) {
+                    // A framed element only takes arcs through its ports now — the arc tool
+                    // cannot reach it directly, the same way it can no longer be dragged.
+                    current = null;
+                }
 
                 if (current != null) {
                     current.setColor(Color.BLUE);
@@ -1143,9 +1280,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                         currentArc = null;
                         setDefaultColorGraphArcs();
                     } else {                        //1.02.2013 цей фрагмент дозволяє відслідковувати намагання
-                        // Place to place is not an arc — between two Petri-objects it means
-                        // the two places are one shared place.
-                        tryJoinPlaces(currentArc.getBeginElement(), current);
+                        // Place to place, or transition to transition, is not a valid arc —
+                        // and a shared place between two Petri-objects is now made by
+                        // dragging between their ports instead, so this attempt is simply
+                        // discarded.
                         removeCurrentArc();// з"єднати позицію з позицією чи перехід з переходом
                         //та знищувати неправильно намальовану дугу
                     }
@@ -1241,29 +1379,45 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Turns an arc drawn from one place to another into a shared place.
+     * Completes a link dragged from {@link #draggedFromPort} to {@code targetPort} — a shared
+     * place for two place ports, a crossing arc for a place and a transition port. Silently
+     * cancels when the drag was not released on a port, matching how dropping the old arc
+     * tool on empty space already behaves; anything that would not be a valid link is
+     * reported instead of just discarded, since landing on some other port was clearly
+     * intentional.
      *
-     * <p>Between two Petri-objects that is what such a stroke means: the places become one,
-     * and both objects read the same marking. Within one object it means nothing, and the
-     * user is told why.
-     *
-     * @param begin the element the stroke started at
-     * @param end the element it ended at
-     * @return true if the two places were joined
+     * @param targetPort the port the drag ended on, or {@code null}
      */
-    private boolean tryJoinPlaces(GraphElement begin, GraphElement end) {
-        if (!(begin instanceof GraphPetriPlace master) || !(end instanceof GraphPetriPlace joined)
-                || master == joined) {
-            return false;
+    private void finishPortDrag(FramePort targetPort) {
+        FramePort sourcePort = draggedFromPort;
+        draggedFromPort = null;
+        draggedPortCurrentPoint = null;
+        hoveredPort = null;
+
+        if (targetPort == null || targetPort == sourcePort) {
+            return;
         }
+
         try {
-            canvasModel.joinPlaces(master, joined);
-            updateArcCoordinates();
-            repaint();
-            return true;
+            if (sourcePort.isPlace() && targetPort.isPlace()) {
+                canvasModel.joinPlaces((GraphPetriPlace) sourcePort.getElement(),
+                        (GraphPetriPlace) targetPort.getElement());
+            } else if (!sourcePort.isPlace() && !targetPort.isPlace()) {
+                throw new IllegalArgumentException(
+                        "A transition cannot connect directly to another transition");
+            } else if (sourcePort.isPlace()) {
+                // place -> transition: the place becomes an extra input of the transition
+                canvasModel.getNet().getGraphArcInList().add(GraphArcFactory.inArc(
+                        (GraphPetriPlace) sourcePort.getElement(),
+                        (GraphPetriTransition) targetPort.getElement(), 1, false));
+            } else {
+                // transition -> place: the transition delivers tokens into the place
+                canvasModel.getNet().getGraphArcOutList().add(GraphArcFactory.outArc(
+                        (GraphPetriTransition) sourcePort.getElement(),
+                        (GraphPetriPlace) targetPort.getElement(), 1));
+            }
         } catch (IllegalArgumentException rejected) {
             MessageHelper.showError(dialogOwner(), rejected.getMessage());
-            return false;
         }
     }
 
@@ -1311,6 +1465,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         @Override
         public void mouseDragged(MouseEvent ev) {
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+
+            if (draggedFromPort != null) {
+                draggedPortCurrentPoint = scaledCurrentMousePoint;
+                hoveredPort = canvasModel.portAt(scaledCurrentMousePoint);
+                repaint();
+                return;
+            }
 
             if (resizedFrame != null) {
                 resizedFrame.resizeTo(scaledCurrentMousePoint.x, scaledCurrentMousePoint.y);
@@ -1383,6 +1544,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         @Override
         public void mouseMoved(MouseEvent ev) {
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+            FramePort hovered = canvasModel.portAt(scaledCurrentMousePoint);
+            if (hovered != hoveredPort) {
+                hoveredPort = hovered;
+                setCursor(hovered != null ? new Cursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
+                repaint();
+            }
             if (current != null && currentArc == null) {
                 current.setColor(Color.BLUE);
                 PetriNetsPanel.this.setDefaultColorGraphArcs();
