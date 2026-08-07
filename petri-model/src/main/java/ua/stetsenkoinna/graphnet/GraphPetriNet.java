@@ -31,8 +31,6 @@ public class GraphPetriNet implements Cloneable, Serializable {
 
     private static final Logger log = LoggerFactory.getLogger(GraphPetriNet.class);
 
-    private static final int bigNumber = 10000; // для правильного коригування нумерації позицій та переходів
-
     private ArrayList<GraphPetriPlace> graphPetriPlaceList;
     private ArrayList<GraphPetriTransition> graphPetriTransitionList;
     private ArrayList<GraphArcIn> graphArcInList;
@@ -261,109 +259,44 @@ public class GraphPetriNet implements Cloneable, Serializable {
 
     public void createPetriNet(String s) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         //створюється мережа Петрі у відповідності до графічних елементів
-        correctingNumP();
-        correctingNumT();
+        renumberFromGraph();
         pNet = new PetriNet(s, this.getPetriPList(), this.getPetriTList(), this.getArcInList(), this.getArcOutList());
     }
 
-    public boolean isCorrectNumberP() {
-        ArrayList<PetriP> list = this.getPetriPList();
-        boolean b = true;
-        for (int j = 0; j < list.size(); j++) {
-            if (list.get(j).getNumber() != j) {
-                b = false;
-                break;
-            }
+    /**
+     * Numbers every place and transition by its position in this net's own lists — which is what
+     * {@link PetriNet} needs, since it indexes its arrays by those numbers — and then re-derives
+     * every arc's place and transition number from the element the arc is actually attached to.
+     *
+     * <p>Deriving each arc's endpoints from its own {@code getBeginElement()}/{@code getEndElement()}
+     * references, rather than from the number it last cached, is the whole point. One canvas holds
+     * several nets: each Petri-object is numbered from zero independently of every other, so two
+     * elements sharing a number is normal rather than exceptional, and the only thing that can tell
+     * one of them from the other is which element an arc actually points at. Matching on the cached
+     * number instead used to sweep both elements' arcs onto whichever one came last, leaving the
+     * other with none and the net rejected as having a transition with no input positions.
+     */
+    private void renumberFromGraph() {
+        for (int j = 0; j < graphPetriPlaceList.size(); j++) {
+            graphPetriPlaceList.get(j).getPetriPlace().setNumber(j);
         }
-        return b;
-    }
-
-    public boolean isCorrectNumberT() {
-        ArrayList<PetriT> list = this.getPetriTList();
-        boolean b = true;
-        for (int j = 0; j < list.size(); j++) {
-            if (list.get(j).getNumber() != j) {
-                b = false;
-                break;
-            }
+        for (int j = 0; j < graphPetriTransitionList.size(); j++) {
+            graphPetriTransitionList.get(j).getPetriTransition().setNumber(j);
         }
-        return b;
-    }
-
-    public void correctingNumP() {
-        if (!isCorrectNumberP()) {
-            for (int j = 0; j < this.getPetriPList().size(); j++) {
-                if (this.getPetriPList().get(j).getNumber() != j) {
-                    int actualNumber = getPetriPList().get(j).getNumber();
-                    
-                    for (ArcIn in : this.getArcInList()) {
-                        if (in.getNumP() == actualNumber) {
-                            in.setNumP(j + bigNumber);
-                        }
-                    }
-                    for (ArcOut out : this.getArcOutList()) {
-                        if (out.getNumP() == actualNumber) {
-                            out.setNumP(j + bigNumber);
-                        }
-                    }
-                    this.getPetriPList().get(j).setNumber(j + bigNumber); //встановлення номера позиції по порядку слідування в списку
-                }
+        for (GraphArcIn arc : graphArcInList) {
+            // An arc still being dragged has no end yet; it is not part of the net until dropped.
+            if (arc.getBeginElement() == null || arc.getEndElement() == null) {
+                continue;
             }
-            
-            for (int j = 0; j < this.getPetriPList().size(); j++) { // added by Katya 08.12.2016
-                if (this.getPetriPList().get(j).getNumber() >= bigNumber) {
-                    this.getPetriPList().get(j).setNumber(this.getPetriPList().get(j).getNumber() - bigNumber);
-                }
-            }
-            for (ArcIn in : this.getArcInList()) {
-                if (in.getNumP() >= bigNumber) {
-                    in.setNumP(in.getNumP() - bigNumber);
-                }
-            }
-            for (ArcOut out : this.getArcOutList()) {
-                if (out.getNumP() >= bigNumber) {
-                    out.setNumP(out.getNumP() - bigNumber);
-                }
-            }
+            arc.getArcIn().setNumP(arc.getBeginElement().getNumber());
+            arc.getArcIn().setNumT(arc.getEndElement().getNumber());
         }
-    }
-
-    public void correctingNumT() {
-        if (!isCorrectNumberT()) {
-            for (int j = 0; j < this.getPetriTList().size(); j++) {
-                if (this.getPetriTList().get(j).getNumber() != j) {
-                    int actualNumber = getPetriTList().get(j).getNumber();
-                    
-                    for (ArcIn in : this.getArcInList()) {
-                        if (in.getNumT() == actualNumber) {
-                            in.setNumT(j + bigNumber);
-                        }
-                    }
-                    for (ArcOut out : this.getArcOutList()) {
-                        if (out.getNumT() == actualNumber) {
-                            out.setNumT(j + bigNumber);
-                        }
-                    }
-                    //встановлення номера переходу по порядку слідування в списку
-                    this.getPetriTList().get(j).setNumber(j + bigNumber);
-                }
+        for (GraphArcOut arc : graphArcOutList) {
+            if (arc.getBeginElement() == null || arc.getEndElement() == null) {
+                continue;
             }
-            
-            for (int j = 0; j < this.getPetriTList().size(); j++) {
-                if (this.getPetriTList().get(j).getNumber() >= bigNumber) {
-                    this.getPetriTList().get(j).setNumber(this.getPetriTList().get(j).getNumber() - bigNumber);
-                }
-            }
-            for (ArcIn in : this.getArcInList()) {
-                if (in.getNumT() >= bigNumber) {
-                    in.setNumT(in.getNumT() - bigNumber);
-                }
-            }
-            for (ArcOut out : this.getArcOutList()) {
-                if (out.getNumT() >= bigNumber) {
-                    out.setNumT(out.getNumT() - bigNumber);
-                }
-            }
+            arc.getArcOut().setNumT(arc.getBeginElement().getNumber());
+            arc.getArcOut().setNumP(arc.getEndElement().getNumber());
         }
     }
 
