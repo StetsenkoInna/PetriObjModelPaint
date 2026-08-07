@@ -546,7 +546,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        jTabbedPane1 = new javax.swing.JTabbedPane();
         petriNetDesign = new javax.swing.JPanel();
         modelingParametersPanel = new javax.swing.JPanel();
         netNameLabel = new javax.swing.JLabel();
@@ -605,9 +604,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
-        jTabbedPane1.setBackground(new java.awt.Color(255, 255, 255));
-        jTabbedPane1.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
-        jTabbedPane1.setFont(new java.awt.Font("Arial", Font.BOLD, 12)); // NOI18N
 
         netNameLabel.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         netNameLabel.setText("Net name");
@@ -900,9 +896,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetsFrameToolBar.getAccessibleContext().setAccessibleName("");
         petriNetsFrameToolBar.getAccessibleContext().setAccessibleDescription("");
 
-        jTabbedPane1.addTab("Net designer", petriNetDesign);
-
-
 
         petriNetsFrameMenuBar.setBackground(new java.awt.Color(186, 213, 241));
         petriNetsFrameMenuBar.setForeground(new java.awt.Color(98, 147, 167));
@@ -1053,14 +1046,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jTabbedPane1, javax.swing.GroupLayout.Alignment.TRAILING)
+            .addComponent(petriNetDesign, javax.swing.GroupLayout.Alignment.TRAILING)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jTabbedPane1, javax.swing.GroupLayout.Alignment.TRAILING)
+            .addComponent(petriNetDesign, javax.swing.GroupLayout.Alignment.TRAILING)
         );
-
-        jTabbedPane1.getAccessibleContext().setAccessibleName("Net designer");
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
@@ -1719,7 +1710,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JMenuItem itemAnimateNet;
     private javax.swing.JMenuItem itemRunEvent;
     private javax.swing.JMenuItem jMenuItem2;
-    private javax.swing.JTabbedPane jTabbedPane1;
     private javax.swing.JList<String> leftMenuList;
     private javax.swing.JPanel leftNenuPanel;
     private javax.swing.JPanel modelingParametersPanel;
