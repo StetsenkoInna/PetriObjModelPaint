@@ -511,10 +511,10 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
                 }
             }
         }
-        if (inP.isEmpty()) {
-            throw new ExceptionInvalidTimeDelay("Transition " + this.getName() + " hasn't input positions!");
-        }
-
+        // Not validated here: this runs once per Petri-object, before PetriObjModel wires any
+        // inter-object link, so a transition fed only by another object's place legitimately
+        // has nothing local at this point. See PetriNet#validateStructure(), which runs once
+        // links exist.
     }
 
     /**
@@ -544,8 +544,9 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
      * Adds a place of another Petri-object to this transition's firing condition.
      *
      * <p>A regular external input is consumed on firing exactly like a local input place;
-     * an informational one is only tested. The transition still needs at least one local
-     * input place — external arcs extend the condition, they do not replace it.
+     * an informational one is only tested. An external consuming input may be a transition's
+     * only input — it does not require a local input place as well — but a transition with no
+     * consuming input at all, local or external, is invalid; see {@link #hasConsumingInput()}.
      *
      * @param place the place owned by the other Petri-object
      * @param quantity arc multiplicity
@@ -758,11 +759,12 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
     }
 
     /**
-     *
-     * @return true if list of input places is empty
+     * @return true if this transition has at least one input it actually consumes from —
+     *         a local place, or an external one that is not purely informational. A transition
+     *         with none is structurally invalid: it would fire without ever being constrained.
      */
-    public boolean isEmptyInputPlacesList() {
-        return inP.isEmpty();
+    public boolean hasConsumingInput() {
+        return !inP.isEmpty() || externalIn.stream().anyMatch(arc -> !arc.isInformational());
     }
 
     /**

@@ -226,26 +226,33 @@ public class GraphPetriNet implements Cloneable, Serializable {
     }
 
     public boolean isCorrectInArcs() {
-        boolean b = false;
         for (GraphPetriTransition grT : graphPetriTransitionList) {
+            boolean hasInArc = false;
             for (GraphArcIn in : graphArcInList) {
                 if (in.getArcIn().getNumT() == grT.getNumber()) {
-                    b = true;
+                    hasInArc = true;
                     break;
                 }
             }
-            if (!b) {
-                break;
+            if (!hasInArc) {
+                return false;
             }
         }
-        return b;
+        return true;
     }
 
+    /**
+     * A transition with no output arc at all is a legitimate sink — {@link
+     * ua.stetsenkoinna.petriobj.PetriT#createOutP} only warns about one, it does not reject it —
+     * so unlike {@link #isCorrectInArcs()} this deliberately is not "every transition must have
+     * an output": that would block models that use sinks on purpose. Kept lenient, matching its
+     * behavior before {@link #isCorrectInArcs()} was tightened alongside it.
+     */
     public boolean isCorrectOutArcs() {
         boolean b = false;
         for (GraphPetriTransition grT : graphPetriTransitionList) {
-            for (GraphArcOut in : graphArcOutList) {
-                if (in.getArcOut().getNumT() == grT.getNumber()) {
+            for (GraphArcOut out : graphArcOutList) {
+                if (out.getArcOut().getNumT() == grT.getNumber()) {
                     b = true;
                     break;
                 }

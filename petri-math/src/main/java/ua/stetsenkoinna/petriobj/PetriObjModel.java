@@ -417,6 +417,19 @@ public class PetriObjModel implements Serializable, Cloneable  {
     }
 
     /**
+     * Checks every object's net now that every declared link has been wired in — the point at
+     * which a transition fed only by another Petri-object's place can finally be told apart
+     * from one with no input at all. See {@link PetriNet#validateStructure()}.
+     *
+     * @throws ExceptionInvalidTimeDelay naming the first transition with no consuming input
+     */
+    public void validateStructure() throws ExceptionInvalidTimeDelay {
+        for (PetriSim sim : listObj) {
+            sim.getNet().validateStructure();
+        }
+    }
+
+    /**
      * @return the link declarations of this model, in the order they were added
      */
     public List<PetriObjLink> getLinks() {

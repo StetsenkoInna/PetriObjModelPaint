@@ -138,6 +138,26 @@ public class PetriNet implements Cloneable, Serializable {
     }
 
     /**
+     * Checks that every transition has at least one input it actually consumes from.
+     *
+     * <p>{@link PetriT#createInP} used to reject a transition with no LOCAL input arc outright,
+     * which also rejected a transition fed only by another Petri-object's place — a legitimate
+     * topology that {@link PetriT#condition} already resolves correctly by reference. That link
+     * does not exist yet when a net is constructed, so the check has to run afterwards, once
+     * {@link PetriObjModel#addLink} has had a chance to wire it in.
+     *
+     * @throws ExceptionInvalidTimeDelay naming the first transition with no consuming input at all
+     */
+    public void validateStructure() throws ExceptionInvalidTimeDelay {
+        for (PetriT transition : ListT) {
+            if (!transition.hasConsumingInput()) {
+                throw new ExceptionInvalidTimeDelay(
+                        "Transition " + transition.getName() + " hasn't input positions!");
+            }
+        }
+    }
+
+    /**
      *
      * @return array of Petri net places
      */

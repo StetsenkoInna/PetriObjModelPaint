@@ -1476,6 +1476,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         errorFrame.setVisible(true);
                         return false;
         }
+        try {
+            getPetriNetsPanel().getGraphNet().getPetriNet().validateStructure();
+        } catch (ExceptionInvalidTimeDelay ex) {
+            errorFrame.setErrorMessage(" " + ex.getMessage());
+            errorFrame.setVisible(true);
+            return false;
+        }
         if (getPetriNetsPanel().getGraphNet().hasParameters()) {
             // Get the detailed list of unspecified parameters
             ArrayList<String> unspecifiedParams = getPetriNetsPanel().getGraphNet().getPetriNet().getUnspecifiedParameters();
@@ -1562,6 +1569,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
             LOGGER.error(ex.getMessage(), ex);
+            errorFrame.setErrorMessage(" " + ex.getMessage());
+            errorFrame.setVisible(true);
         }
     }
 
@@ -1586,6 +1595,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         for (PetriObjLink link : objModel.getLinks()) {
             model.addLink(link);
         }
+        model.validateStructure();
         return model;
     }
 
@@ -1619,6 +1629,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         } catch (ExceptionInvalidNetStructure | ExceptionInvalidTimeDelay ex) {
             LOGGER.error(ex.getMessage(), ex);
+            errorFrame.setErrorMessage(" " + ex.getMessage());
+            errorFrame.setVisible(true);
         }
     }
 
@@ -1655,6 +1667,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         for (PetriObjLink link : objModel.getLinks()) {
             model.addLink(link);
         }
+        model.validateStructure();
         return model;
     }
 

@@ -253,6 +253,7 @@ public class GraphPetriObjModel implements Serializable {
         for (PetriObjLink link : links) {
             model.addLink(link);
         }
+        model.validateStructure();
         return model;
     }
 
