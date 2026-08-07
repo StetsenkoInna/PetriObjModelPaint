@@ -96,6 +96,27 @@ public class AnimRunPetriObjModel extends PetriObjModel{
         Random r = new Random();
 
         while ((super.getCurrentTime() < super.getSimulationTime())) {
+            // Blocks here, before this iteration's event has changed anything, rather than
+            // relying only on doAfterStep()'s scattered mid-event checkpoints. Without this,
+            // re-arming `paused` at the bottom of the loop (below) was not enough on its own:
+            // the next iteration's conflict resolution and clock advance already ran by the
+            // time doAfterStep() got a chance to notice `paused`, so a step bled partway into
+            // the following event instead of stopping cleanly before it. A regular Pause still
+            // typically lands mid-event via doAfterStep() first, since that is checked far
+            // more often than once per event; this is the backstop for the gap between them.
+            synchronized (this) {
+                while (paused) {
+                    try {
+                        wait();
+                    } catch (InterruptedException e) {
+                        halt();
+                    }
+                }
+            }
+            if (isHalted()) {
+                return;
+            }
+
             conflictObj.clear();
 
             min = Double.MAX_VALUE;  //пошук найближчої події
