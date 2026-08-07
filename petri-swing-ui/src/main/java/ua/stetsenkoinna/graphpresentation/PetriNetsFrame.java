@@ -1376,13 +1376,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_openMonitorActionPerformed
 
     private void openMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMenuItemActionPerformed
+        if (!confirmDiscardingCurrentNet()) {
+            return;
+        }
         try {
-            fileUse.newWorksheet(getPetriNetsPanel());
-            timeStartField.setText(String.valueOf(0));
-
+            // Opening a file closes what is open and opens that instead — it is not a way to
+            // merge one net into another.
+            resetWorkspaceForNewDocument();
             netNameTextField.setText("Untitled");
-            protocolTextArea.setText("---------Events protocol----------");
-            statisticsTextArea.setText("---------STATISTICS---------");
             String pnetName = fileUse.openFile(getPetriNetsPanel(), this);
             if (pnetName != null) {
                 netNameTextField.setText(pnetName);
@@ -1710,6 +1711,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * frames on the canvas with their nets inside.
      */
     private void importPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
+        if (!confirmDiscardingCurrentNet()) {
+            return;
+        }
         try {
             java.awt.FileDialog fdlg = new java.awt.FileDialog(this, "Import PNML File", java.awt.FileDialog.LOAD);
             fdlg.setFile("*.pnml");
@@ -1721,6 +1725,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
             GraphPetriObjModel objModel = new PnmlModelParser().parse(selectedFile);
             GraphCanvasModel canvas = GraphCanvasModel.fromObjModel(objModel);
+            // Opening a document, so everything the old one left behind goes with it — the
+            // undo stack in particular, whose edits would otherwise apply to this new net.
+            resetWorkspaceForNewDocument();
             getPetriNetsPanel().setCanvasModel(canvas);
             netNameTextField.setText(objModel.getName());
 
