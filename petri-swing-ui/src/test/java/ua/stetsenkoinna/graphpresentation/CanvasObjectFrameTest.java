@@ -36,6 +36,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -642,5 +643,84 @@ public class CanvasObjectFrameTest {
         List<GraphObjectFrame> choosenFrames = (List<GraphObjectFrame>) field.get(panel);
 
         assertEquals(new HashSet<>(panel.getCanvasModel().getFrames()), new HashSet<>(choosenFrames));
+    }
+
+    @Test
+    public void draggingFromAVisibleElementsOwnBodySharesAPlace() throws Exception {
+        // Both frames are shown by default (the eye starts open), so this drags from PA's own
+        // drawn circle — not its, in that case undrawn, port — straight to PB's, the same
+        // gesture request asked for: reach a locked, but currently visible, element directly.
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphPetriPlace pa = (GraphPetriPlace) elementNamed(panel, "PA");
+        GraphPetriPlace pb = (GraphPetriPlace) elementNamed(panel, "PB");
+        assertTrue("fixture sanity check", panel.getCanvasModel().getFrames().getFirst().isContentShown());
+
+        Point paCenter = new Point(
+                (int) pa.getGraphElementCenter().getX(), (int) pa.getGraphElementCenter().getY());
+        Point pbCenter = new Point(
+                (int) pb.getGraphElementCenter().getX(), (int) pb.getGraphElementCenter().getY());
+
+        PetriNetsPanel.MouseHandler handler = panel.new MouseHandler();
+        handler.mousePressed(new MouseEvent(panel, MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0,
+                paCenter.x, paCenter.y, 1, false, MouseEvent.BUTTON1));
+        handler.mouseReleased(new MouseEvent(panel, MouseEvent.MOUSE_RELEASED, System.currentTimeMillis(), 0,
+                pbCenter.x, pbCenter.y, 1, false, MouseEvent.BUTTON1));
+
+        assertEquals(1, panel.getCanvasModel().getFusions().size());
+        assertTrue(panel.getCanvasModel().getFusions().getFirst().involves(pa));
+        assertTrue(panel.getCanvasModel().getFusions().getFirst().involves(pb));
+    }
+
+    @Test
+    public void resizeHandleWinsEvenWhenAnOwnedElementSitsOnTopOfIt() throws Exception {
+        // Ports could never overlap the resize handle before — they only ever sat on the
+        // frame's own border — but an element's full body, now also reachable there while
+        // shown, can if the frame has been shrunk small enough. The handle must still win.
+        PetriP.initNext();
+        PetriNetsPanel panel = new PetriNetsPanel(null, true);
+        GraphObjectFrame frame = new GraphObjectFrame("F", new Rectangle(0, 0, 120, 80)); // MIN size
+        GraphPetriPlace place = new GraphPetriPlace(new PetriP("P", 0), 900);
+        place.setNewCoordinates(new Point2D.Double(117, 77)); // inside the resize handle's own square
+        panel.getGraphNet().getGraphPetriPlaceList().add(place);
+        frame.addMember(place);
+        panel.addObjectFrame(frame);
+        assertTrue("fixture sanity check: the place really does sit on the handle",
+                frame.isOnResizeHandle(new Point2D.Double(117, 77)));
+
+        PetriNetsPanel.MouseHandler handler = panel.new MouseHandler();
+        handler.mousePressed(new MouseEvent(panel, MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0,
+                117, 77, 1, false, MouseEvent.BUTTON1));
+
+        Field resizedFrameField = PetriNetsPanel.class.getDeclaredField("resizedFrame");
+        resizedFrameField.setAccessible(true);
+        assertSame("the resize handle must win over the element sitting on top of it",
+                frame, resizedFrameField.get(panel));
+
+        Field draggedFromPortField = PetriNetsPanel.class.getDeclaredField("draggedFromPort");
+        draggedFromPortField.setAccessible(true);
+        assertNull("a link-drag must not have started instead", draggedFromPortField.get(panel));
+    }
+
+    @Test
+    public void draggingFromAHiddenElementsBodyDoesNothing() throws Exception {
+        // The counterpart to the test above: once content is hidden, the element's own drawn
+        // body is gone, so a press at its old coordinate must not still secretly reach it.
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphObjectFrame frameA = panel.getCanvasModel().getFrames().getFirst();
+        frameA.setContentVisible(false);
+        GraphPetriPlace pa = (GraphPetriPlace) elementNamed(panel, "PA");
+        GraphPetriPlace pb = (GraphPetriPlace) elementNamed(panel, "PB");
+        Point paCenter = new Point(
+                (int) pa.getGraphElementCenter().getX(), (int) pa.getGraphElementCenter().getY());
+        Point pbCenter = new Point(
+                (int) pb.getGraphElementCenter().getX(), (int) pb.getGraphElementCenter().getY());
+
+        PetriNetsPanel.MouseHandler handler = panel.new MouseHandler();
+        handler.mousePressed(new MouseEvent(panel, MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0,
+                paCenter.x, paCenter.y, 1, false, MouseEvent.BUTTON1));
+        handler.mouseReleased(new MouseEvent(panel, MouseEvent.MOUSE_RELEASED, System.currentTimeMillis(), 0,
+                pbCenter.x, pbCenter.y, 1, false, MouseEvent.BUTTON1));
+
+        assertTrue(panel.getCanvasModel().getFusions().isEmpty());
     }
 }

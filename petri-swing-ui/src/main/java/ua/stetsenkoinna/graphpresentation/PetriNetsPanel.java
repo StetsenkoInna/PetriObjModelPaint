@@ -43,6 +43,7 @@ import ua.stetsenkoinna.graphnet.GraphElementIdGenerator;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPlaceFusion;
+import ua.stetsenkoinna.graphnet.PortAnchor;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphArc;
@@ -448,8 +449,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (draggedFromPort != null && draggedPortCurrentPoint != null) {
             Color previous = g2.getColor();
             g2.setColor(Color.GRAY);
-            Point from = draggedFromPort.getPosition();
-            g2.drawLine(from.x, from.y, draggedPortCurrentPoint.x, draggedPortCurrentPoint.y);
+            // The same anchor a finished connection would use: the real element while it is on
+            // screen, its port only while its object is hidden — not always the port's own
+            // position, which would make the preview appear to start from the frame's border
+            // even when dragging from the element's own, now directly clickable, body.
+            GraphElement sourceElement = draggedFromPort.getElement();
+            Point from = connectionEndpoint(canvasModel.ownerOf(sourceElement), sourceElement);
+            if (from != null) {
+                g2.drawLine(from.x, from.y, draggedPortCurrentPoint.x, draggedPortCurrentPoint.y);
+            }
             g2.setColor(previous);
         }
 
@@ -526,11 +534,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     /**
      * @param frame the owner of an element whose content might currently be hidden
-     * @return true if that frame's net is not painted right now — collapsed and eye-hidden are
-     *         both reasons an element would not actually be on screen
+     * @return true if that frame's net is not painted right now
      */
     private boolean isContentHidden(GraphObjectFrame frame) {
-        return frame != null && (frame.isCollapsed() || !frame.isContentVisible());
+        return frame != null && !frame.isContentShown();
     }
 
     /**
@@ -553,46 +560,70 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Where one half of a connection — a shared place, or a crossing arc's end — is drawn: its
-     * port if its owning frame's content is currently hidden, its own position on the canvas
-     * otherwise (whether that is because it is free, or because its object is fully shown).
+     * Where one half of a connection — a shared place, or a crossing arc's end — is anchored:
+     * the real place or transition itself while it is on screen (whether that is because it is
+     * free, or because its object is fully shown), or a {@link PortAnchor} standing in for its
+     * port while its owning frame's content is hidden. Either way the result trims a line the
+     * same way {@link GraphArc#changeBorder()} always has — that trimming is the entire reason
+     * this returns something {@code changeBorder()} can consume, rather than a bare point.
      *
      * @param frame the half's owning frame, or {@code null} if it is free
-     * @param element the place or transition this is the position of
-     * @return the point to draw the connection's line to or from, or {@code null} if it cannot
+     * @param element the place or transition this is the anchor for
+     * @return what to give {@code GraphArc.setBeginElement}/{@code setEndElement}, or
+     *         {@code null} if a hidden half's port cannot currently be found
+     */
+    private GraphElement connectionAnchor(GraphObjectFrame frame, GraphElement element) {
+        if (!isContentHidden(frame)) {
+            return element;
+        }
+        for (FramePort port : canvasModel.portsOf(frame)) {
+            if (port.getElement() == element) {
+                return new PortAnchor(port.getPosition(), FramePort.RADIUS);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The point-only view of {@link #connectionAnchor}, for callers — the fusion line, the
+     * drag-in-progress preview — that only need where to draw to or from, not a full
+     * {@code GraphArc}-compatible endpoint.
+     *
+     * @return the point to draw a connection's line to or from, or {@code null} if it cannot
      *         currently be found
      */
     private Point connectionEndpoint(GraphObjectFrame frame, GraphElement element) {
-        if (isContentHidden(frame)) {
-            for (FramePort port : canvasModel.portsOf(frame)) {
-                if (port.getElement() == element) {
-                    return port.getPosition();
-                }
-            }
+        GraphElement anchor = connectionAnchor(frame, element);
+        if (anchor == null) {
             return null;
         }
-        Point2D centre = element.getGraphElementCenter();
+        Point2D centre = anchor.getGraphElementCenter();
         return centre == null ? null : new Point((int) centre.getX(), (int) centre.getY());
     }
 
     /**
-     * Substitutes a port-to-port (or port-to-free-position) line for every crossing arc that a
-     * hidden object's own drawing no longer shows — {@link #hiddenElements()} already kept
-     * {@code graphNet.paintGraphPetriNet} from drawing the arc itself, along with everything
-     * else belonging to that object, so only arcs whose two ends belong to different objects
-     * need a substitute; an arc entirely inside one hidden object is meant to simply vanish
-     * with the rest of it.
+     * Substitutes a line for every crossing arc that a hidden object's own drawing no longer
+     * shows — {@link #hiddenElements()} already kept {@code graphNet.paintGraphPetriNet} from
+     * drawing the arc itself, along with everything else belonging to that object, so only arcs
+     * whose two ends belong to different objects need a substitute; an arc entirely inside one
+     * hidden object is meant to simply vanish with the rest of it. The substitute is drawn by
+     * an ordinary, throwaway {@code GraphArcIn}/{@code GraphArcOut} — the same "temporary, for
+     * drawing only" arc their own no-argument constructors already exist for — so it gets the
+     * exact same border-trimmed line, arrowhead and quantity label a real one would, anchored
+     * to {@link #connectionAnchor} instead of two elements guaranteed to both be on screen.
      */
     private void paintCrossingArcSubstitutes(Graphics2D g2) {
         for (GraphArcIn arc : graphNet.getGraphArcInList()) {
-            paintCrossingArcSubstitute(g2, arc.getBeginElement(), arc.getEndElement());
+            paintCrossingArcSubstitute(g2, arc, new GraphArcIn());
         }
         for (GraphArcOut arc : graphNet.getGraphArcOutList()) {
-            paintCrossingArcSubstitute(g2, arc.getBeginElement(), arc.getEndElement());
+            paintCrossingArcSubstitute(g2, arc, new GraphArcOut());
         }
     }
 
-    private void paintCrossingArcSubstitute(Graphics2D g2, GraphElement begin, GraphElement end) {
+    private void paintCrossingArcSubstitute(Graphics2D g2, GraphArc arc, GraphArc temp) {
+        GraphElement begin = arc.getBeginElement();
+        GraphElement end = arc.getEndElement();
         GraphObjectFrame beginOwner = canvasModel.ownerOf(begin);
         GraphObjectFrame endOwner = canvasModel.ownerOf(end);
         if (beginOwner == endOwner) {
@@ -601,45 +632,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (!isContentHidden(beginOwner) && !isContentHidden(endOwner)) {
             return; // both ends are on screen already, drawn directly by paintGraphPetriNet
         }
-        Point from = connectionEndpoint(beginOwner, begin);
-        Point to = connectionEndpoint(endOwner, end);
-        if (from != null && to != null) {
-            drawConnectionLine(g2, from, to, true);
+        GraphElement beginAnchor = connectionAnchor(beginOwner, begin);
+        GraphElement endAnchor = connectionAnchor(endOwner, end);
+        if (beginAnchor == null || endAnchor == null) {
+            return;
         }
-    }
-
-    /**
-     * Draws a line the same way an ordinary arc would — solid, one pixel wide, black — with an
-     * arrowhead at {@code to} using the same small triangle {@link GraphArc#drawArrowHead}
-     * draws, reimplemented here since that one is anchored to an actual arc's own coordinates
-     * rather than to arbitrary points. The stroke and colour are set explicitly rather than
-     * left to whatever the graphics context happens to have active: {@code GraphArcIn} and
-     * {@code GraphArcOut} both set their own stroke without ever restoring the caller's, so
-     * relying on the ambient state here inherited whatever the last-drawn arc left behind.
-     */
-    private void drawConnectionLine(Graphics2D g2, Point from, Point to, boolean arrowAtEnd) {
-        Color previousColor = g2.getColor();
-        Stroke previousStroke = g2.getStroke();
-        g2.setColor(Color.BLACK);
-        g2.setStroke(new BasicStroke(1));
-        g2.drawLine(from.x, from.y, to.x, to.y);
-        if (arrowAtEnd) {
-            java.awt.Polygon arrowHead = new java.awt.Polygon();
-            arrowHead.addPoint(0, 0);
-            arrowHead.addPoint(-5, -10);
-            arrowHead.addPoint(5, -10);
-            java.awt.geom.AffineTransform tx = new java.awt.geom.AffineTransform();
-            double angle = Math.atan2(to.y - from.y, to.x - from.x);
-            tx.translate(to.x, to.y);
-            tx.rotate(angle - Math.PI / 2d);
-            Graphics2D arrowGraphics = (Graphics2D) g2.create();
-            arrowGraphics.setStroke(new BasicStroke(1));
-            arrowGraphics.transform(tx);
-            arrowGraphics.fill(arrowHead);
-            arrowGraphics.dispose();
-        }
-        g2.setColor(previousColor);
-        g2.setStroke(previousStroke);
+        // settingNewArc is also what initializes the arc's own Line2D — setBeginElement alone
+        // leaves it null, which changeBorder() (called below) unconditionally writes through.
+        temp.settingNewArc(beginAnchor);
+        temp.setEndElement(endAnchor);
+        temp.setQuantity(arc.getQuantity());
+        temp.setInf(arc.getIsInf());
+        temp.setColor(arc.getColor());
+        temp.changeBorder();
+        temp.drawGraphElement(g2);
     }
 
     private void printPointLocation(Point point, String s) {
@@ -1232,7 +1238,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
-            // A port always starts a link — no tool needs to be active first, since making
+            // A frame's header or its corner is grabbed ahead of everything below — including
+            // a port, or an owned element's own body standing in for one — since shrinking a
+            // frame down small enough can put its own contents underneath either. Ports were
+            // never able to overlap these before (they only ever sat on the border itself),
+            // but an element's full body, now also reachable the same way while shown, can.
+            resizedFrame = frameHandleAt(scaledCurrentMousePoint);
+            draggedFrame = resizedFrame == null ? frameHeaderAt(scaledCurrentMousePoint) : null;
+            if (resizedFrame != null || draggedFrame != null) {
+                GraphObjectFrame grabbed = resizedFrame != null ? resizedFrame : draggedFrame;
+                selectedFrame = grabbed;
+                frameDragOffset = new Point(
+                        scaledCurrentMousePoint.x - grabbed.getBounds().x,
+                        scaledCurrentMousePoint.y - grabbed.getBounds().y);
+                setCursor(new Cursor(resizedFrame != null ? Cursor.SE_RESIZE_CURSOR : Cursor.MOVE_CURSOR));
+                repaint();
+                return;
+            }
+
+            // A port — or, while its object is shown, the real element it stands in for —
+            // always starts a link next; no tool needs to be active first, since making
             // cross-object connections is the one thing a port is for.
             FramePort port = canvasModel.portAt(scaledCurrentMousePoint);
             if (port != null && SwingUtilities.isLeftMouseButton(ev)) {
@@ -1246,21 +1271,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
             if (SwingUtilities.isLeftMouseButton(ev)) {
                 leftMouseButtonPressed = true;
-            }
-
-            // A frame is grabbed by its header or its corner; anywhere else inside it the
-            // click belongs to the net drawn there.
-            resizedFrame = frameHandleAt(scaledCurrentMousePoint);
-            draggedFrame = resizedFrame == null ? frameHeaderAt(scaledCurrentMousePoint) : null;
-            if (resizedFrame != null || draggedFrame != null) {
-                GraphObjectFrame grabbed = resizedFrame != null ? resizedFrame : draggedFrame;
-                selectedFrame = grabbed;
-                frameDragOffset = new Point(
-                        scaledCurrentMousePoint.x - grabbed.getBounds().x,
-                        scaledCurrentMousePoint.y - grabbed.getBounds().y);
-                setCursor(new Cursor(resizedFrame != null ? Cursor.SE_RESIZE_CURSOR : Cursor.MOVE_CURSOR));
-                repaint();
-                return;
             }
 
             // Elements inside a Petri-object are edited in that object's own window, not

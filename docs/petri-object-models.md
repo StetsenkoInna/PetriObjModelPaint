@@ -81,30 +81,31 @@ refits the frame's outline around wherever its contents ended up; **Cancel**, or
 window any other way, restores every element to the position it had when the editor opened and
 applies nothing else. A frame without anything inside is empty until you open it and draw.
 
-**Linking objects.** A locked object still reaches the outside world through its **ports** —
-one small labelled circle per place and per transition, sitting on whichever of the frame's
-left, right or bottom sides is nearest to that element's own position inside the object, so a
-port reads as roughly where its element actually is rather than an arbitrary slot; the top side,
-under the header, never carries one. A port is only drawn while the eye icon has that object's
-own content hidden — with the real element on screen there is nothing left for the port to
-stand in for, though it still exists and can still be dragged from once it is visible again.
-Dragging from a port makes the link that fits what it is dropped on — another port, or a free
-place or transition:
+**Linking objects.** A locked object still reaches the outside world — dragging from one of its
+own places or transitions works exactly like dragging from a free element's, whether or not the
+eye currently has that object's content shown. While it is shown, drag straight from the real
+place or transition; while it is hidden, drag from its **port** instead — a small labelled
+circle standing in for it, sitting on whichever of the frame's left, right or bottom sides is
+nearest to that element's own position inside the object, so a port reads as roughly where its
+element actually is rather than an arbitrary slot; the top side, under the header, never carries
+one, and a port is only drawn while there is nothing else on screen for it to stand in for.
+Dragging makes the link that fits what it is dropped on — a port, a free place or transition, or
+another object's own element while that one is shown too:
 
-| Drag from a place port to | What you get |
-|---------------------------|---------------|
-| another place port, or a free place | the two places become one shared place |
-| a transition port, or a free transition | the place becomes an extra input of that transition |
+| Drag from a place (or its port) to | What you get |
+|-------------------------------------|---------------|
+| another place (or its port) | the two places become one shared place |
+| a transition (or its port) | the place becomes an extra input of that transition |
 
-| Drag from a transition port to | What you get |
-|---------------------------------|---------------|
-| a place port, or a free place | the transition delivers tokens into that place |
+| Drag from a transition (or its port) to | What you get |
+|-------------------------------------------|---------------|
+| a place (or its port) | the transition delivers tokens into that place |
 
-How a connection is drawn follows the same eye icon a frame's own content does: as a plain
-arrow straight between the two elements whenever both ends are actually on screen, and only
-from a port when the object on that end has its content hidden — there being no element there
-to point at otherwise. Weight and the informational flag for a place-to-transition link are set
-the same way an ordinary arc's are, by double-clicking it. Free elements — anything outside
+The line drawn for a link is an ordinary arc's — the same border-trimmed line and arrowhead a
+free element's arc gets, not a raw line pointing at bare centres — anchored to whichever of the
+two ends actually has something on screen to trim against: the real element while it is shown,
+its port while it is hidden. A weight and the informational flag for a place-to-transition link
+are set the same way an ordinary arc's are, by double-clicking it. Free elements — anything outside
 every frame — stay directly draggable and connectable exactly as before Petri-object composition
 existed, on top of being reachable from a port; a transition still cannot connect directly to
 another transition, framed or free.

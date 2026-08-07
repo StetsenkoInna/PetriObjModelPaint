@@ -56,6 +56,9 @@ public class GraphPlace extends GraphElement {
     @Override
     public int getBorder() { return getDiameter() / 2; }
 
+    @Override
+    public boolean isCircular() { return true; }
+
     public Ellipse2D getGraphElement() { return graphElement; }
     public void setGraphElement(Ellipse2D graphElement) { this.graphElement = graphElement; }
 }

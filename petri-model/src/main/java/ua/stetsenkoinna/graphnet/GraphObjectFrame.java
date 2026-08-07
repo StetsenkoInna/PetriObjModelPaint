@@ -164,6 +164,16 @@ public class GraphObjectFrame implements Serializable {
     }
 
     /**
+     * @return true if this object's own net is actually on screen right now — both the eye
+     *         icon has it shown and the frame is not collapsed, since a collapsed frame hides
+     *         everything regardless of what the eye says. The one thing to check before
+     *         reaching for a place or transition directly instead of through its port.
+     */
+    public boolean isContentShown() {
+        return !collapsed && contentVisible;
+    }
+
+    /**
      * @return the eye icon's clickable square in the header, in canvas coordinates
      */
     public Rectangle eyeIconBounds() {

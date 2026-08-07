@@ -25,6 +25,7 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
@@ -324,8 +325,36 @@ public class GraphCanvasModelTest {
         FramePort target = canvas.portsOf(source).getFirst();
 
         assertSame(target.getElement(), canvas.portAt(target.getPosition()).getElement());
-        assertNull(canvas.portAt(new Point2D.Double(
-                source.getBounds().getCenterX(), source.getBounds().getCenterY())));
+        // Genuinely empty space: none of Source's own elements sit anywhere near here, so
+        // unlike the frame's bare centre this cannot land on an element's own body either.
+        assertNull(canvas.portAt(new Point2D.Double(source.getBounds().x + 20, source.getBounds().getMaxY() - 10)));
+    }
+
+    @Test
+    public void portAtAlsoFindsTheOwningElementsOwnBodyWhileItIsShown() {
+        // A locked object's content is visible by default, so a point on the real element —
+        // not on its (undrawn, in that case) port circle — resolves to that element's port
+        // too: this is what lets it be dragged from directly while shown.
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphObjectFrame source = canvas.getFrames().getFirst();
+        GraphPetriPlace p0 = canvas.getNet().getGraphPetriPlaceList().getFirst();
+        assertTrue("fixture sanity check", source.isContentShown());
+
+        FramePort hit = canvas.portAt(p0.getGraphElementCenter());
+
+        assertNotNull(hit);
+        assertSame(p0, hit.getElement());
+    }
+
+    @Test
+    public void portAtIgnoresAnElementsBodyWhileItsObjectIsHidden() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphObjectFrame source = canvas.getFrames().getFirst();
+        GraphPetriPlace p0 = canvas.getNet().getGraphPetriPlaceList().getFirst();
+        source.setContentVisible(false);
+
+        assertNull("only the port circle itself should be reachable once content is hidden",
+                canvas.portAt(p0.getGraphElementCenter()));
     }
 
     @Test

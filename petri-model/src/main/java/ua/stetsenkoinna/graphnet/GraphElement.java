@@ -37,6 +37,16 @@ public class GraphElement implements Serializable {
         return 0;
     }
 
+    /**
+     * @return true if an arc reaching this element should be trimmed to it by a simple radius
+     *         around its centre — a place's circle, or anything that stands in for one, like a
+     *         port; false to trim against a rectangle instead, the way a transition is. See
+     *         {@link GraphArc#changeBorder()}, the one place this actually matters.
+     */
+    public boolean isCircular() {
+        return false;
+    }
+
     public int getId() {
         return 0;
     }

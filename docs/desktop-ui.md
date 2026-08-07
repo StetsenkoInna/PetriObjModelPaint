@@ -71,17 +71,18 @@ was and applies nothing.
 
 The eye icon in a frame's header shows or hides its own drawing, independent of the frame's
 size — the elements still exist and still hold their marking either way. A locked object
-connects to others through **ports** — small labelled circles around the frame's border, one
-per place and transition, drawn only while the eye has that object's content hidden — dragged
-from one to another, or onto a free element, to make a link; a connection is drawn straight
-between its two elements when both are on screen, and from a port only for whichever end has
-its object's content hidden.
+connects to others by dragging from one of its own places or transitions the same way a free
+element does; while its content is hidden that means dragging from its **port** instead — a
+small labelled circle standing in for the element, drawn on the frame's border only while there
+is nothing else on screen for it to stand in for. Either way the resulting link is drawn as an
+ordinary, border-trimmed arc, anchored to the port only on whichever end is actually hidden.
 
 | Class | Responsibility |
 |-------|----------------|
 | `ua.stetsenkoinna.graphnet.GraphCanvasModel` | The canvas document: the drawing, its object frames, its shared places, its ports — and reading all that as a model |
 | `ua.stetsenkoinna.graphnet.GraphObjectFrame` | One object's frame: move, resize, collapse, show/hide its content, its name and priority |
 | `ua.stetsenkoinna.graphnet.FramePort` | One port on a frame's border, standing in for a locked place or transition |
+| `ua.stetsenkoinna.graphnet.PortAnchor` | A fixed point an arc can trim its line to exactly like a real place — a port, or the pointer mid-drag |
 | `ua.stetsenkoinna.graphnet.GraphPlaceFusion` | Two places joined into one shared place |
 | `ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame` | The window one Petri-object's own net is edited in, with its own Save/Cancel |
 | `ua.stetsenkoinna.graphpresentation.objmodel.NetTemplateDialog` | Instantiating a net library template with arguments |

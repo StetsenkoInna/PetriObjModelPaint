@@ -192,12 +192,18 @@ public class GraphCanvasModel implements Serializable {
 
     /**
      * @param point a point on the canvas
-     * @return the port under that point, across every frame, or {@code null}
+     * @return the port under that point, across every frame, or {@code null}. While an
+     *         object's content is actually shown ({@link GraphObjectFrame#isContentShown()}),
+     *         a point on the real place or transition itself also resolves to that element's
+     *         port — its circle is not drawn there in that case, but the port it stands for is
+     *         still exactly what a link from it should be, so there is no reason a locked
+     *         element's own drawing should not be draggable the same way its port would be
      */
     public FramePort portAt(Point2D point) {
         for (GraphObjectFrame frame : frames) {
+            boolean contentShown = frame.isContentShown();
             for (FramePort port : portsOf(frame)) {
-                if (port.isNear(point)) {
+                if (port.isNear(point) || (contentShown && port.getElement().isGraphElement(point))) {
                     return port;
                 }
             }
