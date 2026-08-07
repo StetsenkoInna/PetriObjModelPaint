@@ -147,6 +147,27 @@ public class PetriObjModelPnmlTest {
         }
     }
 
+    /**
+     * A plain net — a PNML with no {@code <page>} elements, which is what most tools emit —
+     * parses as a single object with no recorded geometry. Opening it must put the net on the
+     * canvas as it is, not invent a Petri-object frame the document never described.
+     */
+    @Test
+    public void aPlainNetOpensWithoutAPetriObjectFrame() throws Exception {
+        // Exactly what PnmlModelParser produces for a document with no <page> elements: one
+        // object, named after the net, carrying no position or size of its own.
+        GraphPetriObjModel plain = new GraphPetriObjModel("Plain");
+        plain.addObject(new GraphPetriObject("Plain", chainNet("Plain", 1)));
+
+        ua.stetsenkoinna.graphnet.GraphCanvasModel canvas =
+                ua.stetsenkoinna.graphnet.GraphCanvasModel.fromObjModel(plain);
+
+        assertEquals("a plain net is not a Petri-object", 0, canvas.getFrames().size());
+        assertEquals("its elements still reach the canvas",
+                2, canvas.getNet().getGraphPetriPlaceList().size());
+        assertEquals(1, canvas.getNet().getGraphPetriTransitionList().size());
+    }
+
     @Test
     public void removingAnObjectDropsItsLinksAndRenumbersTheRest() throws Exception {
         GraphPetriObjModel model = twoObjectModel();

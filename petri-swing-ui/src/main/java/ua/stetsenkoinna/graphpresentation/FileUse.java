@@ -304,7 +304,21 @@ public class FileUse {
         return true;
     }
 
-    public String openMethod(PetriNetsPanel panel, String methodFullName, JFrame frame) throws ExceptionInvalidNetStructure {
+    /**
+     * Builds a net from a library method without putting it anywhere.
+     *
+     * <p>Returns the net rather than adding it to the canvas, because where it should land is
+     * the caller's decision — the user pointing at a spot, or the centre of a canvas that was
+     * just emptied for it. It used to add the net itself, which is why every load ended up
+     * wherever an automatic calculation guessed.
+     *
+     * @param methodFullName a net library method signature
+     * @param frame parent for any error dialog
+     * @param location where the built net's centroid should sit initially
+     * @return the built net, or {@code null} if the method could not be resolved or invoked
+     */
+    public GraphPetriNet buildLibraryNet(String methodFullName, JFrame frame, Point location)
+            throws ExceptionInvalidNetStructure {
         String methodName = methodFullName.substring(0, methodFullName.indexOf("("));
         try {
             Method method = null;
@@ -322,15 +336,7 @@ public class FileUse {
             }
             Object[] args = buildDefaultArgs(method.getParameterTypes());
             PetriNet net = (PetriNet) method.invoke(null, args);
-            PetriNetsFrame petriNetsFrame = (PetriNetsFrame) frame;
-            JScrollPane pane = petriNetsFrame.GetPetriNetPanelScrollPane();
-            Point paneCenter = new Point(pane.getLocation().x + pane.getBounds().width / 2,
-                    pane.getLocation().y + pane.getBounds().height / 2);
-            GraphPetriNet graphNet = SimpleNetGraphBuilder.build(net, paneCenter);
-            panel.addGraphNet(graphNet);
-            String pnetName = graphNet.getPetriNet().getName();
-            panel.repaint();
-            return pnetName;
+            return SimpleNetGraphBuilder.build(net, location);
         } catch (java.lang.reflect.InvocationTargetException e) {
             Throwable cause = e.getCause();
             if (cause instanceof ExceptionInvalidNetStructure ex) throw ex;

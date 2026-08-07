@@ -147,34 +147,122 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
 
     /**
-     * Resets the run so the newly-loaded net starts clean, centers it in view, and loads it
-     * — the same thing double-clicking a template in the old always-visible library sidebar
-     * used to do in one step, before that panel was removed. Both the "Open a method file"
-     * dialog and the PObjects library window load through here.
+     * Loads a net from the library and hands it to the user to position on the current canvas.
+     *
+     * <p>Nothing is placed automatically any more. This method used to re-centre whatever was
+     * already drawn — which dragged every element out of its Petri-object frame, since frames
+     * do not move with it — and then let the merge drop the new net wherever a calculation
+     * guessed, routinely on top of existing work.
      *
      * @param methodFullName a signature string from {@link #collectLibraryMethodNames()}
      */
     private void loadLibraryMethod(String methodFullName) {
-        if (methodFullName == null) {
+        GraphPetriNet net = buildLibraryNet(methodFullName);
+        if (net == null) {
             return;
         }
+        getPetriNetsPanel().placeNetInteractively(net);
+        // The canvas has to be the thing being looked at for "click where it goes" to make
+        // sense; the Nets window is non-modal and would otherwise still be covering it.
+        if (libraryListDialog != null && libraryListDialog.isVisible()) {
+            libraryListDialog.setVisible(false);
+        }
+        toFront();
+    }
+
+    /**
+     * Opens a library net as a new document: the canvas is emptied first, so the net arrives
+     * on a clean sheet rather than on top of whatever was already there.
+     *
+     * @param methodFullName a signature string from {@link #collectLibraryMethodNames()}
+     */
+    private void openLibraryMethodAsNewNet(String methodFullName) {
+        if (!confirmDiscardingCurrentNet()) {
+            return;
+        }
+        GraphPetriNet net = buildLibraryNet(methodFullName);
+        if (net == null) {
+            return;
+        }
+        resetWorkspaceForNewDocument();
+        // Nothing else is on the canvas now, so there is no placement decision to make — the
+        // middle of the view is the only sensible answer and asking would be busywork.
+        net.changeLocation(viewportCentreOnCanvas());
+        getPetriNetsPanel().addNet(net);
+        netNameTextField.setText(netNameOf(net, methodFullName));
+    }
+
+    /**
+     * @return true when it is safe to throw the current drawing away — either because there is
+     *         nothing on it, or because the user said so. The application tracks no "modified"
+     *         flag, so "has anything been drawn" is the closest honest approximation; erring
+     *         toward asking is the right side to err on when the alternative is silently
+     *         discarding someone's work.
+     */
+    private boolean confirmDiscardingCurrentNet() {
+        GraphPetriNet net = getPetriNetsPanel().getGraphNet();
+        boolean hasContent = net != null
+                && (!net.getGraphPetriPlaceList().isEmpty()
+                        || !net.getGraphPetriTransitionList().isEmpty());
+        if (!hasContent) {
+            return true;
+        }
+        return MessageHelper.showConfirmation(this,
+                "Open this net as a new one? What is on the canvas now will be discarded.");
+    }
+
+    /**
+     * Empties the editor for a new document. Every load path used to reset a different subset
+     * of this, which is how undo ended up able to operate against a net that had already been
+     * thrown away.
+     */
+    private void resetWorkspaceForNewDocument() {
+        fileUse.newWorksheet(getPetriNetsPanel());
+
+        // The recorded edits hold a reference to the panel and resolve its net lazily, so
+        // edits kept across a reset would apply themselves to the new document.
+        undoManager.discardAllEdits();
+        undoMenuItem.setEnabled(false);
+        redoMenuItem.setEnabled(false);
+
+        animationControls.resetForNewDocument();
+
+        timeStartField.setText(String.valueOf(0));
+        protocolTextArea.setText("---------Events protocol----------");
+        statisticsTextArea.setText("---------STATISTICS---------");
+    }
+
+    private GraphPetriNet buildLibraryNet(String methodFullName) {
+        if (methodFullName == null) {
+            return null;
+        }
         try {
-            timeStartField.setText(String.valueOf(0));
-            protocolTextArea.setText("---------Events protocol----------");
-            statisticsTextArea.setText("---------STATISTICS---------");
-
-            Point center = new Point(
-                    petriNetPanelScrollPane.getLocation().x + petriNetPanelScrollPane.getBounds().width / 2,
-                    petriNetPanelScrollPane.getLocation().y + petriNetPanelScrollPane.getBounds().height / 2);
-            getPetriNetsPanel().getGraphNet().changeLocation(center);
-
-            String pnetName = fileUse.openMethod(getPetriNetsPanel(), methodFullName, this);
-            if (pnetName != null) {
-                netNameTextField.setText(pnetName);
-            }
+            return fileUse.buildLibraryNet(methodFullName, this, viewportCentreOnCanvas());
         } catch (ExceptionInvalidNetStructure ex) {
             LOGGER.error("Unexpected error", ex);
+            return null;
         }
+    }
+
+    private static String netNameOf(GraphPetriNet net, String fallback) {
+        if (net.getPetriNet() != null && net.getPetriNet().getName() != null) {
+            return net.getPetriNet().getName();
+        }
+        int parenthesis = fallback.indexOf('(');
+        return parenthesis < 0 ? fallback : fallback.substring(0, parenthesis);
+    }
+
+    /**
+     * @return the middle of what the user can currently see, in canvas coordinates — the
+     *         scroll position and the zoom both have to be undone, since the viewport reports
+     *         its own pixels and the canvas paints through a scale transform
+     */
+    private Point viewportCentreOnCanvas() {
+        java.awt.Rectangle view = petriNetPanelScrollPane.getViewport().getViewRect();
+        double scale = getPetriNetsPanel().getScale();
+        return new Point(
+                (int) ((view.x + view.width / 2) / scale),
+                (int) ((view.y + view.height / 2) / scale));
     }
 
     /**
@@ -1288,13 +1376,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_openMonitorActionPerformed
 
     private void openMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_openMenuItemActionPerformed
+        if (!confirmDiscardingCurrentNet()) {
+            return;
+        }
         try {
-            fileUse.newWorksheet(getPetriNetsPanel());
-            timeStartField.setText(String.valueOf(0));
-
+            // Opening a file closes what is open and opens that instead — it is not a way to
+            // merge one net into another.
+            resetWorkspaceForNewDocument();
             netNameTextField.setText("Untitled");
-            protocolTextArea.setText("---------Events protocol----------");
-            statisticsTextArea.setText("---------STATISTICS---------");
             String pnetName = fileUse.openFile(getPetriNetsPanel(), this);
             if (pnetName != null) {
                 netNameTextField.setText(pnetName);
@@ -1607,8 +1696,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             dialog.pack();
             dialog.setLocationRelativeTo(null);
         }
+        // Opening a net from the menu starts a new document, the way opening a file does —
+        // as opposed to the Nets window, which adds one to the drawing in progress.
         dialogPanel.addOkButtonClickHandler((ActionEvent arg) ->
-                loadLibraryMethod(dialogPanel.getFieldText()));
+                openLibraryMethodAsNewNet(dialogPanel.getFieldText()));
         dialog.setVisible(true);
     }// GEN-LAST:event_openMethodMenuItemActionPerformed
 
@@ -1620,6 +1711,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * frames on the canvas with their nets inside.
      */
     private void importPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
+        if (!confirmDiscardingCurrentNet()) {
+            return;
+        }
         try {
             java.awt.FileDialog fdlg = new java.awt.FileDialog(this, "Import PNML File", java.awt.FileDialog.LOAD);
             fdlg.setFile("*.pnml");
@@ -1631,6 +1725,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
             GraphPetriObjModel objModel = new PnmlModelParser().parse(selectedFile);
             GraphCanvasModel canvas = GraphCanvasModel.fromObjModel(objModel);
+            // Opening a document, so everything the old one left behind goes with it — the
+            // undo stack in particular, whose edits would otherwise apply to this new net.
+            resetWorkspaceForNewDocument();
             getPetriNetsPanel().setCanvasModel(canvas);
             netNameTextField.setText(objModel.getName());
 

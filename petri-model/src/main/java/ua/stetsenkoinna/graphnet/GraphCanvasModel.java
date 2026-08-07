@@ -524,8 +524,14 @@ public class GraphCanvasModel implements Serializable {
 
         for (int index = 0; index < model.getObjectCount(); index++) {
             GraphPetriObject object = model.getObject(index);
-            boolean free = FREE_OBJECT_NAME.equals(object.getName()) && object.getPosition().x == 0
-                    && object.getPosition().y == 0 && object.getWidth() == 0;
+            // An object that recorded no geometry at all is not a Petri-object: it is either
+            // the loose elements of a canvas this application exported, or a plain net from a
+            // document that never described objects in the first place — a PNML with no
+            // <page> elements parses as exactly one such object. Drawing a frame around it
+            // would invent a Petri-object the document does not contain. A real frame always
+            // has a width, so its geometry is never all-zero.
+            boolean free = object.getPosition().x == 0 && object.getPosition().y == 0
+                    && object.getWidth() == 0 && object.getHeight() == 0;
 
             Rectangle bounds = new Rectangle(
                     object.getPosition().x, object.getPosition().y,
