@@ -61,20 +61,26 @@ a selection, an existing frame, or empty canvas — there is no separate menu. `
 `Ctrl+D` act on the selected frame the same way they already act on elements.
 
 Once elements belong to a frame they are locked on the shared canvas; the object's own net is
-edited in a window of its own, opened by double-clicking the frame or via its right-click
-**Edit net...**. That window operates on the same element instances the canvas holds, so
-changes are live; closing it is what applies any add/remove back onto the canvas.
+edited in a window of its own, opened by double-clicking anywhere on the frame or via its
+right-click **Edit net...**. That window operates on the same element instances the canvas
+holds; **Save** applies whatever changed — additions, removals, anything moved — back onto the
+canvas and refits the frame's outline to match, **Cancel** restores every element to where it
+was and applies nothing.
 
-A locked object connects to others through **ports** — small labelled circles around the
-frame's border, one per place and transition — dragged from one to another to make a link.
+The eye icon in a frame's header shows or hides its own drawing, independent of the frame's
+size — the elements still exist and still hold their marking either way. A locked object
+connects to others through **ports** — small labelled circles around the frame's border, one
+per place and transition — dragged from one to another, or onto a free element, to make a
+link; a connection is drawn straight between its two elements when both are on screen, and from
+a port only for whichever end has its object's content hidden.
 
 | Class | Responsibility |
 |-------|----------------|
 | `ua.stetsenkoinna.graphnet.GraphCanvasModel` | The canvas document: the drawing, its object frames, its shared places, its ports — and reading all that as a model |
-| `ua.stetsenkoinna.graphnet.GraphObjectFrame` | One object's frame: move, resize, collapse, its name and priority |
+| `ua.stetsenkoinna.graphnet.GraphObjectFrame` | One object's frame: move, resize, collapse, show/hide its content, its name and priority |
 | `ua.stetsenkoinna.graphnet.FramePort` | One port on a frame's border, standing in for a locked place or transition |
 | `ua.stetsenkoinna.graphnet.GraphPlaceFusion` | Two places joined into one shared place |
-| `ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame` | The window one Petri-object's own net is edited in |
+| `ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame` | The window one Petri-object's own net is edited in, with its own Save/Cancel |
 | `ua.stetsenkoinna.graphpresentation.objmodel.NetTemplateDialog` | Instantiating a net library template with arguments |
 
 Run and Animate simulate the whole canvas, animation included — a token leaving one object is

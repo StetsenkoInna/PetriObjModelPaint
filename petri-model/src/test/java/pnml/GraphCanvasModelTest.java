@@ -24,6 +24,7 @@ import java.awt.geom.Point2D;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
@@ -374,6 +375,36 @@ public class GraphCanvasModelTest {
         assertEquals("falls to the frame that still geometrically covers it",
                 inner, canvas.ownerOf(coveredByBoth));
         assertNull("nothing covers it anymore, so it becomes free", canvas.ownerOf(coveredByOuterOnly));
+    }
+
+    @Test
+    public void contentVisibleDefaultsTrueAndTogglingItNeverTouchesBounds() {
+        GraphObjectFrame frame = new GraphObjectFrame("F", new Rectangle(10, 10, 300, 200));
+        Rectangle before = new Rectangle(frame.getBounds());
+
+        assertTrue("an object's content starts shown", frame.isContentVisible());
+
+        frame.setContentVisible(false);
+        assertFalse(frame.isContentVisible());
+        assertEquals("hiding content is a drawing choice, not a resize", before, frame.getBounds());
+
+        frame.setContentVisible(true);
+        assertTrue(frame.isContentVisible());
+        assertEquals(before, frame.getBounds());
+    }
+
+    @Test
+    public void theEyeIconSitsInTheHeaderAndNowhereElseIsOnIt() {
+        GraphObjectFrame frame = new GraphObjectFrame("F", new Rectangle(0, 0, 300, 200));
+        Rectangle icon = frame.eyeIconBounds();
+
+        assertTrue("the icon must fit inside the header strip",
+                icon.y >= frame.getBounds().y && icon.y + icon.height <= frame.getBounds().y + GraphObjectFrame.HEADER_HEIGHT);
+        assertTrue(frame.isOnEyeIcon(new Point2D.Double(icon.getCenterX(), icon.getCenterY())));
+        assertFalse("the body is not the icon", frame.isOnEyeIcon(new Point2D.Double(
+                frame.getBounds().getCenterX(), frame.getBounds().getCenterY())));
+        assertFalse("the rest of the header is not the icon either",
+                frame.isOnEyeIcon(new Point2D.Double(frame.getBounds().x + frame.getBounds().width - 10, icon.getCenterY())));
     }
 
     @Test

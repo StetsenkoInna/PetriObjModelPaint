@@ -27,6 +27,7 @@ import java.awt.event.MouseWheelListener;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.TimerTask;
 
 import org.slf4j.Logger;
@@ -139,6 +140,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         this.editable = editable;
         initComponents();
         this.setBackground(Color.WHITE);
+
+        // These are plain JFrames with no owner window, so Swing has no way to tell they
+        // belong with this panel. Left as APPLICATION_MODAL_EXCLUDE by default, opening one
+        // while an application-modal dialog is showing elsewhere — the per-object editor,
+        // most notably — gets it blocked the instant it appears: it flashes and vanishes,
+        // since a blocked window cannot take focus or paint. Exempting them from that
+        // blocking is what lets a place or transition's own properties still be edited from
+        // inside the object editor.
+        setArcFrame.setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
+        setPositionFrame.setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
+        setTransitionFrame.setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
 
         nameTextField = textField;
         this.setNullPanel(); // починаємо заново створювати усі списки графічних елементів  //додано 3.12.2012
@@ -411,7 +423,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         // Expanded frames go under the drawing, collapsed ones over it: covering the net is
         // exactly what collapsing an object means on a shared canvas.
         paintObjectFrames(g2, false);
-        graphNet.paintGraphPetriNet(g2, g);
+        graphNet.paintGraphPetriNet(g2, g, hiddenElements());
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
             fusion.draw(g2, false);
         }
@@ -419,13 +431,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         paintPorts(g2);
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
             if (fusion.isAnchoredToAFrame()) {
-                Point masterPoint = fusionEndpoint(fusion.getMasterOwner(), fusion.getMaster());
-                Point joinedPoint = fusionEndpoint(fusion.getJoinedOwner(), fusion.getJoined());
+                Point masterPoint = connectionEndpoint(fusion.getMasterOwner(), fusion.getMaster());
+                Point joinedPoint = connectionEndpoint(fusion.getJoinedOwner(), fusion.getJoined());
                 if (masterPoint != null && joinedPoint != null) {
                     fusion.drawBetweenPorts(g2, masterPoint, joinedPoint, false);
                 }
             }
         }
+        paintCrossingArcSubstitutes(g2);
         if (draggedFromPort != null && draggedPortCurrentPoint != null) {
             Color previous = g2.getColor();
             g2.setColor(Color.GRAY);
@@ -503,25 +516,113 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Where one half of a fusion is drawn: its port if it belongs to a frame, its own position
-     * on the canvas if it is free.
-     *
-     * @param frame the half's owning frame, or {@code null} if it is free
-     * @param element the place this is the position of
-     * @return the point to draw the fusion's line to or from, or {@code null} if it cannot
-     *         currently be found
+     * @param frame the owner of an element whose content might currently be hidden
+     * @return true if that frame's net is not painted right now — collapsed and eye-hidden are
+     *         both reasons an element would not actually be on screen
      */
-    private Point fusionEndpoint(GraphObjectFrame frame, GraphElement element) {
-        if (frame == null) {
-            Point2D centre = element.getGraphElementCenter();
-            return centre == null ? null : new Point((int) centre.getX(), (int) centre.getY());
-        }
-        for (FramePort port : canvasModel.portsOf(frame)) {
-            if (port.getElement() == element) {
-                return port.getPosition();
+    private boolean isContentHidden(GraphObjectFrame frame) {
+        return frame != null && (frame.isCollapsed() || !frame.isContentVisible());
+    }
+
+    /**
+     * @return every place and transition that is not currently painted, because the frame that
+     *         claims it is collapsed or has its content hidden behind the eye icon
+     */
+    private java.util.Set<GraphElement> hiddenElements() {
+        java.util.Set<GraphElement> hidden = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
+            if (isContentHidden(canvasModel.ownerOf(place))) {
+                hidden.add(place);
             }
         }
-        return null;
+        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
+            if (isContentHidden(canvasModel.ownerOf(transition))) {
+                hidden.add(transition);
+            }
+        }
+        return hidden;
+    }
+
+    /**
+     * Where one half of a connection — a shared place, or a crossing arc's end — is drawn: its
+     * port if its owning frame's content is currently hidden, its own position on the canvas
+     * otherwise (whether that is because it is free, or because its object is fully shown).
+     *
+     * @param frame the half's owning frame, or {@code null} if it is free
+     * @param element the place or transition this is the position of
+     * @return the point to draw the connection's line to or from, or {@code null} if it cannot
+     *         currently be found
+     */
+    private Point connectionEndpoint(GraphObjectFrame frame, GraphElement element) {
+        if (isContentHidden(frame)) {
+            for (FramePort port : canvasModel.portsOf(frame)) {
+                if (port.getElement() == element) {
+                    return port.getPosition();
+                }
+            }
+            return null;
+        }
+        Point2D centre = element.getGraphElementCenter();
+        return centre == null ? null : new Point((int) centre.getX(), (int) centre.getY());
+    }
+
+    /**
+     * Substitutes a port-to-port (or port-to-free-position) line for every crossing arc that a
+     * hidden object's own drawing no longer shows — {@link #hiddenElements()} already kept
+     * {@code graphNet.paintGraphPetriNet} from drawing the arc itself, along with everything
+     * else belonging to that object, so only arcs whose two ends belong to different objects
+     * need a substitute; an arc entirely inside one hidden object is meant to simply vanish
+     * with the rest of it.
+     */
+    private void paintCrossingArcSubstitutes(Graphics2D g2) {
+        for (GraphArcIn arc : graphNet.getGraphArcInList()) {
+            paintCrossingArcSubstitute(g2, arc.getBeginElement(), arc.getEndElement());
+        }
+        for (GraphArcOut arc : graphNet.getGraphArcOutList()) {
+            paintCrossingArcSubstitute(g2, arc.getBeginElement(), arc.getEndElement());
+        }
+    }
+
+    private void paintCrossingArcSubstitute(Graphics2D g2, GraphElement begin, GraphElement end) {
+        GraphObjectFrame beginOwner = canvasModel.ownerOf(begin);
+        GraphObjectFrame endOwner = canvasModel.ownerOf(end);
+        if (beginOwner == endOwner) {
+            return; // internal to one object, or both free — paintGraphPetriNet already drew it
+        }
+        if (!isContentHidden(beginOwner) && !isContentHidden(endOwner)) {
+            return; // both ends are on screen already, drawn directly by paintGraphPetriNet
+        }
+        Point from = connectionEndpoint(beginOwner, begin);
+        Point to = connectionEndpoint(endOwner, end);
+        if (from != null && to != null) {
+            drawConnectionLine(g2, from, to, true);
+        }
+    }
+
+    /**
+     * Draws a plain line, optionally with an arrowhead at {@code to} — the same small triangle
+     * {@link GraphArc#drawArrowHead} uses, reimplemented here since it is anchored to that
+     * arc's own (currently not meaningful) coordinates rather than to arbitrary points.
+     */
+    private void drawConnectionLine(Graphics2D g2, Point from, Point to, boolean arrowAtEnd) {
+        Color previousColor = g2.getColor();
+        g2.setColor(Color.BLACK);
+        g2.drawLine(from.x, from.y, to.x, to.y);
+        if (arrowAtEnd) {
+            java.awt.Polygon arrowHead = new java.awt.Polygon();
+            arrowHead.addPoint(0, 0);
+            arrowHead.addPoint(-5, -10);
+            arrowHead.addPoint(5, -10);
+            java.awt.geom.AffineTransform tx = new java.awt.geom.AffineTransform();
+            double angle = Math.atan2(to.y - from.y, to.x - from.x);
+            tx.translate(to.x, to.y);
+            tx.rotate(angle - Math.PI / 2d);
+            Graphics2D arrowGraphics = (Graphics2D) g2.create();
+            arrowGraphics.transform(tx);
+            arrowGraphics.fill(arrowHead);
+            arrowGraphics.dispose();
+        }
+        g2.setColor(previousColor);
     }
 
     private void printPointLocation(Point point, String s) {
@@ -884,10 +985,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *
      * <p>The editor operates on the very same place, transition and arc instances the main
      * canvas already holds for this object — filtered into a net of their own, but not
-     * copied — so a moved place or an edited property is already live once it happens. What
-     * is not automatically live is structure: the editor's net is a separate list, so an
-     * element added or removed there has to be reconciled back into the main canvas's own
-     * lists, which is what happens once the (modal) dialog closes and this method resumes.
+     * copied. That is what makes structural change (an element added or removed) safe to hold
+     * back until the user presses Save: the editor's net is a separate list, so nothing this
+     * method does not explicitly copy over ever reaches the main canvas's own lists. Moving an
+     * element is a different story — it changes the same instance the canvas already shows —
+     * so a position snapshot taken before the dialog opens is what a Cancel restores instead.
      *
      * @param frame the object to edit
      */
@@ -897,14 +999,24 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         List<GraphPetriTransition> transitionsBefore = List.copyOf(objectNet.getGraphPetriTransitionList());
         List<GraphArcIn> arcsInBefore = List.copyOf(objectNet.getGraphArcInList());
         List<GraphArcOut> arcsOutBefore = List.copyOf(objectNet.getGraphArcOutList());
+        Map<GraphElement, Point2D> positionsBefore = snapshotPositions(placesBefore, transitionsBefore);
 
         PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
         editorPanel.setCanvasNet(objectNet);
         editorPanel.setPreferredSize(new java.awt.Dimension(
                 Math.max(500, frame.getBounds().width), Math.max(400, frame.getBounds().height)));
 
-        new ObjectEditorFrame(dialogOwner(), frame.getName(), editorPanel).setVisible(true);
+        ObjectEditorFrame editor = new ObjectEditorFrame(dialogOwner(), frame.getName(), editorPanel);
+        editor.setVisible(true);
         // Modal: execution resumes here only once the user closes the editor.
+
+        if (!editor.wasSaved()) {
+            restorePositions(positionsBefore);
+            canvasModel.syncFusions();
+            updateArcCoordinates();
+            repaint();
+            return;
+        }
 
         reconcile(graphNet.getGraphPetriPlaceList(), placesBefore, objectNet.getGraphPetriPlaceList());
         reconcile(graphNet.getGraphPetriTransitionList(), transitionsBefore, objectNet.getGraphPetriTransitionList());
@@ -913,9 +1025,36 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         reconcileMembership(frame, placesBefore, objectNet.getGraphPetriPlaceList());
         reconcileMembership(frame, transitionsBefore, objectNet.getGraphPetriTransitionList());
 
+        // The object may have gained, lost or repositioned elements while its own editor had
+        // it, so the frame drawn for it on the shared canvas is refit around what it now
+        // actually holds — an empty object, having nothing to fit around, keeps its size.
+        if (!frame.getMembers().isEmpty()) {
+            frame.setBounds(boundsAround(new ArrayList<>(frame.getMembers())));
+        }
+
         canvasModel.removeDanglingFusions();
         updateArcCoordinates();
         repaint();
+    }
+
+    private static Map<GraphElement, Point2D> snapshotPositions(
+            List<? extends GraphElement> places, List<? extends GraphElement> transitions) {
+        Map<GraphElement, Point2D> snapshot = new java.util.IdentityHashMap<>();
+        for (GraphElement element : places) {
+            snapshot.put(element, element.getGraphElementCenter());
+        }
+        for (GraphElement element : transitions) {
+            snapshot.put(element, element.getGraphElementCenter());
+        }
+        return snapshot;
+    }
+
+    private static void restorePositions(Map<GraphElement, Point2D> positions) {
+        for (Map.Entry<GraphElement, Point2D> entry : positions.entrySet()) {
+            if (entry.getValue() != null) {
+                entry.getKey().setNewCoordinates(entry.getValue());
+            }
+        }
     }
 
     /**
@@ -1046,6 +1185,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            // The eye icon sits inside the header's own rectangle, so it has to be checked
+            // ahead of the header hit-test below — otherwise the click would be read as the
+            // start of a frame drag instead of a toggle.
+            GraphObjectFrame eyeFrame = frameEyeIconAt(scaledCurrentMousePoint);
+            if (eyeFrame != null && SwingUtilities.isLeftMouseButton(ev)) {
+                eyeFrame.setContentVisible(!eyeFrame.isContentVisible());
+                selectedFrame = eyeFrame;
+                repaint();
+                return;
+            }
+
             // A port always starts a link — no tool needs to be active first, since making
             // cross-object connections is the one thing a port is for.
             FramePort port = canvasModel.portAt(scaledCurrentMousePoint);
@@ -1172,19 +1322,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
 
-            GraphObjectFrame header = frameHeaderAt(scaledCurrentMousePoint);
-            if (header != null) {
-                selectedFrame = header;
-                if (ev.getClickCount() >= 2) {
-                    header.setCollapsed(!header.isCollapsed());
-                }
-                repaint();
+            // The toggle already happened on mousePressed; this only keeps that same click
+            // from also being read as a frame click below (the icon sits inside the header's
+            // own rectangle, which canvasModel.frameAt would otherwise match too).
+            if (frameEyeIconAt(scaledCurrentMousePoint) != null) {
                 return;
             }
 
-            // The rest of the frame — its locked interior — selects the object on a single
-            // click; a double click opens that object's own editor, the only place its net
-            // can actually be changed.
+            // A frame — its header or its locked interior alike — selects the object on a
+            // single click; a double click opens that object's own editor, the only place its
+            // net can actually be changed.
             GraphObjectFrame frameAtPoint = canvasModel.frameAt(scaledCurrentMousePoint);
             if (frameAtPoint != null) {
                 selectedFrame = frameAtPoint;
@@ -2020,6 +2167,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         List<GraphObjectFrame> frames = canvasModel.getFrames();
         for (int index = frames.size() - 1; index >= 0; index--) {
             if (frames.get(index).isOnResizeHandle(point)) {
+                return frames.get(index);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @param point a point on the canvas
+     * @return the topmost frame whose eye icon is under the point, or {@code null}
+     */
+    private GraphObjectFrame frameEyeIconAt(Point2D point) {
+        List<GraphObjectFrame> frames = canvasModel.getFrames();
+        for (int index = frames.size() - 1; index >= 0; index--) {
+            if (frames.get(index).isOnEyeIcon(point)) {
                 return frames.get(index);
             }
         }

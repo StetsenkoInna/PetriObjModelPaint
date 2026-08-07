@@ -27,8 +27,13 @@ import java.util.Set;
  * thing that puts an element in this object, so moving the frame across the canvas can never by
  * itself hand it something it was never given.
  *
- * <p>Collapsing a frame hides the net inside it and leaves the object as a single node, for
- * when a model has grown past what fits on screen.
+ * <p>Collapsing a frame shrinks it down to a small node, for when a model has grown past what
+ * fits on screen — a distinct, coarser thing from the eye icon in the header, which only ever
+ * hides the net's drawing without changing the frame's own size: what a collapsed frame does to
+ * its footprint on the canvas, the eye does to what is painted inside that footprint. Either
+ * way an object's own places and transitions still exist and still hold their marking; hiding
+ * them is a drawing choice, not a structural one, which is also why a locked object still
+ * reaches the rest of the model through its ports regardless of whether its content is shown.
  */
 public class GraphObjectFrame implements Serializable {
 
@@ -42,6 +47,9 @@ public class GraphObjectFrame implements Serializable {
     /** Size of the node a collapsed frame shrinks to. */
     public static final int COLLAPSED_WIDTH = 170;
     public static final int COLLAPSED_HEIGHT = HEADER_HEIGHT + 34;
+    /** Side of the square eye icon in the header that toggles {@link #isContentVisible()}. */
+    public static final int EYE_ICON_SIZE = 14;
+    private static final int EYE_ICON_MARGIN = 4;
 
     private static final Color BORDER = new Color(0x33, 0x5A, 0x8A);
     private static final Color BORDER_SELECTED = new Color(0xD9, 0x7A, 0x00);
@@ -55,6 +63,7 @@ public class GraphObjectFrame implements Serializable {
     private int priority;
     private Rectangle bounds;
     private boolean collapsed;
+    private boolean contentVisible = true;
     private NetTemplateRef template;
 
     /** Bounds the frame had before it was collapsed, so expanding restores them. */
@@ -134,6 +143,42 @@ public class GraphObjectFrame implements Serializable {
                     Math.max(bounds.width, MIN_WIDTH * 2), Math.max(bounds.height, MIN_HEIGHT * 2));
         }
         this.collapsed = collapsed;
+    }
+
+    /**
+     * @return true if this object's own net is painted; false if only its header, border and
+     *         ports are — the elements themselves still exist and still hold their marking
+     */
+    public boolean isContentVisible() {
+        return contentVisible;
+    }
+
+    /**
+     * Shows or hides this object's net, without touching the frame's size — see the class doc
+     * for how this differs from {@link #setCollapsed}.
+     *
+     * @param contentVisible false to hide the net inside
+     */
+    public void setContentVisible(boolean contentVisible) {
+        this.contentVisible = contentVisible;
+    }
+
+    /**
+     * @return the eye icon's clickable square in the header, in canvas coordinates
+     */
+    public Rectangle eyeIconBounds() {
+        return new Rectangle(bounds.x + EYE_ICON_MARGIN, bounds.y + (HEADER_HEIGHT - EYE_ICON_SIZE) / 2,
+                EYE_ICON_SIZE, EYE_ICON_SIZE);
+    }
+
+    /**
+     * @param point a point on the canvas
+     * @return true if the point is on the header's eye icon, which toggles
+     *         {@link #isContentVisible()} — checked ahead of {@link #isOnHeader} so a click on
+     *         the icon does not also start dragging the frame
+     */
+    public boolean isOnEyeIcon(Point2D point) {
+        return eyeIconBounds().contains(point.getX(), point.getY());
     }
 
     /**
@@ -240,10 +285,13 @@ public class GraphObjectFrame implements Serializable {
         g2.drawRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 14, 14);
         g2.drawLine(bounds.x, bounds.y + HEADER_HEIGHT, bounds.x + bounds.width, bounds.y + HEADER_HEIGHT);
 
+        drawEyeIcon(g2);
+
         g2.setColor(TEXT);
         g2.setFont(NAME_FONT);
         String title = "O" + index + "  " + name + (collapsed ? "  ▸" : "  ▾");
-        g2.drawString(title, bounds.x + 8, bounds.y + 15);
+        int titleX = bounds.x + EYE_ICON_MARGIN + EYE_ICON_SIZE + 6;
+        g2.drawString(title, titleX, bounds.y + 15);
 
         g2.setFont(DETAIL_FONT);
         String detail = "priority " + priority;
@@ -265,5 +313,29 @@ public class GraphObjectFrame implements Serializable {
         g2.setStroke(previousStroke);
         g2.setColor(previousColor);
         g2.setFont(previousFont);
+    }
+
+    /**
+     * Draws the eye icon: an open eye when the content is visible, an eye with a line through
+     * it when it is hidden — a plain vector glyph rather than a font character, so it renders
+     * identically regardless of what fonts happen to be installed.
+     */
+    private void drawEyeIcon(Graphics2D g2) {
+        Color previousColor = g2.getColor();
+        Stroke previousStroke = g2.getStroke();
+
+        Rectangle icon = eyeIconBounds();
+        g2.setColor(TEXT);
+        g2.setStroke(new BasicStroke(1.3f));
+        g2.drawOval(icon.x, icon.y + icon.height / 4, icon.width, icon.height / 2);
+        if (contentVisible) {
+            int pupil = 4;
+            g2.fillOval(icon.x + icon.width / 2 - pupil / 2, icon.y + icon.height / 2 - pupil / 2, pupil, pupil);
+        } else {
+            g2.drawLine(icon.x, icon.y, icon.x + icon.width, icon.y + icon.height);
+        }
+
+        g2.setColor(previousColor);
+        g2.setStroke(previousStroke);
     }
 }

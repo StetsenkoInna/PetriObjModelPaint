@@ -60,20 +60,23 @@ picture. Every object action — creating, naming, linking, deleting — is reac
   several alike objects
 
 **Handling frames.** Grab a frame by its header to move it — its net travels with it — by its
-bottom-right corner to resize it, and double-click the header to collapse it to a node when
-the model outgrows the screen. `Delete` removes the selected frame (its net stays on the
-canvas), `Ctrl+D` duplicates it — the same actions the elements inside it already respond to,
-now extended to the object as a whole. Rename, priority and removal are also on the frame's
-right-click menu.
+bottom-right corner to resize it. The small eye icon in the header shows or hides the object's
+own drawing without changing the frame's size at all — a purely visual choice, for a model with
+more objects than screen space; the object's places and transitions still exist and still hold
+their marking either way, they are just not painted while the eye is closed. `Delete` removes
+the selected frame (its net stays on the canvas), `Ctrl+D` duplicates it — the same actions the
+elements inside it already respond to, now extended to the object as a whole. Rename, priority
+and removal are also on the frame's right-click menu.
 
 **Editing an object's net.** Once elements belong to a frame they are locked on the shared
 canvas — position, arcs and everything else about them can only be changed by opening the
-object's own editor: **double-click anywhere inside the frame**, or right-click it and choose
-**Edit net...**. That opens an ordinary net editor scoped to just this object, operating on
-the very same places, transitions and arcs the main canvas holds for it, so a change is live
-the moment it happens; there is nothing to save. Closing the window is what applies anything
-you added or removed there back onto the canvas. A frame without anything inside is empty
-until you open it and draw.
+object's own editor: **double-click anywhere on the frame**, or right-click it and choose
+**Edit net...**. That opens an ordinary net editor scoped to just this object, operating on the
+very same places, transitions and arcs the main canvas holds for it. **Save** is what applies
+whatever changed there — additions, removals, anything moved — back onto the canvas, and also
+refits the frame's outline around wherever its contents ended up; **Cancel**, or closing the
+window any other way, restores every element to the position it had when the editor opened and
+applies nothing else. A frame without anything inside is empty until you open it and draw.
 
 **Linking objects.** A locked object still reaches the outside world through its **ports** —
 one small labelled circle per place and per transition, sitting on whichever of the frame's
@@ -91,14 +94,14 @@ dropped on — another port, or a free place or transition:
 |---------------------------------|---------------|
 | a place port, or a free place | the transition delivers tokens into that place |
 
-A shared place is drawn as a line between the two ends — a port for a framed half, the place's
-own position for a free one — since the places themselves may sit deep inside two different,
-unrelated objects, or one inside an object and one nowhere in particular, and there is no
-reason to move either of them. Weight and the informational flag for a place-to-transition link
-are set the same way an ordinary arc's are, by double-clicking it. Free elements — anything
-outside every frame — stay directly draggable and connectable exactly as before Petri-object
-composition existed, on top of being reachable from a port; a transition still cannot connect
-directly to another transition, framed or free.
+How a connection is drawn follows the same eye icon a frame's own content does: as a plain
+arrow straight between the two elements whenever both ends are actually on screen, and only
+from a port when the object on that end has its content hidden — there being no element there
+to point at otherwise. Weight and the informational flag for a place-to-transition link are set
+the same way an ordinary arc's are, by double-clicking it. Free elements — anything outside
+every frame — stay directly draggable and connectable exactly as before Petri-object composition
+existed, on top of being reachable from a port; a transition still cannot connect directly to
+another transition, framed or free.
 
 **Running.** **Run** and **Animate** simulate the whole canvas: every frame is an object,
 every port-to-port link is a link between them, and anything outside every frame is one more
@@ -247,8 +250,9 @@ curl -X POST http://localhost:8080/api/v2/model/parse \
   rebuilds the net from its drawing before every run and every save, so the two stay in step.
 - **A shared place does not move either half.** The two places may sit deep inside two
   different objects, or one inside an object and one nowhere in particular; joining them never
-  repositions either one, and the connection is drawn as a line — to a port for a framed half,
-  to the place itself for a free one — rather than a ring around a shared point.
+  repositions either one, and the connection is drawn as a line — to a port for a half whose
+  object has its content hidden, to the place itself otherwise — rather than a ring around a
+  shared point.
 - **A transition needs a local input place.** External arcs extend the firing condition, so a
   transition fed only by another object is not a valid net.
 - **An object's membership is exactly what put something in it.** Grouping, drawing it inside

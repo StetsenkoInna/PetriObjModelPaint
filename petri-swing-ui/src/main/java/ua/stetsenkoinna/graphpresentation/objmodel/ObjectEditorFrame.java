@@ -9,11 +9,12 @@ import ua.stetsenkoinna.petriobj.PetriT;
 
 import javax.swing.JButton;
 import javax.swing.JDialog;
-import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JToolBar;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Window;
 
 /**
@@ -25,16 +26,18 @@ import java.awt.Window;
  * existed, showing just this object's own places, transitions and internal arcs; links to
  * other objects live outside it, on the frame's ports.
  *
- * <p>The panel it wraps operates on the very same element instances the main canvas holds
- * for this object, so a position or property change is already live the moment it happens —
- * nothing here needs an explicit save. What does need the caller's attention on close is
- * structural change (elements added or removed), since this dialog's net is a separate list
- * of those same instances: see {@code PetriNetsPanel.openObjectEditor}, which builds that list
- * and reconciles it against the main canvas once this window closes.
+ * <p>The panel it wraps operates on the very same element instances the main canvas holds for
+ * this object, so while this window is open, a moved element is already the same move the main
+ * canvas would show if it were visible underneath. What only takes effect on {@link #wasSaved}
+ * is what the caller — {@code PetriNetsPanel.openObjectEditor} — does with that once this
+ * window closes: on Save it reconciles this net's own separate list of elements into the main
+ * canvas's (which is what makes an addition or removal here take effect at all), and on Cancel
+ * it instead restores every element to the position it had when this window opened.
  */
 public class ObjectEditorFrame extends JDialog {
 
     private final PetriNetsPanel panel;
+    private boolean saved;
 
     /**
      * @param owner window to centre on and block while this dialog is open
@@ -47,6 +50,15 @@ public class ObjectEditorFrame extends JDialog {
         buildUi();
         pack();
         setLocationRelativeTo(owner);
+    }
+
+    /**
+     * @return true if Save was pressed; false if the window was closed any other way (Cancel,
+     *         the window's own close button), meaning the caller should discard what changed
+     *         here rather than apply it
+     */
+    public boolean wasSaved() {
+        return saved;
     }
 
     private void buildUi() {
@@ -69,11 +81,20 @@ public class ObjectEditorFrame extends JDialog {
         arcButton.addActionListener(e -> panel.setIsSettingArc(true));
         toolBar.add(arcButton);
 
-        toolBar.addSeparator();
-        toolBar.add(new JLabel(" Delete removes the selected element or arc "));
+        JButton cancelButton = new JButton("Cancel");
+        cancelButton.setToolTipText("Close without keeping anything changed here");
+        cancelButton.addActionListener(e -> dispose());
 
-        JButton doneButton = new JButton("Done");
-        doneButton.addActionListener(e -> dispose());
+        JButton saveButton = new JButton("Save");
+        saveButton.setToolTipText("Apply what changed here to the Petri-object");
+        saveButton.addActionListener(e -> {
+            saved = true;
+            dispose();
+        });
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttons.add(cancelButton);
+        buttons.add(saveButton);
 
         panel.setPreferredSize(new Dimension(
                 Math.max(500, panel.getPreferredSize().width),
@@ -82,8 +103,9 @@ public class ObjectEditorFrame extends JDialog {
         setLayout(new BorderLayout());
         add(toolBar, BorderLayout.NORTH);
         add(new JScrollPane(panel), BorderLayout.CENTER);
-        add(doneButton, BorderLayout.SOUTH);
-        getRootPane().setDefaultButton(doneButton);
+        add(buttons, BorderLayout.SOUTH);
+        getRootPane().setDefaultButton(saveButton);
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
     }
 
     private void addPlace() {

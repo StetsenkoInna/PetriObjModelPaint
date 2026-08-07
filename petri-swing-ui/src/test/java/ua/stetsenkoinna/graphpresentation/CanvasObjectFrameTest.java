@@ -14,6 +14,10 @@ import ua.stetsenkoinna.petriobj.ArcOut;
 import ua.stetsenkoinna.petriobj.PetriP;
 import ua.stetsenkoinna.petriobj.PetriT;
 
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -21,6 +25,9 @@ import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Predicate;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -177,6 +184,35 @@ public class CanvasObjectFrameTest {
             }
         }
         throw new AssertionError("no port for " + elementName);
+    }
+
+    private static GraphElement elementNamed(PetriNetsPanel panel, String name) {
+        for (GraphPetriPlace place : panel.getGraphNet().getGraphPetriPlaceList()) {
+            if (place.getName().equals(name)) {
+                return place;
+            }
+        }
+        for (GraphPetriTransition transition : panel.getGraphNet().getGraphPetriTransitionList()) {
+            if (transition.getName().equals(name)) {
+                return transition;
+            }
+        }
+        throw new AssertionError("no element named " + name);
+    }
+
+    private static <T extends Component> T findComponent(Container root, Class<T> type, Predicate<T> matches) {
+        for (Component c : root.getComponents()) {
+            if (type.isInstance(c) && matches.test(type.cast(c))) {
+                return type.cast(c);
+            }
+            if (c instanceof Container container) {
+                T found = findComponent(container, type, matches);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     /** Drives {@code finishPortDrag} the way a completed drag from one port to another would. */
@@ -392,6 +428,149 @@ public class CanvasObjectFrameTest {
         assertEquals(1, editorPanel.getGraphNet().getGraphPetriPlaceList().size());
         assertEquals(1, editorPanel.getGraphNet().getGraphPetriTransitionList().size());
         editor.dispose();
+    }
+
+    @Test
+    public void propertyDialogsAreExemptFromModalBlocking() throws Exception {
+        // ObjectEditorFrame is APPLICATION_MODAL; without this exemption Swing blocks these
+        // plain, ownerless JFrames the instant it shows, which is why opening a place or
+        // transition's own properties from inside the object editor used to flash and vanish.
+        PetriNetsPanel panel = new PetriNetsPanel(null, true);
+
+        java.awt.Dialog.ModalExclusionType exclude = java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE;
+        assertEquals(exclude, panel.setPositionFrame.getModalExclusionType());
+        assertEquals(exclude, panel.setTransitionFrame.getModalExclusionType());
+        assertEquals(exclude, panel.setArcFrame.getModalExclusionType());
+    }
+
+    @Test
+    public void hiddenElementsIncludesOnlyEyeHiddenOrCollapsedFrameMembers() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        List<GraphObjectFrame> frames = panel.getCanvasModel().getFrames();
+        frames.get(0).setContentVisible(false);
+
+        Method hiddenElements = PetriNetsPanel.class.getDeclaredMethod("hiddenElements");
+        hiddenElements.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Set<GraphElement> hidden = (Set<GraphElement>) hiddenElements.invoke(panel);
+
+        assertTrue(hidden.contains(elementNamed(panel, "PA")));
+        assertTrue(hidden.contains(elementNamed(panel, "TA")));
+        assertFalse("frame B is still shown", hidden.contains(elementNamed(panel, "PB")));
+        assertFalse(hidden.contains(elementNamed(panel, "TB")));
+    }
+
+    @Test
+    public void connectionEndpointUsesThePortOnlyWhileHidden() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphObjectFrame frameA = panel.getCanvasModel().getFrames().getFirst();
+        GraphElement placeA = elementNamed(panel, "PA");
+
+        Method connectionEndpoint = PetriNetsPanel.class.getDeclaredMethod(
+                "connectionEndpoint", GraphObjectFrame.class, GraphElement.class);
+        connectionEndpoint.setAccessible(true);
+
+        Point shown = (Point) connectionEndpoint.invoke(panel, frameA, placeA);
+        assertEquals("visible, so the connection anchors to the real element",
+                (int) placeA.getGraphElementCenter().getX(), shown.x);
+
+        frameA.setContentVisible(false);
+        Point hiddenPoint = (Point) connectionEndpoint.invoke(panel, frameA, placeA);
+        assertEquals("hidden, so the connection anchors to the port instead",
+                portOf(panel, frameA, "PA").getPosition(), hiddenPoint);
+    }
+
+    @Test
+    public void aCanvasWithAHiddenObjectAndACrossingArcStillPaints() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        List<GraphObjectFrame> frames = panel.getCanvasModel().getFrames();
+        dragPort(panel, portOf(panel, frames.get(0), "TA"), portOf(panel, frames.get(1), "PB"));
+        frames.getFirst().setContentVisible(false);
+        panel.setSize(900, 600);
+
+        BufferedImage image = new BufferedImage(900, 600, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        panel.paintComponent(graphics);
+        graphics.dispose();
+
+        assertNotNull(panel.getCanvasModel());
+    }
+
+    @Test
+    public void snapshotAndRestorePositionsRoundTrips() throws Exception {
+        PetriP.initNext();
+        GraphPetriPlace place = new GraphPetriPlace(new PetriP("P", 0), 500);
+        place.setNewCoordinates(new Point2D.Double(10, 20));
+
+        Method snapshot = PetriNetsPanel.class.getDeclaredMethod("snapshotPositions", List.class, List.class);
+        snapshot.setAccessible(true);
+        Object positions = snapshot.invoke(null, List.of(place), List.of());
+
+        place.setNewCoordinates(new Point2D.Double(500, 500)); // simulates an edit made in the sub-editor
+
+        Method restore = PetriNetsPanel.class.getDeclaredMethod("restorePositions", Map.class);
+        restore.setAccessible(true);
+        restore.invoke(null, positions);
+
+        assertEquals(10.0, place.getGraphElementCenter().getX(), 0.001);
+        assertEquals(20.0, place.getGraphElementCenter().getY(), 0.001);
+    }
+
+    @Test
+    public void savingTheObjectEditorSetsWasSaved() {
+        PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
+        editorPanel.setGraphNet(new GraphPetriNet());
+        ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame editor =
+                new ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame(null, "Test", editorPanel);
+
+        assertFalse(editor.wasSaved());
+        findComponent(editor.getContentPane(), JButton.class, b -> "Save".equals(b.getText())).doClick();
+
+        assertTrue("closing via Save is what tells the caller to apply what changed", editor.wasSaved());
+    }
+
+    @Test
+    public void cancellingTheObjectEditorLeavesWasSavedFalse() {
+        PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
+        editorPanel.setGraphNet(new GraphPetriNet());
+        ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame editor =
+                new ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame(null, "Test", editorPanel);
+
+        findComponent(editor.getContentPane(), JButton.class, b -> "Cancel".equals(b.getText())).doClick();
+
+        assertFalse(editor.wasSaved());
+    }
+
+    @Test
+    public void theEditorNoLongerShowsTheDeleteHintLabel() {
+        PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
+        editorPanel.setGraphNet(new GraphPetriNet());
+        ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame editor =
+                new ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame(null, "Test", editorPanel);
+
+        assertNull(findComponent(editor.getContentPane(), JLabel.class,
+                l -> l.getText() != null && l.getText().contains("Delete removes")));
+        editor.dispose();
+    }
+
+    @Test
+    public void boundsAroundFitsEveryGivenElementWithRoomToSpare() throws Exception {
+        // This is the helper openObjectEditor refits a frame with once Save is pressed, so its
+        // own elements — wherever the editor left them — are what decides the frame's outline.
+        PetriP.initNext();
+        GraphPetriPlace farLeft = new GraphPetriPlace(new PetriP("L", 0), 501);
+        farLeft.setNewCoordinates(new Point2D.Double(20, 20));
+        GraphPetriPlace farRight = new GraphPetriPlace(new PetriP("R", 0), 502);
+        farRight.setNewCoordinates(new Point2D.Double(400, 300));
+
+        Method boundsAround = PetriNetsPanel.class.getDeclaredMethod("boundsAround", List.class);
+        boundsAround.setAccessible(true);
+        Rectangle bounds = (Rectangle) boundsAround.invoke(null, List.of(farLeft, farRight));
+
+        assertTrue("must reach out to the left-most element", bounds.x <= 20);
+        assertTrue("must reach out to the top-most element", bounds.y <= 20);
+        assertTrue("must reach out to the right-most element", bounds.x + bounds.width >= 400);
+        assertTrue("must reach out to the bottom-most element", bounds.y + bounds.height >= 300);
     }
 
     @Test
