@@ -1326,20 +1326,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         getPetriNetsPanel().setIsSettingArc(true);
     }//GEN-LAST:event_newArcButtonActionPerformed
 
-    private void itemResetNetActionPerformed(java.awt.event.ActionEvent evt) {
-        GraphPetriNet graphPetriNetBackup = GraphPetriNetBackupHolder.getInstance().get();
-        if (graphPetriNetBackup != null) {
-            getPetriNetsPanel().setGraphNet(graphPetriNetBackup);
-
-            GraphPetriNetBackupHolder.getInstance()
-                    .save(new GraphPetriNet(getPetriNetsPanel().getGraphNet()));
-
-            getPetriNetsPanel().requestFocusInWindow();
-            getPetriNetsPanel().redraw();
-        }
-    }
-
-
     private void undoMenuItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_undoMenuItemActionPerformed
         if (undoManager.canUndo()) {
             undoManager.undo();

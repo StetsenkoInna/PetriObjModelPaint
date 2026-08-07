@@ -10,6 +10,7 @@ import java.awt.geom.Point2D;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -93,6 +94,35 @@ public class GraphObjectFrame implements Serializable {
     public GraphObjectFrame(String name, Rectangle bounds) {
         this.name = Objects.requireNonNull(name, "name");
         this.bounds = Objects.requireNonNull(bounds, "bounds");
+    }
+
+    /**
+     * Copies another frame's own state — bounds, name, priority, template, collapsed and
+     * content-visibility — and translates its membership through {@code oldToNew} so the copy
+     * claims the corresponding NEW element instances rather than the ones {@code other}
+     * claims. {@code collapsed}/{@code expandedBounds} are copied as plain field values rather
+     * than replayed through {@link #setCollapsed}, which computes a derived rectangle and
+     * would get the wrong answer fed a bounds/collapsed pair that do not match its own
+     * transition history.
+     *
+     * @param other the frame to copy
+     * @param oldToNew maps every element {@code other} might claim to its already-made copy;
+     *        a member with no entry is dropped rather than left dangling on the original
+     */
+    public GraphObjectFrame(GraphObjectFrame other, Map<GraphElement, GraphElement> oldToNew) {
+        this.name = other.name;
+        this.priority = other.priority;
+        this.bounds = new Rectangle(other.bounds);
+        this.collapsed = other.collapsed;
+        this.contentVisible = other.contentVisible;
+        this.template = other.template;
+        this.expandedBounds = other.expandedBounds == null ? null : new Rectangle(other.expandedBounds);
+        for (GraphElement oldMember : other.members) {
+            GraphElement newMember = oldToNew.get(oldMember);
+            if (newMember != null) {
+                members.add(newMember);
+            }
+        }
     }
 
     public String getName() {

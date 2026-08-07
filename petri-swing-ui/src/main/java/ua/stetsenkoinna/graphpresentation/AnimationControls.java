@@ -1,6 +1,6 @@
 package ua.stetsenkoinna.graphpresentation;
 
-import ua.stetsenkoinna.graphnet.GraphPetriNet;
+import ua.stetsenkoinna.graphnet.GraphCanvasModel;
 import ua.stetsenkoinna.graphpresentation.actions.PlayPauseAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunNetAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunOneEventAction;
@@ -61,8 +61,13 @@ public class AnimationControls {
      * {@link #stepBackButtonPressed}; cleared at the start of every new run in {@link
      * #saveCurrentNetState}. Once empty, stepping back falls all the way to the single
      * pre-run snapshot in {@link GraphPetriNetBackupHolder} instead.
+     *
+     * <p>Snapshots the whole {@link GraphCanvasModel} — net, Petri-object frames and shared
+     * places alike — not just the bare net: a snapshot of the net alone has no notion of
+     * frames, so restoring one used to bring every place and transition back as loose elements
+     * with the Petri-object that held them gone.
      */
-    private final Deque<GraphPetriNet> stepHistory = new ArrayDeque<>();
+    private final Deque<GraphCanvasModel> stepHistory = new ArrayDeque<>();
 
     public final StepBackAction stepBackAction; // A (|<<)
     public final PlayPauseAction playPauseAction; // B (> or ||)
@@ -152,7 +157,7 @@ public class AnimationControls {
         }
 
         if (!stepHistory.isEmpty()) {
-            restoreNet(stepHistory.pop());
+            restoreCanvas(stepHistory.pop());
             if (stepHistory.isEmpty()) {
                 // the pre-run snapshot is now redundant with what was just restored
                 clearSavedState();
@@ -448,13 +453,13 @@ public class AnimationControls {
     }
     
     /**
-     * Backup the current state of the net for possible future restoration. Also clears the
+     * Backup the current state of the canvas for possible future restoration. Also clears the
      * step-back history: a new run starting means whatever was steppable before no longer is.
      */
     private void saveCurrentNetState() {
         GraphPetriNetBackupHolder holder = GraphPetriNetBackupHolder.getInstance();
         holder.save(
-            new GraphPetriNet(frame.getPetriNetsPanel().getGraphNet())
+            new GraphCanvasModel(frame.getPetriNetsPanel().getCanvasModel())
         );
         stepHistory.clear();
     }
@@ -464,11 +469,11 @@ public class AnimationControls {
      * before a forward step advances it — so stepping backward can restore this exact moment.
      */
     private void pushStepHistory() {
-        stepHistory.push(new GraphPetriNet(frame.getPetriNetsPanel().getGraphNet()));
+        stepHistory.push(new GraphCanvasModel(frame.getPetriNetsPanel().getCanvasModel()));
     }
 
     /**
-     * Restores the net to the state that was previously saved and clears the saved state.
+     * Restores the canvas to the state that was previously saved and clears the saved state.
      * Throws RuntimeException if no state was saved.
      */
     private void restoreSavedState() {
@@ -478,17 +483,20 @@ public class AnimationControls {
             throw new RuntimeException("Tried to restore saved state, but there was no state saved");
         }
 
-        restoreNet(holder.get());
+        restoreCanvas(holder.get());
         holder.clear();
     }
 
     /**
-     * Swaps the canvas's net for the given one — the common step underneath both a full
-     * restore ({@link #restoreSavedState}) and a step-back ({@link #stepBackButtonPressed}).
+     * Swaps the canvas for the given snapshot — the common step underneath both a full restore
+     * ({@link #restoreSavedState}) and a step-back ({@link #stepBackButtonPressed}). Goes
+     * through {@code setCanvasModel} rather than {@code deletePetriNet}+{@code addGraphNet}:
+     * the latter pair only ever touched the bare net, and {@code deletePetriNet} on its own
+     * explicitly clears every Petri-object frame — restoring through it could bring the net's
+     * elements back but never the frame that had held them.
      */
-    private void restoreNet(GraphPetriNet net) {
-        frame.getPetriNetsPanel().deletePetriNet();
-        frame.getPetriNetsPanel().addGraphNet(net);
+    private void restoreCanvas(GraphCanvasModel model) {
+        frame.getPetriNetsPanel().setCanvasModel(model);
     }
     
     /**

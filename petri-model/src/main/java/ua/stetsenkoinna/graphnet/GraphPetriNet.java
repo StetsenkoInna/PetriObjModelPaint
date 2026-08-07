@@ -67,6 +67,20 @@ public class GraphPetriNet implements Cloneable, Serializable {
      * @param graphPetriNet: GraphPetriNet to copy
      */
     public GraphPetriNet(GraphPetriNet graphPetriNet) {
+        this(graphPetriNet, new java.util.IdentityHashMap<>());
+    }
+
+    /**
+     * Copying constructor that also reports which new element replaced which old one — for a
+     * caller that holds something else pointing at the original instances (a Petri-object
+     * frame's membership, a place fusion's two halves) and needs to translate it onto this
+     * copy instead of leaving it referencing the net being copied FROM.
+     *
+     * @param graphPetriNet net to copy
+     * @param oldToNew filled in by this constructor: every old place/transition mapped to the
+     *        new instance copied from it
+     */
+    public GraphPetriNet(GraphPetriNet graphPetriNet, Map<GraphElement, GraphElement> oldToNew) {
         graphPetriPlaceList = new ArrayList<>();
         graphPetriTransitionList = new ArrayList<>();
         graphArcInList = new ArrayList<>();
@@ -101,6 +115,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
         }
         graphArcInList.addAll(fragment.inArcs);
         graphArcOutList.addAll(fragment.outArcs);
+        oldToNew.putAll(fragment.oldToNew);
     }
 
     @Override
@@ -487,14 +502,24 @@ public class GraphPetriNet implements Cloneable, Serializable {
     /* a bean representing a fragement of a GraphNet */
     public static class GraphNetFragment {
         public List<GraphElement> elements;
-        public List<GraphArcIn> inArcs; 
+        public List<GraphArcIn> inArcs;
         public List<GraphArcOut> outArcs;
-        
+        /** Every source element mapped to the copy made of it — how a caller that also needs
+         *  to translate something ELSE that referenced the originals (a frame's membership, a
+         *  fusion's places) finds the corresponding new instance. */
+        public Map<GraphElement, GraphElement> oldToNew;
+
         public GraphNetFragment(List<GraphElement> e, List<GraphArcIn> i, List<GraphArcOut> o) {
+            this(e, i, o, new java.util.IdentityHashMap<>());
+        }
+
+        public GraphNetFragment(List<GraphElement> e, List<GraphArcIn> i, List<GraphArcOut> o,
+                                Map<GraphElement, GraphElement> oldToNew) {
             this.elements = e;
             this.inArcs = i;
             this.outArcs = o;
-        } 
+            this.oldToNew = oldToNew;
+        }
     }
     
     public GraphNetFragment bulkCopyNoPasteElements(List<GraphElement> elements) {
@@ -574,7 +599,11 @@ public class GraphPetriNet implements Cloneable, Serializable {
         List<GraphElement> copiedElements = new ArrayList<>(transitionsCopies.values());
         copiedElements.addAll(positionCopies.values());
 
-        return new GraphNetFragment(copiedElements, arcInsToAdd, arcOutsToAdd);
+        Map<GraphElement, GraphElement> oldToNew = new java.util.IdentityHashMap<>();
+        oldToNew.putAll(positionCopies);
+        oldToNew.putAll(transitionsCopies);
+
+        return new GraphNetFragment(copiedElements, arcInsToAdd, arcOutsToAdd, oldToNew);
     }
 
     /**

@@ -47,6 +47,43 @@ public class GraphCanvasModel implements Serializable {
         this.net = Objects.requireNonNull(net, "net");
     }
 
+    /**
+     * Deep-copies another canvas: a fully independent net, frames whose membership is
+     * translated onto the new net's own element instances, and fusions rebuilt the same way —
+     * nothing here is shared with {@code other}, so mutating the copy (running a simulation on
+     * it, editing it) can never reach back into {@code other} or vice versa.
+     *
+     * <p>This is the piece a plain net-only snapshot ({@code new GraphPetriNet(canvas.getNet())})
+     * cannot give you: the net alone has no notion of Petri-object frames, so restoring from
+     * one always came back as loose elements with every frame gone — this is the fix for that.
+     *
+     * @param other the canvas to copy
+     */
+    public GraphCanvasModel(GraphCanvasModel other) {
+        this.name = other.name;
+        Map<GraphElement, GraphElement> oldToNew = new IdentityHashMap<>();
+        this.net = new GraphPetriNet(other.net, oldToNew);
+
+        Map<GraphObjectFrame, GraphObjectFrame> frameMap = new IdentityHashMap<>();
+        for (GraphObjectFrame oldFrame : other.frames) {
+            GraphObjectFrame newFrame = new GraphObjectFrame(oldFrame, oldToNew);
+            frameMap.put(oldFrame, newFrame);
+            this.frames.add(newFrame);
+        }
+
+        for (GraphPlaceFusion oldFusion : other.fusions) {
+            GraphPetriPlace newMaster = (GraphPetriPlace) oldToNew.get(oldFusion.getMaster());
+            GraphPetriPlace newJoined = (GraphPetriPlace) oldToNew.get(oldFusion.getJoined());
+            if (newMaster == null || newJoined == null) {
+                // Both halves of a fusion are always in the net being copied — this would mean
+                // the source model was already inconsistent, not something a copy should mask.
+                continue;
+            }
+            this.fusions.add(new GraphPlaceFusion(newMaster, newJoined,
+                    frameMap.get(oldFusion.getMasterOwner()), frameMap.get(oldFusion.getJoinedOwner())));
+        }
+    }
+
     public String getName() {
         return name;
     }
