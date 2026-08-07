@@ -53,23 +53,23 @@ Located under `ua.stetsenkoinna.graphpresentation.statistic`:
 
 ---
 
-## Petri-object Model Structure
+## Petri-objects on the Canvas
 
-**Model → Petri-object model structure...** opens the second layer of the editor: nodes are
-Petri-objects, edges are the links between them, and the net canvas underneath edits whichever
-object you open.
+A Petri-object is a named frame on the same canvas the nets are drawn on: what is inside it
+belongs to it, and an arc crossing its border links it to another object. The **Model** menu
+creates objects — around the current selection (`Ctrl+G`), empty, from a net library template,
+or by duplicating one (`Ctrl+D`) — and edits the selected object's name and priority.
 
 | Class | Responsibility |
 |-------|----------------|
-| `ua.stetsenkoinna.graphpresentation.objmodel.ModelStructureFrame` | The structure window: objects, links, running, saving |
-| `ua.stetsenkoinna.graphpresentation.objmodel.ObjectStructurePanel` | Draws the objects and the links, drag and double-click |
-| `ua.stetsenkoinna.graphpresentation.objmodel.AddObjectDialog` | Where a new object's net comes from — library template, canvas copy, or empty |
-| `ua.stetsenkoinna.graphpresentation.objmodel.LinkDialog` | Builds one link of any of the three kinds |
-| `ua.stetsenkoinna.graphpresentation.objmodel.ModelAnimationFrame` | Animates all objects at once, one view each |
+| `ua.stetsenkoinna.graphnet.GraphCanvasModel` | The canvas document: the drawing, its object frames, its shared places — and reading all that as a model |
+| `ua.stetsenkoinna.graphnet.GraphObjectFrame` | One object's frame: move, resize, collapse, its name and priority |
+| `ua.stetsenkoinna.graphnet.GraphPlaceFusion` | Two places joined into one shared place |
+| `ua.stetsenkoinna.graphpresentation.objmodel.NetTemplateDialog` | Instantiating a net library template with arguments |
 
-A double click on an object opens its net on the canvas — the same net, not a copy, so what
-you draw belongs to that object right away. **Run model** and **Animate model** run the whole
-composition, and **Model → Save model as...** writes it to a single PNML file.
+Run and Animate simulate the whole canvas, animation included — a token leaving one object is
+seen arriving in another. A canvas without frames is a model of one object, so plain net
+editing is unchanged.
 
 **[docs/petri-object-models.md](petri-object-models.md)** — the full guide: what the links
 mean, how a model is stored, and how to run one from code or over HTTP.
@@ -85,7 +85,7 @@ Located under `ua.stetsenkoinna.graphreuse`:
 
 `ua.stetsenkoinna.libnet.NetTemplateCatalog` is the other side of the same mechanism: it
 lists the library methods that build nets and instantiates one with arguments, which is how
-the structure layer turns `CreateNetSMOwithoutQueue(2, 0.5, "First")` into a Petri-object.
+the editor turns `CreateNetSMOwithoutQueue(2, 0.5, "First")` into a Petri-object on the canvas.
 
 This is the desktop-side entry point into the same `NetLibrary` /
 `@NetLibraryMethod` mechanism described in the root README's
@@ -100,9 +100,9 @@ Supports import/export in PNML format (ISO/IEC 15909):
 - **Import**: `File → Import PNML` (`Ctrl+I`)
 - **Export**: `Save → Export to PNML` (`Ctrl+P`)
 
-A document holding a whole Petri-object model is opened from the structure window
-(`Model → Open model...`) instead — importing it as a single net would merge its objects,
-so the plain importer refuses it and says so.
+Import reads a whole Petri-object model too: every page of the document becomes a framed
+object on the canvas, with the links between them restored as crossing arcs and shared
+places. Export writes the canvas back the same way.
 
 The same PNML format is accepted by `petri-server`'s `/api/v1/net/parse` and
 `/api/v1/simulation/*` endpoints (see the [server integration guide](petri-server-integration.md)),

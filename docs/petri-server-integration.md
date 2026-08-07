@@ -526,7 +526,7 @@ Content-Type: application/json
 | Field | Notes |
 |-------|-------|
 | `objects[].index` | how a link and a statistic formula address the object (`O0`, `O1`, …) |
-| `objects[].x/y` | where the object sits on the structure layer |
+| `objects[].x/y` | where the object's frame sits on the canvas |
 | `places[]` / `transitions[]` | in the order that indexes them — a link's `source_element` is a position in one of these lists |
 | element `x/y` | coordinates of the object's own drawing |
 | `links[].type` | `placeFusion`, `transitionToPlace` or `placeToTransition` |

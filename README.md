@@ -45,11 +45,11 @@ java -jar petri-swing-ui/target/petri-swing-ui.jar
 
 Self-contained visual editor and simulator, no server required: draw a net, run it with
 live animation, watch statistics charts, save nets to the net library and import/export PNML.
-Compose several nets into a Petri-object model in the structure layer, and animate all its
-objects side by side.
+Frame parts of a drawing as Petri-objects, link them across frame borders, and animate the
+whole composition on one canvas.
 
 **[docs/desktop-ui.md](docs/desktop-ui.md)** — full guide: editor, animation controls,
-statistics module, Petri-object model structure, net library, PNML import/export.
+statistics module, Petri-objects on the canvas, net library, PNML import/export.
 
 ---
 

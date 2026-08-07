@@ -44,27 +44,49 @@ and rebuilt on a server from the same description.
 
 ## Composing a model in the editor
 
-**Model → Petri-object model structure...** opens the structure layer. It is the second
-layer of the editor: nodes are Petri-objects, edges are the links, and the net canvas
-underneath edits whichever object you open.
+A Petri-object is a named frame on the canvas the nets are drawn on. Whatever is drawn
+inside it belongs to it, so the structure of a model and the behaviour of its objects are one
+picture — and an arc crossing a frame border is a token crossing an object border.
 
-- **Add object** — the net of a new object comes from one of three places: an instance of a
-  net library template with arguments of its own (`CreateNetSMOwithoutQueue(2, 0.5, "First")`),
-  a copy of the net currently on the canvas, or an empty net to draw from scratch.
-  Instantiating one template several times with different arguments is the usual way to get
-  a model of many similar objects.
-- **Double-click an object** — its net opens on the canvas. It is the same net, not a copy,
-  so what you draw belongs to that object right away.
-- **Add link** — pick the kind, the two objects and the two elements. The element lists
-  follow the kind, so a transition-to-place link offers transitions on one side and places
-  on the other.
-- **Run model** / **Animate model** — run the whole composition. Animation opens one view per
-  object and drives them from a single clock, so a token leaving one object and arriving in
-  another is visible in both views at the same moment.
-- **Model → Save model as...** writes the whole composition to one PNML file.
+**Making objects**, from the **Model** menu:
 
-Deleting a place or a transition that a link points at is not an error: the link is dropped
-the next time the structure window is activated, and the window says how many were dropped.
+- **Group selection into Petri-object** (`Ctrl+G`) draws a frame around the selected
+  elements. This is how an existing net is split into objects.
+- **New empty Petri-object** puts an empty frame down to draw into.
+- **Petri-object from net library...** instantiates a template with arguments of its own —
+  `CreateNetSMOwithoutQueue(2, 0.5, "First")` — and frames the result.
+- **Duplicate selected Petri-object** (`Ctrl+D`) copies an object with its net, the quick way
+  to a model of several alike objects.
+
+**Handling frames.** Grab a frame by its header to move it — its net travels with it — by its
+bottom-right corner to resize it, and double-click the header to collapse it to a node when
+the model outgrows the screen. Name and priority are on the same menu. Removing a frame
+leaves its net on the canvas.
+
+**Linking objects** uses the ordinary arc tool; where the arc ends decides what it means:
+
+| You draw | Between | What you get |
+|----------|---------|--------------|
+| place → transition | different frames | the place becomes an extra input of that transition |
+| transition → place | different frames | the transition delivers tokens into that place |
+| place → place | different frames | the two become one shared place |
+| anything | inside one frame | an ordinary arc of that object's net |
+
+A stroke from a place to a place used to be discarded as invalid; between two objects it is
+now the shared place. Both halves are kept on top of each other and drawn as one circle with
+a second ring, because that is what they are. An arc's weight and its informational flag are
+edited by double-clicking it, as for any arc.
+
+Because the frame decides who owns an element, dragging a wired element across a border would
+rewire the model — so that move asks first and is undone when the answer is no.
+
+**Running.** **Run** and **Animate** simulate the whole canvas: every frame is an object,
+crossing arcs are links, and anything outside every frame is one more object. Animation plays
+on the same canvas, so a token leaving one object is seen arriving in another. A canvas
+without frames is a model of one object and behaves exactly as a plain net always did.
+
+**Storing.** **File → Import PNML** opens a model and lays it out as frames; **Save → Export
+PNML** writes the canvas as a model.
 
 ---
 
@@ -202,6 +224,9 @@ curl -X POST http://localhost:8080/api/v2/model/parse \
 - **Element indices are positions.** A link addresses the n-th place or transition of an
   object. Reordering the elements of a net reorders what its links point at; the editor
   rebuilds the net from its drawing before every run and every save, so the two stay in step.
+- **A shared place is the one thing geometry cannot decide.** Both halves are drawn in the
+  same spot, so the frame they sit in cannot say which belongs to which object; the fusion
+  remembers that from the moment the two were joined.
 - **A transition needs a local input place.** External arcs extend the firing condition, so a
   transition fed only by another object is not a valid net.
 - **Fusion order matters.** Fusing A's place with B's place and then B's place with C's makes
