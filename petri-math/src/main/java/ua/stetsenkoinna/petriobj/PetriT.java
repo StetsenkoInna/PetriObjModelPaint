@@ -271,6 +271,17 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
     }
 
     /**
+     * Raises the counter to {@code floor} if it currently sits lower — never lowers it.
+     * Used to keep newly-built transitions from reusing numbers already on a canvas they're
+     * about to join, without disturbing numbers already handed out.
+     */
+    public static void ensureNextAtLeast(int floor) {
+        if (next < floor) {
+            next = floor;
+        }
+    }
+
+    /**
      * Recalculates the mean value
      *
      * @param a value for recalculate of mean value (value equals product of

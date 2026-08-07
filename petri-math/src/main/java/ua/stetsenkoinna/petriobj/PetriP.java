@@ -108,8 +108,19 @@ public class PetriP extends PetriMainElement implements Cloneable, Serializable 
      * Set the counter of places to zero.
      */
     public static void initNext(){ //ініціалізація лічильника нульовим значенням
-    
+
         next = 0;
+    }
+
+    /**
+     * Raises the counter to {@code floor} if it currently sits lower — never lowers it.
+     * Used to keep newly-built places from reusing numbers already on a canvas they're
+     * about to join, without disturbing numbers already handed out.
+     */
+    public static void ensureNextAtLeast(int floor) {
+        if (next < floor) {
+            next = floor;
+        }
     }
 
     /**

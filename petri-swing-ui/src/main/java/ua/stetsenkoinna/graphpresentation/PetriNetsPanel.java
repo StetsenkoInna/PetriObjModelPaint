@@ -1199,7 +1199,33 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         for (GraphArcOut arcOut : built.getGraphArcOutList()) {
             arcOut.updateCoordinates();
         }
+        protectPetriNumbering();
         return members;
+    }
+
+    /**
+     * PetriP/PetriT number the whole canvas with one JVM-wide counter each, and every
+     * {@code NetLibrary} factory method resets its counter back to zero right after building —
+     * fine for one net built in isolation, but it means the next thing constructed (another
+     * stamped Petri-object, a place added with the toolbar) can start from zero again and reuse
+     * a number already on the canvas. {@code PetriNet}'s constructor resolves every arc by
+     * comparing these numbers as plain ints with no identity fallback, so a collision doesn't
+     * just mislabel something — it can silently misroute an arc onto the wrong transition.
+     * Raising both counters past whatever the canvas already holds, right after anything is
+     * merged in, keeps every number handed out afterward unique.
+     */
+    private void protectPetriNumbering() {
+        if (graphNet == null) {
+            return;
+        }
+        int maxP = graphNet.getGraphPetriPlaceList().stream()
+                .mapToInt(p -> p.getPetriPlace().getNumber())
+                .max().orElse(-1);
+        int maxT = graphNet.getGraphPetriTransitionList().stream()
+                .mapToInt(t -> t.getPetriTransition().getNumber())
+                .max().orElse(-1);
+        PetriP.ensureNextAtLeast(maxP + 1);
+        PetriT.ensureNextAtLeast(maxT + 1);
     }
 
     /**
@@ -2736,6 +2762,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // Merge the new net into the existing one
             graphNet.mergeGraphNet(net);
         }
+        protectPetriNumbering();
 
         int maxIdPetriNet = 0; //
         for (GraphPetriPlace pp : graphNet.getGraphPetriPlaceList()) {  //відшукуємо найбільший id для позицій
