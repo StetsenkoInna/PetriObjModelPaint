@@ -85,6 +85,21 @@ public class AnimationControls {
     }
     
     /**
+     * Puts the controls back where they start for a brand-new document. Everything they hold
+     * — the pre-run snapshot, the per-event step history — describes a net that is about to be
+     * discarded, and restoring any of it onto the new one would resurrect the old drawing.
+     *
+     * <p>Only safe with nothing running, which is the case wherever this is called from: the
+     * menus that lead here are disabled for the duration of a run.
+     */
+    public void resetForNewDocument() {
+        stopRequested = false;
+        stepHistory.clear();
+        clearSavedState();
+        setState(State.NO_SAVED_STATE);
+    }
+
+    /**
      * A handler for "step forward" (>|) button — always animated, always against the one real
      * animated run, so a step looks exactly like Start-then-Pause: same element highlighting,
      * same timing, same statistics. If a run is already going (playing or paused) this nudges

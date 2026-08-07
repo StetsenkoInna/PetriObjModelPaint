@@ -153,6 +153,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *  active; {@code null} under every other tool. */
     private PetriObjectTemplate armedTemplate;
 
+    /** A loaded net waiting to be placed, and where the pointer currently says it goes; both
+     *  set only while {@link CanvasTool#PLACE_LOADED_NET} is active. */
+    private GraphPetriNet pendingNet;
+    private String pendingNetName;
+    private Point placementPoint;
+
     /** The scroll pane viewport being panned, and where the drag started, while tool == PAN
      *  — or, during a double-click-to-pan gesture on the Select tool, while
      *  {@link #selectToolPanning} is true instead. */
@@ -210,6 +216,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         this.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE && isPlacingNet()) {
+                    // The way out of placement mode without dropping the net somewhere the
+                    // user then has to undo.
+                    setTool(CanvasTool.SELECT);
+                    return;
+                }
                 if (e.getKeyCode() == KeyEvent.VK_DELETE || e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
                     // A selected Petri-object frame is deleted as a whole, the same way its
                     // context-menu "Remove" does — but only when nothing more specific (an
@@ -497,6 +509,43 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     currentDragMouseLocation.x - startDragMouseLocation.x,
                     currentDragMouseLocation.y - startDragMouseLocation.y);
         }
+
+        paintPendingNetOutline(g2);
+    }
+
+    /**
+     * Shows where a net waiting to be placed would land — the same dashed rubber band the
+     * marquee uses, so an in-progress gesture looks like an in-progress gesture. Drawn as an
+     * outline of the net's extent rather than the net itself: at the moment of choosing a spot
+     * what matters is how much room it needs, and a full ghost redrawn every mouse move over a
+     * large net would be needlessly heavy.
+     */
+    private void paintPendingNetOutline(Graphics2D g2) {
+        if (pendingNet == null || placementPoint == null) {
+            return;
+        }
+        List<GraphElement> members = new ArrayList<>();
+        members.addAll(pendingNet.getGraphPetriPlaceList());
+        members.addAll(pendingNet.getGraphPetriTransitionList());
+        if (members.isEmpty()) {
+            return;
+        }
+
+        Rectangle extent = boundsAround(members);
+        Point centre = pendingNet.getCurrentLocation();
+        // changeLocation moves the net's centroid to the click point, so the outline has to be
+        // offset by the same centroid-to-bounds relationship for the preview to be truthful.
+        int x = extent.x + placementPoint.x - centre.x;
+        int y = extent.y + placementPoint.y - centre.y;
+
+        Stroke previousStroke = g2.getStroke();
+        Color previousColor = g2.getColor();
+        g2.setColor(new Color(0x33, 0x5A, 0x8A));
+        g2.setStroke(new BasicStroke(1.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_BEVEL,
+                20.0f, new float[]{15.0f, 15.0f}, 0.0f));
+        g2.drawRect(x, y, extent.width, extent.height);
+        g2.setStroke(previousStroke);
+        g2.setColor(previousColor);
     }
 
     /**
@@ -972,6 +1021,85 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
+     * Hands a freshly loaded net to the user to position: an outline follows the pointer until
+     * they click, and the net lands exactly there.
+     *
+     * <p>This replaced automatic placement. What used to happen was that the net was dropped
+     * wherever a calculation guessed — measured from element centres only, with no vertical
+     * component and no awareness of Petri-object frames — which routinely buried it under
+     * whatever was already drawn. Where a net goes is a decision only the person looking at
+     * the canvas can make.
+     *
+     * @param net the net to place, carrying whatever coordinates it was built or read with
+     * @param name name for the Petri-object frame drawn around it
+     */
+    public void placeNetInteractively(GraphPetriNet net, String name) {
+        if (net == null) {
+            return;
+        }
+        setTool(CanvasTool.PLACE_LOADED_NET, null);
+        pendingNet = net;
+        pendingNetName = name;
+        // Until the pointer has been over the canvas there is nowhere to draw the outline;
+        // mouseMoved fills this in on the first movement.
+        placementPoint = null;
+        requestFocusInWindow();
+        repaint();
+    }
+
+    /** @return true while a loaded net is waiting for the user to place it */
+    public boolean isPlacingNet() {
+        return tool == CanvasTool.PLACE_LOADED_NET && pendingNet != null;
+    }
+
+    /** @return the canvas zoom, so callers can convert between screen and canvas coordinates */
+    public double getScale() {
+        return scale;
+    }
+
+    /**
+     * Adds a net at the coordinates it already carries, wrapped in a Petri-object frame — the
+     * non-interactive counterpart of {@link #placeNetInteractively}, for when there is nothing
+     * on the canvas to collide with and therefore no placement to ask about.
+     */
+    public void addNetAsObject(GraphPetriNet net, String name) {
+        placeGraphNet(net, uniqueObjectName(name), null);
+    }
+
+    /**
+     * Drops the waiting net at the click point and leaves placement mode — one net loaded is
+     * one net placed, so unlike the palette tools this does not stay armed.
+     */
+    private void commitPendingNet(Point at) {
+        if (pendingNet == null) {
+            return;
+        }
+        GraphPetriNet net = pendingNet;
+        String name = pendingNetName;
+        pendingNet = null;
+        pendingNetName = null;
+        placementPoint = null;
+
+        net.changeLocation(at);
+        placeGraphNet(net, uniqueObjectName(name), null);
+        setTool(CanvasTool.SELECT, null);
+    }
+
+    /**
+     * Abandons a net the user decided not to place. Called when they switch tools or press
+     * Escape — without it the outline would follow the pointer forever with no way out.
+     */
+    private void cancelPendingNet() {
+        if (pendingNet == null) {
+            return;
+        }
+        pendingNet = null;
+        pendingNetName = null;
+        placementPoint = null;
+        repaint();
+    }
+
+    /**
      * Saves a Petri-object so it can be stamped again later, from the toolbar or the PObjects
      * list. The object's net is deep-copied first: writing it out calls {@code createPetriNet},
      * which renumbers the elements it is given, and doing that to the canvas's own instances
@@ -1417,6 +1545,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            if (tool == CanvasTool.PLACE_LOADED_NET) {
+                if (SwingUtilities.isLeftMouseButton(ev)) {
+                    commitPendingNet(scaledCurrentMousePoint);
+                }
+                return;
+            }
+
             // The eye icon sits inside the header's own rectangle, so it has to be checked
             // ahead of the header hit-test below — otherwise the click would be read as the
             // start of a frame drag instead of a toggle.
@@ -1699,7 +1834,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
 
             if (tool == CanvasTool.DELETE || tool == CanvasTool.ADD_PLACE
-                    || tool == CanvasTool.ADD_TRANSITION || tool == CanvasTool.ADD_PETRI_OBJECT) {
+                    || tool == CanvasTool.ADD_TRANSITION || tool == CanvasTool.ADD_PETRI_OBJECT
+                    || tool == CanvasTool.PLACE_LOADED_NET) {
                 return;
             }
 
@@ -2104,7 +2240,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
             if (tool == CanvasTool.DELETE || tool == CanvasTool.ADD_PLACE
-                    || tool == CanvasTool.ADD_TRANSITION || tool == CanvasTool.ADD_PETRI_OBJECT) {
+                    || tool == CanvasTool.ADD_TRANSITION || tool == CanvasTool.ADD_PETRI_OBJECT
+                    || tool == CanvasTool.PLACE_LOADED_NET) {
                 return;
             }
 
@@ -2187,6 +2324,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseMoved(MouseEvent ev) {
+            if (tool == CanvasTool.PLACE_LOADED_NET) {
+                // The one tool that does care where the pointer is without a button held: the
+                // outline has to follow it, so this cannot take the early return below.
+                placementPoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+                repaint();
+                return;
+            }
+
             if (tool == CanvasTool.PAN || tool == CanvasTool.DELETE
                     || tool == CanvasTool.ADD_PLACE || tool == CanvasTool.ADD_TRANSITION
                     || tool == CanvasTool.ADD_PETRI_OBJECT) {
@@ -2302,6 +2447,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
         isSettingArc = false;
         clearSelectionState();
+        if (newTool != CanvasTool.PLACE_LOADED_NET) {
+            // Switching away abandons a net that was waiting to be placed — otherwise its
+            // outline would keep tracking the pointer under a tool that cannot commit it.
+            cancelPendingNet();
+        }
         tool = newTool;
         armedTemplate = template;
         setCursor(cursorFor(newTool));
@@ -2331,6 +2481,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             case ADD_PLACE:
             case ADD_TRANSITION:
             case ADD_PETRI_OBJECT:
+            case PLACE_LOADED_NET:
                 return new Cursor(Cursor.CROSSHAIR_CURSOR);
             default:
                 return Cursor.getDefaultCursor();

@@ -7,7 +7,6 @@ import ua.stetsenkoinna.petriobj.PetriT;
 import ua.stetsenkoinna.petriobj.ArcIn;
 import ua.stetsenkoinna.petriobj.ArcOut;
 import ua.stetsenkoinna.petriobj.ExceptionInvalidTimeDelay;
-import ua.stetsenkoinna.utils.NetworkPositionCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -580,8 +579,8 @@ public class GraphPetriNet implements Cloneable, Serializable {
 
     /**
      * Merges another GraphPetriNet into this one by adding all its elements.
-     * The elements from the other net will be copied with new IDs to avoid conflicts.
-     * The new elements will be positioned to the right of the existing net using NetworkPositionCalculator.
+     * The elements from the other net will be copied with new IDs to avoid conflicts, and
+     * keep the coordinates they already carry — position them before merging.
      * @param other The GraphPetriNet to merge into this one
      */
     public void mergeGraphNet(GraphPetriNet other) {
@@ -601,40 +600,13 @@ public class GraphPetriNet implements Cloneable, Serializable {
             other.graphArcOutList
         );
 
-        // Create a temporary GraphPetriNet to hold the copied fragment for position calculation
-        GraphPetriNet tempNet = new GraphPetriNet();
-        for (GraphElement element : fragment.elements) {
-            if (element instanceof GraphPetriPlace) {
-                tempNet.graphPetriPlaceList.add((GraphPetriPlace) element);
-            } else if (element instanceof GraphPetriTransition) {
-                tempNet.graphPetriTransitionList.add((GraphPetriTransition) element);
-            }
-        }
-
-        // Calculate optimal position using NetworkPositionCalculator
-        List<GraphPetriNet> existingNetworks = new ArrayList<>();
-        if (!NetworkPositionCalculator.isNetworkEmpty(this)) {
-            existingNetworks.add(this);
-        }
-
-        Point targetLocation = NetworkPositionCalculator.calculateTargetPosition(
-            existingNetworks,
-            tempNet,
-            null  // No drop location for merge operation
-        );
-
-        // Move the copied elements to the calculated position
-        Point currentCenter = tempNet.getCurrentLocation();
-        double xOffset = targetLocation.getX() - currentCenter.getX();
-        double yOffset = targetLocation.getY() - currentCenter.getY();
-
-        for (GraphElement element : fragment.elements) {
-            Point newPos = new Point(
-                (int) (element.getGraphElementCenter().getX() + xOffset),
-                (int) (element.getGraphElementCenter().getY() + yOffset)
-            );
-            element.setNewCoordinates(newPos);
-        }
+        // The merged net keeps the coordinates it arrives with. It used to be repositioned
+        // here to "the right of everything already on the canvas", which was the source of the
+        // overlapping messes: the calculation measured only element centres (so shapes, labels
+        // and arcs were never accounted for), had no vertical component at all (so every import
+        // landed in the same horizontal band), and treated the whole canvas as one blob, so
+        // repeated imports marched off-screen. Where a net should land is the caller's
+        // business now — a drop point, a click, or the coordinates its own file recorded.
 
         // Add copied elements to this net's lists
         for (GraphElement element : fragment.elements) {
