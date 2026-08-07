@@ -11,6 +11,7 @@ import ua.stetsenkoinna.api.simulation.SimulationStatus;
 import ua.stetsenkoinna.server.adapter.SimulationInterruptedException;
 import ua.stetsenkoinna.server.adapter.SimulationStepMessage;
 import ua.stetsenkoinna.server.adapter.SimulationStatusMessage;
+import ua.stetsenkoinna.server.controller.ApiVersions;
 import ua.stetsenkoinna.server.controller.WsDestinations;
 import ua.stetsenkoinna.server.dto.SimulationResultDto;
 
@@ -19,7 +20,7 @@ import java.util.List;
 
 public class WebSocketStatisticSink implements SimulationStatisticCollector {
 
-    private final SimulationSession session;
+    protected final SimulationSession session;
     private final SimpMessagingTemplate messaging;
     private final List<PetriElementStatisticDto> buffer = new ArrayList<>();
 
@@ -27,10 +28,19 @@ public class WebSocketStatisticSink implements SimulationStatisticCollector {
     private final String statusTopic;
 
     public WebSocketStatisticSink(SimulationSession session, SimpMessagingTemplate messaging) {
+        this(session, messaging, ApiVersions.WS_V1);
+    }
+
+    /**
+     * @param apiVersion WebSocket destination prefix of the API this session belongs to,
+     *        so v1 and v2 clients subscribe to topics of their own version
+     */
+    public WebSocketStatisticSink(SimulationSession session, SimpMessagingTemplate messaging,
+                                  String apiVersion) {
         this.session = session;
         this.messaging = messaging;
-        this.stepsTopic  = WsDestinations.steps(session.getId());
-        this.statusTopic = WsDestinations.status(session.getId());
+        this.stepsTopic  = WsDestinations.steps(apiVersion, session.getId());
+        this.statusTopic = WsDestinations.status(apiVersion, session.getId());
     }
 
     @Override
@@ -92,7 +102,7 @@ public class WebSocketStatisticSink implements SimulationStatisticCollector {
             simulationTime = sim.getSimulationTime();
             for (PetriP p : sim.getNet().getListP()) {
                 finalStats.add(new PetriElementStatisticDto(
-                        sim.getNumObj(), p.getName(),
+                        sim.getStatisticId(), p.getName(),
                         p.getObservedMin(), p.getObservedMax(), p.getMean()
                 ));
                 places.add(new SimulationResultDto.PlaceResultDto(

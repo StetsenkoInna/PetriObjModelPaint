@@ -6,17 +6,37 @@ package ua.stetsenkoinna.server.controller;
  */
 public final class WsDestinations {
 
-    private static final String TOPIC_PREFIX = "/topic" + ApiVersions.WS_V1 + "/sim/";
+    private static final String BROKER_PREFIX = "/topic";
 
     private WsDestinations() {}
 
     /** Per-step statistics topic for a session: {@code /topic/v1/sim/{id}/steps}. */
     public static String steps(String sessionId) {
-        return TOPIC_PREFIX + sessionId + "/steps";
+        return steps(ApiVersions.WS_V1, sessionId);
     }
 
     /** Status-change topic for a session: {@code /topic/v1/sim/{id}/status}. */
     public static String status(String sessionId) {
-        return TOPIC_PREFIX + sessionId + "/status";
+        return status(ApiVersions.WS_V1, sessionId);
+    }
+
+    /**
+     * Per-step statistics topic of a given API version.
+     *
+     * @param apiVersion one of {@link ApiVersions#WS_V1}, {@link ApiVersions#WS_V2}
+     * @param sessionId the simulation session
+     */
+    public static String steps(String apiVersion, String sessionId) {
+        return BROKER_PREFIX + apiVersion + "/sim/" + sessionId + "/steps";
+    }
+
+    /**
+     * Status-change topic of a given API version.
+     *
+     * @param apiVersion one of {@link ApiVersions#WS_V1}, {@link ApiVersions#WS_V2}
+     * @param sessionId the simulation session
+     */
+    public static String status(String apiVersion, String sessionId) {
+        return BROKER_PREFIX + apiVersion + "/sim/" + sessionId + "/status";
     }
 }

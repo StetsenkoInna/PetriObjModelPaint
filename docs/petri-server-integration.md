@@ -11,6 +11,11 @@ results through one of two transports:
 
 Both transports share the same pause / resume / stop REST control endpoints.
 
+There are two API versions. **v1** runs a single Petri net. **v2** runs a
+[Petri-object model](petri-object-models.md) — several Petri-objects linked by shared places
+and by arcs that cross object boundaries — and reports statistics per object. A plain
+single-net document is valid v2 input too, so v2 is a superset of v1.
+
 ## Full API Reference
 
 | Method | Path | Description |
@@ -23,6 +28,14 @@ Both transports share the same pause / resume / stop REST control endpoints.
 | `POST` | `/api/v1/simulation/{id}/stop` | Stop |
 | `GET`  | `/api/v1/simulation/{id}/status` | Session status |
 | `GET`  | `/api/v1/simulation/{id}/result` | Aggregated statistics after run |
+| `POST` | `/api/v2/model/parse` | Parse a Petri-object model → structured JSON |
+| `POST` | `/api/v2/simulation/start` | Start a model simulation (WebSocket flow) |
+| `POST` | `/api/v2/simulation/stream` | Start a model simulation (SSE flow) |
+| `POST` | `/api/v2/simulation/{id}/pause` | Pause |
+| `POST` | `/api/v2/simulation/{id}/resume` | Resume |
+| `POST` | `/api/v2/simulation/{id}/stop` | Stop |
+| `GET`  | `/api/v2/simulation/{id}/status` | Session status |
+| `GET`  | `/api/v2/simulation/{id}/result` | Statistics per Petri-object after run |
 | `GET`  | `/actuator/health` | Health check |
 | `GET`  | `/docs` | Swagger UI |
 
@@ -456,6 +469,129 @@ client.publish({ destination: `/app/v1/sim/${sessionId}/control`, body: 'PAUSE' 
 | Event format | `markings` + `buffers` maps | `statistics` list |
 | Snapshot frequency | configurable (`timeStep` / `snapshotInterval`) | every sim step |
 | Recommended for | Microservice clients, web animations | Interactive dashboards |
+
+---
+
+## Petri-object model API (v2)
+
+Same transports, same session controls, same snapshot shape — the difference is what the
+document may contain and how the results come back.
+
+### What the document may contain
+
+A v2 document is a [Petri-object model](petri-object-models.md): one `<page>` per
+Petri-object inside one `<net>`, with the links between them in the net's `<toolspecific>`
+block. A document with a single page — an ordinary Petri net file — is accepted and runs as
+a model of one object.
+
+The v1 endpoints reject a multi-page document instead of merging its pages into one net.
+
+### Parse a model
+
+```
+POST /api/v2/model/parse
+Content-Type: application/json
+
+{ "modelXml": "<pnml>...</pnml>" }
+```
+
+**Response `200 OK`**
+
+```json
+{
+  "name": "QueueingSystem",
+  "objects": [
+    {
+      "index": 0,
+      "name": "Generator",
+      "priority": 0,
+      "x": 40.0, "y": 60.0,
+      "template": "CreateNetGenerator(2.0)",
+      "places": [ { "id": "p0", "name": "P1", "initial_marking": 1, "x": 100.0, "y": 200.0 } ],
+      "transitions": [ { "id": "t0", "name": "T1", "mean": 2.0, "deviation": 0.0,
+                         "distribution": "exp", "priority": 0, "probability": 1.0,
+                         "x": 300.0, "y": 200.0 } ],
+      "arcs": [ { "id": "a0", "source": "p0", "target": "t0", "weight": 1, "type": "normal" } ]
+    }
+  ],
+  "links": [
+    { "type": "placeFusion",
+      "source_object": 0, "source_element": 1,
+      "target_object": 1, "target_element": 0,
+      "quantity": 1, "informational": false }
+  ]
+}
+```
+
+| Field | Notes |
+|-------|-------|
+| `objects[].index` | how a link and a statistic formula address the object (`O0`, `O1`, …) |
+| `objects[].x/y` | where the object's frame sits on the canvas |
+| `places[]` / `transitions[]` | in the order that indexes them — a link's `source_element` is a position in one of these lists |
+| element `x/y` | coordinates of the object's own drawing |
+| `links[].type` | `placeFusion`, `transitionToPlace` or `placeToTransition` |
+| `links[].informational` | test arc that does not consume tokens; `placeToTransition` only |
+
+Returns `400 Bad Request` with `{"error": "..."}` on a document that cannot be read.
+
+### Run a model
+
+```bash
+# SSE, one snapshot per 10 sim-units
+curl -N -X POST 'http://localhost:8080/api/v2/simulation/stream?simulationTime=3600&timeStep=10' \
+     -H 'Content-Type: application/json' \
+     -d '{"modelXml": "<pnml>...</pnml>"}'
+```
+
+```bash
+# WebSocket flow
+curl -X POST http://localhost:8080/api/v2/simulation/start \
+     -H 'Content-Type: application/json' \
+     -d '{"modelXml": "<pnml>...</pnml>", "simulationTime": 3600}'
+# → {"sessionId": "550e8400-..."}
+```
+
+Snapshots have the same shape as in v1 — `markings` and `buffers` keyed by element id, which
+stays unique across the objects of a model — so a frontend that renders v1 frames renders v2
+frames unchanged. Which object an element belongs to comes from `/model/parse`.
+
+STOMP destinations carry the version:
+
+| Purpose | Destination |
+|---------|-------------|
+| Steps | `/topic/v2/sim/{id}/steps` |
+| Status | `/topic/v2/sim/{id}/status` |
+| Control | `/app/v2/sim/{id}/control` — `PAUSE`, `RESUME`, `STOP` |
+
+### Result per object
+
+```
+GET /api/v2/simulation/{id}/result
+```
+
+```json
+{
+  "simulation_time": 3600.0,
+  "final_time": 3600.0,
+  "total_steps": 360,
+  "objects": [
+    {
+      "index": 0,
+      "name": "Generator",
+      "priority": 0,
+      "places": [ { "id": "p0", "name": "P1", "final_marking": 0,
+                    "mean_marking": 0.42, "observed_min": 0, "observed_max": 3 } ],
+      "transitions": [ { "id": "t0", "name": "T1", "final_buffer": 1,
+                         "mean_buffer": 0.71, "observed_min": 0.0, "observed_max": 2.0 } ]
+    }
+  ]
+}
+```
+
+404 — no such session. 202 — the session exists but has not finished yet.
+
+A place shared by two objects is one instance, and it appears under every object whose net
+reaches it, with the same numbers in each.
 
 ---
 

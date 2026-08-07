@@ -115,7 +115,7 @@ public class StatisticConsoleMonitor extends StatisticMonitor implements Simulat
         if (!isValidMonitor() || !Boolean.TRUE.equals(isMonitoringEnabled)) return;
         List<PetriElementStatisticDto> statistic = new ArrayList<>();
         for (PetriSim e : objects) {
-            statistic.addAll(getNetWatchListStatistic(e.getNumObj(), e.getNet()));
+            statistic.addAll(getNetWatchListStatistic(e.getStatisticId(), e.getNet()));
         }
         if (!statistic.isEmpty()) {
             sendStatistic(simulationEndTime, statistic);

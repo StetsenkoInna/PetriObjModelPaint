@@ -42,10 +42,28 @@ public class AnimRunPetriObjModel extends PetriObjModel{
         this.area = area;
         StateTime s = new StateTime();
         for(PetriSim sim: list){
-            runlist.add(new AnimRunPetriSim(sim.getNet(),s, area, panel,delaySlider, this));
+            // No GraphPetriObject is available from a bare PetriSim, so there is no per-object
+            // graphical net to scope animation lookups to; null falls back to the whole canvas.
+            runlist.add(new AnimRunPetriSim(sim.getNet(), s, area, panel, delaySlider, this, null));
         }
         super.setTimeState(s); // It's very important for correct statistics but building of project get error
         super.setListObj(list);
+    }
+
+    /**
+     * Builds an animated model out of Petri-objects that are already bound to their views.
+     *
+     * <p>Every object of a composed model is drawn on a panel of its own, so the animated
+     * simulators cannot be derived from the nets here — the caller creates them, each with
+     * its own panel, and they become the model's object list directly.
+     *
+     * @param objects the animated Petri-objects, sharing one {@link StateTime}
+     * @param area where the events protocol is printed
+     */
+    public AnimRunPetriObjModel(ArrayList<AnimRunPetriSim> objects, JTextArea area) {
+        super(new ArrayList<>(objects));
+        this.area = area;
+        this.runlist = objects;
     }
 
     @Override
@@ -92,7 +110,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{
                         }
                     }
                     if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
-                        currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
+                        currentStatistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(e.getStatisticId(), e.getNet()));
                     }
                 }
             }
@@ -176,7 +194,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{
         if (isLastStatisticSegment()) {
             List<PetriElementStatisticDto> statistic = new ArrayList<>();
             for (PetriSim e : getListObj()) {
-                statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(0, e.getNet()));
+                statistic.addAll(statisticGraphMonitor.getNetWatchListStatistic(e.getStatisticId(), e.getNet()));
             }
             statisticGraphMonitor.asyncStatisticSend(getCurrentTime(), statistic);
         }

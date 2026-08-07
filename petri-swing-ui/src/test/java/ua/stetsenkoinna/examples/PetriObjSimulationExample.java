@@ -16,7 +16,8 @@ import java.util.ArrayList;
  * 1) Define the statistic formula to explore:
  *    1.1) Use functions from the PetriStatFunction enum.
  *    1.2) Combine functions with mathematical operators.
- *    1.3) Specify the petri object to take elements from using "O1.". default: 0
+ *    1.3) Specify the petri object to take elements from using "O1." — the number is the
+ *         object's position in the model, counted from zero. default: 0
  * 2) Configure data collection:
  *    2.1) Set the start time for data collection. default: 0
  *    2.2) Define the collection step interval. default: 1
@@ -36,7 +37,7 @@ public class PetriObjSimulationExample {  //Результати співпад�
           dataCollectionConfigDto.setDataCollectionStep(10000.0);
           StatisticConsoleMonitor statisticConsoleMonitor = new StatisticConsoleMonitor(formula, dataCollectionConfigDto);
           statisticConsoleMonitor.setIsMonitoringEnabled(true);
-          model.setStatisticMonitor(statisticConsoleMonitor);
+          model.setStatisticCollector(statisticConsoleMonitor);
 
           model.setIsProtokol(false);
           double timeModeling = 1000000;
@@ -82,24 +83,28 @@ public class PetriObjSimulationExample {  //Результати співпад�
       // метод для конструювання моделі масового обслуговування з 4 СМО
       public static PetriObjModel getModel() throws ExceptionInvalidTimeDelay, ExceptionInvalidNetStructure{
           ArrayList<PetriSim> list = new ArrayList<>();
-          list.add(new PetriSim(NetLibrary.CreateNetGenerator(2.0)));
-          list.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(1, 0.6,"First")));
-          list.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(1, 0.3, "Second")));
-          list.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(1, 0.4,"Third")));
-          list.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(2, 0.1,"Forth")));
-          list.add(new PetriSim(NetLibrary.CreateNetFork(0.15, 0.13, 0.3)));
+          list.add(new PetriSim(NetLibrary.CreateNetGenerator(2.0)));                  // O0
+          list.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(1, 0.6,"First")));  // O1
+          list.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(1, 0.3, "Second"))); // O2
+          list.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(1, 0.4,"Third")));  // O3
+          list.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(2, 0.1,"Forth")));  // O4
+          list.add(new PetriSim(NetLibrary.CreateNetFork(0.15, 0.13, 0.3)));            // O5
 
-          list.get(0).getNet().getListP()[1] = list.get(1).getNet().getListP()[0]; //gen = > SMO1
-          list.get(1).getNet().getListP()[2] = list.get(5).getNet().getListP()[0]; //SMO1 = > fork
+          PetriObjModel model = new PetriObjModel(list);
 
-          list.get(5).getNet().getListP()[1] = list.get(2).getNet().getListP()[0]; //fork =>SMO2
-          list.get(5).getNet().getListP()[2] = list.get(3).getNet().getListP()[0]; //fork =>SMO3
-          list.get(5).getNet().getListP()[3] = list.get(4).getNet().getListP()[0]; //fork =>SMO4
+          // Composition by shared places: the model records every link, so it can be cloned
+          // and written to a document exactly as it is wired here.
+          model.linkObjectsCombiningPlaces(0, 1, 1, 0); // gen  => SMO1
+          model.linkObjectsCombiningPlaces(1, 2, 5, 0); // SMO1 => fork
 
-          list.get(2).getNet().getListP()[2] = list.get(1).getNet().getListP()[0]; //SMO2 => SMO1
-          list.get(3).getNet().getListP()[2] = list.get(1).getNet().getListP()[0];//SMO3 => SMO1
-          list.get(4).getNet().getListP()[2] = list.get(1).getNet().getListP()[0];//SMO4 => SMO1
+          model.linkObjectsCombiningPlaces(5, 1, 2, 0); // fork => SMO2
+          model.linkObjectsCombiningPlaces(5, 2, 3, 0); // fork => SMO3
+          model.linkObjectsCombiningPlaces(5, 3, 4, 0); // fork => SMO4
 
-          return new PetriObjModel(list);
+          model.linkObjectsCombiningPlaces(2, 2, 1, 0); // SMO2 => SMO1
+          model.linkObjectsCombiningPlaces(3, 2, 1, 0); // SMO3 => SMO1
+          model.linkObjectsCombiningPlaces(4, 2, 1, 0); // SMO4 => SMO1
+
+          return model;
       }
 }

@@ -28,6 +28,10 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
     private final ArrayList<Integer> outP = new ArrayList<>();
     private final ArrayList<Integer> quantOut = new ArrayList<>();
 
+    /** Arcs to places owned by other Petri-objects; wired by {@link PetriObjModel#applyLinks()}. */
+    private final ArrayList<ExternalArc> externalIn = new ArrayList<>();
+    private final ArrayList<ExternalArc> externalOut = new ArrayList<>();
+
     private int buffer;
     private int priority;
     private double probability;
@@ -526,6 +530,55 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
     }
 
     /**
+     * Adds a place of another Petri-object to this transition's firing condition.
+     *
+     * <p>A regular external input is consumed on firing exactly like a local input place;
+     * an informational one is only tested. The transition still needs at least one local
+     * input place — external arcs extend the condition, they do not replace it.
+     *
+     * @param place the place owned by the other Petri-object
+     * @param quantity arc multiplicity
+     * @param informational {@code true} to test the marking without consuming it
+     */
+    public void addExternalInput(PetriP place, int quantity, boolean informational) {
+        externalIn.add(new ExternalArc(place, quantity, informational));
+    }
+
+    /**
+     * Makes this transition deliver tokens into a place of another Petri-object whenever it
+     * fires, in addition to its own output places.
+     *
+     * @param place the place owned by the other Petri-object
+     * @param quantity how many tokens each firing delivers
+     */
+    public void addExternalOutput(PetriP place, int quantity) {
+        externalOut.add(new ExternalArc(place, quantity, false));
+    }
+
+    /**
+     * Drops every inter-object arc of this transition. Called before a model re-applies its
+     * link declarations so that wiring is never duplicated.
+     */
+    public void clearExternalArcs() {
+        externalIn.clear();
+        externalOut.clear();
+    }
+
+    /**
+     * @return arcs from places of other Petri-objects into this transition
+     */
+    public List<ExternalArc> getExternalInputs() {
+        return Collections.unmodifiableList(externalIn);
+    }
+
+    /**
+     * @return arcs from this transition into places of other Petri-objects
+     */
+    public List<ExternalArc> getExternalOutputs() {
+        return Collections.unmodifiableList(externalOut);
+    }
+
+    /**
      *
      * @param n the channel number of transition accordance to nearest event
      */
@@ -552,7 +605,7 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
      */
     public boolean condition(PetriP[] pp) { //Нумерація позицій тут відносна!!!  inP.get(i) - номер позиції у списку позицій, який побудований при конструюванні мережі Петрі,
         boolean a = true;
-        boolean b = true;  // Саме тому при з"єднанні спільних позицій зміна номера не призводить до трагічних наслідків (руйнування зв"язків)!!! 
+        boolean b = true;  // Саме тому при з"єднанні спільних позицій зміна номера не призводить до трагічних наслідків (руйнування зв"язків)!!!
         for (int i = 0; i < inP.size(); i++) {
             if (pp[inP.get(i)].getMark() < quantIn.get(i)) {
                 a = false;
@@ -563,6 +616,12 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
             if (pp[inPwithInf.get(i)].getMark() < quantInwithInf.get(i)) {
                 b = false;
                 break;
+            }
+        }
+        // Places of other Petri-objects are reached by reference, not by index into pp.
+        for (ExternalArc arc : externalIn) {
+            if (arc.getPlace().getMark() < arc.getQuantity()) {
+                return false;
             }
         }
         return a && b;
@@ -580,6 +639,11 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
         if (this.condition(pp)) {
             for (int i = 0; i < inP.size(); i++) {
                 pp[inP.get(i)].decreaseMark(quantIn.get(i));
+            }
+            for (ExternalArc arc : externalIn) {
+                if (!arc.isInformational()) {
+                    arc.getPlace().decreaseMark(arc.getQuantity());
+                }
             }
             if (buffer == 0) {
                 timeOut.set(0, currentTime + this.getTimeServ());
@@ -609,6 +673,9 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
         if (buffer > 0) {
             for (int j = 0; j < getOutP().size(); j++) {
                 pp[getOutP().get(j)].increaseMark(quantOut.get(j));
+            }
+            for (ExternalArc arc : externalOut) {
+                arc.getPlace().increaseMark(arc.getQuantity());
             }
             if (num == 0 && (timeOut.size() == 1)) {
                 timeOut.set(0, Double.MAX_VALUE);

@@ -14,6 +14,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.awt.geom.Point2D;
 import java.io.File;
+import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -49,7 +50,6 @@ public class PnmlGenerator {
      * @throws Exception if generation fails
      */
     public void generate(PetriNet petriNet, File file, GraphPetriNet graphPetriNet) throws Exception {
-        this.graphPetriNet = graphPetriNet;
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document document = builder.newDocument();
@@ -77,16 +77,38 @@ public class PnmlGenerator {
         pageElement.setAttribute(PnmlConstants.ATTR_ID, PnmlConstants.DEFAULT_PAGE_ID);
         netElement.appendChild(pageElement);
 
-        // Generate places
-        generatePlaces(document, pageElement, petriNet.getListP());
+        writeNetInto(document, pageElement, petriNet, graphPetriNet);
 
-        // Generate transitions
-        generateTransitions(document, pageElement, petriNet.getListT());
+        writeDocument(document, file);
+    }
 
-        // Generate arcs
-        generateArcs(document, pageElement, petriNet.getArcIn(), petriNet.getArcOut());
+    /**
+     * Writes the places, transitions and arcs of one net below the given element.
+     *
+     * <p>A generator instance keeps the id maps that connect arcs to their endpoints, so a
+     * caller writing several nets into one document — one page per Petri-object — needs a
+     * fresh generator per net.
+     *
+     * @param document the document being built
+     * @param parent element to append the net's elements to, typically a {@code <page>}
+     * @param petriNet the net to write
+     * @param graphPetriNet the drawing the net came from, for coordinates; may be {@code null}
+     */
+    void writeNetInto(Document document, Element parent, PetriNet petriNet, GraphPetriNet graphPetriNet) {
+        this.graphPetriNet = graphPetriNet;
+        generatePlaces(document, parent, petriNet.getListP());
+        generateTransitions(document, parent, petriNet.getListT());
+        generateArcs(document, parent, petriNet.getArcIn(), petriNet.getArcOut());
+    }
 
-        // Write to file
+    /**
+     * Serialises a PNML document to a file with the formatting the tool uses everywhere.
+     *
+     * @param document the document to write
+     * @param file destination file
+     * @throws Exception if the document cannot be written
+     */
+    static void writeDocument(Document document, File file) throws Exception {
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
         Transformer transformer = transformerFactory.newTransformer();
         transformer.setOutputProperty(OutputKeys.INDENT, "yes");
@@ -96,6 +118,25 @@ public class PnmlGenerator {
         DOMSource source = new DOMSource(document);
         StreamResult result = new StreamResult(file);
         transformer.transform(source, result);
+    }
+
+    /**
+     * Serialises a PNML document to a string, for callers that ship it over the wire.
+     *
+     * @param document the document to write
+     * @return the PNML text
+     * @throws Exception if the document cannot be written
+     */
+    static String toXml(Document document) throws Exception {
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        Transformer transformer = transformerFactory.newTransformer();
+        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+
+        StringWriter writer = new StringWriter();
+        transformer.transform(new DOMSource(document), new StreamResult(writer));
+        return writer.toString();
     }
 
     /**

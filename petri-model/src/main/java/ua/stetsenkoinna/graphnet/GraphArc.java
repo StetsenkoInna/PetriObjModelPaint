@@ -94,6 +94,13 @@ public class GraphArc implements Serializable {
         g2.dispose();
     }
 
+    /**
+     * Trims the line to the border of whatever {@link #beginElement} and {@link #endElement}
+     * actually are, so the drawn arc — and its arrowhead — stop at the shape's edge rather than
+     * its centre: a simple radius for anything {@link GraphElement#isCircular()} reports true
+     * (a place, or a stand-in for one, like a port), the rectangle a transition occupies
+     * otherwise.
+     */
     public void changeBorder() {
         double x, y, r, rr, yy, xx, dy, dx, k, b;
         r = endElement.getBorder();
@@ -111,7 +118,7 @@ public class GraphArc implements Serializable {
         double halfH = (double) GraphTransition.getHeight() / 2;
 
         if (dx == 0) {
-            if (beginElement.getClass().equals(GraphPetriPlace.class)) {
+            if (beginElement.isCircular()) {
                 rr = rr / arcLength;
                 xx = xx + rr * dx;
                 yy = yy + rr * dy;
@@ -119,7 +126,7 @@ public class GraphArc implements Serializable {
                 double halfW = (double) ((GraphTransition) beginElement).getWidth() / 2;
                 xx = (xx < x) ? xx + halfW : xx - halfW;
             }
-            if (endElement.getClass().equals(GraphPetriPlace.class)) {
+            if (endElement.isCircular()) {
                 r = r / arcLength;
                 x = x + r * dx;
                 y = y + r * dy;
@@ -139,7 +146,7 @@ public class GraphArc implements Serializable {
             k = dy / dx;
             b = y - k * x;
 
-            if (beginElement.getClass().equals(GraphPetriPlace.class)) {
+            if (beginElement.isCircular()) {
                 rr = rr / arcLength;
                 xx = xx + rr * dx;
                 yy = yy + rr * dy;
@@ -157,7 +164,7 @@ public class GraphArc implements Serializable {
                 else { xx = p2.x; yy = p2.y; }
             }
 
-            if (endElement.getClass().equals(GraphPetriPlace.class)) {
+            if (endElement.isCircular()) {
                 r = r / arcLength;
                 x = x - r * dx;
                 y = y - r * dy;

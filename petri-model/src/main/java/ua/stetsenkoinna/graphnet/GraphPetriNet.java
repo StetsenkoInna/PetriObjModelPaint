@@ -811,24 +811,46 @@ public class GraphPetriNet implements Cloneable, Serializable {
     }
 
     public void paintGraphPetriNet(Graphics2D g2, Graphics g) {
+        paintGraphPetriNet(g2, g, java.util.Collections.emptySet());
+    }
+
+    /**
+     * Draws the net, leaving out whatever is in {@code hiddenElements} — a place or transition
+     * there is not drawn at all, and an arc is left out the moment either of its ends is, since
+     * a line to or from something not on screen would not mean anything. Nothing here decides
+     * what belongs in that set: it is how a Petri-object's own eye icon, on the canvas this net
+     * is drawn on, actually hides its content without this net needing to know what a
+     * Petri-object or an eye icon even is.
+     *
+     * @param hiddenElements places and transitions to skip drawing
+     */
+    public void paintGraphPetriNet(Graphics2D g2, Graphics g, java.util.Set<GraphElement> hiddenElements) {
         if (!graphPetriPlaceList.isEmpty()) {
             for (GraphPetriPlace e : graphPetriPlaceList) {
-               e.drawGraphElement(g2);
+                if (!hiddenElements.contains(e)) {
+                    e.drawGraphElement(g2);
+                }
             }
         }
         if (!graphPetriTransitionList.isEmpty()) {
             for (GraphPetriTransition e : graphPetriTransitionList) {
-                e.drawGraphElement(g2);
+                if (!hiddenElements.contains(e)) {
+                    e.drawGraphElement(g2);
+                }
             }
         }
         if (!graphArcOutList.isEmpty()) {
-            for (GraphArcOut a : graphArcOutList) {   
-              a.drawGraphElement(g2);
+            for (GraphArcOut a : graphArcOutList) {
+                if (!hiddenElements.contains(a.getBeginElement()) && !hiddenElements.contains(a.getEndElement())) {
+                    a.drawGraphElement(g2);
+                }
             }
         }
         if (!graphArcInList.isEmpty()) {
             for (GraphArcIn a : graphArcInList) {
-               a.drawGraphElement(g2);
+                if (!hiddenElements.contains(a.getBeginElement()) && !hiddenElements.contains(a.getEndElement())) {
+                    a.drawGraphElement(g2);
+                }
             }
         }
     }

@@ -52,6 +52,24 @@ public class PnmlParser {
     }
 
     private PetriNet buildNet(Document document) throws Exception {
+        Element netElement = findNetElement(document);
+        int pages = XmlHelper.directChildren(netElement, PnmlConstants.ELEMENT_PAGE).size();
+        if (pages > 1) {
+            // Every page is a Petri-object of its own; flattening them would silently merge
+            // nets that only a composed model can run.
+            throw new Exception(String.format(PnmlConstants.ERROR_OBJECT_MODEL_NOT_SUPPORTED, pages));
+        }
+        return parseScope(netElement, netElement.getAttribute(PnmlConstants.ATTR_ID));
+    }
+
+    /**
+     * Locates the single {@code <net>} element of a PNML document.
+     *
+     * @param document parsed PNML document
+     * @return the net element
+     * @throws Exception if the document is not PNML or holds no net
+     */
+    static Element findNetElement(Document document) throws Exception {
         Element root = document.getDocumentElement();
         if (!PnmlConstants.ELEMENT_PNML.equals(root.getTagName())) {
             throw new Exception(PnmlConstants.ERROR_INVALID_ROOT);
@@ -61,17 +79,30 @@ public class PnmlParser {
         if (netNodes.getLength() == 0) {
             throw new Exception(PnmlConstants.ERROR_NO_NET);
         }
+        return (Element) netNodes.item(0);
+    }
 
-        Element netElement = (Element) netNodes.item(0);
-        String netId = netElement.getAttribute(PnmlConstants.ATTR_ID);
-
-        ArrayList<PetriP> places = parsePlaces(netElement);
-        ArrayList<PetriT> transitions = parseTransitions(netElement);
+    /**
+     * Builds one Petri net from the places, transitions and arcs found below the given
+     * element — a whole {@code <net>} for a plain document, one {@code <page>} for a single
+     * Petri-object of a composed model.
+     *
+     * <p>Each parser instance keeps its own id-to-number maps, so a caller reading several
+     * pages has to use a fresh parser per page.
+     *
+     * @param scope the element to read the net from
+     * @param netName name to give the resulting net
+     * @return the parsed net
+     * @throws ExceptionInvalidTimeDelay if the described net has an invalid structure
+     */
+    PetriNet parseScope(Element scope, String netName) throws ExceptionInvalidTimeDelay {
+        ArrayList<PetriP> places = parsePlaces(scope);
+        ArrayList<PetriT> transitions = parseTransitions(scope);
         ArrayList<ArcIn> arcIns = new ArrayList<>();
         ArrayList<ArcOut> arcOuts = new ArrayList<>();
-        parseArcs(netElement, arcIns, arcOuts);
+        parseArcs(scope, arcIns, arcOuts);
 
-        return new PetriNet(netId, places, transitions, arcIns, arcOuts);
+        return new PetriNet(netName, places, transitions, arcIns, arcOuts);
     }
 
     /**

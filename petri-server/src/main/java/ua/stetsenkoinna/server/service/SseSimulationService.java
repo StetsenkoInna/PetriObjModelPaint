@@ -7,9 +7,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import ua.stetsenkoinna.petriobj.PetriObjModel;
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
+import ua.stetsenkoinna.server.adapter.ModelBuilder;
+import ua.stetsenkoinna.server.adapter.PetriObjModelFactory;
 import ua.stetsenkoinna.server.adapter.SimulationFrame;
 import ua.stetsenkoinna.server.adapter.SimulationInterruptedException;
 import ua.stetsenkoinna.server.adapter.SimulationModelFactory;
+import ua.stetsenkoinna.server.adapter.SseObjectModelSink;
 import ua.stetsenkoinna.server.adapter.SseSimulationSink;
 
 import java.util.Optional;
@@ -52,20 +55,55 @@ public class SseSimulationService {
             long animationDelayMs
     ) {}
 
+    /**
+     * Streams a plain single-net simulation.
+     *
+     * @param netXml PNML document of the net to simulate
+     * @param params snapshot and pacing settings
+     */
     public SseEmitter stream(String netXml, StreamParams params) {
+        return stream(params,
+                (queue, session) -> new SseSimulationSink(queue, session,
+                        params.timeStep(), params.snapshotInterval(), params.simulationTime()),
+                (sessionId, collector) -> SimulationModelFactory.build(sessionId, netXml, collector));
+    }
+
+    /**
+     * Streams a Petri-object model simulation.
+     *
+     * <p>Snapshots have the same shape as for a plain net — element ids stay unique across
+     * the objects of a model — and the per-object statistics land in the session result.
+     *
+     * @param modelXml PNML document describing one or several Petri-objects
+     * @param params snapshot and pacing settings
+     */
+    public SseEmitter streamObjectModel(String modelXml, StreamParams params) {
+        return stream(params,
+                (queue, session) -> new SseObjectModelSink(queue, session,
+                        params.timeStep(), params.snapshotInterval(), params.simulationTime()),
+                (sessionId, collector) -> PetriObjModelFactory.build(sessionId, modelXml, collector));
+    }
+
+    /**
+     * Creates the sink a streaming run reports through.
+     */
+    @FunctionalInterface
+    private interface SinkFactory {
+        SseSimulationSink create(LinkedBlockingQueue<Optional<SimulationFrame>> queue,
+                                 SimulationSession session);
+    }
+
+    private SseEmitter stream(StreamParams params, SinkFactory sinkFactory, ModelBuilder modelBuilder) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
         SimulationSession session = registry.create();
         LinkedBlockingQueue<Optional<SimulationFrame>> queue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
 
-        SseSimulationSink sink = new SseSimulationSink(
-                queue, session,
-                params.timeStep(), params.snapshotInterval(), params.simulationTime()
-        );
+        SseSimulationSink sink = sinkFactory.create(queue, session);
 
         Thread.ofVirtual().name("sim-sse-" + session.getId()).start(() -> {
             session.setStatus(SimulationStatus.RUNNING);
             try {
-                PetriObjModel model = SimulationModelFactory.build(session.getId(), netXml, sink);
+                PetriObjModel model = modelBuilder.build(session.getId(), sink);
                 model.go(params.simulationTime());
             } catch (SimulationInterruptedException e) {
                 log.info("SSE simulation {} halted by request", session.getId());
