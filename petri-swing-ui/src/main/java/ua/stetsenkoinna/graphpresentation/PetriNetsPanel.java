@@ -165,7 +165,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         setTransitionFrame.setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
 
         nameTextField = textField;
-        this.setNullPanel(); // починаємо заново створювати усі списки графічних елементів  //додано 3.12.2012
+        this.resetOwnState(); // починаємо заново створювати усі списки графічних елементів  //додано 3.12.2012
         setFocusable(editable);
 
         addMouseWheelListener(new MouseWheelHendler());
@@ -2019,11 +2019,39 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         isSettingArc = b;
     }
 
-    public final void setNullPanel() {
+    /**
+     * Empties this panel's own drawing and clears its transient selection state — safe to call
+     * from anywhere, including this panel's own constructor, since none of it is shared with
+     * any other {@code PetriNetsPanel}.
+     */
+    private void resetOwnState() {
         current = null;
         currentArc = null;
         choosen = null;
         choosenArc = null;
+        setCanvasNet(new GraphPetriNet());
+        canvasModel.getFrames().clear();
+        canvasModel.getFusions().clear();
+        repaint();
+    }
+
+    /**
+     * Starts an entirely new document: this panel's own state (see {@link #resetOwnState()}),
+     * plus every numbering counter a freshly created place, transition or arc anywhere in the
+     * application draws its id or number from.
+     *
+     * <p>Resetting those counters is safe only when the user has deliberately asked for a fresh
+     * start — {@code File → New} is the one caller — never merely because a new
+     * {@code PetriNetsPanel} was constructed: a Petri-object's own editor is a
+     * {@code PetriNetsPanel} too, built and torn down every time it is opened, and it must
+     * never renumber elements the main canvas, or any other still-open object's own editor,
+     * already depends on. That used to happen here, and was the actual cause of arcs drawn
+     * inside an object's editor being matched — and their weight incremented — against a
+     * completely unrelated, pre-existing arc elsewhere: the new arc's ends collided in id with
+     * that other arc's, purely because the ids had just been counted from zero again.
+     */
+    public final void setNullPanel() {
+        resetOwnState();
 
         id = 0;
         GraphElementIdGenerator.reset();
@@ -2033,11 +2061,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         ArcOut.initNext(); //додано Інна 20.11.2012
         GraphPetriPlace.setNullSimpleName();
         GraphPetriTransition.setNullSimpleName();
-        setCanvasNet(new GraphPetriNet());
-        canvasModel.getFrames().clear();
-        canvasModel.getFusions().clear();
-
-        repaint();
     }
 
     /**

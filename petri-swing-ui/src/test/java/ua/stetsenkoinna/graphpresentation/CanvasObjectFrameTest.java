@@ -469,6 +469,49 @@ public class CanvasObjectFrameTest {
     }
 
     @Test
+    public void theEditorToolbarSetsTheNewElementAsCurrentSoItFollowsThePointer() throws Exception {
+        // Without this, the main canvas's own mouseMoved/mousePressed handling — shared by this
+        // panel, since it is the very same PetriNetsPanel class — never has anything to do:
+        // a newly added place or transition would just sit wherever a freshly constructed one
+        // starts out instead of following the pointer until clicked into place, the same
+        // "different spawn logic" gap that made every new element land right on top of the
+        // last one.
+        PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
+        editorPanel.setGraphNet(new GraphPetriNet());
+        ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame editor =
+                new ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame(null, "Test", editorPanel);
+
+        Method addPlace = editor.getClass().getDeclaredMethod("addPlace");
+        addPlace.setAccessible(true);
+        addPlace.invoke(editor);
+
+        assertSame(editorPanel.getGraphNet().getGraphPetriPlaceList().getFirst(), editorPanel.getCurrent());
+
+        Method addTransition = editor.getClass().getDeclaredMethod("addTransition");
+        addTransition.setAccessible(true);
+        addTransition.invoke(editor);
+
+        assertSame(editorPanel.getGraphNet().getGraphPetriTransitionList().getFirst(), editorPanel.getCurrent());
+        editor.dispose();
+    }
+
+    @Test
+    public void constructingAPanelDoesNotResetTheSharedIdGenerator() {
+        // The actual cause of arcs drawn inside an object's own editor getting matched — and
+        // their weight bumped — against a completely unrelated, pre-existing arc: opening the
+        // editor constructs a fresh PetriNetsPanel, whose constructor used to reset the id
+        // generator every open view's elements draw their own ids from, right back to zero.
+        ua.stetsenkoinna.graphnet.GraphElementIdGenerator.reset();
+        int before = ua.stetsenkoinna.graphnet.GraphElementIdGenerator.next();
+
+        new PetriNetsPanel(null, true); // simulates PetriNetsPanel.openObjectEditor opening one
+
+        int after = ua.stetsenkoinna.graphnet.GraphElementIdGenerator.next();
+        assertEquals("constructing another panel must not roll the id generator back",
+                before + 1, after);
+    }
+
+    @Test
     public void propertyDialogsAreExemptFromModalBlocking() throws Exception {
         // ObjectEditorFrame is APPLICATION_MODAL; without this exemption Swing blocks these
         // plain, ownerless JFrames the instant it shows, which is why opening a place or

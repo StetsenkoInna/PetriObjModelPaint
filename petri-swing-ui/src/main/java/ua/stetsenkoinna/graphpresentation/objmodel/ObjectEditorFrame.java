@@ -16,6 +16,8 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Window;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 /**
  * The window a Petri-object's own net is edited in.
@@ -50,6 +52,18 @@ public class ObjectEditorFrame extends JDialog {
         buildUi();
         pack();
         setLocationRelativeTo(owner);
+
+        // Without this, keyboard focus on first showing the dialog defaults to the Save
+        // button (the root pane's default button) rather than the canvas, so none of the
+        // panel's own key bindings — Delete, Ctrl+A, Ctrl+D and the rest, the very same
+        // KeyListener the main canvas uses — see a keystroke until the user happens to click
+        // on the canvas first.
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowOpened(WindowEvent e) {
+                panel.requestFocusInWindow();
+            }
+        });
     }
 
     /**
@@ -108,17 +122,29 @@ public class ObjectEditorFrame extends JDialog {
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
     }
 
+    /**
+     * Adds a place the same way the main canvas's own toolbar does — {@code AddGraphElementEdit}
+     * there, minus the undo/redo wiring this window has no use for, since Save/Cancel is
+     * already its own coarser commit/discard. Setting it {@code current} is what matters: the
+     * main canvas's own {@code mouseMoved}/{@code mousePressed} handling, shared by this panel
+     * since it is the very same {@link PetriNetsPanel} class, is what then has a newly added
+     * element follow the pointer until clicked into place — without it, the place would just
+     * sit wherever a freshly constructed one starts out, unmoved and invisible under the header.
+     */
     private void addPlace() {
         GraphPetriPlace place = new GraphPetriPlace(
                 new PetriP(GraphPetriPlace.setSimpleName(), 0), GraphElementIdGenerator.next());
         panel.getGraphNet().getGraphPetriPlaceList().add(place);
+        panel.setCurrent(place);
         panel.repaint();
     }
 
+    /** @see #addPlace() */
     private void addTransition() {
         GraphPetriTransition transition = new GraphPetriTransition(
                 new PetriT(GraphPetriTransition.setSimpleName(), 0.0), GraphElementIdGenerator.next());
         panel.getGraphNet().getGraphPetriTransitionList().add(transition);
+        panel.setCurrent(transition);
         panel.repaint();
     }
 }
