@@ -15,6 +15,10 @@ import ua.stetsenkoinna.config.ResourcePathConfig;
 import ua.stetsenkoinna.pnml.CoordinateNormalizer;
 import ua.stetsenkoinna.pnml.PnmlParser;
 import ua.stetsenkoinna.pnml.PnmlGenerator;
+import ua.stetsenkoinna.pnml.PnmlModelGenerator;
+import ua.stetsenkoinna.pnml.PnmlModelParser;
+import ua.stetsenkoinna.graphnet.GraphCanvasModel;
+import ua.stetsenkoinna.graphpresentation.objmodel.NetTemplateDialog;
 import ua.stetsenkoinna.petriobj.PetriNet;
 import ua.stetsenkoinna.petriobj.ArcIn;
 import ua.stetsenkoinna.petriobj.ArcOut;
@@ -45,8 +49,6 @@ import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
 import ua.stetsenkoinna.graphnet.GraphPetriObject;
 import ua.stetsenkoinna.petriobj.PetriObjLink;
 import ua.stetsenkoinna.petriobj.StateTime;
-import ua.stetsenkoinna.graphpresentation.objmodel.ModelStructureFrame;
-import ua.stetsenkoinna.graphpresentation.objmodel.NetEditorBridge;
 import ua.stetsenkoinna.graphpresentation.actions.AnimateEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.PlayPauseAction;
 import ua.stetsenkoinna.graphpresentation.actions.RewindAction;
@@ -60,12 +62,9 @@ import java.io.ObjectInputStream;
 import javax.swing.undo.UndoManager;
 import javax.swing.undo.UndoableEditSupport;
 
-public class PetriNetsFrame extends javax.swing.JFrame implements NetEditorBridge {
+public class PetriNetsFrame extends javax.swing.JFrame {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PetriNetsFrame.class);
-
-    /** The structure window of the Petri-object model, created the first time it is opened. */
-    private ModelStructureFrame modelStructureFrame;
 
     public Timer timer; // timer that starts repainting while simulation
     private final MethodNameDialogPanel dialogPanel = new MethodNameDialogPanel();
@@ -211,6 +210,17 @@ public class PetriNetsFrame extends javax.swing.JFrame implements NetEditorBridg
         newFrameItem.addActionListener(e -> addEmptyObjectFrame());
         modelMenu.add(newFrameItem);
 
+        JMenuItem fromLibraryItem = new JMenuItem("Petri-object from net library...");
+        fromLibraryItem.setToolTipText("Instantiate a net library template with arguments of its own");
+        fromLibraryItem.addActionListener(e -> addObjectFromLibrary());
+        modelMenu.add(fromLibraryItem);
+
+        JMenuItem duplicateItem = new JMenuItem("Duplicate selected Petri-object");
+        duplicateItem.setToolTipText("Copy the object together with its net — the way to get N alike");
+        duplicateItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_D, InputEvent.CTRL_DOWN_MASK));
+        duplicateItem.addActionListener(e -> duplicateSelectedObject());
+        modelMenu.add(duplicateItem);
+
         modelMenu.addSeparator();
 
         JMenuItem renameItem = new JMenuItem("Rename selected Petri-object...");
@@ -225,13 +235,6 @@ public class PetriNetsFrame extends javax.swing.JFrame implements NetEditorBridg
         removeItem.setToolTipText("The net inside stays on the canvas");
         removeItem.addActionListener(e -> removeSelectedObjectFrame());
         modelMenu.add(removeItem);
-
-        modelMenu.addSeparator();
-
-        JMenuItem structureItem = new JMenuItem("Petri-object model structure...");
-        structureItem.setToolTipText("Overview of the objects on the canvas and the links between them");
-        structureItem.addActionListener(e -> openModelStructure());
-        modelMenu.add(structureItem);
 
         getJMenuBar().add(modelMenu);
     }
@@ -286,6 +289,117 @@ public class PetriNetsFrame extends javax.swing.JFrame implements NetEditorBridg
         Point centre = getCanvasCentre();
         Rectangle bounds = new Rectangle(Math.max(0, centre.x - 180), Math.max(0, centre.y - 120), 360, 240);
         getPetriNetsPanel().addObjectFrame(new GraphObjectFrame(name.trim(), bounds));
+    }
+
+    /**
+     * Instantiates a net library template as a new Petri-object: its net is laid out on the
+     * canvas and a frame is drawn around it.
+     */
+    private void addObjectFromLibrary() {
+        NetTemplateDialog dialog = new NetTemplateDialog(this,
+                "Object " + (getPetriNetsPanel().getCanvasModel().getFrames().size() + 1));
+        dialog.setVisible(true);
+        if (dialog.getBuilt() == null) {
+            return;
+        }
+        try {
+            Point centre = freeSpotForNewObject();
+            GraphPetriNet built = SimpleNetGraphBuilder.build(dialog.getBuilt(), centre);
+            getPetriNetsPanel().addGraphNet(built);
+
+            Rectangle bounds = boundsAround(new ArrayList<>(built.getGraphPetriPlaceList()),
+                    new ArrayList<>(built.getGraphPetriTransitionList()));
+            GraphObjectFrame frame = new GraphObjectFrame(dialog.getObjectName(), bounds);
+            frame.setTemplate(dialog.getReference());
+            getPetriNetsPanel().addObjectFrame(frame);
+            getPetriNetsPanel().repaint();
+        } catch (Exception failure) {
+            LOGGER.error("Failed to add a Petri-object from the net library", failure);
+            MessageHelper.showException(this, "Cannot put the net library template on the canvas", failure);
+        }
+    }
+
+    /**
+     * Copies the selected Petri-object with its net, which is the quick way to a model of
+     * several alike objects.
+     */
+    private void duplicateSelectedObject() {
+        GraphObjectFrame frame = requireSelectedFrame();
+        if (frame == null) {
+            return;
+        }
+        GraphCanvasModel canvas = getPetriNetsPanel().getCanvasModel();
+        java.util.List<ua.stetsenkoinna.graphnet.GraphElement> inside = new ArrayList<>();
+        for (ua.stetsenkoinna.graphnet.GraphPetriPlace place : canvas.getNet().getGraphPetriPlaceList()) {
+            if (canvas.ownerOf(place) == frame) {
+                inside.add(place);
+            }
+        }
+        for (ua.stetsenkoinna.graphnet.GraphPetriTransition transition : canvas.getNet().getGraphPetriTransitionList()) {
+            if (canvas.ownerOf(transition) == frame) {
+                inside.add(transition);
+            }
+        }
+        if (inside.isEmpty()) {
+            MessageHelper.showError(this, "The Petri-object has no net to copy yet");
+            return;
+        }
+
+        GraphPetriNet.GraphNetFragment copy = canvas.getNet().bulkCopyNoPasteElements(inside);
+        int dx = frame.getBounds().width + 40;
+        for (ua.stetsenkoinna.graphnet.GraphElement element : copy.elements) {
+            java.awt.geom.Point2D centre = element.getGraphElementCenter();
+            element.setNewCoordinates(new java.awt.geom.Point2D.Double(centre.getX() + dx, centre.getY()));
+        }
+        getPetriNetsPanel().addNetFragment(copy);
+
+        Rectangle bounds = new Rectangle(frame.getBounds().x + dx, frame.getBounds().y,
+                frame.getBounds().width, frame.getBounds().height);
+        GraphObjectFrame duplicate = new GraphObjectFrame(
+                frame.getName() + " copy", bounds);
+        duplicate.setPriority(frame.getPriority());
+        duplicate.setTemplate(frame.getTemplate());
+        getPetriNetsPanel().addObjectFrame(duplicate);
+        getPetriNetsPanel().repaint();
+    }
+
+    /**
+     * @return a point to lay a new object's net around, to the right of what is already there
+     */
+    private Point freeSpotForNewObject() {
+        int rightmost = 0;
+        for (GraphObjectFrame frame : getPetriNetsPanel().getCanvasModel().getFrames()) {
+            rightmost = Math.max(rightmost, frame.getBounds().x + frame.getBounds().width);
+        }
+        return rightmost == 0 ? getCanvasCentre() : new Point(rightmost + 220, 220);
+    }
+
+    /**
+     * @return a frame that encloses the given elements with room to spare
+     */
+    private Rectangle boundsAround(java.util.List<? extends ua.stetsenkoinna.graphnet.GraphElement> places,
+                                   java.util.List<? extends ua.stetsenkoinna.graphnet.GraphElement> transitions) {
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        java.util.List<ua.stetsenkoinna.graphnet.GraphElement> all = new ArrayList<>();
+        all.addAll(places);
+        all.addAll(transitions);
+        for (ua.stetsenkoinna.graphnet.GraphElement element : all) {
+            java.awt.geom.Point2D centre = element.getGraphElementCenter();
+            int border = Math.max(element.getBorder(), 20);
+            minX = Math.min(minX, (int) centre.getX() - border);
+            minY = Math.min(minY, (int) centre.getY() - border);
+            maxX = Math.max(maxX, (int) centre.getX() + border);
+            maxY = Math.max(maxY, (int) centre.getY() + border);
+        }
+        int padding = 24;
+        return new Rectangle(
+                Math.max(0, minX - padding),
+                Math.max(0, minY - padding - GraphObjectFrame.HEADER_HEIGHT),
+                maxX - minX + padding * 2,
+                maxY - minY + padding * 2 + GraphObjectFrame.HEADER_HEIGHT);
     }
 
     private void renameSelectedObject() {
@@ -343,60 +457,26 @@ public class PetriNetsFrame extends javax.swing.JFrame implements NetEditorBridg
      * Opens the structure window, seeding it with the net on the canvas the first time so the
      * user starts from what they already drew rather than from an empty model.
      */
-    private void openModelStructure() {
-        if (modelStructureFrame == null || !modelStructureFrame.isDisplayable()) {
-            modelStructureFrame = new ModelStructureFrame(this, this, seedObjectModel());
+    /**
+     * @return the canvas read as a Petri-object model, or {@code null} when there is nothing
+     *         on it; the statistics module uses it to resolve the {@code O<n>.} prefix of a
+     *         formula against the object it names
+     */
+    public GraphPetriObjModel getObjectModel() {
+        try {
+            return getPetriNetsPanel().getCanvasModel().toObjModel();
+        } catch (RuntimeException empty) {
+            return null;
         }
-        modelStructureFrame.setVisible(true);
-        modelStructureFrame.toFront();
     }
 
-    private GraphPetriObjModel seedObjectModel() {
-        GraphPetriNet canvasNet = getPetriNetsPanel().getGraphNet();
-        if (canvasNet == null || canvasNet.getGraphPetriPlaceList().isEmpty()) {
-            return new GraphPetriObjModel();
-        }
-        String name = netNameTextField.getText().isBlank() ? "Model" : netNameTextField.getText().trim();
-        return GraphPetriObjModel.singleObject(canvasNet, name);
-    }
-
-    // ------------------------------------------------------------------ NetEditorBridge
-
-    @Override
-    public void openNet(GraphPetriNet net, String name) {
-        getPetriNetsPanel().setGraphNet(net);
-        netNameTextField.setText(name);
-        getPetriNetsPanel().repaint();
-        toFront();
-    }
-
-    @Override
-    public GraphPetriNet getCanvasNet() {
-        return getPetriNetsPanel().getGraphNet();
-    }
-
-    @Override
+    /**
+     * @return a point around which a freshly built net should be laid out
+     */
     public Point getCanvasCentre() {
         JScrollPane pane = GetPetriNetPanelScrollPane();
         return new Point(pane.getLocation().x + pane.getBounds().width / 2,
                 pane.getLocation().y + pane.getBounds().height / 2);
-    }
-
-    @Override
-    public double getSimulationTime() {
-        try {
-            return Double.parseDouble(timeModelingTextField.getText().trim());
-        } catch (NumberFormatException malformed) {
-            return 1000.0;
-        }
-    }
-
-    @Override
-    public StatisticGraphMonitor createStatisticMonitor(boolean blocking) {
-        if (statisticMonitorDialog == null || !isStatisticMonitorEnabled.isSelected()) {
-            return null;
-        }
-        return new StatisticGraphMonitor(statisticMonitorDialog, blocking);
     }
 
     /**
@@ -404,9 +484,6 @@ public class PetriNetsFrame extends javax.swing.JFrame implements NetEditorBridg
      *         when that window was never opened; used by the statistics module to resolve
      *         the {@code O<n>.} prefix of a formula
      */
-    public GraphPetriObjModel getObjectModel() {
-        return modelStructureFrame != null ? modelStructureFrame.getModel() : null;
-    }
     
     private JButton createPtrnButton(String title, String tooltip) {
 
@@ -1964,142 +2041,41 @@ public class PetriNetsFrame extends javax.swing.JFrame implements NetEditorBridg
         dialog.setVisible(true);
     }// GEN-LAST:event_openMethodMenuItemActionPerformed
 
+    /**
+     * Opens a PNML document on the canvas.
+     *
+     * <p>The document may hold a whole Petri-object model — a page per object with the links
+     * between them — or a single net, which is a model of one object. Both come back as
+     * frames on the canvas with their nets inside.
+     */
     private void importPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
         try {
             java.awt.FileDialog fdlg = new java.awt.FileDialog(this, "Import PNML File", java.awt.FileDialog.LOAD);
             fdlg.setFile("*.pnml");
             fdlg.setVisible(true);
-
-            if (fdlg.getFile() != null) {
-                java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
-
-                PnmlParser parser = new PnmlParser();
-                PetriNet petriNet = parser.parse(selectedFile);
-
-                java.util.Map<Integer, java.awt.geom.Point2D.Double> placeCoordinates = parser.getAllPlaceCoordinates();
-                java.util.Map<Integer, java.awt.geom.Point2D.Double> transitionCoordinates = parser.getAllTransitionCoordinates();
-
-                // Normalize coordinates preserving network structure
-                CoordinateNormalizer.NormalizationResult normalization =
-                    CoordinateNormalizer.normalize(placeCoordinates, transitionCoordinates);
-
-                GraphPetriNet graphNet = new GraphPetriNet();
-
-                for (PetriP place : petriNet.getListP()) {
-                    GraphPetriPlace graphPlace = new GraphPetriPlace(place, PetriNetsPanel.getIdElement());
-
-                    java.awt.geom.Point2D.Double coords = normalization.normalizedPlaceCoordinates.get(place.getNumber());
-                    if (coords != null) {
-                        graphPlace.setNewCoordinates(new java.awt.geom.Point2D.Double(coords.x, coords.y));
-                    } else {
-                        graphPlace.setNewCoordinates(new java.awt.geom.Point2D.Double(100 + place.getNumber() * 100, 100));
-                    }
-
-                    graphNet.getGraphPetriPlaceList().add(graphPlace);
-                }
-
-                for (PetriT transition : petriNet.getListT()) {
-                    GraphPetriTransition graphTransition = new GraphPetriTransition(transition, PetriNetsPanel.getIdElement());
-
-                    java.awt.geom.Point2D.Double coords = normalization.normalizedTransitionCoordinates.get(transition.getNumber());
-                    if (coords != null) {
-                        graphTransition.setNewCoordinates(new java.awt.geom.Point2D.Double(coords.x, coords.y));
-                    } else {
-                        graphTransition.setNewCoordinates(new java.awt.geom.Point2D.Double(100 + transition.getNumber() * 100, 200));
-                    }
-
-                    graphNet.getGraphPetriTransitionList().add(graphTransition);
-                }
-
-                // Create GraphArcIn objects from ArcIn objects
-                for (ArcIn arcIn : petriNet.getArcIn()) {
-                    GraphPetriPlace beginPlace = null;
-                    GraphPetriTransition endTransition = null;
-
-                    // Find corresponding graph elements
-                    for (GraphPetriPlace gp : graphNet.getGraphPetriPlaceList()) {
-                        if (gp.getPetriPlace().getNumber() == arcIn.getNumP()) {
-                            beginPlace = gp;
-                            break;
-                        }
-                    }
-
-                    for (GraphPetriTransition gt : graphNet.getGraphPetriTransitionList()) {
-                        if (gt.getPetriTransition().getNumber() == arcIn.getNumT()) {
-                            endTransition = gt;
-                            break;
-                        }
-                    }
-
-                    if (beginPlace != null && endTransition != null) {
-                        GraphArcIn graphArcIn = new GraphArcIn(arcIn);
-                        graphArcIn.settingNewArc(beginPlace);
-                        graphArcIn.setEndElement(endTransition);
-                        graphArcIn.setPetriElements();
-                        graphArcIn.updateCoordinates();
-                        graphNet.getGraphArcInList().add(graphArcIn);
-                    }
-                }
-
-                // Create GraphArcOut objects from ArcOut objects
-                for (ArcOut arcOut : petriNet.getArcOut()) {
-                    GraphPetriTransition beginTransition = null;
-                    GraphPetriPlace endPlace = null;
-
-                    // Find corresponding graph elements
-                    for (GraphPetriTransition gt : graphNet.getGraphPetriTransitionList()) {
-                        if (gt.getPetriTransition().getNumber() == arcOut.getNumT()) {
-                            beginTransition = gt;
-                            break;
-                        }
-                    }
-
-                    for (GraphPetriPlace gp : graphNet.getGraphPetriPlaceList()) {
-                        if (gp.getPetriPlace().getNumber() == arcOut.getNumP()) {
-                            endPlace = gp;
-                            break;
-                        }
-                    }
-
-                    if (beginTransition != null && endPlace != null) {
-                        GraphArcOut graphArcOut = new GraphArcOut(arcOut);
-                        graphArcOut.settingNewArc(beginTransition);
-                        graphArcOut.setEndElement(endPlace);
-                        graphArcOut.setPetriElements();
-                        graphArcOut.updateCoordinates();
-                        graphNet.getGraphArcOutList().add(graphArcOut);
-                    }
-                }
-
-                // Set the imported net
-                getPetriNetsPanel().setGraphNet(graphNet);
-
-                // Fix overlapping arcs (important for nets with bidirectional connections)
-                graphNet.fixOverlappingArcs();
-
-                // Update UI
-                if (petriNet.getName() != null && !petriNet.getName().isEmpty()) {
-                    netNameTextField.setText(petriNet.getName());
-                } else {
-                    netNameTextField.setText(selectedFile.getName().replaceFirst("[.][^.]+$", ""));
-                }
-                timeStartField.setText("0");
-                protocolTextArea.setText("---------Events protocol----------");
-                statisticsTextArea.setText("---------STATISTICS---------");
-
-                getPetriNetsPanel().repaint();
-
-                MessageHelper.showInfo(this,
-                    "PNML file imported successfully!\nPlaces: " + petriNet.getListP().length +
-                    ", Transitions: " + petriNet.getListT().length +
-                    "\nInput arcs: " + petriNet.getArcIn().length +
-                    ", Output arcs: " + petriNet.getArcOut().length);
+            if (fdlg.getFile() == null) {
+                return;
             }
+            java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
+
+            GraphPetriObjModel objModel = new PnmlModelParser().parse(selectedFile);
+            GraphCanvasModel canvas = GraphCanvasModel.fromObjModel(objModel);
+            getPetriNetsPanel().setCanvasModel(canvas);
+            netNameTextField.setText(objModel.getName());
+
+            MessageHelper.showInfo(this,
+                    "Imported " + objModel.getObjectCount() + " Petri-object(s) and "
+                            + objModel.getLinks().size() + " link(s) from " + selectedFile.getName());
         } catch (Exception ex) {
+            LOGGER.error("Failed to import PNML", ex);
             MessageHelper.showException(this, "Error importing PNML file", ex);
         }
     }
 
+    /**
+     * Writes the canvas to a PNML document: a page per Petri-object frame, the links between
+     * them, and everything drawn outside every frame as one more object.
+     */
     private void exportPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
         try {
             if (getPetriNetsPanel().getGraphNet() == null) {
@@ -2111,33 +2087,25 @@ public class PetriNetsFrame extends javax.swing.JFrame implements NetEditorBridg
             java.awt.FileDialog fdlg = new java.awt.FileDialog(this, "Export to PNML File", java.awt.FileDialog.SAVE);
             fdlg.setFile(netNameTextField.getText() + ".pnml");
             fdlg.setVisible(true);
-
-            if (fdlg.getFile() != null) {
-                java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
-
-                // Ensure file has .pnml extension
-                if (!selectedFile.getName().toLowerCase().endsWith(".pnml")) {
-                    selectedFile = new java.io.File(selectedFile.getAbsolutePath() + ".pnml");
-                }
-
-                // Create PetriNet from GraphPetriNet
-                getPetriNetsPanel().getGraphNet().createPetriNet(netNameTextField.getText());
-                PetriNet petriNet = getPetriNetsPanel().getGraphNet().getPetriNet();
-
-                if (petriNet == null) {
-                    MessageHelper.showError(this,
-                        "Unable to create Petri net for export. Please check your net structure.");
-                    return;
-                }
-
-                // Generate PNML file
-                PnmlGenerator generator = new PnmlGenerator();
-                generator.generate(petriNet, selectedFile, getPetriNetsPanel().getGraphNet());
-
-                MessageHelper.showInfo(this,
-                    "PNML file exported successfully to:\n" + selectedFile.getAbsolutePath());
+            if (fdlg.getFile() == null) {
+                return;
             }
+            java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
+            if (!selectedFile.getName().toLowerCase().endsWith(".pnml")) {
+                selectedFile = new java.io.File(selectedFile.getAbsolutePath() + ".pnml");
+            }
+
+            GraphCanvasModel canvas = getPetriNetsPanel().getCanvasModel();
+            canvas.setName(netNameTextField.getText());
+            GraphPetriObjModel objModel = canvas.toObjModel();
+            new PnmlModelGenerator().generate(objModel, selectedFile);
+
+            MessageHelper.showInfo(this,
+                    "Exported " + objModel.getObjectCount() + " Petri-object(s) and "
+                            + objModel.getLinks().size() + " link(s) to "
+                            + selectedFile.getAbsolutePath());
         } catch (Exception ex) {
+            LOGGER.error("Failed to export PNML", ex);
             MessageHelper.showException(this, "Error exporting PNML file", ex);
         }
     }

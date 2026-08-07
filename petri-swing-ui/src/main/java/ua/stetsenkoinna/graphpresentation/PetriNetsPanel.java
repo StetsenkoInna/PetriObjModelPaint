@@ -104,6 +104,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     /** Offset between the pointer and the dragged frame's corner, so it does not jump. */
     private Point frameDragOffset;
 
+    /** The element being dragged, with where it started, so a move between objects can be undone. */
+    private GraphElement draggedElement;
+    private GraphObjectFrame ownerBeforeDrag;
+    private Point2D positionBeforeDrag;
+
     public List<GraphElement> getChoosenElements() {
         return choosenElements;
     }
@@ -592,6 +597,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     setDefaultColorGraphElements();
                     current.setColor(Color.BLUE); //26.07.2018
                     choosen = current;
+                    // Remember where this element started: dragging it into another frame
+                    // moves it to another Petri-object, which the user gets to confirm.
+                    draggedElement = current;
+                    ownerBeforeDrag = canvasModel.ownerOf(current);
+                    Point2D centre = current.getGraphElementCenter();
+                    positionBeforeDrag = centre == null ? null
+                            : new Point2D.Double(centre.getX(), centre.getY());
 
                     if (!isSettingArc && isMouseButtonHold) {
                         current.setNewCoordinates(scaledCurrentMousePoint);
@@ -748,6 +760,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 repaint();
             }
 
+            confirmMoveBetweenObjects();
+
             startDragMouseLocation = null;
             currentDragMouseLocation = null;
             current = null;
@@ -884,6 +898,64 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 timer = null;
             }
         }
+    }
+
+    /**
+     * Checks whether the element that was just dragged ended up in another Petri-object.
+     *
+     * <p>Which frame an element is drawn in is what decides who owns it, so dragging one
+     * across a border rewires the model. That is fine for a lone element and rarely what was
+     * meant for one that is already wired up, so the move is confirmed first and undone when
+     * it was an accident.
+     */
+    private void confirmMoveBetweenObjects() {
+        GraphElement element = draggedElement;
+        GraphObjectFrame before = ownerBeforeDrag;
+        Point2D origin = positionBeforeDrag;
+        draggedElement = null;
+        ownerBeforeDrag = null;
+        positionBeforeDrag = null;
+
+        if (element == null || origin == null || canvasModel.getFrames().isEmpty()) {
+            return;
+        }
+        GraphObjectFrame after = canvasModel.ownerOf(element);
+        if (after == before || countArcsOf(element) == 0) {
+            return;
+        }
+
+        String question = "'" + element.getName() + "' has " + countArcsOf(element)
+                + " arc(s) and would move from " + describe(before) + " to " + describe(after)
+                + ". Move it to the other Petri-object?";
+        if (MessageHelper.showConfirmation(this, question)) {
+            return;
+        }
+        element.setNewCoordinates(new Point2D.Double(origin.getX(), origin.getY()));
+        canvasModel.syncFusions();
+        updateArcCoordinates();
+        repaint();
+    }
+
+    private static String describe(GraphObjectFrame frame) {
+        return frame == null ? "the free elements" : "'" + frame.getName() + "'";
+    }
+
+    /**
+     * @return how many arcs are attached to the element
+     */
+    private int countArcsOf(GraphElement element) {
+        int count = 0;
+        for (GraphArcIn arc : graphNet.getGraphArcInList()) {
+            if (arc.getBeginElement() == element || arc.getEndElement() == element) {
+                count++;
+            }
+        }
+        for (GraphArcOut arc : graphNet.getGraphArcOutList()) {
+            if (arc.getBeginElement() == element || arc.getEndElement() == element) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**
@@ -1209,6 +1281,27 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     public GraphCanvasModel getCanvasModel() {
         return canvasModel;
+    }
+
+    /**
+     * Shows a whole Petri-object model on the canvas, replacing what was there.
+     *
+     * @param model the canvas document to display, with its drawing, frames and shared places
+     */
+    public void setCanvasModel(GraphCanvasModel model) {
+        setCanvasNet(model.getNet());
+        canvasModel.setName(model.getName());
+        canvasModel.getFrames().clear();
+        canvasModel.getFrames().addAll(model.getFrames());
+        canvasModel.getFusions().clear();
+        canvasModel.getFusions().addAll(model.getFusions());
+        selectedFrame = null;
+        choosen = null;
+        current = null;
+        choosenElements.clear();
+        canvasModel.syncFusions();
+        updateArcCoordinates();
+        repaint();
     }
 
     /**
