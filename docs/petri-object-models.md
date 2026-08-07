@@ -118,6 +118,13 @@ object. Animation plays on the same canvas, so a token leaving one object is see
 another. A canvas without frames is a model of one object and behaves exactly as a plain net
 always did.
 
+While animating, the object whose transition is currently firing has its frame's border lit up,
+so which object is doing something is legible without having to watch individual places and
+transitions for it. A link crossing to another object — or to a free element, which has no
+frame of its own to light up but still gets its own brief pulse — lights up both ends of the
+crossing together, in a second colour, so a token moving between objects is as easy to follow as
+one moving within a single one.
+
 **Storing.** **File → Import PNML** opens a model and lays it out as frames; **Save → Export
 PNML** writes the canvas as a model.
 

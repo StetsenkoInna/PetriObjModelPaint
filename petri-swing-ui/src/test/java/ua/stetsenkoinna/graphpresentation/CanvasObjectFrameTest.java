@@ -757,4 +757,159 @@ public class CanvasObjectFrameTest {
 
         assertTrue(panel.getCanvasModel().getFusions().isEmpty());
     }
+
+    @Test
+    public void transitionInScopeFindsTheCorrectElementDespiteACollidingNumberElsewhere() throws Exception {
+        // What animateNet() actually does to every object's own net right before a run:
+        // renumber it from zero, independently of every other object's. Two different
+        // transitions can end up sharing the number 0 this way — scope is what tells them
+        // apart; searching the whole canvas by number alone, as this used to, could not.
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphPetriTransition ta = (GraphPetriTransition) elementNamed(panel, "TA");
+        GraphPetriTransition tb = (GraphPetriTransition) elementNamed(panel, "TB");
+        ta.getPetriTransition().setNumber(0);
+        tb.getPetriTransition().setNumber(0);
+        GraphPetriNet scopeA = new GraphPetriNet();
+        scopeA.getGraphPetriTransitionList().add(ta);
+
+        PetriT firing = new PetriT("Firing", 1.0);
+        firing.setNumber(0);
+
+        Method transitionInScope = PetriNetsPanel.class.getDeclaredMethod(
+                "transitionInScope", PetriT.class, GraphPetriNet.class);
+        transitionInScope.setAccessible(true);
+        Object found = transitionInScope.invoke(panel, firing, scopeA);
+
+        assertSame("must resolve to TA, not TB, despite the colliding number", ta, found);
+    }
+
+    @Test
+    public void transitionInScopeFallsBackToTheWholeCanvasWhenThereIsNoScope() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphPetriTransition ta = (GraphPetriTransition) elementNamed(panel, "TA");
+        ta.getPetriTransition().setNumber(42);
+        PetriT firing = new PetriT("Firing", 1.0);
+        firing.setNumber(42);
+
+        Method transitionInScope = PetriNetsPanel.class.getDeclaredMethod(
+                "transitionInScope", PetriT.class, GraphPetriNet.class);
+        transitionInScope.setAccessible(true);
+        Object found = transitionInScope.invoke(panel, firing, null);
+
+        assertSame(ta, found);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Set<GraphObjectFrame> activeAnimationFrames(PetriNetsPanel panel) throws Exception {
+        Field field = PetriNetsPanel.class.getDeclaredField("activeAnimationFrames");
+        field.setAccessible(true);
+        return (Set<GraphObjectFrame>) field.get(panel);
+    }
+
+    @Test
+    public void setActiveAnimationFrameReplacesWhicheverWasActiveBefore() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        List<GraphObjectFrame> frames = panel.getCanvasModel().getFrames();
+        GraphObjectFrame frameA = frames.get(0);
+        GraphObjectFrame frameB = frames.get(1);
+
+        Method setActive = PetriNetsPanel.class.getDeclaredMethod("setActiveAnimationFrame", GraphObjectFrame.class);
+        setActive.setAccessible(true);
+        setActive.invoke(panel, frameA);
+        assertNotNull(frameA.getHighlightColor());
+        assertEquals(Set.of(frameA), activeAnimationFrames(panel));
+
+        setActive.invoke(panel, frameB);
+
+        assertNull("A is no longer the active spotlight", frameA.getHighlightColor());
+        assertNotNull(frameB.getHighlightColor());
+        assertEquals(Set.of(frameB), activeAnimationFrames(panel));
+    }
+
+    @Test
+    public void addActiveAnimationFrameWidensTheSpotlightWithoutClearingIt() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        List<GraphObjectFrame> frames = panel.getCanvasModel().getFrames();
+        GraphObjectFrame frameA = frames.get(0);
+        GraphObjectFrame frameB = frames.get(1);
+
+        Method setActive = PetriNetsPanel.class.getDeclaredMethod("setActiveAnimationFrame", GraphObjectFrame.class);
+        setActive.setAccessible(true);
+        Method addActive = PetriNetsPanel.class.getDeclaredMethod("addActiveAnimationFrame", GraphObjectFrame.class);
+        addActive.setAccessible(true);
+
+        setActive.invoke(panel, frameA);
+        addActive.invoke(panel, frameB);
+
+        assertEquals(Set.of(frameA, frameB), activeAnimationFrames(panel));
+        assertNotNull("A is still lit", frameA.getHighlightColor());
+        assertNotNull("B is lit too, alongside it", frameB.getHighlightColor());
+    }
+
+    @Test
+    public void clearAnimationHighlightTurnsEverythingOff() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphObjectFrame frameA = panel.getCanvasModel().getFrames().getFirst();
+        Method setActive = PetriNetsPanel.class.getDeclaredMethod("setActiveAnimationFrame", GraphObjectFrame.class);
+        setActive.setAccessible(true);
+        setActive.invoke(panel, frameA);
+
+        panel.clearAnimationHighlight();
+
+        assertNull(frameA.getHighlightColor());
+        assertTrue(activeAnimationFrames(panel).isEmpty());
+    }
+
+    @Test
+    public void animateCrossingIgnoresBothEndsInTheSameObject() throws Exception {
+        // Fast path: no sleep, since there is nothing to flag as a crossing here.
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphObjectFrame frameA = panel.getCanvasModel().getFrames().getFirst();
+        GraphPetriPlace pa = (GraphPetriPlace) elementNamed(panel, "PA");
+
+        Method animateCrossing = PetriNetsPanel.class.getDeclaredMethod(
+                "animateCrossing", GraphElement.class, GraphObjectFrame.class);
+        animateCrossing.setAccessible(true);
+        animateCrossing.invoke(panel, pa, frameA);
+
+        assertTrue(activeAnimationFrames(panel).isEmpty());
+    }
+
+    @Test
+    public void animateCrossingHighlightsTheOtherEndsFrame() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphObjectFrame frameA = panel.getCanvasModel().getFrames().get(0);
+        GraphObjectFrame frameB = panel.getCanvasModel().getFrames().get(1);
+        GraphPetriPlace pb = (GraphPetriPlace) elementNamed(panel, "PB");
+
+        Method animateCrossing = PetriNetsPanel.class.getDeclaredMethod(
+                "animateCrossing", GraphElement.class, GraphObjectFrame.class);
+        animateCrossing.setAccessible(true);
+        // pb belongs to frame B; passing frameA as "the firing transition's own frame" makes
+        // this look exactly like a link crossing from A to B.
+        animateCrossing.invoke(panel, pb, frameA);
+
+        assertEquals(Set.of(frameB), activeAnimationFrames(panel));
+        assertNotNull(frameB.getHighlightColor());
+    }
+
+    @Test
+    public void animateCrossingHighlightsAFreeElementsSideAsNoFrameAtAll() throws Exception {
+        // The "model <-> separate element" case: the far end has no owner, so there is no
+        // second frame to add to the spotlight, but it must still count as a crossing worth
+        // flagging (the free place itself still gets its own pulse, exercised separately).
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphObjectFrame frameA = panel.getCanvasModel().getFrames().getFirst();
+        GraphPetriPlace free = new GraphPetriPlace(new PetriP("Free", 0), 999);
+        free.setNewCoordinates(new Point2D.Double(900, 900));
+        panel.getGraphNet().getGraphPetriPlaceList().add(free);
+
+        Method animateCrossing = PetriNetsPanel.class.getDeclaredMethod(
+                "animateCrossing", GraphElement.class, GraphObjectFrame.class);
+        animateCrossing.setAccessible(true);
+        animateCrossing.invoke(panel, free, frameA);
+
+        assertTrue("a free element has no frame to add to the spotlight",
+                activeAnimationFrames(panel).isEmpty());
+    }
 }

@@ -1,5 +1,6 @@
 package ua.stetsenkoinna.graphpresentation;
 
+import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.petriobj.PetriNet;
 import ua.stetsenkoinna.petriobj.PetriP;
 import ua.stetsenkoinna.petriobj.PetriSim;
@@ -25,66 +26,80 @@ public class AnimRunPetriSim extends PetriSim {
     private final PetriNetsPanel panel;
     private final JSlider delaySlider;
     private AnimRunPetriObjModel parentModel;
-    
+
+    /**
+     * This object's own drawing — the same places and transitions the canvas holds for it,
+     * filtered to just this one — so animation looks them up within it instead of across the
+     * whole canvas. Every object's own net gets renumbered from zero independently right before
+     * a run, so a bare {@code PetriT}/{@code PetriP} number is only unique inside this scope,
+     * never across every object sharing the one canvas. {@code null} when there is no
+     * Petri-object split to speak of (a plain net played back as a single simulator), in which
+     * case the whole canvas already is the only scope there is.
+     */
+    private final GraphPetriNet scope;
+
     /**
      * Whether the simulation is paused (by pressing pause button)
      */
     private volatile boolean paused = false;
-    
+
     /**
      * Whether the simulation should completely stop immediately
      */
     private volatile boolean halted = false;
-    
-    public AnimRunPetriSim(PetriNet net, StateTime timeState, JTextArea area,PetriNetsPanel panel,
-                           JSlider delaySlider, AnimRunPetriObjModel parentModel) {
+
+    public AnimRunPetriSim(PetriNet net, StateTime timeState, JTextArea area, PetriNetsPanel panel,
+                           JSlider delaySlider, AnimRunPetriObjModel parentModel, GraphPetriNet scope) {
         super(net, timeState);
         this.panel = panel;
         this.area = area;
         this.delaySlider = delaySlider;
         this.parentModel = parentModel;
+        this.scope = scope;
     }
-       
+
     /**
      * Constructs the Petri simulator with given Petri net and time modeling
      * Be carefull with this constructor. Time should be the same for all PetriSim objects in the list of PetriObjModel
      * @param net Petri net that describes the dynamics of object
-     * @param area 
+     * @param area
      * @param panel
      * @param delaySlider
      * @param parentModel AnimRunPetriObjModel that includes this object
+     * @param scope this object's own graphical net, for correctly-scoped animation lookups
      */
-   public AnimRunPetriSim(PetriNet net,  JTextArea area, PetriNetsPanel panel, JSlider delaySlider, AnimRunPetriObjModel parentModel) {
-        this(net, new StateTime(), area, panel,delaySlider, parentModel);
+   public AnimRunPetriSim(PetriNet net, JTextArea area, PetriNetsPanel panel, JSlider delaySlider,
+                          AnimRunPetriObjModel parentModel, GraphPetriNet scope) {
+        this(net, new StateTime(), area, panel, delaySlider, parentModel, scope);
    }
 
-   public AnimRunPetriSim(String id, PetriNet net, JTextArea area,PetriNetsPanel panel, JSlider delaySlider,
-                          AnimRunPetriObjModel parentModel) {
-       this(net, new StateTime(),  area, panel,delaySlider, parentModel);
+   public AnimRunPetriSim(String id, PetriNet net, JTextArea area, PetriNetsPanel panel, JSlider delaySlider,
+                          AnimRunPetriObjModel parentModel, GraphPetriNet scope) {
+       this(net, new StateTime(), area, panel, delaySlider, parentModel, scope);
        super.setId(id); // server set id
    }
-    
+
     @Override
     protected void beforeActIn(PetriT tr) {
-        panel.animateP(tr.getInP());
-        panel.animateIn(tr);
+        panel.animateP(tr.getInP(), scope);
+        panel.animateIn(tr, scope);
     }
 
     @Override
     protected void afterActIn(PetriT tr) {
-        panel.animateT(tr);
+        panel.animateT(tr, scope);
         doAfterStep();
     }
 
     @Override
     protected void beforeActOut(PetriT tr) {
-        panel.animateT(tr);
-        panel.animateOut(tr);
+        panel.animateT(tr, scope);
+        panel.animateOut(tr, scope);
     }
 
     @Override
     protected void afterActOut(PetriT tr) {
-        panel.animateP(tr.getOutP());
+        panel.animateP(tr.getOutP(), scope);
         doAfterStep();
     }
 

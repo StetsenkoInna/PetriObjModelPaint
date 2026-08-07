@@ -26,8 +26,11 @@ import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TimerTask;
 
 import org.slf4j.Logger;
@@ -113,6 +116,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private final List<GraphObjectFrame> choosenFrames = new ArrayList<>();
     /** Offset between the pointer and the dragged frame's corner, so it does not jump. */
     private Point frameDragOffset;
+
+    /** Frames a running animation is currently highlighting — see {@link #clearAnimationHighlight()}. */
+    private final Set<GraphObjectFrame> activeAnimationFrames =
+            Collections.newSetFromMap(new IdentityHashMap<>());
+    private static final Color ANIMATION_ACTIVE_COLOR = new Color(255, 77, 77);
+    private static final Color ANIMATION_CROSSING_COLOR = new Color(60, 120, 220);
 
     /** The element being dragged, with where it started, so a move between objects can be undone. */
     private GraphElement draggedElement;
@@ -2319,10 +2328,33 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     // End of variables declaration//GEN-END:variables
 
-    public void animateIn(PetriT tr) {    //Саша 05.17
+    /**
+     * @param tr a firing transition from a running simulation
+     * @param scope the firing object's own graphical net, so a place or transition number is
+     *        looked up only within it — every object's own net is renumbered from zero
+     *        independently right before a run, so the same number can belong to a different
+     *        element in each one; searching the whole canvas by number, as this used to,
+     *        could match — and so animate — the wrong object's elements once a canvas held
+     *        more than one. {@code null} searches the whole canvas, correct only when there is
+     *        no Petri-object split to begin with.
+     * @return the one canvas transition {@code tr} corresponds to, or {@code null} if it
+     *         cannot be found
+     */
+    private GraphPetriTransition transitionInScope(PetriT tr, GraphPetriNet scope) {
+        List<GraphPetriTransition> searchList =
+                scope != null ? scope.getGraphPetriTransitionList() : graphNet.getGraphPetriTransitionList();
+        for (GraphPetriTransition t : searchList) {
+            if (t.getPetriTransition().getNumber() == tr.getNumber()) {
+                return t;
+            }
+        }
+        return null;
+    }
 
+    public void animateIn(PetriT tr, GraphPetriNet scope) {    //Саша 05.17
+        List<GraphArcIn> searchList = scope != null ? scope.getGraphArcInList() : graphNet.getGraphArcInList();
         ArrayList<GraphArcIn> list = new ArrayList<>();
-        for (GraphArcIn t : graphNet.getGraphArcInList()) {
+        for (GraphArcIn t : searchList) {
             if (t.getArcIn().getNumT() == tr.getNumber()) {
                 list.add(t);
             }
@@ -2333,14 +2365,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         animArcIn(list, 100, 5);
         animArcIn(list, 100, 3);
         animArcIn(list, 100, 1, Color.BLACK);
+        animateCrossings(transitionInScope(tr, scope), true);
     }
 
-    public void animateT(PetriT tr) {   //Саша 05.17
+    public void animateT(PetriT tr, GraphPetriNet scope) {   //Саша 05.17
+        GraphPetriTransition transition = transitionInScope(tr, scope);
         ArrayList<GraphPetriTransition> list = new ArrayList<>();
-        for (GraphPetriTransition t : graphNet.getGraphPetriTransitionList()) {
-            if (t.getPetriTransition().getNumber() == tr.getNumber()) {
-                list.add(t);
-            }
+        if (transition != null) {
+            list.add(transition);
+            setActiveAnimationFrame(canvasModel.ownerOf(transition));
         }
         animTransitions(list, 100, 7, new Color(255, 77, 77));
         animTransitions(list, 100, 10);
@@ -2351,9 +2384,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     }
 
-    public void animateP(ArrayList<Integer> inP) {  //Саша 05.17
+    public void animateP(ArrayList<Integer> inP, GraphPetriNet scope) {  //Саша 05.17
+        List<GraphPetriPlace> searchList =
+                scope != null ? scope.getGraphPetriPlaceList() : graphNet.getGraphPetriPlaceList();
         ArrayList<GraphPetriPlace> list = new ArrayList<>();
-        for (GraphPetriPlace p : graphNet.getGraphPetriPlaceList()) {
+        for (GraphPetriPlace p : searchList) {
             for (Integer inp : inP) {
                 if (p.getPetriPlace().getNumber() == inp) {
                     list.add(p);
@@ -2368,9 +2403,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         animPlaces(list, 100, 2, Color.BLACK);
     }
 
-    public void animateOut(PetriT eventMin) {   //Саша 05.17
+    public void animateOut(PetriT eventMin, GraphPetriNet scope) {   //Саша 05.17
+        List<GraphArcOut> searchList = scope != null ? scope.getGraphArcOutList() : graphNet.getGraphArcOutList();
         ArrayList<GraphArcOut> list = new ArrayList<>();
-        for (GraphArcOut t : graphNet.getGraphArcOutList()) {
+        for (GraphArcOut t : searchList) {
             if (t.getArcOut().getNumT() == eventMin.getNumber()) {
                 list.add(t);
             }
@@ -2381,6 +2417,100 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         animArcOut(list, 50, 5);
         animArcOut(list, 50, 3);
         animArcOut(list, 50, 1, Color.BLACK);
+        animateCrossings(transitionInScope(eventMin, scope), false);
+    }
+
+    /**
+     * Briefly flags any link a just-fired transition has crossing to another object's own
+     * element, or to a free one. {@link #animateIn}/{@link #animateOut}'s own, object-scoped
+     * animation never sees this: a crossing link was never part of any one object's own net to
+     * begin with ({@link GraphCanvasModel#toObjModel()} turns it into a link, not an arc of
+     * either object), so without this, a token moving along it would animate nothing at all.
+     *
+     * @param transition the transition that just took part in a firing, or {@code null} if it
+     *        could not be found — nothing to do, then
+     * @param incoming true to look at its inputs, false for its outputs
+     */
+    private void animateCrossings(GraphPetriTransition transition, boolean incoming) {
+        if (transition == null) {
+            return;
+        }
+        GraphObjectFrame ownFrame = canvasModel.ownerOf(transition);
+        if (incoming) {
+            for (GraphArcIn arc : graphNet.getGraphArcInList()) {
+                if (arc.getEndElement() == transition) {
+                    animateCrossing(arc.getBeginElement(), ownFrame);
+                }
+            }
+        } else {
+            for (GraphArcOut arc : graphNet.getGraphArcOutList()) {
+                if (arc.getBeginElement() == transition) {
+                    animateCrossing(arc.getEndElement(), ownFrame);
+                }
+            }
+        }
+    }
+
+    /**
+     * @param otherEnd the place at the far end of one of the firing transition's arcs
+     * @param ownFrame the firing transition's own frame, or {@code null} if it is free
+     */
+    private void animateCrossing(GraphElement otherEnd, GraphObjectFrame ownFrame) {
+        GraphObjectFrame otherOwner = canvasModel.ownerOf(otherEnd);
+        if (otherOwner == ownFrame) {
+            return; // not a crossing: the same object on both ends, or both free
+        }
+        addActiveAnimationFrame(otherOwner);
+        if (otherEnd instanceof GraphPetriPlace place) {
+            ArrayList<GraphPetriPlace> single = new ArrayList<>(List.of(place));
+            animPlaces(single, 80, 6, ANIMATION_CROSSING_COLOR);
+            animPlaces(single, 80, 2, Color.BLACK);
+        }
+    }
+
+    /**
+     * Marks {@code frame} as the one currently doing something during a running animation,
+     * replacing whichever frame(s) were marked that way before — the animation spotlight
+     * belongs to one event at a time, {@link #addActiveAnimationFrame} to widen it to a
+     * crossing without losing it.
+     *
+     * @param frame the firing transition's own frame, or {@code null} if it is free
+     */
+    private void setActiveAnimationFrame(GraphObjectFrame frame) {
+        for (GraphObjectFrame active : activeAnimationFrames) {
+            active.setHighlightColor(null);
+        }
+        activeAnimationFrames.clear();
+        if (frame != null) {
+            frame.setHighlightColor(ANIMATION_ACTIVE_COLOR);
+            activeAnimationFrames.add(frame);
+        }
+        repaint();
+    }
+
+    /**
+     * Adds {@code frame} to the current animation spotlight without clearing what is already
+     * lit — a crossing highlights both ends of the link together, distinctly from a plain
+     * local firing.
+     */
+    private void addActiveAnimationFrame(GraphObjectFrame frame) {
+        if (frame != null && activeAnimationFrames.add(frame)) {
+            frame.setHighlightColor(ANIMATION_CROSSING_COLOR);
+            repaint();
+        }
+    }
+
+    /**
+     * Clears every frame's animation highlight — called before a run starts, so it does not
+     * inherit whatever the previous one left lit, and once it ends, so nothing stays lit
+     * forever.
+     */
+    public void clearAnimationHighlight() {
+        for (GraphObjectFrame active : activeAnimationFrames) {
+            active.setHighlightColor(null);
+        }
+        activeAnimationFrames.clear();
+        repaint();
     }
 
     private void animArcIn(ArrayList<GraphArcIn> list, long sleepDelay, int lineWidth, Color color) {

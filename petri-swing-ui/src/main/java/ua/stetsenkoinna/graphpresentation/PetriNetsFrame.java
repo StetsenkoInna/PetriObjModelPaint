@@ -1080,8 +1080,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     StatisticGraphMonitor statisticGraphMonitor = new StatisticGraphMonitor(statisticMonitorDialog, false);
                     model.setStatisticMonitor(statisticGraphMonitor);
                 }
+                getPetriNetsPanel().clearAnimationHighlight();
                 model.go(Double.parseDouble(timeModelingTextField.getText()));
                 getPetriNetsPanel().getGraphNet().printStatistics(statisticsTextArea::append);
+                getPetriNetsPanel().clearAnimationHighlight();
 
                 getPetriNetsPanel().repaint();
             }
@@ -1102,9 +1104,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         StateTime clock = new StateTime();
         for (GraphPetriObject object : objModel.getObjects()) {
             object.getGraphNet().createPetriNet(object.getName());
+            // object.getGraphNet() is scoped to just this object's own places and transitions,
+            // renumbered from zero independently of every other object's — passing it through
+            // is what lets animation matching tell apart two objects that landed on the same
+            // local number instead of ever finding both of them at once.
             AnimRunPetriSim petriSim = new AnimRunPetriSim(
                     object.getGraphNet().getPetriNet(), clock,
-                    protocolTextArea, getPetriNetsPanel(), speedSlider, null);
+                    protocolTextArea, getPetriNetsPanel(), speedSlider, null, object.getGraphNet());
             petriSim.setName(object.getName());
             petriSim.setPriority(object.getPriority());
             petriSim.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
@@ -1170,7 +1176,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                             protocolTextArea,
                             getPetriNetsPanel(),
                             speedSlider,
-                            null
+                            null,
+                            // A single step on the whole canvas, not split into objects — the
+                            // canvas net's own numbering is already unique on its own, so it is
+                            // its own correct scope.
+                            getPetriNetsPanel().getGraphNet()
                     );
                     animationPetriObject = object;
                     object.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));

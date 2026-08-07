@@ -36,7 +36,10 @@ Draw a net directly on the canvas: places, transitions, arcs, drag-and-drop layo
 | `ua.stetsenkoinna.graphpresentation.actions.*` | `PlayPauseAction`, `RewindAction`, `RunOneEventAction`, `StopSimulationAction`, `RunNetAction` |
 
 Animation lets you watch tokens move through places and transitions fire in real time, useful
-for checking that a net was drawn correctly before trusting its statistics.
+for checking that a net was drawn correctly before trusting its statistics. On a canvas composed
+of Petri-objects, the object currently firing has its frame lit up, and a link crossing to
+another object — or to a free element — lights up both ends together in a second colour, so
+which object is active, and where a token just crossed to, is legible at a glance.
 
 ---
 

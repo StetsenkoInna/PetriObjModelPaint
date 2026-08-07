@@ -73,6 +73,13 @@ public class GraphObjectFrame implements Serializable {
     private final Set<GraphElement> members = Collections.newSetFromMap(new IdentityHashMap<>());
 
     /**
+     * Border colour a running animation is currently painting this frame with, or
+     * {@code null} for none — {@code transient} because it is purely a live "this object is
+     * doing something right now" indicator, never part of the model itself.
+     */
+    private transient Color highlightColor;
+
+    /**
      * @param name display name of the Petri-object
      * @param bounds region of the canvas the object occupies
      */
@@ -161,6 +168,21 @@ public class GraphObjectFrame implements Serializable {
      */
     public void setContentVisible(boolean contentVisible) {
         this.contentVisible = contentVisible;
+    }
+
+    /**
+     * @return the colour a running animation currently wants this frame's border painted in,
+     *         or {@code null} for its ordinary (selected or not) colour
+     */
+    public Color getHighlightColor() {
+        return highlightColor;
+    }
+
+    /**
+     * @param highlightColor the animation highlight colour, or {@code null} to clear it
+     */
+    public void setHighlightColor(Color highlightColor) {
+        this.highlightColor = highlightColor;
     }
 
     /**
@@ -290,8 +312,8 @@ public class GraphObjectFrame implements Serializable {
         g2.fillRoundRect(bounds.x, bounds.y, bounds.width, HEADER_HEIGHT + 8, 14, 14);
         g2.fillRect(bounds.x, bounds.y + HEADER_HEIGHT - 4, bounds.width, 8);
 
-        g2.setColor(selected ? BORDER_SELECTED : BORDER);
-        g2.setStroke(new BasicStroke(selected ? 1.6f : 1.4f));
+        g2.setColor(highlightColor != null ? highlightColor : (selected ? BORDER_SELECTED : BORDER));
+        g2.setStroke(new BasicStroke(highlightColor != null ? 2.6f : (selected ? 1.6f : 1.4f)));
         g2.drawRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 14, 14);
         g2.drawLine(bounds.x, bounds.y + HEADER_HEIGHT, bounds.x + bounds.width, bounds.y + HEADER_HEIGHT);
 
