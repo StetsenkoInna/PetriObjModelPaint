@@ -12,10 +12,12 @@ import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Stroke;
+import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
@@ -25,6 +27,7 @@ import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.geom.Point2D;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -38,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 
+import ua.stetsenkoinna.config.ResourcePathConfig;
 import ua.stetsenkoinna.graphnet.FramePort;
 import ua.stetsenkoinna.graphnet.GraphArcFactory;
 import ua.stetsenkoinna.graphnet.GraphCanvasModel;
@@ -134,6 +138,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     /** The port under the pointer, highlighted as the drag's likely target. */
     private FramePort hoveredPort;
 
+    /** Which gesture a left-click-drag currently performs; see {@link CanvasTool}. */
+    private CanvasTool tool = CanvasTool.SELECT;
+
+    /** The scroll pane viewport being panned, and where the drag started, while tool == PAN. */
+    private JViewport panViewport;
+    private Point panDragOrigin;
+    private Point panViewportOrigin;
+
+    private static final Cursor ERASER_CURSOR = buildEraserCursor();
+
     public List<GraphElement> getChoosenElements() {
         return choosenElements;
     }
@@ -203,48 +217,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                         currentArc = null;
                     }
                     if (choosen != null) {
-                        try {
-                            // TODO: make the following code a separate function
-                            List<GraphArcIn> inArcsToBeRemoved = new ArrayList<>();
-                            List<GraphArcOut> outArcsToBeRemoved = new ArrayList<>();
-
-                            /* finding arcs that will be deleted along with this element. It's mostly a copy-paste from
-                            * PetriGraphNet.removeElement and this functionality probably should be merged,
-                            * but copy-pasting was the least invasive method of implementing bulk delete undoing.
-                             */
-                            for (GraphArcIn arc : getGraphNet().getGraphArcInList()) {
-                                if (arc.getBeginElement() == choosen
-                                        || arc.getEndElement() == choosen) {
-                                    if (!inArcsToBeRemoved.contains(arc)) {
-                                        inArcsToBeRemoved.add(arc);
-                                    }
-
-                                }
-                            }
-
-                            for (GraphArcOut arc : getGraphNet().getGraphArcOutList()) {
-                                if (arc.getBeginElement() == choosen
-                                        || arc.getEndElement() == choosen) {
-                                    if (!outArcsToBeRemoved.contains(arc)) {
-                                        outArcsToBeRemoved.add(arc);
-                                    }
-
-                                }
-                            }
-                            /* found all arcs that will be deleted */
-
-                            remove(choosen);
-                            // TODO: restoring removed arcs too 
-                            /* save this action into undo manager so that it can be undone */
-                            DeleteGraphElementsEdit edit
-                                    = new DeleteGraphElementsEdit(PetriNetsPanel.this, choosen,
-                                            inArcsToBeRemoved, outArcsToBeRemoved);
-                            PetriNetsFrame.getUndoSupport().postEdit(edit);
-                            choosen = null;
-                            current = null;
-                        } catch (ExceptionInvalidNetStructure ex) {
-                            LOGGER.error("Unexpected error", ex);
-                        }
+                        deleteElement(choosen);
+                        choosen = null;
+                        current = null;
                     }
                     if (!choosenElements.isEmpty()) {
 
@@ -1236,6 +1211,23 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            // Pan and Delete are exclusive of every other canvas gesture — including a frame's
+            // eye icon, its header/corner, and a port — since dragging the view or removing
+            // whatever is clicked is the whole point of picking either tool in the first place.
+            if (tool == CanvasTool.PAN) {
+                if (SwingUtilities.isLeftMouseButton(ev)) {
+                    beginPan(ev.getPoint());
+                }
+                return;
+            }
+
+            if (tool == CanvasTool.DELETE) {
+                if (SwingUtilities.isLeftMouseButton(ev)) {
+                    handleDeleteClick(scaledCurrentMousePoint);
+                }
+                return;
+            }
+
             // The eye icon sits inside the header's own rectangle, so it has to be checked
             // ahead of the header hit-test below — otherwise the click would be read as the
             // start of a frame drag instead of a toggle.
@@ -1302,11 +1294,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 startDragMouseLocation = scaledCurrentMousePoint;
             }
             prevMouseLocation = scaledCurrentMousePoint;
-            // A right-click never selects an element — it either falls through to its own
-            // context menu above, or, on a lone element maybeShowContextMenu deliberately
-            // leaves alone, does nothing at all now that that used to mean opening the
-            // element's properties.
-            if (current != null && SwingUtilities.isLeftMouseButton(ev)) {
+            if (tool == CanvasTool.MARQUEE) {
+                // The marquee tool always rubber-band selects, even starting on top of an
+                // element — never picks it up the way the default Select tool would.
+                if (current != null) {
+                    current.setColor(Color.BLACK);
+                    current = null;
+                }
+                if (choosenArc != null) {
+                    choosenArc.setColor(Color.BLACK);
+                }
+                choosenArc = null;
+            } else if (current != null && SwingUtilities.isLeftMouseButton(ev)) {
+                // A right-click never selects an element — it either falls through to its own
+                // context menu above, or, on a lone element maybeShowContextMenu deliberately
+                // leaves alone, does nothing at all now that that used to mean opening the
+                // element's properties.
                 current.setColor(Color.BLACK); //26.07.2018
                 current = null;
                 repaint();
@@ -1473,6 +1476,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 resizedFrame = null;
                 frameDragOffset = null;
                 setCursor(Cursor.getDefaultCursor());
+                return;
+            }
+
+            if (tool == CanvasTool.PAN) {
+                endPan();
+                return;
+            }
+
+            if (tool == CanvasTool.DELETE) {
                 return;
             }
 
@@ -1866,6 +1878,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseDragged(MouseEvent ev) {
+            if (tool == CanvasTool.PAN) {
+                updatePan(ev.getPoint());
+                return;
+            }
+            if (tool == CanvasTool.DELETE) {
+                return;
+            }
+
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
 
             if (draggedFromPort != null) {
@@ -1945,6 +1965,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseMoved(MouseEvent ev) {
+            if (tool == CanvasTool.PAN || tool == CanvasTool.DELETE) {
+                // These tools keep their own dedicated cursor regardless of what is underneath
+                // the pointer — port hovering is a Select-tool affordance only.
+                return;
+            }
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
             FramePort hovered = canvasModel.portAt(scaledCurrentMousePoint);
             if (hovered != hoveredPort) {
@@ -2017,6 +2042,180 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
         }
         isSettingArc = b;
+    }
+
+    public CanvasTool getTool() {
+        return tool;
+    }
+
+    /**
+     * Switches which gesture a left-click-drag performs. Whatever the previous tool left
+     * mid-flight — a selection, an arc half-drawn to its first endpoint — is abandoned first,
+     * since none of that state means the same thing under a different tool.
+     *
+     * @param newTool the tool to activate
+     */
+    public void setTool(CanvasTool newTool) {
+        if (tool == newTool) {
+            return;
+        }
+        if (currentArc != null) {
+            removeCurrentArc();
+        }
+        isSettingArc = false;
+        clearSelectionState();
+        tool = newTool;
+        setCursor(cursorFor(newTool));
+        repaint();
+    }
+
+    private void clearSelectionState() {
+        setDefaultColorGraphElements();
+        setDefaultColorGraphArcs();
+        current = null;
+        choosen = null;
+        choosenArc = null;
+        choosenElements.clear();
+        choosenFrames.clear();
+        startDragMouseLocation = null;
+        currentDragMouseLocation = null;
+        leftMouseButtonPressed = false;
+    }
+
+    private static Cursor cursorFor(CanvasTool t) {
+        switch (t) {
+            case PAN:
+                return new Cursor(Cursor.HAND_CURSOR);
+            case DELETE:
+                return ERASER_CURSOR;
+            default:
+                return Cursor.getDefaultCursor();
+        }
+    }
+
+    private static Cursor buildEraserCursor() {
+        try {
+            URL url = ResourcePathConfig.getResource(PetriNetsPanel.class,
+                    ResourcePathConfig.getIconPath(ResourcePathConfig.ERASER_CURSOR));
+            if (url == null) {
+                return new Cursor(Cursor.CROSSHAIR_CURSOR);
+            }
+            Image image = Toolkit.getDefaultToolkit().getImage(url);
+            return Toolkit.getDefaultToolkit().createCustomCursor(
+                    image, new Point(0, 0), "eraser");
+        } catch (RuntimeException problem) {
+            return new Cursor(Cursor.CROSSHAIR_CURSOR);
+        }
+    }
+
+    /**
+     * Deletes one element and whatever arcs touch it — the same rule the Delete key already
+     * applies to a single selected element, factored out so the Delete tool's mouse click can
+     * do the same thing without going through key focus at all.
+     *
+     * @param element the element to remove
+     */
+    private void deleteElement(GraphElement element) {
+        try {
+            List<GraphArcIn> inArcsToBeRemoved = new ArrayList<>();
+            List<GraphArcOut> outArcsToBeRemoved = new ArrayList<>();
+
+            for (GraphArcIn arc : getGraphNet().getGraphArcInList()) {
+                if (arc.getBeginElement() == element || arc.getEndElement() == element) {
+                    if (!inArcsToBeRemoved.contains(arc)) {
+                        inArcsToBeRemoved.add(arc);
+                    }
+                }
+            }
+            for (GraphArcOut arc : getGraphNet().getGraphArcOutList()) {
+                if (arc.getBeginElement() == element || arc.getEndElement() == element) {
+                    if (!outArcsToBeRemoved.contains(arc)) {
+                        outArcsToBeRemoved.add(arc);
+                    }
+                }
+            }
+
+            remove(element);
+            DeleteGraphElementsEdit edit = new DeleteGraphElementsEdit(this, element,
+                    inArcsToBeRemoved, outArcsToBeRemoved);
+            PetriNetsFrame.getUndoSupport().postEdit(edit);
+        } catch (ExceptionInvalidNetStructure ex) {
+            LOGGER.error("Unexpected error", ex);
+        }
+    }
+
+    /**
+     * Handles a click made with the Delete tool active: removes whatever single element or
+     * arc is under the pointer, or does nothing on empty canvas.
+     *
+     * <p>A port, or a framed element's own drawing while its object's content is shown, is left
+     * alone — same as every other direct-canvas gesture, deleting a locked object's element
+     * this way would reach past the boundary that {@code frameAt}/{@code portAt} normally
+     * enforce before {@link #find} is ever consulted; whole-object removal already has its own,
+     * confirmed path through the frame's own context menu.
+     *
+     * @param scaledPoint the click point in canvas coordinates
+     */
+    private void handleDeleteClick(Point scaledPoint) {
+        if (canvasModel.portAt(scaledPoint) != null || canvasModel.frameAt(scaledPoint) != null) {
+            return;
+        }
+        GraphElement element = find(scaledPoint);
+        if (element != null) {
+            deleteElement(element);
+            if (choosen == element) {
+                choosen = null;
+            }
+            if (current == element) {
+                current = null;
+            }
+            repaint();
+            return;
+        }
+        GraphArc arc = findArc(scaledPoint);
+        if (arc != null) {
+            removeArc(arc);
+            DeleteArcEdit edit = new DeleteArcEdit(this, arc);
+            PetriNetsFrame.getUndoSupport().postEdit(edit);
+            if (choosenArc == arc) {
+                choosenArc = null;
+            }
+            repaint();
+        }
+    }
+
+    /**
+     * Starts panning: remembers the drag's origin and the viewport's scroll position so
+     * {@link #updatePan} can compute an absolute offset rather than drifting on rounding.
+     *
+     * @param screenPoint the raw (unscaled) point the drag started at
+     */
+    private void beginPan(Point screenPoint) {
+        panViewport = (JViewport) SwingUtilities.getAncestorOfClass(JViewport.class, this);
+        if (panViewport == null) {
+            return;
+        }
+        panDragOrigin = screenPoint;
+        panViewportOrigin = panViewport.getViewPosition();
+    }
+
+    private void updatePan(Point screenPoint) {
+        if (panViewport == null || panDragOrigin == null) {
+            return;
+        }
+        int maxX = Math.max(0, panViewport.getViewSize().width - panViewport.getExtentSize().width);
+        int maxY = Math.max(0, panViewport.getViewSize().height - panViewport.getExtentSize().height);
+        int newX = panViewportOrigin.x - (screenPoint.x - panDragOrigin.x);
+        int newY = panViewportOrigin.y - (screenPoint.y - panDragOrigin.y);
+        panViewport.setViewPosition(new Point(
+                Math.max(0, Math.min(newX, maxX)),
+                Math.max(0, Math.min(newY, maxY))));
+    }
+
+    private void endPan() {
+        panViewport = null;
+        panDragOrigin = null;
+        panViewportOrigin = null;
     }
 
     /**

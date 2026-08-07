@@ -134,10 +134,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }
 
         workingMethods.sort(String.CASE_INSENSITIVE_ORDER);
-        leftMenuListModel.clear();
-        for (String name : workingMethods) {
-            leftMenuListModel.addElement(name);
-        }
         dialogPanel.setComboOptions(workingMethods);
     }
 
@@ -148,25 +144,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         initComponents();
         this.UpdateNetLibraryMethodsCombobox();
         timer = new Timer(250, ae -> getPetriNetsPanel().repaint());
-
-        newPlaceButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        newPlaceButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
-        newPlaceButton.setText("Place");
-        newPlaceButton.setBorder(null);
-        newPlaceButton.setMargin(new Insets(0, 0, 0, 0));
-
-        newArcButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        newArcButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
-        newArcButton.setText("Arc");
-        newArcButton.setBorder(null);
-        newArcButton.setMargin(new Insets(0, 0, 0, 0));
-
-        newTransitionButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        newTransitionButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
-        newTransitionButton.setText("Transition");
-
-        newTransitionButton.setBorder(null);
-        newTransitionButton.setMargin(new Insets(0, 0, 0, 0));
 
         petriNetsPanel = new PetriNetsPanel(netNameTextField);
         petriNetPanelScrollPane.setViewportView(petriNetsPanel);
@@ -199,6 +176,65 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         } catch (RuntimeException empty) {
             return null;
         }
+    }
+
+    /** Width of the narrow left icon toolbar, in pixels. */
+    private static final int TOOLBAR_WIDTH = 40;
+    /** Side length of every icon drawn or scaled for the left toolbar, in pixels. */
+    private static final int TOOL_ICON_SIZE = 20;
+    /** Width of the right sidebar's collapsed strip — just the toggle arrow, in pixels. */
+    private static final int SIDEBAR_COLLAPSED_WIDTH = 26;
+
+    /** True while the events-protocol/statistics sidebar is collapsed to its thin strip. */
+    private boolean resultsSidebarCollapsed = true;
+
+    /**
+     * @param iconFileName one of the {@code ResourcePathConfig} icon file name constants
+     * @return that icon, scaled to {@link #TOOL_ICON_SIZE} so every toolbar button lines up
+     *         regardless of its source image's native resolution
+     */
+    private Icon scaledIcon(String iconFileName) {
+        java.net.URL url = ResourcePathConfig.getResource(getClass(), ResourcePathConfig.getIconPath(iconFileName));
+        if (url == null) {
+            return null;
+        }
+        java.awt.Image image = new javax.swing.ImageIcon(url).getImage()
+                .getScaledInstance(TOOL_ICON_SIZE, TOOL_ICON_SIZE, java.awt.Image.SCALE_SMOOTH);
+        return new javax.swing.ImageIcon(image);
+    }
+
+    /**
+     * Gives one toolbar button (a tool toggle or an add-element action) the flat, icon-only,
+     * hover-tooltip look the left toolbar uses throughout — Photoshop-style, not text buttons.
+     */
+    private void styleToolButton(AbstractButton button) {
+        button.setAlignmentX(Component.CENTER_ALIGNMENT);
+        button.setFocusable(false);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+        // A toggle button (a sticky tool) keeps its content area so the selected one stays
+        // visibly highlighted; a plain button (Place/Transition/Arc, one-shot actions) stays
+        // flat except on hover, matching the rest of the icon-only toolbar.
+        button.setContentAreaFilled(button instanceof JToggleButton);
+        button.setMargin(new Insets(8, 8, 8, 8));
+        button.setMaximumSize(new java.awt.Dimension(TOOLBAR_WIDTH, TOOLBAR_WIDTH));
+        button.setPreferredSize(new java.awt.Dimension(TOOLBAR_WIDTH, TOOLBAR_WIDTH));
+    }
+
+    /**
+     * Toggles the right sidebar between its default thin collapsed strip and showing the
+     * events protocol / statistics panels in full — the arrow always points the way the
+     * sidebar will move when clicked.
+     */
+    private void sidebarToggleButtonActionPerformed(java.awt.event.ActionEvent evt) {
+        resultsSidebarCollapsed = !resultsSidebarCollapsed;
+        modelingResultsSplitPane.setVisible(!resultsSidebarCollapsed);
+        sidebarToggleButton.setText(resultsSidebarCollapsed ? "◀" : "▶");
+        sidebarToggleButton.setToolTipText(resultsSidebarCollapsed
+                ? "Show events protocol & statistics"
+                : "Hide events protocol & statistics");
+        modelingResultsPanel.revalidate();
+        modelingResultsPanel.repaint();
     }
 
     private JButton createPtrnButton(String title, String tooltip) {
@@ -277,21 +313,19 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         skipBackwardAnimationButton = new javax.swing.JButton();
         skipForwardAnimationButton = new javax.swing.JButton();
         runOneEventButton = new javax.swing.JButton();
-        petriNetsFrameToolBar = new javax.swing.JToolBar();
+        leftIconToolBar = new javax.swing.JPanel();
+        selectToolButton = new javax.swing.JToggleButton();
         newPlaceButton = new javax.swing.JButton();
         newTransitionButton = new javax.swing.JButton();
         newArcButton = new javax.swing.JButton();
-        petriNetsFrameSplitPane = new javax.swing.JSplitPane();
         petriNetPanelScrollPane = new javax.swing.JScrollPane();
         modelingResultsPanel = new javax.swing.JPanel();
+        sidebarToggleButton = new javax.swing.JButton();
         modelingResultsSplitPane = new javax.swing.JSplitPane();
         protokolScrollPane = new javax.swing.JScrollPane();
         protocolTextArea = new javax.swing.JTextArea();
         statisticsScrollPane = new javax.swing.JScrollPane();
         statisticsTextArea = new javax.swing.JTextArea();
-        leftNenuPanel = new javax.swing.JPanel();
-        scrollPane = new javax.swing.JScrollPane();
-        leftMenuList = new javax.swing.JList<>();
         petriNetsFrameMenuBar = new javax.swing.JMenuBar();
         fileMenu = new javax.swing.JMenu();
         openMenuItem = new javax.swing.JMenuItem();
@@ -434,78 +468,94 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         timeStartLabel.getAccessibleContext().setAccessibleName("Time");
 
-        petriNetsFrameToolBar.setBorder(null);
-        petriNetsFrameToolBar.setRollover(true);
-        petriNetsFrameToolBar.setFont(new java.awt.Font("Arial", Font.PLAIN, 12)); // NOI18N
-        petriNetsFrameToolBar.setMargin(new java.awt.Insets(0, 10, 0, 10));
-        petriNetsFrameToolBar.setFloatable(false);
+        leftIconToolBar.setLayout(new javax.swing.BoxLayout(leftIconToolBar, javax.swing.BoxLayout.Y_AXIS));
+        leftIconToolBar.setBackground(new java.awt.Color(238, 238, 238));
+        leftIconToolBar.setBorder(javax.swing.BorderFactory.createMatteBorder(0, 0, 0, 1, new java.awt.Color(200, 200, 200)));
+        leftIconToolBar.setAlignmentX(0.0F);
+        leftIconToolBar.add(javax.swing.Box.createVerticalStrut(6));
 
-        newPlaceButton.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
-        newPlaceButton.setText("Place");
-        newPlaceButton.setToolTipText("");
-        newPlaceButton.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
-        newPlaceButton.setFocusable(false);
-        newPlaceButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        newPlaceButton.setMaximumSize(new java.awt.Dimension(103, 19));
-        newPlaceButton.setMinimumSize(new java.awt.Dimension(103, 19));
-        newPlaceButton.setPreferredSize(new java.awt.Dimension(101, 19));
-        newPlaceButton.setRequestFocusEnabled(false);
-        newPlaceButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        javax.swing.ButtonGroup canvasToolGroup = new javax.swing.ButtonGroup();
+
+        selectToolButton.setIcon(CanvasToolIcons.pointer(TOOL_ICON_SIZE));
+        selectToolButton.setToolTipText("Select — click to select an element, drag to move it");
+        selectToolButton.setSelected(true);
+        selectToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.SELECT));
+        styleToolButton(selectToolButton);
+        canvasToolGroup.add(selectToolButton);
+        leftIconToolBar.add(selectToolButton);
+
+        javax.swing.JToggleButton marqueeToolButton = new javax.swing.JToggleButton(CanvasToolIcons.marquee(TOOL_ICON_SIZE));
+        marqueeToolButton.setToolTipText("Marquee select — drag a rectangle to select without moving anything");
+        marqueeToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.MARQUEE));
+        styleToolButton(marqueeToolButton);
+        canvasToolGroup.add(marqueeToolButton);
+        leftIconToolBar.add(marqueeToolButton);
+
+        javax.swing.JToggleButton panToolButton = new javax.swing.JToggleButton(scaledIcon(ResourcePathConfig.HAND_ICON));
+        panToolButton.setToolTipText("Pan — drag to move the canvas view");
+        panToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.PAN));
+        styleToolButton(panToolButton);
+        canvasToolGroup.add(panToolButton);
+        leftIconToolBar.add(panToolButton);
+
+        javax.swing.JToggleButton deleteToolButton = new javax.swing.JToggleButton(scaledIcon(ResourcePathConfig.ERASER_ICON));
+        deleteToolButton.setToolTipText("Delete — click an element or arc to remove it");
+        deleteToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.DELETE));
+        styleToolButton(deleteToolButton);
+        canvasToolGroup.add(deleteToolButton);
+        leftIconToolBar.add(deleteToolButton);
+
+        javax.swing.JSeparator toolSectionSeparator = new javax.swing.JSeparator();
+        toolSectionSeparator.setMaximumSize(new java.awt.Dimension(TOOLBAR_WIDTH - 10, 4));
+        leftIconToolBar.add(javax.swing.Box.createVerticalStrut(8));
+        leftIconToolBar.add(toolSectionSeparator);
+        leftIconToolBar.add(javax.swing.Box.createVerticalStrut(8));
+
+        newPlaceButton.setIcon(scaledIcon(ResourcePathConfig.PLACE_ICON));
+        newPlaceButton.setToolTipText("Place — add a new place");
         newPlaceButton.addActionListener(this::newPlaceButtonActionPerformed);
-        petriNetsFrameToolBar.add(newPlaceButton);
+        styleToolButton(newPlaceButton);
+        leftIconToolBar.add(newPlaceButton);
 
-        newTransitionButton.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
-        newTransitionButton.setText("Transition");
-        newTransitionButton.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
-        newTransitionButton.setFocusable(false);
-        newTransitionButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        newTransitionButton.setMaximumSize(new java.awt.Dimension(103, 19));
-        newTransitionButton.setMinimumSize(new java.awt.Dimension(103, 19));
-        newTransitionButton.setPreferredSize(new java.awt.Dimension(101, 19));
-        newTransitionButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        newTransitionButton.setIcon(scaledIcon(ResourcePathConfig.TRANSITION_ICON));
+        newTransitionButton.setToolTipText("Transition — add a new transition");
         newTransitionButton.addActionListener(this::newTransitionButtonActionPerformed);
-        petriNetsFrameToolBar.add(newTransitionButton);
+        styleToolButton(newTransitionButton);
+        leftIconToolBar.add(newTransitionButton);
 
-        newArcButton.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
-        newArcButton.setText("Arc");
-        newArcButton.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 10, 1, 10));
-        newArcButton.setFocusable(false);
-        newArcButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        newArcButton.setMaximumSize(new java.awt.Dimension(103, 19));
-        newArcButton.setMinimumSize(new java.awt.Dimension(103, 19));
-        newArcButton.setPreferredSize(new java.awt.Dimension(101, 19));
-        newArcButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        newArcButton.setIcon(scaledIcon(ResourcePathConfig.ARC_ICON));
+        newArcButton.setToolTipText("Arc — click a place then a transition (or the reverse) to connect them");
         newArcButton.addActionListener(this::newArcButtonActionPerformed);
-        petriNetsFrameToolBar.add(newArcButton);
+        styleToolButton(newArcButton);
+        leftIconToolBar.add(newArcButton);
 
-        petriNetsFrameSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
-        petriNetsFrameSplitPane.setDividerLocation(650);
-        petriNetsFrameSplitPane.setDividerSize(3);
-        petriNetsFrameSplitPane.setToolTipText("Результати обчислення статистики");
-        petriNetsFrameSplitPane.setAutoscrolls(true);
-        petriNetsFrameSplitPane.setMinimumSize(new java.awt.Dimension(405, 202));
+        leftIconToolBar.add(javax.swing.Box.createVerticalGlue());
 
         petriNetPanelScrollPane.setBorder(null);
         petriNetPanelScrollPane.setForeground(new java.awt.Color(255, 255, 255));
         petriNetPanelScrollPane.setAutoscrolls(true);
+        petriNetPanelScrollPane.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        petriNetPanelScrollPane.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
         petriNetPanelScrollPane.setMaximumSize(new java.awt.Dimension(2147483647, 2147483647));
         petriNetPanelScrollPane.setMinimumSize(new java.awt.Dimension(200, 200));
-        petriNetPanelScrollPane.setPreferredSize(new java.awt.Dimension(800, 1));
         petriNetPanelScrollPane.setWheelScrollingEnabled(false);
-        petriNetsFrameSplitPane.setLeftComponent(petriNetPanelScrollPane);
         petriNetPanelScrollPane.getAccessibleContext().setAccessibleDescription("");
 
-        modelingResultsPanel.setBackground(new java.awt.Color(229, 229, 229));
-        modelingResultsPanel.setForeground(new java.awt.Color(255, 255, 255));
-        modelingResultsPanel.setAutoscrolls(true);
-        modelingResultsPanel.setFont(new java.awt.Font("Tahoma", Font.BOLD, 11)); // NOI18N
-        modelingResultsPanel.setMaximumSize(new java.awt.Dimension(2147483647, 2147483647));
-        modelingResultsPanel.setRequestFocusEnabled(false);
+        sidebarToggleButton.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
+        sidebarToggleButton.setText("◀");
+        sidebarToggleButton.setToolTipText("Show events protocol & statistics");
+        sidebarToggleButton.setFocusable(false);
+        sidebarToggleButton.setFocusPainted(false);
+        sidebarToggleButton.setBorderPainted(false);
+        sidebarToggleButton.setContentAreaFilled(false);
+        sidebarToggleButton.setPreferredSize(new java.awt.Dimension(SIDEBAR_COLLAPSED_WIDTH, 0));
+        sidebarToggleButton.addActionListener(this::sidebarToggleButtonActionPerformed);
 
         modelingResultsSplitPane.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
         modelingResultsSplitPane.setDividerSize(1);
         modelingResultsSplitPane.setOrientation(javax.swing.JSplitPane.VERTICAL_SPLIT);
-        modelingResultsSplitPane.setPreferredSize(new java.awt.Dimension(100, 35));
+        modelingResultsSplitPane.setPreferredSize(new java.awt.Dimension(340, 35));
+        modelingResultsSplitPane.setVisible(false);
 
         protokolScrollPane.setBorder(null);
         protokolScrollPane.setAutoscrolls(true);
@@ -531,86 +581,20 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         modelingResultsSplitPane.setRightComponent(statisticsScrollPane);
 
-        javax.swing.GroupLayout modelingResultsPanelLayout = new javax.swing.GroupLayout(modelingResultsPanel);
-        modelingResultsPanel.setLayout(modelingResultsPanelLayout);
-        modelingResultsPanelLayout.setHorizontalGroup(
-            modelingResultsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(modelingResultsSplitPane, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 789, Short.MAX_VALUE)
-        );
-        modelingResultsPanelLayout.setVerticalGroup(
-            modelingResultsPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(modelingResultsSplitPane, javax.swing.GroupLayout.DEFAULT_SIZE, 639, Short.MAX_VALUE)
-        );
+        modelingResultsPanel.setBackground(new java.awt.Color(229, 229, 229));
+        modelingResultsPanel.setForeground(new java.awt.Color(255, 255, 255));
+        modelingResultsPanel.setLayout(new java.awt.BorderLayout());
+        modelingResultsPanel.add(sidebarToggleButton, java.awt.BorderLayout.WEST);
+        modelingResultsPanel.add(modelingResultsSplitPane, java.awt.BorderLayout.CENTER);
 
-        petriNetsFrameSplitPane.setRightComponent(modelingResultsPanel);
+        javax.swing.JPanel centerColumn = new javax.swing.JPanel(new java.awt.BorderLayout());
+        centerColumn.add(petriNetPanelScrollPane, java.awt.BorderLayout.CENTER);
+        centerColumn.add(modelingParametersPanel, java.awt.BorderLayout.SOUTH);
 
-        leftNenuPanel.setAlignmentX(0.0F);
-        leftNenuPanel.setAlignmentY(0.0F);
-        leftNenuPanel.setPreferredSize(new java.awt.Dimension(757, 592));
-
-        scrollPane.setAutoscrolls(true);
-
-        leftMenuList.setModel(leftMenuListModel);
-        leftMenuList.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
-        leftMenuList.setAlignmentX(0.0F);
-        leftMenuList.setAlignmentY(0.0F);
-        leftMenuList.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                leftMenuListMouseClicked(evt);
-            }
-        });
-        scrollPane.setViewportView(leftMenuList);
-
-        javax.swing.GroupLayout leftNenuPanelLayout = new javax.swing.GroupLayout(leftNenuPanel);
-        leftNenuPanel.setLayout(leftNenuPanelLayout);
-        leftNenuPanelLayout.setHorizontalGroup(
-            leftNenuPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 170, Short.MAX_VALUE)
-            .addGroup(leftNenuPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                .addComponent(scrollPane, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 170, javax.swing.GroupLayout.PREFERRED_SIZE))
-        );
-        leftNenuPanelLayout.setVerticalGroup(
-            leftNenuPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 477, Short.MAX_VALUE)
-            .addGroup(leftNenuPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, leftNenuPanelLayout.createSequentialGroup()
-                    .addGap(0, 0, 0)
-                    .addComponent(scrollPane, javax.swing.GroupLayout.DEFAULT_SIZE, 477, Short.MAX_VALUE)))
-        );
-
-        javax.swing.GroupLayout petriNetDesignLayout = new javax.swing.GroupLayout(petriNetDesign);
-        petriNetDesign.setLayout(petriNetDesignLayout);
-        petriNetDesignLayout.setHorizontalGroup(
-            petriNetDesignLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(petriNetsFrameToolBar, javax.swing.GroupLayout.PREFERRED_SIZE, 827, javax.swing.GroupLayout.PREFERRED_SIZE)
-            .addComponent(modelingParametersPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(petriNetDesignLayout.createSequentialGroup()
-                .addGap(183, 183, 183)
-                .addComponent(petriNetsFrameSplitPane, javax.swing.GroupLayout.DEFAULT_SIZE, 1443, Short.MAX_VALUE)
-                .addContainerGap())
-            .addGroup(petriNetDesignLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                .addGroup(petriNetDesignLayout.createSequentialGroup()
-                    .addContainerGap()
-                    .addComponent(leftNenuPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 170, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(1456, Short.MAX_VALUE)))
-        );
-        petriNetDesignLayout.setVerticalGroup(
-            petriNetDesignLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(petriNetDesignLayout.createSequentialGroup()
-                .addComponent(petriNetsFrameToolBar, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(petriNetsFrameSplitPane, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(modelingParametersPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-            .addGroup(petriNetDesignLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                .addGroup(petriNetDesignLayout.createSequentialGroup()
-                    .addGap(38, 38, 38)
-                    .addComponent(leftNenuPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 477, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(229, Short.MAX_VALUE)))
-        );
-
-        petriNetsFrameToolBar.getAccessibleContext().setAccessibleName("");
-        petriNetsFrameToolBar.getAccessibleContext().setAccessibleDescription("");
+        petriNetDesign.setLayout(new java.awt.BorderLayout());
+        petriNetDesign.add(leftIconToolBar, java.awt.BorderLayout.WEST);
+        petriNetDesign.add(modelingResultsPanel, java.awt.BorderLayout.EAST);
+        petriNetDesign.add(centerColumn, java.awt.BorderLayout.CENTER);
 
 
         petriNetsFrameMenuBar.setBackground(new java.awt.Color(186, 213, 241));
@@ -773,10 +757,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void newArcButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newArcButtonActionPerformed
+        selectToolButton.setSelected(true);
+        getPetriNetsPanel().setTool(CanvasTool.SELECT);
         getPetriNetsPanel().setIsSettingArc(true);
     }//GEN-LAST:event_newArcButtonActionPerformed
 
     private void newTransitionButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newTransitionButtonActionPerformed
+        selectToolButton.setSelected(true);
+        getPetriNetsPanel().setTool(CanvasTool.SELECT);
         GraphPetriTransition pt = new GraphPetriTransition(new PetriT(
                 GraphPetriTransition.setSimpleName(), 0.0),
                 PetriNetsPanel.getIdElement());
@@ -786,43 +774,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_newTransitionButtonActionPerformed
 
     private void newPlaceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newPlaceButtonActionPerformed
+        selectToolButton.setSelected(true);
+        getPetriNetsPanel().setTool(CanvasTool.SELECT);
         GraphPetriPlace pp = new GraphPetriPlace(new PetriP(
                 GraphPetriPlace.setSimpleName(), 0),
                 PetriNetsPanel.getIdElement());
-        AddGraphElementEdit edit = new AddGraphElementEdit(getPetriNetsPanel(), pp); 
+        AddGraphElementEdit edit = new AddGraphElementEdit(getPetriNetsPanel(), pp);
         edit.doFirstTime();
         undoSupport.postEdit(edit);
     }//GEN-LAST:event_newPlaceButtonActionPerformed
-
-    private void leftMenuListMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_leftMenuListMouseClicked
-        if (evt.getClickCount() == 2) {
-            try {
-                timeStartField.setText(String.valueOf(0));
-                protocolTextArea.setText("---------Events protocol----------");
-                statisticsTextArea.setText("---------STATISTICS---------");
-                //Move current content in center
-                Point center = new Point(
-                        petriNetPanelScrollPane.getLocation().x
-                        + petriNetPanelScrollPane.getBounds().width / 2,
-                        petriNetPanelScrollPane.getLocation().y
-                        + petriNetPanelScrollPane.getBounds().height / 2
-                );
-                getPetriNetsPanel().getGraphNet().changeLocation(center);
-
-                String methodFullName = leftMenuList.getSelectedValue();
-                if (methodFullName == null) {
-                    return;
-                }
-                String pnetName = fileUse.openMethod(getPetriNetsPanel(),
-                        methodFullName, PetriNetsFrame.this);
-                if (pnetName != null) {
-                    netNameTextField.setText(pnetName);
-                }
-            } catch (ExceptionInvalidNetStructure ex) {
-                LOGGER.error("Unexpected error", ex);
-            }
-        }
-    }//GEN-LAST:event_leftMenuListMouseClicked
 
     private void itemResetNetActionPerformed(java.awt.event.ActionEvent evt) {
         GraphPetriNet graphPetriNetBackup = GraphPetriNetBackupHolder.getInstance().get();
@@ -1362,7 +1322,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeModelingTextField.setEnabled(false);
         timeStartField.setEnabled(false);
         netNameTextField.setEnabled(false);
-        leftMenuList.setEnabled(false);
+        leftIconToolBar.setEnabled(false);
         statisticMenu.setEnabled(false);
         if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
             statisticMonitorDialog.onSimulationStart();
@@ -1387,7 +1347,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeModelingTextField.setEnabled(true);
         timeStartField.setEnabled(true);
         netNameTextField.setEnabled(true);
-        leftMenuList.setEnabled(true);
+        leftIconToolBar.setEnabled(true);
         statisticMenu.setEnabled(true);
         if (statisticMonitorDialog != null && isStatisticMonitorEnabled.isSelected()) {
             statisticMonitorDialog.onSimulationEnd();
@@ -1436,10 +1396,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JMenuItem itemAnimateNet;
     private javax.swing.JMenuItem itemRunEvent;
     private javax.swing.JMenuItem jMenuItem2;
-    private javax.swing.JList<String> leftMenuList;
-    private javax.swing.JPanel leftNenuPanel;
+    private javax.swing.JPanel leftIconToolBar;
+    private javax.swing.JToggleButton selectToolButton;
     private javax.swing.JPanel modelingParametersPanel;
     private javax.swing.JPanel modelingResultsPanel;
+    private javax.swing.JButton sidebarToggleButton;
     private javax.swing.JSplitPane modelingResultsSplitPane;
     private javax.swing.JLabel netNameLabel;
     private javax.swing.JTextField netNameTextField;
@@ -1454,8 +1415,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JPanel petriNetDesign;
     private javax.swing.JScrollPane petriNetPanelScrollPane;
     private javax.swing.JMenuBar petriNetsFrameMenuBar;
-    private javax.swing.JSplitPane petriNetsFrameSplitPane;
-    private javax.swing.JToolBar petriNetsFrameToolBar;
     private javax.swing.JButton playPauseAnimationButton;
     private javax.swing.JTextArea protocolTextArea;
     private javax.swing.JScrollPane protokolScrollPane;
@@ -1463,7 +1422,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JMenu runMenu;
     private javax.swing.JButton runOneEventButton;
     private javax.swing.JMenu save;
-    private javax.swing.JScrollPane scrollPane;
     private javax.swing.JButton skipBackwardAnimationButton;
     private javax.swing.JButton skipForwardAnimationButton;
     private javax.swing.JLabel speedLabel;
@@ -1483,7 +1441,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private static PetriNetsPanel petriNetsPanel;
     private FileUse fileUse = new FileUse();
     private ErrorFrame errorFrame = new ErrorFrame();
-    private DefaultListModel<String> leftMenuListModel = new DefaultListModel<>();
     /*private javax.swing.JButton consistBtn;
     private javax.swing.JButton poolBtn;
     private javax.swing.JButton newThreadBtn;
