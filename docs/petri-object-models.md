@@ -76,21 +76,29 @@ you added or removed there back onto the canvas. A frame without anything inside
 until you open it and draw.
 
 **Linking objects.** A locked object still reaches the outside world through its **ports** —
-one small labelled circle per place and per transition, spaced around the frame's border.
-Dragging from one port to another makes the link that fits the two ends:
+one small labelled circle per place and per transition, sitting on whichever of the frame's
+left, right or bottom sides is nearest to that element's own position inside the object, so a
+port reads as roughly where its element actually is rather than an arbitrary slot; the top side,
+under the header, never carries one. Dragging from a port makes the link that fits what it is
+dropped on — another port, or a free place or transition:
 
-| Drag between | What you get |
-|---------------|---------------|
-| two place ports | the two places become one shared place |
-| a place port and a transition port | the place becomes an extra input of that transition |
-| a transition port and a place port | the transition delivers tokens into that place |
+| Drag from a place port to | What you get |
+|---------------------------|---------------|
+| another place port, or a free place | the two places become one shared place |
+| a transition port, or a free transition | the place becomes an extra input of that transition |
 
-A shared place is drawn as a line between the two ports, since the places themselves may sit
-deep inside two different, unrelated objects — there is no reason to move either of them.
-Weight and the informational flag for a place-to-transition link are set the same way an
-ordinary arc's are, by double-clicking it. Free elements — anything outside every frame — are
-completely unaffected by any of this: they stay directly draggable and connectable, exactly
-as before Petri-object composition existed.
+| Drag from a transition port to | What you get |
+|---------------------------------|---------------|
+| a place port, or a free place | the transition delivers tokens into that place |
+
+A shared place is drawn as a line between the two ends — a port for a framed half, the place's
+own position for a free one — since the places themselves may sit deep inside two different,
+unrelated objects, or one inside an object and one nowhere in particular, and there is no
+reason to move either of them. Weight and the informational flag for a place-to-transition link
+are set the same way an ordinary arc's are, by double-clicking it. Free elements — anything
+outside every frame — stay directly draggable and connectable exactly as before Petri-object
+composition existed, on top of being reachable from a port; a transition still cannot connect
+directly to another transition, framed or free.
 
 **Running.** **Run** and **Animate** simulate the whole canvas: every frame is an object,
 every port-to-port link is a link between them, and anything outside every frame is one more
@@ -238,10 +246,15 @@ curl -X POST http://localhost:8080/api/v2/model/parse \
   object. Reordering the elements of a net reorders what its links point at; the editor
   rebuilds the net from its drawing before every run and every save, so the two stay in step.
 - **A shared place does not move either half.** The two places may sit deep inside two
-  different objects; joining them never repositions either one, and the connection is drawn
-  as a line between their ports rather than a ring around a shared point.
+  different objects, or one inside an object and one nowhere in particular; joining them never
+  repositions either one, and the connection is drawn as a line — to a port for a framed half,
+  to the place itself for a free one — rather than a ring around a shared point.
 - **A transition needs a local input place.** External arcs extend the firing condition, so a
   transition fed only by another object is not a valid net.
+- **An object's membership is exactly what put something in it.** Grouping, drawing it inside
+  the object's own editor, instantiating it from the net library, duplicating an object, loading
+  it from a file, or a confirmed drag onto a frame — nothing else changes it, so moving a frame
+  across the canvas can never pick up an element it merely ends up on top of.
 - **Fusion order matters.** Fusing A's place with B's place and then B's place with C's makes
   A point at what B held at the time. Declaration order is preserved on save, on load and on
   clone, so a model always rebuilds the same way.

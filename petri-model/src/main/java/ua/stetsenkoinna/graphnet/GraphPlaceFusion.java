@@ -15,13 +15,15 @@ import java.util.Objects;
  * <p>A shared place is the classic way two Petri-objects are composed, and it is not an arc:
  * nothing flows along it, the two places simply are the same place.
  *
- * <p>How that is shown depends on whether the two places are locked inside a Petri-object.
+ * <p>How that is shown depends on whether either place is locked inside a Petri-object.
  * Between two free places — not yet grouped into any object — it is shown literally: the
  * joined place is kept on top of the place it was joined to, so the arcs of both meet at one
- * circle, drawn with a second ring to say it is shared. Between two framed objects the places
- * themselves are locked and not necessarily anywhere near each other, so there the fusion is
- * shown as a line between the two objects' ports instead ({@link #drawBetweenPorts}), and the
- * places keep whatever position they already had inside their own object.
+ * circle, drawn with a second ring to say it is shared. The moment either half is framed that
+ * stops being possible — a locked place cannot be moved onto anything, and moving a free one
+ * onto a place buried inside someone else's object would corrupt that object's own layout — so
+ * there the fusion is shown as a line instead ({@link #drawBetweenPorts}), one end anchored to
+ * whichever port stands for a framed half, the other to a free half's own position, and both
+ * places keep whatever position they already had.
  *
  * <p>Which of the two is the {@code master} decides nothing about the semantics; it only
  * fixes which object keeps the place instance when the model is built, and, for a free-place
@@ -69,11 +71,12 @@ public class GraphPlaceFusion implements Serializable {
     }
 
     /**
-     * @return true if both halves belong to a Petri-object frame, which is when the fusion is
-     *         drawn as a port-to-port line rather than a coincident ring
+     * @return true if either half belongs to a Petri-object frame, which is when the fusion is
+     *         drawn as a line — to the other half's port if it too is framed, to its own
+     *         position if it is free — rather than a coincident ring
      */
-    public boolean isBetweenFrames() {
-        return masterOwner != null && joinedOwner != null;
+    public boolean isAnchoredToAFrame() {
+        return masterOwner != null || joinedOwner != null;
     }
 
     /**
@@ -134,14 +137,14 @@ public class GraphPlaceFusion implements Serializable {
     }
 
     /**
-     * Draws the ring that marks two free places as shared. Does nothing for a fusion between
-     * two framed objects — draw {@link #drawBetweenPorts} for that one instead.
+     * Draws the ring that marks two free places as shared. Does nothing once either half is
+     * framed — draw {@link #drawBetweenPorts} for that one instead.
      *
      * @param g2 canvas graphics
      * @param selected whether the fusion is the current selection
      */
     public void draw(Graphics2D g2, boolean selected) {
-        if (isBetweenFrames()) {
+        if (isAnchoredToAFrame()) {
             return;
         }
         Point2D centre = master.getGraphElementCenter();
@@ -161,22 +164,23 @@ public class GraphPlaceFusion implements Serializable {
     }
 
     /**
-     * Draws a fusion between two framed objects as a line between their ports, since the
-     * places themselves are locked wherever they sit inside their own object and are not
-     * expected to be anywhere near each other.
+     * Draws a fusion anchored to at least one frame as a line between the two halves' drawn
+     * positions — a framed half's port, a free half's own position — since a locked place
+     * cannot be moved to sit on top of the other half the way two free places can.
      *
      * @param g2 canvas graphics
-     * @param masterPort the master's port position on its frame's border
-     * @param joinedPort the joined place's port position on its frame's border
+     * @param masterPoint where the master half is drawn: its port if framed, its own position
+     *        if free
+     * @param joinedPoint the same for the joined half
      * @param selected whether the fusion is the current selection
      */
-    public void drawBetweenPorts(Graphics2D g2, Point masterPort, Point joinedPort, boolean selected) {
+    public void drawBetweenPorts(Graphics2D g2, Point masterPoint, Point joinedPoint, boolean selected) {
         Stroke previousStroke = g2.getStroke();
         Color previousColor = g2.getColor();
 
         g2.setColor(selected ? RING_SELECTED : RING);
         g2.setStroke(new BasicStroke(selected ? 2.4f : 1.6f));
-        g2.drawLine(masterPort.x, masterPort.y, joinedPort.x, joinedPort.y);
+        g2.drawLine(masterPoint.x, masterPoint.y, joinedPoint.x, joinedPoint.y);
 
         g2.setStroke(previousStroke);
         g2.setColor(previousColor);
@@ -188,7 +192,7 @@ public class GraphPlaceFusion implements Serializable {
      *         fusion rather than the place
      */
     public boolean isOnRing(Point2D point) {
-        if (isBetweenFrames()) {
+        if (isAnchoredToAFrame()) {
             return false;
         }
         Point2D centre = master.getGraphElementCenter();

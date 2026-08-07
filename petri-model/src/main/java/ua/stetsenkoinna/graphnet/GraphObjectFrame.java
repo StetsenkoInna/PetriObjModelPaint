@@ -8,15 +8,24 @@ import java.awt.Rectangle;
 import java.awt.Stroke;
 import java.awt.geom.Point2D;
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * The frame that marks out one Petri-object on the canvas.
  *
  * <p>A Petri-object is not a separate drawing: it is a named region of the one canvas, and
- * whatever is drawn inside it belongs to it. That keeps the structure of a model and the
+ * whatever belongs to it is drawn inside it. That keeps the structure of a model and the
  * behaviour of its objects in a single picture — a token crossing a frame border is a token
  * crossing an object border.
+ *
+ * <p>Which elements those are is decided once — grouped into the frame, drawn in the object's
+ * own editor, dragged in and confirmed, or loaded as part of it — and stays exactly that set of
+ * elements afterward, independent of the frame's own position: {@link #addMember} is the only
+ * thing that puts an element in this object, so moving the frame across the canvas can never by
+ * itself hand it something it was never given.
  *
  * <p>Collapsing a frame hides the net inside it and leaves the object as a single node, for
  * when a model has grown past what fits on screen.
@@ -50,6 +59,9 @@ public class GraphObjectFrame implements Serializable {
 
     /** Bounds the frame had before it was collapsed, so expanding restores them. */
     private Rectangle expandedBounds;
+
+    /** The places and transitions this object explicitly claims — see the class doc. */
+    private final Set<GraphElement> members = Collections.newSetFromMap(new IdentityHashMap<>());
 
     /**
      * @param name display name of the Petri-object
@@ -126,10 +138,44 @@ public class GraphObjectFrame implements Serializable {
 
     /**
      * @param point a point on the canvas
-     * @return true if an element drawn at that point belongs to this object
+     * @return true if the point falls within this frame's rectangle — a hit test for clicks
+     *         and menus, unrelated to which elements this object actually claims
      */
     public boolean contains(Point2D point) {
         return bounds.contains(point.getX(), point.getY());
+    }
+
+    /**
+     * @param element a place or transition on the canvas
+     * @return true if this object claims the element
+     */
+    public boolean hasMember(GraphElement element) {
+        return members.contains(element);
+    }
+
+    /**
+     * Claims an element for this object. Idempotent.
+     *
+     * @param element the place or transition to claim
+     */
+    public void addMember(GraphElement element) {
+        members.add(Objects.requireNonNull(element, "element"));
+    }
+
+    /**
+     * Releases an element — it becomes free unless something else claims it.
+     *
+     * @param element the place or transition to release
+     */
+    public void removeMember(GraphElement element) {
+        members.remove(element);
+    }
+
+    /**
+     * @return every element this object currently claims
+     */
+    public Set<GraphElement> getMembers() {
+        return Collections.unmodifiableSet(members);
     }
 
     /**

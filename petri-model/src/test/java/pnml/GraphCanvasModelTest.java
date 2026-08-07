@@ -10,6 +10,7 @@ import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
+import ua.stetsenkoinna.graphnet.GraphPlaceFusion;
 import ua.stetsenkoinna.petriobj.ArcIn;
 import ua.stetsenkoinna.petriobj.ArcOut;
 import ua.stetsenkoinna.petriobj.PetriObjLinkType;
@@ -73,15 +74,22 @@ public class GraphCanvasModelTest {
         GraphObjectFrame source = new GraphObjectFrame("Source", new Rectangle(0, 0, 300, 300));
         source.setPriority(1);
         canvas.getFrames().add(source);
-        canvas.getFrames().add(new GraphObjectFrame("Sink", new Rectangle(400, 0, 300, 300)));
+        GraphObjectFrame sink = new GraphObjectFrame("Sink", new Rectangle(400, 0, 300, 300));
+        canvas.getFrames().add(sink);
 
         GraphPetriPlace p0 = place(canvas, "P0", 2, 60, 120);
         GraphPetriTransition t0 = transition(canvas, "T0", 160, 120);
         GraphPetriPlace p1 = place(canvas, "P1", 0, 250, 120);
+        source.addMember(p0);
+        source.addMember(t0);
+        source.addMember(p1);
 
         GraphPetriPlace p2 = place(canvas, "P2", 0, 460, 120);
         GraphPetriTransition t1 = transition(canvas, "T1", 560, 120);
         GraphPetriPlace p3 = place(canvas, "P3", 0, 660, 120);
+        sink.addMember(p2);
+        sink.addMember(t1);
+        sink.addMember(p3);
 
         canvas.getNet().getGraphArcInList().add(GraphArcFactory.inArc(p0, t0, 1, false));
         canvas.getNet().getGraphArcOutList().add(GraphArcFactory.outArc(t0, p1, 1));
@@ -257,22 +265,55 @@ public class GraphCanvasModelTest {
     }
 
     @Test
-    public void portsSitOnTheFramesBorderBelowTheHeader() {
+    public void portsNeverSitOnTheHeaderSide() {
         GraphCanvasModel canvas = twoFramedObjects();
         GraphObjectFrame source = canvas.getFrames().getFirst();
         Rectangle bounds = source.getBounds();
 
         for (FramePort port : canvas.portsOf(source)) {
             Point p = port.getPosition();
-            boolean onVerticalEdge = p.x == bounds.x || p.x == bounds.x + bounds.width;
-            boolean onHorizontalEdge = p.y == bounds.y + GraphObjectFrame.HEADER_HEIGHT
-                    || p.y == bounds.y + bounds.height;
-            assertTrue("port must sit exactly on the frame's border, was " + p,
-                    onVerticalEdge || onHorizontalEdge);
+            assertTrue("a port must never sit on the header/top side",
+                    port.getEdge() != FramePort.Edge.TOP);
+            switch (port.getEdge()) {
+                case LEFT -> assertEquals("a left-edge port's x is the frame's left border", bounds.x, p.x);
+                case RIGHT ->
+                        assertEquals("a right-edge port's x is the frame's right border",
+                                bounds.x + bounds.width, p.x);
+                case BOTTOM ->
+                        assertEquals("a bottom-edge port's y is the frame's bottom border",
+                                bounds.y + bounds.height, p.y);
+                default -> throw new AssertionError("unexpected edge " + port.getEdge());
+            }
             assertTrue("port must not be above the header", p.y >= bounds.y + GraphObjectFrame.HEADER_HEIGHT);
             assertTrue(p.x >= bounds.x && p.x <= bounds.x + bounds.width);
             assertTrue(p.y <= bounds.y + bounds.height);
         }
+    }
+
+    @Test
+    public void aPortSitsOnTheSideNearestItsOwnElement() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Widget", new GraphPetriNet());
+        GraphObjectFrame frame = new GraphObjectFrame("W", new Rectangle(0, 0, 400, 400));
+        canvas.getFrames().add(frame);
+        GraphPetriPlace nearLeft = place(canvas, "Left", 0, 20, 140); // hugs the left border
+        GraphPetriTransition nearBottom = transition(canvas, "Bottom", 200, 380); // hugs the bottom
+        frame.addMember(nearLeft);
+        frame.addMember(nearBottom);
+
+        List<FramePort> ports = canvas.portsOf(frame);
+
+        assertEquals(FramePort.Edge.LEFT, portFor(ports, nearLeft).getEdge());
+        assertEquals(FramePort.Edge.BOTTOM, portFor(ports, nearBottom).getEdge());
+    }
+
+    private static FramePort portFor(List<FramePort> ports, GraphElement element) {
+        for (FramePort port : ports) {
+            if (port.getElement() == element) {
+                return port;
+            }
+        }
+        throw new AssertionError("no port for " + element);
     }
 
     @Test
@@ -287,14 +328,65 @@ public class GraphCanvasModelTest {
     }
 
     @Test
-    public void resizingAFrameMovesItsPorts() {
+    public void resizingAFrameMovesAPortOnTheAffectedEdge() {
         GraphCanvasModel canvas = twoFramedObjects();
         GraphObjectFrame source = canvas.getFrames().getFirst();
-        Point before = canvas.portsOf(source).getFirst().getPosition();
+        // P1 sits near the right edge (x=250 inside a 300-wide frame), so widening the frame
+        // must move its port; a port on an untouched edge is not expected to move.
+        GraphPetriPlace p1 = canvas.getNet().getGraphPetriPlaceList().get(1);
+        Point before = portFor(canvas.portsOf(source), p1).getPosition();
 
         source.setBounds(new Rectangle(source.getBounds().x, source.getBounds().y, 600, 600));
-        Point after = canvas.portsOf(source).getFirst().getPosition();
+        Point after = portFor(canvas.portsOf(source), p1).getPosition();
 
-        assertTrue("a port must move when its frame is resized", !before.equals(after));
+        assertTrue("a port on the widened edge must move", !before.equals(after));
+    }
+
+    @Test
+    public void ownershipIsWhatWasExplicitlyClaimedNotWhatTheFrameHappensToCover() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Simple", new GraphPetriNet());
+        GraphObjectFrame frame = new GraphObjectFrame("F", new Rectangle(0, 0, 300, 300));
+        canvas.getFrames().add(frame);
+        GraphPetriPlace stray = place(canvas, "Stray", 0, 100, 100); // inside the frame's rectangle
+
+        assertNull("a frame's rectangle covering a point does not by itself claim what is "
+                + "drawn there — this is exactly what let moving a frame silently absorb "
+                + "whatever it passed over", canvas.ownerOf(stray));
+    }
+
+    @Test
+    public void removingAFrameFreesItsMembersUnlessAnotherFrameStillCoversThem() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Simple", new GraphPetriNet());
+        GraphObjectFrame outer = new GraphObjectFrame("Outer", new Rectangle(0, 0, 300, 300));
+        GraphObjectFrame inner = new GraphObjectFrame("Inner", new Rectangle(50, 50, 100, 100));
+        canvas.getFrames().add(outer);
+        canvas.getFrames().add(inner);
+        GraphPetriPlace coveredByBoth = place(canvas, "Both", 0, 80, 80);
+        GraphPetriPlace coveredByOuterOnly = place(canvas, "OuterOnly", 0, 200, 200);
+        outer.addMember(coveredByBoth);
+        outer.addMember(coveredByOuterOnly);
+
+        canvas.getFrames().remove(outer);
+        canvas.releaseMembers(outer);
+
+        assertEquals("falls to the frame that still geometrically covers it",
+                inner, canvas.ownerOf(coveredByBoth));
+        assertNull("nothing covers it anymore, so it becomes free", canvas.ownerOf(coveredByOuterOnly));
+    }
+
+    @Test
+    public void aFramedPlaceCanBeSharedWithAFreePlace() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphPetriPlace framed = canvas.getNet().getGraphPetriPlaceList().get(1); // P1, owned by Source
+        GraphPetriPlace free = place(canvas, "Free", 0, 900, 900);
+
+        GraphPlaceFusion fusion = canvas.joinPlaces(framed, free);
+
+        assertTrue("a fusion with a framed half is drawn as a line, not a coincident ring",
+                fusion.isAnchoredToAFrame());
+        assertEquals(canvas.getFrames().getFirst(), fusion.getMasterOwner());
+        assertNull(fusion.getJoinedOwner());
     }
 }

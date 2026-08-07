@@ -2,6 +2,7 @@ package ua.stetsenkoinna.graphpresentation;
 
 import org.junit.Test;
 import ua.stetsenkoinna.graphnet.FramePort;
+import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
@@ -24,6 +25,7 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -39,7 +41,14 @@ public class CanvasObjectFrameTest {
         PetriNetsPanel panel = new PetriNetsPanel(null, false);
         GraphPetriNet net = SimpleNetGraphBuilder.build(NetLibrary.CreateNetGenerator(2.0), new Point(300, 200));
         panel.setGraphNet(net);
-        panel.addObjectFrame(new GraphObjectFrame("Generator", new Rectangle(0, 0, 900, 600)));
+        GraphObjectFrame frame = new GraphObjectFrame("Generator", new Rectangle(0, 0, 900, 600));
+        for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
+            frame.addMember(place);
+        }
+        for (GraphPetriTransition transition : net.getGraphPetriTransitionList()) {
+            frame.addMember(transition);
+        }
+        panel.addObjectFrame(frame);
         return panel;
     }
 
@@ -96,6 +105,35 @@ public class CanvasObjectFrameTest {
         assertEquals(dx, frame.getBounds().x);
     }
 
+    @Test
+    public void movingAFrameDoesNotCaptureElementsItPassesOver() throws Exception {
+        PetriNetsPanel panel = panelWithFramedNet();
+        GraphPetriPlace stray = new GraphPetriPlace(new PetriP("Stray", 0), 999);
+        stray.setNewCoordinates(new Point2D.Double(2000, 2000));
+        panel.getGraphNet().getGraphPetriPlaceList().add(stray);
+        GraphObjectFrame frame = panel.getCanvasModel().getFrames().getFirst();
+
+        java.lang.reflect.Method move = PetriNetsPanel.class
+                .getDeclaredMethod("moveFrameWithContents", GraphObjectFrame.class, int.class, int.class);
+        move.setAccessible(true);
+        // Drag the frame so its new rectangle lands right on top of the stray element.
+        move.invoke(panel, frame, 1700, 1700);
+
+        assertNull("a free element the frame merely passed over must not become a member",
+                panel.getCanvasModel().ownerOf(stray));
+    }
+
+    @Test
+    public void removingAFrameReleasesItsMembers() throws Exception {
+        PetriNetsPanel panel = panelWithFramedNet();
+        GraphObjectFrame frame = panel.getCanvasModel().getFrames().getFirst();
+        GraphPetriPlace place = panel.getGraphNet().getGraphPetriPlaceList().getFirst();
+
+        panel.removeObjectFrame(frame);
+
+        assertNull(panel.getCanvasModel().ownerOf(place));
+    }
+
     /**
      * Two frames, each holding one place and one transition of their own, with no links
      * between them yet.
@@ -113,7 +151,10 @@ public class CanvasObjectFrameTest {
         transitionA.setNewCoordinates(new Point2D.Double(180, 80));
         panel.getGraphNet().getGraphPetriPlaceList().add(placeA);
         panel.getGraphNet().getGraphPetriTransitionList().add(transitionA);
-        panel.addObjectFrame(new GraphObjectFrame("A", new Rectangle(0, 0, 300, 300)));
+        GraphObjectFrame frameA = new GraphObjectFrame("A", new Rectangle(0, 0, 300, 300));
+        frameA.addMember(placeA);
+        frameA.addMember(transitionA);
+        panel.addObjectFrame(frameA);
 
         GraphPetriPlace placeB = new GraphPetriPlace(new PetriP("PB", 0), 2);
         placeB.setNewCoordinates(new Point2D.Double(480, 80));
@@ -121,7 +162,10 @@ public class CanvasObjectFrameTest {
         transitionB.setNewCoordinates(new Point2D.Double(580, 80));
         panel.getGraphNet().getGraphPetriPlaceList().add(placeB);
         panel.getGraphNet().getGraphPetriTransitionList().add(transitionB);
-        panel.addObjectFrame(new GraphObjectFrame("B", new Rectangle(400, 0, 300, 300)));
+        GraphObjectFrame frameB = new GraphObjectFrame("B", new Rectangle(400, 0, 300, 300));
+        frameB.addMember(placeB);
+        frameB.addMember(transitionB);
+        panel.addObjectFrame(frameB);
 
         return panel;
     }
@@ -142,6 +186,21 @@ public class CanvasObjectFrameTest {
         fromField.set(panel, from);
 
         Method finish = PetriNetsPanel.class.getDeclaredMethod("finishPortDrag", FramePort.class);
+        finish.setAccessible(true);
+        finish.invoke(panel, to);
+    }
+
+    /**
+     * Drives {@code finishPortDragToFreeElement} the way a completed drag from a port onto a
+     * free (unframed) place or transition would.
+     */
+    private static void dragPortToFreeElement(PetriNetsPanel panel, FramePort from, GraphElement to)
+            throws Exception {
+        java.lang.reflect.Field fromField = PetriNetsPanel.class.getDeclaredField("draggedFromPort");
+        fromField.setAccessible(true);
+        fromField.set(panel, from);
+
+        Method finish = PetriNetsPanel.class.getDeclaredMethod("finishPortDragToFreeElement", GraphElement.class);
         finish.setAccessible(true);
         finish.invoke(panel, to);
     }
@@ -197,6 +256,73 @@ public class CanvasObjectFrameTest {
         assertTrue(panel.getCanvasModel().getFusions().isEmpty());
         assertTrue(panel.getGraphNet().getGraphArcInList().isEmpty());
         assertTrue(panel.getGraphNet().getGraphArcOutList().isEmpty());
+    }
+
+    @Test
+    public void draggingFromAPlacePortToAFreePlaceSharesThePlace() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        FramePort pa = portOf(panel, panel.getCanvasModel().getFrames().getFirst(), "PA");
+        GraphPetriPlace free = new GraphPetriPlace(new PetriP("Free", 0), 99);
+        free.setNewCoordinates(new Point2D.Double(900, 900));
+        panel.getGraphNet().getGraphPetriPlaceList().add(free);
+
+        dragPortToFreeElement(panel, pa, free);
+
+        assertEquals(1, panel.getCanvasModel().getFusions().size());
+        assertTrue(panel.getCanvasModel().getFusions().getFirst().involves(free));
+        assertNull("the free place stays free — a shared place does not move it into the object",
+                panel.getCanvasModel().ownerOf(free));
+    }
+
+    @Test
+    public void draggingFromAPlacePortToAFreeTransitionAddsAnInputArc() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        FramePort pa = portOf(panel, panel.getCanvasModel().getFrames().getFirst(), "PA");
+        GraphPetriTransition free = new GraphPetriTransition(new PetriT("FreeT", 1.0), 99);
+        free.setNewCoordinates(new Point2D.Double(900, 900));
+        panel.getGraphNet().getGraphPetriTransitionList().add(free);
+
+        dragPortToFreeElement(panel, pa, free);
+
+        assertEquals(1, panel.getGraphNet().getGraphArcInList().size());
+        assertEquals(pa.getElement(), panel.getGraphNet().getGraphArcInList().getFirst().getBeginElement());
+        assertEquals(free, panel.getGraphNet().getGraphArcInList().getFirst().getEndElement());
+    }
+
+    @Test
+    public void draggingFromATransitionPortToAFreePlaceAddsAnOutputArc() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        FramePort ta = portOf(panel, panel.getCanvasModel().getFrames().getFirst(), "TA");
+        GraphPetriPlace free = new GraphPetriPlace(new PetriP("FreeP", 0), 99);
+        free.setNewCoordinates(new Point2D.Double(900, 900));
+        panel.getGraphNet().getGraphPetriPlaceList().add(free);
+
+        dragPortToFreeElement(panel, ta, free);
+
+        assertEquals(1, panel.getGraphNet().getGraphArcOutList().size());
+        assertEquals(ta.getElement(), panel.getGraphNet().getGraphArcOutList().getFirst().getBeginElement());
+        assertEquals(free, panel.getGraphNet().getGraphArcOutList().getFirst().getEndElement());
+    }
+
+    @Test
+    public void droppingAPortDragOnAFramedElementOutsideItsOwnPortCreatesNothing() throws Exception {
+        // A framed element only takes a link through its own port — landing on top of its
+        // drawn body, rather than its port circle, must not silently reach it anyway.
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        List<GraphObjectFrame> frames = panel.getCanvasModel().getFrames();
+        FramePort pa = portOf(panel, frames.getFirst(), "PA");
+        GraphPetriPlace pb = null;
+        for (GraphPetriPlace place : panel.getGraphNet().getGraphPetriPlaceList()) {
+            if (place.getName().equals("PB")) {
+                pb = place;
+            }
+        }
+
+        Method free = PetriNetsPanel.class.getDeclaredMethod("freeElementAt", Point2D.class);
+        free.setAccessible(true);
+        Object resolved = free.invoke(panel, pb.getGraphElementCenter());
+
+        assertNull("PB belongs to frame B, so it must not resolve as a free drop target", resolved);
     }
 
     @Test

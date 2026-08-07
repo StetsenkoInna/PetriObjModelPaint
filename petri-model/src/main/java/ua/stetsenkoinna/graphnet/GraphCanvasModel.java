@@ -16,10 +16,11 @@ import java.util.Objects;
  * in it and the places that were joined across those frames.
  *
  * <p>The drawing stays a single net, the way it always was — elements, arcs, selection, undo
- * and copy all work on it unchanged. Which Petri-object an element belongs to is decided by
- * geometry: the frame it is drawn inside. An arc that crosses a frame border is therefore not
- * an arc of any net but a link between two objects, and {@link #toObjModel()} is where that
- * reading happens.
+ * and copy all work on it unchanged. Which Petri-object an element belongs to is what its
+ * frame explicitly claims ({@link GraphObjectFrame#addMember}), not where it happens to sit —
+ * so dragging a frame across the canvas can never quietly pick up something it passes over. An
+ * arc that crosses between two objects' elements is therefore not an arc of any net but a link
+ * between them, and {@link #toObjModel()} is where that reading happens.
  *
  * <p>Anything drawn outside every frame still simulates: it is gathered into one last,
  * unnamed Petri-object, so a plain net drawn without any frame is a model of one object.
@@ -82,8 +83,9 @@ public class GraphCanvasModel implements Serializable {
 
     /**
      * @param point a point on the canvas
-     * @return the innermost frame containing the point, or {@code null} — later frames win,
-     *         so a frame drawn on top of another one owns what is drawn in the overlap
+     * @return the innermost frame whose rectangle contains the point, or {@code null} — later
+     *         frames win when two overlap. A hit test for clicks and menus; it says nothing
+     *         about which object an element belongs to, see {@link #ownerOf}.
      */
     public GraphObjectFrame frameAt(Point2D point) {
         for (int index = frames.size() - 1; index >= 0; index--) {
@@ -96,7 +98,8 @@ public class GraphCanvasModel implements Serializable {
 
     /**
      * @param element an element of the drawing
-     * @return the frame that owns it, or {@code null} when it is drawn outside every frame
+     * @return the frame that claims it ({@link GraphObjectFrame#hasMember}), or {@code null}
+     *         when no frame does, which makes it one of the free elements
      */
     public GraphObjectFrame ownerOf(GraphElement element) {
         if (element instanceof GraphPetriPlace place) {
@@ -107,8 +110,31 @@ public class GraphCanvasModel implements Serializable {
                 return fusion.ownerOf(place);
             }
         }
-        Point2D centre = element.getGraphElementCenter();
-        return centre == null ? null : frameAt(centre);
+        for (GraphObjectFrame frame : frames) {
+            if (frame.hasMember(element)) {
+                return frame;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Called when a frame is removed: what it claimed does not vanish along with it, it just
+     * stops being explicitly claimed — falling to whichever other frame's rectangle happens to
+     * cover it now, or to the free elements when none does. This is the one place a claim is
+     * still decided by geometry, since there is no more explicit frame left to have decided it.
+     *
+     * @param removed the frame that was just taken off the canvas
+     */
+    public void releaseMembers(GraphObjectFrame removed) {
+        for (GraphElement element : new ArrayList<>(removed.getMembers())) {
+            removed.removeMember(element);
+            Point2D centre = element.getGraphElementCenter();
+            GraphObjectFrame covering = centre == null ? null : frameAt(centre);
+            if (covering != null) {
+                covering.addMember(element);
+            }
+        }
     }
 
     /**
@@ -126,9 +152,14 @@ public class GraphCanvasModel implements Serializable {
 
     // ------------------------------------------------------------------ ports
 
+    /** Smallest gap kept between two ports on the same edge, so their circles never touch. */
+    private static final double MIN_PORT_GAP = FramePort.RADIUS * 3.0;
+
     /**
      * Computes the port markers a frame shows on its border: one per place and one per
-     * transition it owns, evenly spaced around the perimeter below the header.
+     * transition it owns, each sitting on whichever side of the frame — left, right or bottom,
+     * never the header side on top — is closest to where the element itself actually is, so a
+     * port reads as "this element, right about here" rather than an arbitrary slot.
      *
      * <p>Ports are what a locked object is connected to other objects through, since its own
      * elements can no longer be dragged directly on the shared canvas. Nothing about a port
@@ -151,11 +182,10 @@ public class GraphCanvasModel implements Serializable {
                 owned.add(transition);
             }
         }
-        List<PerimeterPoint> positions = perimeterPositions(frame.getBounds(), owned.size());
+        List<PositionedPort> positions = perimeterPositionsNear(frame.getBounds(), owned);
         List<FramePort> ports = new ArrayList<>(owned.size());
         for (int i = 0; i < owned.size(); i++) {
-            PerimeterPoint p = positions.get(i);
-            ports.add(new FramePort(owned.get(i), p.point(), p.edge()));
+            ports.add(new FramePort(owned.get(i), positions.get(i).point(), positions.get(i).edge()));
         }
         return ports;
     }
@@ -175,44 +205,113 @@ public class GraphCanvasModel implements Serializable {
         return null;
     }
 
-    private record PerimeterPoint(Point point, FramePort.Edge edge) {}
+    /** One element's port, still being placed: which edge, and how far along it. */
+    private static final class PendingPort {
+        final int index;
+        final FramePort.Edge edge;
+        double along;
 
-    /**
-     * Spaces {@code count} points evenly around the perimeter of a frame's bounds, excluding
-     * the header strip, starting just past the top-left corner and going clockwise.
-     */
-    private static List<PerimeterPoint> perimeterPositions(Rectangle bounds, int count) {
-        List<PerimeterPoint> points = new ArrayList<>(count);
-        if (count <= 0) {
-            return points;
+        PendingPort(int index, FramePort.Edge edge, double along) {
+            this.index = index;
+            this.edge = edge;
+            this.along = along;
         }
-        int left = bounds.x;
-        int top = bounds.y + GraphObjectFrame.HEADER_HEIGHT;
-        int width = bounds.width;
-        int height = bounds.height - GraphObjectFrame.HEADER_HEIGHT;
-        double perimeter = 2.0 * (width + height);
-        for (int i = 0; i < count; i++) {
-            // Offset by half a step so a port never lands exactly on a corner.
-            double distance = perimeter * (i + 0.5) / count;
-            points.add(pointAtDistance(left, top, width, height, distance));
-        }
-        return points;
     }
 
-    private static PerimeterPoint pointAtDistance(int left, int top, int width, int height, double distance) {
-        if (distance < width) {
-            return new PerimeterPoint(new Point((int) (left + distance), top), FramePort.Edge.TOP);
+    private record PositionedPort(Point point, FramePort.Edge edge) {}
+
+    /**
+     * Places one port per element of {@code owned}, on whichever of the frame's left, right or
+     * bottom side sits closest to that element's own position — the top side, under the
+     * header, is never used. Elements that land close together on the same side are then
+     * nudged apart just enough that their circles do not overlap.
+     *
+     * @param bounds the frame's current rectangle
+     * @param owned the elements to place a port for, in the order ports are returned
+     * @return one position per element of {@code owned}, same order
+     */
+    private static List<PositionedPort> perimeterPositionsNear(Rectangle bounds, List<GraphElement> owned) {
+        List<PositionedPort> result = new ArrayList<>(Collections.nCopies(owned.size(), null));
+        if (owned.isEmpty()) {
+            return result;
         }
-        distance -= width;
-        if (distance < height) {
-            return new PerimeterPoint(new Point(left + width, (int) (top + distance)), FramePort.Edge.RIGHT);
+        int left = bounds.x;
+        int right = bounds.x + bounds.width;
+        int top = bounds.y + GraphObjectFrame.HEADER_HEIGHT;
+        int bottom = bounds.y + bounds.height;
+
+        List<PendingPort> onLeft = new ArrayList<>();
+        List<PendingPort> onRight = new ArrayList<>();
+        List<PendingPort> onBottom = new ArrayList<>();
+
+        for (int i = 0; i < owned.size(); i++) {
+            Point2D centre = owned.get(i).getGraphElementCenter();
+            double ex = centre == null ? (left + right) / 2.0 : clamp(centre.getX(), left, right);
+            double ey = centre == null ? bottom : clamp(centre.getY(), top, bottom);
+            double distLeft = ex - left;
+            double distRight = right - ex;
+            double distBottom = bottom - ey;
+            double nearest = Math.min(distLeft, Math.min(distRight, distBottom));
+            if (nearest == distLeft) {
+                onLeft.add(new PendingPort(i, FramePort.Edge.LEFT, clamp(ey, top, bottom)));
+            } else if (nearest == distRight) {
+                onRight.add(new PendingPort(i, FramePort.Edge.RIGHT, clamp(ey, top, bottom)));
+            } else {
+                onBottom.add(new PendingPort(i, FramePort.Edge.BOTTOM, clamp(ex, left, right)));
+            }
         }
-        distance -= height;
-        if (distance < width) {
-            return new PerimeterPoint(new Point((int) (left + width - distance), top + height), FramePort.Edge.BOTTOM);
+
+        spaceOut(onLeft, top, bottom);
+        spaceOut(onRight, top, bottom);
+        spaceOut(onBottom, left, right);
+
+        for (PendingPort p : onLeft) {
+            result.set(p.index, new PositionedPort(new Point(left, (int) Math.round(p.along)), p.edge));
         }
-        distance -= width;
-        return new PerimeterPoint(new Point(left, (int) (top + height - distance)), FramePort.Edge.LEFT);
+        for (PendingPort p : onRight) {
+            result.set(p.index, new PositionedPort(new Point(right, (int) Math.round(p.along)), p.edge));
+        }
+        for (PendingPort p : onBottom) {
+            result.set(p.index, new PositionedPort(new Point((int) Math.round(p.along), bottom), p.edge));
+        }
+        return result;
+    }
+
+    private static double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    /**
+     * Enforces a minimum gap between ports sharing one edge, moving each only as far as it
+     * takes to stop overlapping its neighbour — a port that already has room to itself does
+     * not move at all.
+     */
+    private static void spaceOut(List<PendingPort> group, double min, double max) {
+        if (group.size() < 2) {
+            return;
+        }
+        group.sort((a, b) -> Double.compare(a.along, b.along));
+        for (int i = 1; i < group.size(); i++) {
+            double wanted = group.get(i - 1).along + MIN_PORT_GAP;
+            if (group.get(i).along < wanted) {
+                group.get(i).along = wanted;
+            }
+        }
+        // The forward pass alone can push the last ports past the edge's end; pull the whole
+        // run back from that end, which keeps every gap intact.
+        int last = group.size() - 1;
+        if (group.get(last).along > max) {
+            group.get(last).along = max;
+            for (int i = last - 1; i >= 0; i--) {
+                double limit = group.get(i + 1).along - MIN_PORT_GAP;
+                if (group.get(i).along > limit) {
+                    group.get(i).along = limit;
+                }
+            }
+        }
+        for (PendingPort p : group) {
+            p.along = clamp(p.along, min, max);
+        }
     }
 
     /**
@@ -431,6 +530,15 @@ public class GraphCanvasModel implements Serializable {
                 frame.setPriority(object.getPriority());
                 frame.setTemplate(object.getTemplate());
                 canvas.frames.add(frame);
+                // The object's own places and transitions are exactly what this frame claims —
+                // known outright here, from the document, rather than left to be re-derived
+                // from wherever changeLocation below happens to put them.
+                for (GraphPetriPlace place : object.getGraphNet().getGraphPetriPlaceList()) {
+                    frame.addMember(place);
+                }
+                for (GraphPetriTransition transition : object.getGraphNet().getGraphPetriTransitionList()) {
+                    frame.addMember(transition);
+                }
                 // Put the object's drawing in the middle of its own frame; the net keeps its
                 // shape, only where it sits on the shared canvas is decided here.
                 object.getGraphNet().changeLocation(new Point(

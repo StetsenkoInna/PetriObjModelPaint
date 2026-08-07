@@ -418,11 +418,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         paintObjectFrames(g2, true);
         paintPorts(g2);
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            if (fusion.isBetweenFrames()) {
-                Point masterPort = portPositionOf(fusion.getMasterOwner(), fusion.getMaster());
-                Point joinedPort = portPositionOf(fusion.getJoinedOwner(), fusion.getJoined());
-                if (masterPort != null && joinedPort != null) {
-                    fusion.drawBetweenPorts(g2, masterPort, joinedPort, false);
+            if (fusion.isAnchoredToAFrame()) {
+                Point masterPoint = fusionEndpoint(fusion.getMasterOwner(), fusion.getMaster());
+                Point joinedPoint = fusionEndpoint(fusion.getJoinedOwner(), fusion.getJoined());
+                if (masterPoint != null && joinedPoint != null) {
+                    fusion.drawBetweenPorts(g2, masterPoint, joinedPoint, false);
                 }
             }
         }
@@ -503,12 +503,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * @param frame the object the element belongs to
-     * @param element one of that object's own places or transitions
-     * @return the position of the element's port on the frame's border, or {@code null} if
-     *         it does not (currently) have one
+     * Where one half of a fusion is drawn: its port if it belongs to a frame, its own position
+     * on the canvas if it is free.
+     *
+     * @param frame the half's owning frame, or {@code null} if it is free
+     * @param element the place this is the position of
+     * @return the point to draw the fusion's line to or from, or {@code null} if it cannot
+     *         currently be found
      */
-    private Point portPositionOf(GraphObjectFrame frame, GraphElement element) {
+    private Point fusionEndpoint(GraphObjectFrame frame, GraphElement element) {
+        if (frame == null) {
+            Point2D centre = element.getGraphElementCenter();
+            return centre == null ? null : new Point((int) centre.getX(), (int) centre.getY());
+        }
         for (FramePort port : canvasModel.portsOf(frame)) {
             if (port.getElement() == element) {
                 return port.getPosition();
@@ -746,7 +753,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (name == null || name.isBlank()) {
             return;
         }
-        addObjectFrame(new GraphObjectFrame(name.trim(), boundsAround(selection)));
+        GraphObjectFrame frame = new GraphObjectFrame(name.trim(), boundsAround(selection));
+        for (GraphElement element : selection) {
+            frame.addMember(element);
+        }
+        addObjectFrame(frame);
 
         // The grouped elements are now locked inside their new frame — highlighting them as
         // "selected" afterward would be stale and, unlike before, no longer something Delete
@@ -792,6 +803,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             builtElements.addAll(built.getGraphPetriTransitionList());
             GraphObjectFrame frame = new GraphObjectFrame(dialog.getObjectName(), boundsAround(builtElements));
             frame.setTemplate(dialog.getReference());
+            for (GraphElement element : builtElements) {
+                frame.addMember(element);
+            }
             addObjectFrame(frame);
             repaint();
         } catch (Exception failure) {
@@ -834,6 +848,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         GraphObjectFrame duplicate = new GraphObjectFrame(frame.getName() + " copy", bounds);
         duplicate.setPriority(frame.getPriority());
         duplicate.setTemplate(frame.getTemplate());
+        for (GraphElement element : copy.elements) {
+            duplicate.addMember(element);
+        }
         addObjectFrame(duplicate);
         repaint();
     }
@@ -893,6 +910,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         reconcile(graphNet.getGraphPetriTransitionList(), transitionsBefore, objectNet.getGraphPetriTransitionList());
         reconcile(graphNet.getGraphArcInList(), arcsInBefore, objectNet.getGraphArcInList());
         reconcile(graphNet.getGraphArcOutList(), arcsOutBefore, objectNet.getGraphArcOutList());
+        reconcileMembership(frame, placesBefore, objectNet.getGraphPetriPlaceList());
+        reconcileMembership(frame, transitionsBefore, objectNet.getGraphPetriTransitionList());
 
         canvasModel.removeDanglingFusions();
         updateArcCoordinates();
@@ -953,6 +972,25 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         for (T element : after) {
             if (!before.contains(element)) {
                 mainList.add(element);
+            }
+        }
+    }
+
+    /**
+     * Claims for {@code frame} whatever its editor's own list gained, releases whatever it
+     * lost — the same before/after comparison as {@link #reconcile}, but updating the frame's
+     * explicit membership instead of the main canvas's element lists.
+     */
+    private static void reconcileMembership(GraphObjectFrame frame,
+            List<? extends GraphElement> before, List<? extends GraphElement> after) {
+        for (GraphElement element : before) {
+            if (!after.contains(element)) {
+                frame.removeMember(element);
+            }
+        }
+        for (GraphElement element : after) {
+            if (!before.contains(element)) {
+                frame.addMember(element);
             }
         }
     }
@@ -1226,7 +1264,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
 
             if (draggedFromPort != null) {
-                finishPortDrag(canvasModel.portAt(scaledCurrentMousePoint));
+                FramePort targetPort = canvasModel.portAt(scaledCurrentMousePoint);
+                if (targetPort != null) {
+                    finishPortDrag(targetPort);
+                } else {
+                    finishPortDragToFreeElement(freeElementAt(scaledCurrentMousePoint));
+                }
                 repaint();
                 return;
             }
@@ -1414,12 +1457,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Checks whether the element that was just dragged ended up in another Petri-object.
+     * Checks whether the element that was just dragged ended up over another Petri-object's
+     * frame, and if so, offers to actually join it.
      *
-     * <p>Which frame an element is drawn in is what decides who owns it, so dragging one
-     * across a border rewires the model. That is fine for a lone element and rarely what was
-     * meant for one that is already wired up, so the move is confirmed first and undone when
-     * it was an accident.
+     * <p>Landing inside a frame's rectangle is only ever a proposal — claiming the element is
+     * this method's own doing, not a side effect of where it was dropped. That is also what
+     * keeps a frame's own move ({@link #moveFrameWithContents}) from doing the same thing to
+     * whatever it happens to end up over: that method only ever moves elements it already
+     * owns, it never looks at what else the frame's new position covers.
      */
     private void confirmMoveBetweenObjects() {
         GraphElement element = draggedElement;
@@ -1432,21 +1477,30 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (element == null || origin == null || canvasModel.getFrames().isEmpty()) {
             return;
         }
-        GraphObjectFrame after = canvasModel.ownerOf(element);
-        if (after == before || countArcsOf(element) == 0) {
+        Point2D centre = element.getGraphElementCenter();
+        GraphObjectFrame after = centre == null ? null : canvasModel.frameAt(centre);
+        if (after == before) {
             return;
         }
 
-        String question = "'" + element.getName() + "' has " + countArcsOf(element)
-                + " arc(s) and would move from " + describe(before) + " to " + describe(after)
-                + ". Move it to the other Petri-object?";
-        if (MessageHelper.showConfirmation(dialogOwner(), question)) {
-            return;
+        if (countArcsOf(element) > 0) {
+            String question = "'" + element.getName() + "' has " + countArcsOf(element)
+                    + " arc(s) and would move from " + describe(before) + " to " + describe(after)
+                    + ". Move it to the other Petri-object?";
+            if (!MessageHelper.showConfirmation(dialogOwner(), question)) {
+                element.setNewCoordinates(new Point2D.Double(origin.getX(), origin.getY()));
+                canvasModel.syncFusions();
+                updateArcCoordinates();
+                repaint();
+                return;
+            }
         }
-        element.setNewCoordinates(new Point2D.Double(origin.getX(), origin.getY()));
-        canvasModel.syncFusions();
-        updateArcCoordinates();
-        repaint();
+        if (before != null) {
+            before.removeMember(element);
+        }
+        if (after != null) {
+            after.addMember(element);
+        }
     }
 
     private static String describe(GraphObjectFrame frame) {
@@ -1477,37 +1531,78 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * cancels when the drag was not released on a port, matching how dropping the old arc
      * tool on empty space already behaves; anything that would not be a valid link is
      * reported instead of just discarded, since landing on some other port was clearly
-     * intentional.
+     * intentional. {@link #finishPortDragToFreeElement} is the same completion for a drag
+     * released on a free element instead of another port — a locked object reaches the free
+     * part of the drawing through its port exactly the way it reaches another object.
      *
      * @param targetPort the port the drag ended on, or {@code null}
      */
     private void finishPortDrag(FramePort targetPort) {
+        GraphElement source = beginFinishingPortDrag();
+        if (source == null || targetPort == null || targetPort.getElement() == source) {
+            return;
+        }
+        linkPortToElement(source, targetPort.getElement());
+    }
+
+    /**
+     * @param target the free (unframed) place or transition the drag ended on, or {@code null}
+     * @see #finishPortDrag(FramePort)
+     */
+    private void finishPortDragToFreeElement(GraphElement target) {
+        GraphElement source = beginFinishingPortDrag();
+        if (source == null || target == null || target == source) {
+            return;
+        }
+        linkPortToElement(source, target);
+    }
+
+    /**
+     * Reads and clears the drag-in-progress state, common to both ways a port drag can end.
+     *
+     * @return the port's own element the drag started from, or {@code null} if none was
+     */
+    private GraphElement beginFinishingPortDrag() {
         FramePort sourcePort = draggedFromPort;
         draggedFromPort = null;
         draggedPortCurrentPoint = null;
         hoveredPort = null;
+        return sourcePort == null ? null : sourcePort.getElement();
+    }
 
-        if (targetPort == null || targetPort == sourcePort) {
-            return;
-        }
+    /**
+     * @param point a point on the canvas
+     * @return the free (unframed) place or transition drawn there, or {@code null} — a port
+     *         only ever reaches a framed element through that element's own port, never
+     *         directly, so a framed hit here does not count
+     */
+    private GraphElement freeElementAt(Point2D point) {
+        GraphElement element = find(point);
+        return element != null && canvasModel.ownerOf(element) == null ? element : null;
+    }
 
+    /**
+     * Creates the link that fits {@code source} and {@code target}: a shared place for two
+     * places, a crossing arc for a place and a transition. Rejects a place-place or
+     * transition-transition pairing.
+     */
+    private void linkPortToElement(GraphElement source, GraphElement target) {
+        boolean sourceIsPlace = source instanceof GraphPetriPlace;
+        boolean targetIsPlace = target instanceof GraphPetriPlace;
         try {
-            if (sourcePort.isPlace() && targetPort.isPlace()) {
-                canvasModel.joinPlaces((GraphPetriPlace) sourcePort.getElement(),
-                        (GraphPetriPlace) targetPort.getElement());
-            } else if (!sourcePort.isPlace() && !targetPort.isPlace()) {
+            if (sourceIsPlace && targetIsPlace) {
+                canvasModel.joinPlaces((GraphPetriPlace) source, (GraphPetriPlace) target);
+            } else if (!sourceIsPlace && !targetIsPlace) {
                 throw new IllegalArgumentException(
                         "A transition cannot connect directly to another transition");
-            } else if (sourcePort.isPlace()) {
+            } else if (sourceIsPlace) {
                 // place -> transition: the place becomes an extra input of the transition
                 canvasModel.getNet().getGraphArcInList().add(GraphArcFactory.inArc(
-                        (GraphPetriPlace) sourcePort.getElement(),
-                        (GraphPetriTransition) targetPort.getElement(), 1, false));
+                        (GraphPetriPlace) source, (GraphPetriTransition) target, 1, false));
             } else {
                 // transition -> place: the transition delivers tokens into the place
                 canvasModel.getNet().getGraphArcOutList().add(GraphArcFactory.outArc(
-                        (GraphPetriTransition) sourcePort.getElement(),
-                        (GraphPetriPlace) targetPort.getElement(), 1));
+                        (GraphPetriTransition) source, (GraphPetriPlace) target, 1));
             }
         } catch (IllegalArgumentException rejected) {
             MessageHelper.showError(dialogOwner(), rejected.getMessage());
@@ -1877,6 +1972,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     public void removeObjectFrame(GraphObjectFrame frame) {
         canvasModel.getFrames().remove(frame);
+        canvasModel.releaseMembers(frame);
         if (selectedFrame == frame) {
             selectedFrame = null;
         }
