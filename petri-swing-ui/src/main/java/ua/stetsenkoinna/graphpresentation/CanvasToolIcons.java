@@ -76,6 +76,50 @@ final class CanvasToolIcons {
         };
     }
 
+    /**
+     * A simple "&lt;" / "&gt;" chevron, stroked rather than filled — the sidebar's
+     * collapse/expand toggle. Drawn instead of relying on a Unicode triangle glyph
+     * ({@code ◀}/{@code ▶}) since not every installed font actually carries those code
+     * points, which on some systems silently fell back to a tofu box that reads as an
+     * ellipsis at this size.
+     *
+     * @param size the icon's side length
+     * @param pointingLeft true for {@code <} (sidebar collapsed, click to expand it
+     *        leftward), false for {@code >} (expanded, click to collapse it rightward)
+     */
+    static Icon chevron(int size, boolean pointingLeft) {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = prepare(g);
+                g2.setColor(c.getForeground());
+                g2.setStroke(new java.awt.BasicStroke(1.8f, java.awt.BasicStroke.CAP_ROUND,
+                        java.awt.BasicStroke.JOIN_ROUND));
+                int nearX = x + size * (pointingLeft ? 68 : 32) / 100;
+                int farX = x + size * (pointingLeft ? 32 : 68) / 100;
+                int topY = y + size * 22 / 100;
+                int midY = y + size * 50 / 100;
+                int bottomY = y + size * 78 / 100;
+                java.awt.geom.Path2D.Float chevron = new java.awt.geom.Path2D.Float();
+                chevron.moveTo(nearX, topY);
+                chevron.lineTo(farX, midY);
+                chevron.lineTo(nearX, bottomY);
+                g2.draw(chevron);
+                g2.dispose();
+            }
+
+            @Override
+            public int getIconWidth() {
+                return size;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return size;
+            }
+        };
+    }
+
     private static Graphics2D prepare(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);

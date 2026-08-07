@@ -61,6 +61,7 @@ import ua.stetsenkoinna.graphpresentation.dragndrop.UnifiedDropHandler;
 import ua.stetsenkoinna.graphpresentation.objmodel.NetTemplateDialog;
 import ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddArcEdit;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteGraphElementsEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.PasteElementsEdit;
@@ -1228,6 +1229,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            // Same exclusivity as Pan/Delete: the whole point of these tools staying active
+            // across clicks is that every click drops another element, never anything else.
+            if (tool == CanvasTool.ADD_PLACE || tool == CanvasTool.ADD_TRANSITION) {
+                if (SwingUtilities.isLeftMouseButton(ev)) {
+                    addElementAt(tool, scaledCurrentMousePoint);
+                }
+                return;
+            }
+
             // The eye icon sits inside the header's own rectangle, so it has to be checked
             // ahead of the header hit-test below — otherwise the click would be read as the
             // start of a frame drag instead of a toggle.
@@ -1484,7 +1494,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
-            if (tool == CanvasTool.DELETE) {
+            if (tool == CanvasTool.DELETE
+                    || tool == CanvasTool.ADD_PLACE || tool == CanvasTool.ADD_TRANSITION) {
                 return;
             }
 
@@ -1882,7 +1893,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 updatePan(ev.getPoint());
                 return;
             }
-            if (tool == CanvasTool.DELETE) {
+            if (tool == CanvasTool.DELETE
+                    || tool == CanvasTool.ADD_PLACE || tool == CanvasTool.ADD_TRANSITION) {
                 return;
             }
 
@@ -1965,7 +1977,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseMoved(MouseEvent ev) {
-            if (tool == CanvasTool.PAN || tool == CanvasTool.DELETE) {
+            if (tool == CanvasTool.PAN || tool == CanvasTool.DELETE
+                    || tool == CanvasTool.ADD_PLACE || tool == CanvasTool.ADD_TRANSITION) {
                 // These tools keep their own dedicated cursor regardless of what is underneath
                 // the pointer — port hovering is a Select-tool affordance only.
                 return;
@@ -2088,6 +2101,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return new Cursor(Cursor.HAND_CURSOR);
             case DELETE:
                 return ERASER_CURSOR;
+            case ADD_PLACE:
+            case ADD_TRANSITION:
+                return new Cursor(Cursor.CROSSHAIR_CURSOR);
             default:
                 return Cursor.getDefaultCursor();
         }
@@ -2106,6 +2122,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         } catch (RuntimeException problem) {
             return new Cursor(Cursor.CROSSHAIR_CURSOR);
         }
+    }
+
+    /**
+     * Drops a new place or transition at the click point — what the Add Place / Add Transition
+     * tool does on every click, staying active so the next click drops another one instead of
+     * having to reselect the tool each time.
+     *
+     * @param addTool {@link CanvasTool#ADD_PLACE} or {@link CanvasTool#ADD_TRANSITION}
+     * @param scaledPoint where the new element is centred, in canvas coordinates
+     */
+    private void addElementAt(CanvasTool addTool, Point scaledPoint) {
+        GraphElement element = addTool == CanvasTool.ADD_PLACE
+                ? new GraphPetriPlace(new PetriP(GraphPetriPlace.setSimpleName(), 0), getIdElement())
+                : new GraphPetriTransition(new PetriT(GraphPetriTransition.setSimpleName(), 0.0), getIdElement());
+        element.setNewCoordinates(scaledPoint);
+
+        AddGraphElementEdit edit = new AddGraphElementEdit(this, element);
+        edit.doFirstTime();
+        PetriNetsFrame.getUndoSupport().postEdit(edit);
+        repaint();
     }
 
     /**

@@ -2,15 +2,12 @@ package ua.stetsenkoinna.graphpresentation;
 
 import ua.stetsenkoinna.petriobj.ExceptionInvalidNetStructure;
 import ua.stetsenkoinna.petriobj.ExceptionInvalidTimeDelay;
-import ua.stetsenkoinna.petriobj.PetriP;
 import ua.stetsenkoinna.petriobj.PetriSim;
-import ua.stetsenkoinna.petriobj.PetriT;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import ua.stetsenkoinna.graphpresentation.statistic.StatisticMonitorDialog;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.data.StatisticGraphMonitor;
 import ua.stetsenkoinna.graphreuse.GraphNetParametersFrame;
-import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
 import ua.stetsenkoinna.config.ResourcePathConfig;
 import ua.stetsenkoinna.pnml.CoordinateNormalizer;
 import ua.stetsenkoinna.pnml.PnmlParser;
@@ -21,8 +18,6 @@ import ua.stetsenkoinna.graphnet.GraphCanvasModel;
 import ua.stetsenkoinna.petriobj.PetriNet;
 import ua.stetsenkoinna.petriobj.ArcIn;
 import ua.stetsenkoinna.petriobj.ArcOut;
-import ua.stetsenkoinna.graphnet.GraphPetriPlace;
-import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.libnet.NetLibrary;
@@ -229,7 +224,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void sidebarToggleButtonActionPerformed(java.awt.event.ActionEvent evt) {
         resultsSidebarCollapsed = !resultsSidebarCollapsed;
         modelingResultsSplitPane.setVisible(!resultsSidebarCollapsed);
-        sidebarToggleButton.setText(resultsSidebarCollapsed ? "◀" : "▶");
+        sidebarToggleButton.setIcon(CanvasToolIcons.chevron(TOOL_ICON_SIZE, resultsSidebarCollapsed));
         sidebarToggleButton.setToolTipText(resultsSidebarCollapsed
                 ? "Show events protocol & statistics"
                 : "Hide events protocol & statistics");
@@ -315,8 +310,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         runOneEventButton = new javax.swing.JButton();
         leftIconToolBar = new javax.swing.JPanel();
         selectToolButton = new javax.swing.JToggleButton();
-        newPlaceButton = new javax.swing.JButton();
-        newTransitionButton = new javax.swing.JButton();
+        newPlaceButton = new javax.swing.JToggleButton();
+        newTransitionButton = new javax.swing.JToggleButton();
         newArcButton = new javax.swing.JButton();
         petriNetPanelScrollPane = new javax.swing.JScrollPane();
         modelingResultsPanel = new javax.swing.JPanel();
@@ -512,15 +507,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         leftIconToolBar.add(javax.swing.Box.createVerticalStrut(8));
 
         newPlaceButton.setIcon(scaledIcon(ResourcePathConfig.PLACE_ICON));
-        newPlaceButton.setToolTipText("Place — add a new place");
-        newPlaceButton.addActionListener(this::newPlaceButtonActionPerformed);
+        newPlaceButton.setToolTipText("Place — click the canvas to drop a place; stays active for the next one");
+        newPlaceButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.ADD_PLACE));
         styleToolButton(newPlaceButton);
+        canvasToolGroup.add(newPlaceButton);
         leftIconToolBar.add(newPlaceButton);
 
         newTransitionButton.setIcon(scaledIcon(ResourcePathConfig.TRANSITION_ICON));
-        newTransitionButton.setToolTipText("Transition — add a new transition");
-        newTransitionButton.addActionListener(this::newTransitionButtonActionPerformed);
+        newTransitionButton.setToolTipText("Transition — click the canvas to drop a transition; stays active for the next one");
+        newTransitionButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.ADD_TRANSITION));
         styleToolButton(newTransitionButton);
+        canvasToolGroup.add(newTransitionButton);
         leftIconToolBar.add(newTransitionButton);
 
         newArcButton.setIcon(scaledIcon(ResourcePathConfig.ARC_ICON));
@@ -541,8 +538,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetPanelScrollPane.setWheelScrollingEnabled(false);
         petriNetPanelScrollPane.getAccessibleContext().setAccessibleDescription("");
 
-        sidebarToggleButton.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
-        sidebarToggleButton.setText("◀");
+        sidebarToggleButton.setIcon(CanvasToolIcons.chevron(TOOL_ICON_SIZE, true));
         sidebarToggleButton.setToolTipText("Show events protocol & statistics");
         sidebarToggleButton.setFocusable(false);
         sidebarToggleButton.setFocusPainted(false);
@@ -761,28 +757,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         getPetriNetsPanel().setTool(CanvasTool.SELECT);
         getPetriNetsPanel().setIsSettingArc(true);
     }//GEN-LAST:event_newArcButtonActionPerformed
-
-    private void newTransitionButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newTransitionButtonActionPerformed
-        selectToolButton.setSelected(true);
-        getPetriNetsPanel().setTool(CanvasTool.SELECT);
-        GraphPetriTransition pt = new GraphPetriTransition(new PetriT(
-                GraphPetriTransition.setSimpleName(), 0.0),
-                PetriNetsPanel.getIdElement());
-        AddGraphElementEdit edit = new AddGraphElementEdit(getPetriNetsPanel(), pt);
-        edit.doFirstTime();
-        undoSupport.postEdit(edit);
-    }//GEN-LAST:event_newTransitionButtonActionPerformed
-
-    private void newPlaceButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_newPlaceButtonActionPerformed
-        selectToolButton.setSelected(true);
-        getPetriNetsPanel().setTool(CanvasTool.SELECT);
-        GraphPetriPlace pp = new GraphPetriPlace(new PetriP(
-                GraphPetriPlace.setSimpleName(), 0),
-                PetriNetsPanel.getIdElement());
-        AddGraphElementEdit edit = new AddGraphElementEdit(getPetriNetsPanel(), pp);
-        edit.doFirstTime();
-        undoSupport.postEdit(edit);
-    }//GEN-LAST:event_newPlaceButtonActionPerformed
 
     private void itemResetNetActionPerformed(java.awt.event.ActionEvent evt) {
         GraphPetriNet graphPetriNetBackup = GraphPetriNetBackupHolder.getInstance().get();
@@ -1406,8 +1380,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JTextField netNameTextField;
     private javax.swing.JButton newArcButton;
     private javax.swing.JMenuItem newMenuItem;
-    private javax.swing.JButton newPlaceButton;
-    private javax.swing.JButton newTransitionButton;
+    private javax.swing.JToggleButton newPlaceButton;
+    private javax.swing.JToggleButton newTransitionButton;
     private javax.swing.JMenuItem openMenuItem;
     private javax.swing.JMenuItem openMethodMenuItem;
     private javax.swing.JMenuItem openMonitor;
