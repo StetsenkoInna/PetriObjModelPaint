@@ -32,9 +32,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 
+import ua.stetsenkoinna.graphnet.GraphCanvasModel;
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphElementIdGenerator;
+import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
+import ua.stetsenkoinna.graphnet.GraphPlaceFusion;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphArc;
@@ -47,6 +50,7 @@ import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteGraphElementsEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.PasteElementsEdit;
 import ua.stetsenkoinna.graphpresentation.dragndrop.PnmlDropHandler;
+import ua.stetsenkoinna.utils.MessageHelper;
 
 import java.awt.dnd.DropTarget;
 
@@ -86,6 +90,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     /** False for a panel that only displays a net, e.g. while animating a whole model. */
     private final boolean editable;
+
+    /**
+     * The canvas seen as a Petri-object model: the drawing above, plus the frames that mark
+     * out the objects in it and the places shared between them.
+     */
+    private final GraphCanvasModel canvasModel = new GraphCanvasModel();
+
+    /** Frame the user is currently moving, resizing, or has selected. */
+    private GraphObjectFrame draggedFrame;
+    private GraphObjectFrame resizedFrame;
+    private GraphObjectFrame selectedFrame;
+    /** Offset between the pointer and the dragged frame's corner, so it does not jump. */
+    private Point frameDragOffset;
 
     public List<GraphElement> getChoosenElements() {
         return choosenElements;
@@ -356,10 +373,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         this.requestFocusInWindow(); //added 1.06.2013
         //додано 3.12.2012
         if (graphNet == null) {
-            graphNet = new GraphPetriNet();
+            setCanvasNet(new GraphPetriNet());
         }
 
+        // Expanded frames go under the drawing, collapsed ones over it: covering the net is
+        // exactly what collapsing an object means on a shared canvas.
+        paintObjectFrames(g2, false);
         graphNet.paintGraphPetriNet(g2, g);
+        for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
+            fusion.draw(g2, false);
+        }
+        paintObjectFrames(g2, true);
 
         if (currentArc != null) {
             currentArc.drawGraphElement(g2);
@@ -391,6 +415,28 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     startDragMouseLocation.y,
                     currentDragMouseLocation.x - startDragMouseLocation.x,
                     currentDragMouseLocation.y - startDragMouseLocation.y);
+        }
+    }
+
+    /**
+     * Draws the Petri-object frames.
+     *
+     * @param collapsedOnes true to draw the collapsed frames, which hide their net and are
+     *        therefore painted over it, false for the expanded ones painted under it
+     */
+    private void paintObjectFrames(Graphics2D g2, boolean collapsedOnes) {
+        List<GraphObjectFrame> frames = canvasModel.getFrames();
+        for (int index = 0; index < frames.size(); index++) {
+            GraphObjectFrame frame = frames.get(index);
+            if (frame.isCollapsed() != collapsedOnes) {
+                continue;
+            }
+            if (collapsedOnes) {
+                g2.setColor(Color.WHITE);
+                g2.fillRoundRect(frame.getBounds().x, frame.getBounds().y,
+                        frame.getBounds().width, frame.getBounds().height, 14, 14);
+            }
+            frame.draw(g2, index, frame == selectedFrame, countElementsIn(frame));
         }
     }
 
@@ -516,6 +562,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (SwingUtilities.isLeftMouseButton(ev)) {
                 leftMouseButtonPressed = true;
             }
+
+            // A frame is grabbed by its header or its corner; anywhere else inside it the
+            // click belongs to the net drawn there.
+            resizedFrame = frameHandleAt(scaledCurrentMousePoint);
+            draggedFrame = resizedFrame == null ? frameHeaderAt(scaledCurrentMousePoint) : null;
+            if (resizedFrame != null || draggedFrame != null) {
+                GraphObjectFrame grabbed = resizedFrame != null ? resizedFrame : draggedFrame;
+                selectedFrame = grabbed;
+                frameDragOffset = new Point(
+                        scaledCurrentMousePoint.x - grabbed.getBounds().x,
+                        scaledCurrentMousePoint.y - grabbed.getBounds().y);
+                setCursor(new Cursor(resizedFrame != null ? Cursor.SE_RESIZE_CURSOR : Cursor.MOVE_CURSOR));
+                repaint();
+                return;
+            }
+
             if (startDragMouseLocation == null) {
                 startDragMouseLocation = scaledCurrentMousePoint;
             }
@@ -584,6 +646,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
 
+            GraphObjectFrame header = frameHeaderAt(scaledCurrentMousePoint);
+            if (header != null) {
+                selectedFrame = header;
+                if (ev.getClickCount() >= 2) {
+                    header.setCollapsed(!header.isCollapsed());
+                }
+                repaint();
+                return;
+            }
+
             if (current == null && currentArc == null) { // previous click was empty
 
                 //  PetriNetsPanel.this.printPointLocation(prevMouseLocation, "clear");
@@ -641,6 +713,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             removeTimer();
 
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+
+            if (draggedFrame != null || resizedFrame != null) {
+                draggedFrame = null;
+                resizedFrame = null;
+                frameDragOffset = null;
+                leftMouseButtonPressed = false;
+                startDragMouseLocation = null;
+                currentDragMouseLocation = null;
+                setCursor(Cursor.getDefaultCursor());
+                repaint();
+                return;
+            }
+
             if (startDragMouseLocation != null && currentDragMouseLocation != null && leftMouseButtonPressed) {
                 for (GraphPetriPlace p : graphNet.getGraphPetriPlaceList()) {
                     if (p.getGraphElementCenter().getX() >= startDragMouseLocation.x
@@ -761,7 +846,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
                         currentArc = null;
                         setDefaultColorGraphArcs();
-                    } else {                        //1.02.2013 цей фрагмент дозволяє відслідковувати намагання 
+                    } else {                        //1.02.2013 цей фрагмент дозволяє відслідковувати намагання
+                        // Place to place is not an arc — between two Petri-objects it means
+                        // the two places are one shared place.
+                        tryJoinPlaces(currentArc.getBeginElement(), current);
                         removeCurrentArc();// з"єднати позицію з позицією чи перехід з переходом
                         //та знищувати неправильно намальовану дугу
                     }
@@ -798,6 +886,60 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
     }
 
+    /**
+     * Turns an arc drawn from one place to another into a shared place.
+     *
+     * <p>Between two Petri-objects that is what such a stroke means: the places become one,
+     * and both objects read the same marking. Within one object it means nothing, and the
+     * user is told why.
+     *
+     * @param begin the element the stroke started at
+     * @param end the element it ended at
+     * @return true if the two places were joined
+     */
+    private boolean tryJoinPlaces(GraphElement begin, GraphElement end) {
+        if (!(begin instanceof GraphPetriPlace master) || !(end instanceof GraphPetriPlace joined)
+                || master == joined) {
+            return false;
+        }
+        try {
+            canvasModel.joinPlaces(master, joined);
+            updateArcCoordinates();
+            repaint();
+            return true;
+        } catch (IllegalArgumentException rejected) {
+            MessageHelper.showError(this, rejected.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Separates a shared place back into two places of their own.
+     *
+     * @param fusion the shared place to split
+     */
+    public void splitSharedPlace(GraphPlaceFusion fusion) {
+        canvasModel.getFusions().remove(fusion);
+        Point2D centre = fusion.getJoined().getGraphElementCenter();
+        fusion.getJoined().setNewCoordinates(
+                new Point2D.Double(centre.getX() + 60, centre.getY() + 40));
+        updateArcCoordinates();
+        repaint();
+    }
+
+    /**
+     * @param point a point on the canvas
+     * @return the shared place whose ring is under the point, or {@code null}
+     */
+    public GraphPlaceFusion findSharedPlace(Point2D point) {
+        for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
+            if (fusion.isOnRing(point)) {
+                return fusion;
+            }
+        }
+        return null;
+    }
+
     private void removeCurrentArc() { //1.02.2013 цей метод дозволяє знищувати намальовану дугу
         if (currentArc.getClass().equals(GraphArcIn.class)) // 
         {
@@ -815,6 +957,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         @Override
         public void mouseDragged(MouseEvent ev) {
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+
+            if (resizedFrame != null) {
+                resizedFrame.resizeTo(scaledCurrentMousePoint.x, scaledCurrentMousePoint.y);
+                repaint();
+                return;
+            }
+            if (draggedFrame != null) {
+                moveFrameWithContents(draggedFrame,
+                        scaledCurrentMousePoint.x - frameDragOffset.x,
+                        scaledCurrentMousePoint.y - frameDragOffset.y);
+                repaint();
+                return;
+            }
+
             if (choosen == null && choosenElements.isEmpty()) {
                 PetriNetsPanel.this.setDefaultColorGraphElements();
                 currentDragMouseLocation = scaledCurrentMousePoint;
@@ -954,7 +1110,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         ArcOut.initNext(); //додано Інна 20.11.2012
         GraphPetriPlace.setNullSimpleName();
         GraphPetriTransition.setNullSimpleName();
-        graphNet = new GraphPetriNet();
+        setCanvasNet(new GraphPetriNet());
+        canvasModel.getFrames().clear();
+        canvasModel.getFusions().clear();
 
         repaint();
     }
@@ -998,7 +1156,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     public void addGraphNet(GraphPetriNet net) {
         // If there's no existing net, just set the new one
         if (graphNet == null) {
-            graphNet = net;
+            setCanvasNet(net);
         } else {
             // Merge the new net into the existing one
             graphNet.mergeGraphNet(net);
@@ -1027,6 +1185,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     public void deletePetriNet() {
         graphNet = null;
+        canvasModel.getFrames().clear();
+        canvasModel.getFusions().clear();
         repaint();
     }
 
@@ -1034,9 +1194,149 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         return graphNet;
     }
 
+    /**
+     * Points both the drawing and the canvas model at the same net, so the Petri-object
+     * frames always mark out regions of what is actually on screen.
+     */
+    private void setCanvasNet(GraphPetriNet net) {
+        graphNet = net;
+        canvasModel.setNet(net);
+    }
+
+    /**
+     * @return the canvas read as a Petri-object model: the drawing, the frames that mark out
+     *         its objects, and the places shared between them
+     */
+    public GraphCanvasModel getCanvasModel() {
+        return canvasModel;
+    }
+
+    /**
+     * @return the frame the user has selected, or {@code null}
+     */
+    public GraphObjectFrame getSelectedFrame() {
+        return selectedFrame;
+    }
+
+    public void setSelectedFrame(GraphObjectFrame frame) {
+        selectedFrame = frame;
+        repaint();
+    }
+
+    /**
+     * Adds a Petri-object frame and selects it.
+     *
+     * @param frame the frame to add
+     */
+    public void addObjectFrame(GraphObjectFrame frame) {
+        canvasModel.getFrames().add(frame);
+        selectedFrame = frame;
+        repaint();
+    }
+
+    /**
+     * Removes a Petri-object frame. What was drawn inside stays on the canvas and becomes
+     * part of whatever frame now covers it, or of the free elements.
+     *
+     * @param frame the frame to remove
+     */
+    public void removeObjectFrame(GraphObjectFrame frame) {
+        canvasModel.getFrames().remove(frame);
+        if (selectedFrame == frame) {
+            selectedFrame = null;
+        }
+        repaint();
+    }
+
+    /**
+     * @param frame a Petri-object frame
+     * @return how many places and transitions are drawn inside it
+     */
+    public int countElementsIn(GraphObjectFrame frame) {
+        int count = 0;
+        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
+            if (canvasModel.ownerOf(place) == frame) {
+                count++;
+            }
+        }
+        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
+            if (canvasModel.ownerOf(transition) == frame) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * @param point a point on the canvas
+     * @return the topmost frame whose header is under the point, or {@code null}
+     */
+    private GraphObjectFrame frameHeaderAt(Point2D point) {
+        List<GraphObjectFrame> frames = canvasModel.getFrames();
+        for (int index = frames.size() - 1; index >= 0; index--) {
+            if (frames.get(index).isOnHeader(point)) {
+                return frames.get(index);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @param point a point on the canvas
+     * @return the topmost frame whose resize handle is under the point, or {@code null}
+     */
+    private GraphObjectFrame frameHandleAt(Point2D point) {
+        List<GraphObjectFrame> frames = canvasModel.getFrames();
+        for (int index = frames.size() - 1; index >= 0; index--) {
+            if (frames.get(index).isOnResizeHandle(point)) {
+                return frames.get(index);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Moves a frame together with everything drawn inside it, which is what makes a
+     * Petri-object feel like one thing on the canvas.
+     */
+    private void moveFrameWithContents(GraphObjectFrame frame, int x, int y) {
+        int dx = x - frame.getBounds().x;
+        int dy = y - frame.getBounds().y;
+        if (dx == 0 && dy == 0) {
+            return;
+        }
+        List<GraphElement> inside = new ArrayList<>();
+        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
+            if (canvasModel.ownerOf(place) == frame) {
+                inside.add(place);
+            }
+        }
+        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
+            if (canvasModel.ownerOf(transition) == frame) {
+                inside.add(transition);
+            }
+        }
+        frame.moveTo(x, y);
+        for (GraphElement element : inside) {
+            Point2D centre = element.getGraphElementCenter();
+            element.setNewCoordinates(new Point2D.Double(centre.getX() + dx, centre.getY() + dy));
+        }
+        canvasModel.syncFusions();
+        updateArcCoordinates();
+    }
+
+    private void updateArcCoordinates() {
+        for (GraphArcIn arc : graphNet.getGraphArcInList()) {
+            arc.updateCoordinates();
+        }
+        for (GraphArcOut arc : graphNet.getGraphArcOutList()) {
+            arc.updateCoordinates();
+        }
+    }
+
     public void setGraphNet(GraphPetriNet net) { //коректно працює тільки якщо потім не змінювати граф
         //рекомендується використовувати addGraphNet
-        graphNet = net;
+        setCanvasNet(net);
         repaint();
     }
 

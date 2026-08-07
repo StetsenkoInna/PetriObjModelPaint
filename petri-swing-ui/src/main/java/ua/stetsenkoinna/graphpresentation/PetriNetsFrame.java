@@ -40,7 +40,11 @@ import java.lang.reflect.Method;
 import javax.swing.*;
 
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
+import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
+import ua.stetsenkoinna.graphnet.GraphPetriObject;
+import ua.stetsenkoinna.petriobj.PetriObjLink;
+import ua.stetsenkoinna.petriobj.StateTime;
 import ua.stetsenkoinna.graphpresentation.objmodel.ModelStructureFrame;
 import ua.stetsenkoinna.graphpresentation.objmodel.NetEditorBridge;
 import ua.stetsenkoinna.graphpresentation.actions.AnimateEventAction;
@@ -195,11 +199,144 @@ public class PetriNetsFrame extends javax.swing.JFrame implements NetEditorBridg
      */
     private void addModelMenu() {
         JMenu modelMenu = new JMenu("Model");
+
+        JMenuItem groupItem = new JMenuItem("Group selection into Petri-object");
+        groupItem.setToolTipText("Draw a Petri-object frame around the selected elements");
+        groupItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK));
+        groupItem.addActionListener(e -> groupSelectionIntoObject());
+        modelMenu.add(groupItem);
+
+        JMenuItem newFrameItem = new JMenuItem("New empty Petri-object");
+        newFrameItem.setToolTipText("Put an empty Petri-object frame on the canvas and draw its net inside");
+        newFrameItem.addActionListener(e -> addEmptyObjectFrame());
+        modelMenu.add(newFrameItem);
+
+        modelMenu.addSeparator();
+
+        JMenuItem renameItem = new JMenuItem("Rename selected Petri-object...");
+        renameItem.addActionListener(e -> renameSelectedObject());
+        modelMenu.add(renameItem);
+
+        JMenuItem priorityItem = new JMenuItem("Priority of selected Petri-object...");
+        priorityItem.addActionListener(e -> changeSelectedObjectPriority());
+        modelMenu.add(priorityItem);
+
+        JMenuItem removeItem = new JMenuItem("Remove selected Petri-object frame");
+        removeItem.setToolTipText("The net inside stays on the canvas");
+        removeItem.addActionListener(e -> removeSelectedObjectFrame());
+        modelMenu.add(removeItem);
+
+        modelMenu.addSeparator();
+
         JMenuItem structureItem = new JMenuItem("Petri-object model structure...");
-        structureItem.setToolTipText("Compose several Petri-objects into one model and link them");
+        structureItem.setToolTipText("Overview of the objects on the canvas and the links between them");
         structureItem.addActionListener(e -> openModelStructure());
         modelMenu.add(structureItem);
+
         getJMenuBar().add(modelMenu);
+    }
+
+    /**
+     * Draws a Petri-object frame around whatever is selected, which is how an existing net is
+     * split into objects.
+     */
+    private void groupSelectionIntoObject() {
+        java.util.List<ua.stetsenkoinna.graphnet.GraphElement> selection =
+                getPetriNetsPanel().getChoosenElements();
+        if (selection.isEmpty()) {
+            MessageHelper.showError(this, "Select the elements of the Petri-object first");
+            return;
+        }
+        String name = JOptionPane.showInputDialog(this, "Name of the Petri-object",
+                "Object " + (getPetriNetsPanel().getCanvasModel().getFrames().size() + 1));
+        if (name == null || name.isBlank()) {
+            return;
+        }
+
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        for (ua.stetsenkoinna.graphnet.GraphElement element : selection) {
+            java.awt.geom.Point2D centre = element.getGraphElementCenter();
+            int border = Math.max(element.getBorder(), 20);
+            minX = Math.min(minX, (int) centre.getX() - border);
+            minY = Math.min(minY, (int) centre.getY() - border);
+            maxX = Math.max(maxX, (int) centre.getX() + border);
+            maxY = Math.max(maxY, (int) centre.getY() + border);
+        }
+        int padding = 24;
+        Rectangle bounds = new Rectangle(
+                Math.max(0, minX - padding),
+                Math.max(0, minY - padding - GraphObjectFrame.HEADER_HEIGHT),
+                maxX - minX + padding * 2,
+                maxY - minY + padding * 2 + GraphObjectFrame.HEADER_HEIGHT);
+        getPetriNetsPanel().addObjectFrame(new GraphObjectFrame(name.trim(), bounds));
+    }
+
+    /**
+     * Puts an empty frame in the middle of the view, to be drawn into.
+     */
+    private void addEmptyObjectFrame() {
+        String name = JOptionPane.showInputDialog(this, "Name of the Petri-object",
+                "Object " + (getPetriNetsPanel().getCanvasModel().getFrames().size() + 1));
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        Point centre = getCanvasCentre();
+        Rectangle bounds = new Rectangle(Math.max(0, centre.x - 180), Math.max(0, centre.y - 120), 360, 240);
+        getPetriNetsPanel().addObjectFrame(new GraphObjectFrame(name.trim(), bounds));
+    }
+
+    private void renameSelectedObject() {
+        GraphObjectFrame frame = requireSelectedFrame();
+        if (frame == null) {
+            return;
+        }
+        String name = JOptionPane.showInputDialog(this, "Name of the Petri-object", frame.getName());
+        if (name != null && !name.isBlank()) {
+            frame.setName(name.trim());
+            getPetriNetsPanel().repaint();
+        }
+    }
+
+    private void changeSelectedObjectPriority() {
+        GraphObjectFrame frame = requireSelectedFrame();
+        if (frame == null) {
+            return;
+        }
+        String value = JOptionPane.showInputDialog(this,
+                "Priority of the Petri-object — the higher it is, the earlier this object acts "
+                        + "when several want to act at the same moment",
+                frame.getPriority());
+        if (value == null) {
+            return;
+        }
+        try {
+            frame.setPriority(Integer.parseInt(value.trim()));
+            getPetriNetsPanel().repaint();
+        } catch (NumberFormatException malformed) {
+            MessageHelper.showError(this, "Priority has to be a whole number");
+        }
+    }
+
+    private void removeSelectedObjectFrame() {
+        GraphObjectFrame frame = requireSelectedFrame();
+        if (frame == null) {
+            return;
+        }
+        if (MessageHelper.showConfirmation(this,
+                "Remove the Petri-object frame '" + frame.getName() + "'? Its net stays on the canvas.")) {
+            getPetriNetsPanel().removeObjectFrame(frame);
+        }
+    }
+
+    private GraphObjectFrame requireSelectedFrame() {
+        GraphObjectFrame frame = getPetriNetsPanel().getSelectedFrame();
+        if (frame == null) {
+            MessageHelper.showError(this, "Click the header of a Petri-object frame first");
+        }
+        return frame;
     }
 
     /**
@@ -1622,19 +1759,28 @@ public class PetriNetsFrame extends javax.swing.JFrame implements NetEditorBridg
         }
     }
 
-    private RunPetriObjModel getRunPetriObjModel() {
-        PetriSim petriSim = new PetriSim(
-                getPetriNetsPanel().getGraphNet().getPetriNet());
-
-        petriSim.setSimulationTime(Double.parseDouble(
-                timeModelingTextField.getText()));
-        petriSim.setTimeCurr(Double.parseDouble(
-                timeStartField.getText()));
+    /**
+     * Builds the model the canvas describes: one Petri-object per frame, everything drawn
+     * outside every frame as one more, and the arcs that cross frame borders as links. A
+     * canvas without frames therefore still runs, as a model of one object.
+     */
+    private RunPetriObjModel getRunPetriObjModel()
+            throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+        GraphPetriObjModel objModel = getPetriNetsPanel().getCanvasModel().toObjModel();
 
         ArrayList<PetriSim> list = new ArrayList<>();
-        list.add(petriSim);
-        // Петрі-об'єктна модель, що складається з одного Петрі-об'єкта
-        return new RunPetriObjModel(list, protocolTextArea);
+        for (GraphPetriObject object : objModel.getObjects()) {
+            PetriSim petriSim = GraphPetriObjModel.createPetriSim(object);
+            petriSim.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
+            petriSim.setTimeCurr(Double.parseDouble(timeStartField.getText()));
+            list.add(petriSim);
+        }
+
+        RunPetriObjModel model = new RunPetriObjModel(list, protocolTextArea);
+        for (PetriObjLink link : objModel.getLinks()) {
+            model.addLink(link);
+        }
+        return model;
     }
 
     public void animateNet() {
@@ -1663,27 +1809,36 @@ public class PetriNetsFrame extends javax.swing.JFrame implements NetEditorBridg
         }
     }
 
-    private AnimRunPetriObjModel getAnimRunPetriObjModel() {
-        AnimRunPetriSim petriSim = new AnimRunPetriSim(
-                getPetriNetsPanel().getGraphNet().getPetriNet(),
-                this.protocolTextArea,
-                getPetriNetsPanel(),
-                speedSlider,
-                null // parent model = null is ok since petri objects are recreated in constructor anyway
-        );
+    /**
+     * Builds the animated model of the whole canvas. Every Petri-object animates on the one
+     * canvas it is drawn on, so a token crossing a frame border is seen crossing it.
+     */
+    private AnimRunPetriObjModel getAnimRunPetriObjModel()
+            throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
+        GraphPetriObjModel objModel = getPetriNetsPanel().getCanvasModel().toObjModel();
 
-        petriSim.setSimulationTime(Double.parseDouble(
-                timeModelingTextField.getText()));
-        petriSim.setTimeCurr(Double.parseDouble(
-                timeStartField.getText()));
+        ArrayList<AnimRunPetriSim> objects = new ArrayList<>();
+        StateTime clock = new StateTime();
+        for (GraphPetriObject object : objModel.getObjects()) {
+            object.getGraphNet().createPetriNet(object.getName());
+            AnimRunPetriSim petriSim = new AnimRunPetriSim(
+                    object.getGraphNet().getPetriNet(), clock,
+                    protocolTextArea, getPetriNetsPanel(), speedSlider, null);
+            petriSim.setName(object.getName());
+            petriSim.setPriority(object.getPriority());
+            petriSim.setSimulationTime(Double.parseDouble(timeModelingTextField.getText()));
+            petriSim.setTimeCurr(Double.parseDouble(timeStartField.getText()));
+            objects.add(petriSim);
+        }
 
-        ArrayList<PetriSim> list = new ArrayList<>();
-        list.add(petriSim);
-
-        // Петрі-об'єктна модель, що складається з одного Петрі-об'єкта
-        return new AnimRunPetriObjModel(list,
-                protocolTextArea, getPetriNetsPanel(),
-                speedSlider);
+        AnimRunPetriObjModel model = new AnimRunPetriObjModel(objects, protocolTextArea);
+        for (AnimRunPetriSim petriSim : objects) {
+            petriSim.setParentModel(model);
+        }
+        for (PetriObjLink link : objModel.getLinks()) {
+            model.addLink(link);
+        }
+        return model;
     }
 
     public void runEvent() {
