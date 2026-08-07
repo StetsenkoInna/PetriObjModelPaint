@@ -13,6 +13,7 @@ import java.awt.Cursor;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Stroke;
 import java.awt.event.KeyAdapter;
@@ -45,6 +46,7 @@ import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphpresentation.dragndrop.PnsDropHandler;
 import ua.stetsenkoinna.graphpresentation.dragndrop.UnifiedDropHandler;
+import ua.stetsenkoinna.graphpresentation.objmodel.NetTemplateDialog;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteGraphElementsEdit;
@@ -554,16 +556,264 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         repaint();
     }
 
+    // ------------------------------------------------------------------ Petri-object context menus
+
+    /**
+     * Shows the right-click menu for a popup-trigger click, if any of the Petri-object
+     * actions apply at that point.
+     *
+     * <p>A non-empty selection always wins: right-clicking while elements are selected means
+     * grouping that selection into a Petri-object, regardless of exactly what is under the
+     * pointer. Otherwise a specific place or transition keeps its existing right-click
+     * behaviour (opening its properties) — this menu only claims clicks that hit a
+     * Petri-object frame or empty canvas.
+     *
+     * @param ev the triggering mouse event, used both to test and to position the menu
+     * @param point the click point in canvas coordinates
+     * @return true if a menu was shown, so the caller should not process the click further
+     */
+    private boolean maybeShowContextMenu(MouseEvent ev, Point point) {
+        if (!editable || !ev.isPopupTrigger()) {
+            return false;
+        }
+        if (!choosenElements.isEmpty()) {
+            showGroupSelectionMenu(ev, new ArrayList<>(choosenElements));
+            return true;
+        }
+        if (find(point) != null) {
+            return false; // a single element keeps its own right-click behaviour
+        }
+        GraphObjectFrame frame = canvasModel.frameAt(point);
+        if (frame != null) {
+            showObjectFrameMenu(ev, frame);
+            return true;
+        }
+        showNewObjectMenu(ev, point);
+        return true;
+    }
+
+    private void showGroupSelectionMenu(MouseEvent ev, List<GraphElement> selection) {
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem group = new JMenuItem("Group selection into Petri-object");
+        group.addActionListener(e -> groupIntoObject(selection));
+        menu.add(group);
+        menu.show(this, ev.getX(), ev.getY());
+    }
+
+    private void showObjectFrameMenu(MouseEvent ev, GraphObjectFrame frame) {
+        setSelectedFrame(frame);
+
+        JPopupMenu menu = new JPopupMenu();
+
+        JMenuItem rename = new JMenuItem("Rename Petri-object...");
+        rename.addActionListener(e -> renameObject(frame));
+        menu.add(rename);
+
+        JMenuItem priority = new JMenuItem("Priority of Petri-object...");
+        priority.addActionListener(e -> changeObjectPriority(frame));
+        menu.add(priority);
+
+        JMenuItem duplicate = new JMenuItem("Duplicate Petri-object");
+        duplicate.setToolTipText("Copy the object together with its net — the way to get N alike");
+        duplicate.addActionListener(e -> duplicateObject(frame));
+        menu.add(duplicate);
+
+        menu.addSeparator();
+
+        JMenuItem remove = new JMenuItem("Remove Petri-object frame");
+        remove.setToolTipText("The net inside stays on the canvas");
+        remove.addActionListener(e -> confirmRemoveObjectFrame(frame));
+        menu.add(remove);
+
+        menu.show(this, ev.getX(), ev.getY());
+    }
+
+    private void showNewObjectMenu(MouseEvent ev, Point at) {
+        JPopupMenu menu = new JPopupMenu();
+
+        JMenuItem empty = new JMenuItem("New empty Petri-object");
+        empty.setToolTipText("Put an empty Petri-object frame on the canvas and draw its net inside");
+        empty.addActionListener(e -> addEmptyObjectFrame(at));
+        menu.add(empty);
+
+        JMenuItem fromLibrary = new JMenuItem("Petri-object from net library...");
+        fromLibrary.setToolTipText("Instantiate a net library template with arguments of its own");
+        fromLibrary.addActionListener(e -> addObjectFromLibrary(at));
+        menu.add(fromLibrary);
+
+        menu.show(this, ev.getX(), ev.getY());
+    }
+
+    /**
+     * Draws a Petri-object frame around the given elements, which is how an existing net is
+     * split into objects.
+     */
+    private void groupIntoObject(List<GraphElement> selection) {
+        String name = JOptionPane.showInputDialog(this, "Name of the Petri-object",
+                "Object " + (canvasModel.getFrames().size() + 1));
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        addObjectFrame(new GraphObjectFrame(name.trim(), boundsAround(selection)));
+    }
+
+    /**
+     * Puts an empty frame at the click location, to be drawn into.
+     */
+    private void addEmptyObjectFrame(Point at) {
+        String name = JOptionPane.showInputDialog(this, "Name of the Petri-object",
+                "Object " + (canvasModel.getFrames().size() + 1));
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        Rectangle bounds = new Rectangle(Math.max(0, at.x - 180), Math.max(0, at.y - 120), 360, 240);
+        addObjectFrame(new GraphObjectFrame(name.trim(), bounds));
+    }
+
+    /**
+     * Instantiates a net library template as a new Petri-object at the click location: its
+     * net is laid out on the canvas and a frame is drawn around it.
+     */
+    private void addObjectFromLibrary(Point at) {
+        NetTemplateDialog dialog = new NetTemplateDialog(
+                SwingUtilities.getWindowAncestor(this),
+                "Object " + (canvasModel.getFrames().size() + 1));
+        dialog.setVisible(true);
+        if (dialog.getBuilt() == null) {
+            return;
+        }
+        try {
+            GraphPetriNet built = SimpleNetGraphBuilder.build(dialog.getBuilt(), at);
+            addGraphNet(built);
+
+            List<GraphElement> builtElements = new ArrayList<>();
+            builtElements.addAll(built.getGraphPetriPlaceList());
+            builtElements.addAll(built.getGraphPetriTransitionList());
+            GraphObjectFrame frame = new GraphObjectFrame(dialog.getObjectName(), boundsAround(builtElements));
+            frame.setTemplate(dialog.getReference());
+            addObjectFrame(frame);
+            repaint();
+        } catch (Exception failure) {
+            LOGGER.error("Failed to add a Petri-object from the net library", failure);
+            MessageHelper.showException(this, "Cannot put the net library template on the canvas", failure);
+        }
+    }
+
+    /**
+     * Copies a Petri-object with its net, which is the quick way to a model of several alike
+     * objects.
+     */
+    private void duplicateObject(GraphObjectFrame frame) {
+        List<GraphElement> inside = new ArrayList<>();
+        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
+            if (canvasModel.ownerOf(place) == frame) {
+                inside.add(place);
+            }
+        }
+        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
+            if (canvasModel.ownerOf(transition) == frame) {
+                inside.add(transition);
+            }
+        }
+        if (inside.isEmpty()) {
+            MessageHelper.showError(this, "The Petri-object has no net to copy yet");
+            return;
+        }
+
+        GraphPetriNet.GraphNetFragment copy = graphNet.bulkCopyNoPasteElements(inside);
+        int dx = frame.getBounds().width + 40;
+        for (GraphElement element : copy.elements) {
+            Point2D centre = element.getGraphElementCenter();
+            element.setNewCoordinates(new Point2D.Double(centre.getX() + dx, centre.getY()));
+        }
+        addNetFragment(copy);
+
+        Rectangle bounds = new Rectangle(frame.getBounds().x + dx, frame.getBounds().y,
+                frame.getBounds().width, frame.getBounds().height);
+        GraphObjectFrame duplicate = new GraphObjectFrame(frame.getName() + " copy", bounds);
+        duplicate.setPriority(frame.getPriority());
+        duplicate.setTemplate(frame.getTemplate());
+        addObjectFrame(duplicate);
+        repaint();
+    }
+
+    private void renameObject(GraphObjectFrame frame) {
+        String name = JOptionPane.showInputDialog(this, "Name of the Petri-object", frame.getName());
+        if (name != null && !name.isBlank()) {
+            frame.setName(name.trim());
+            repaint();
+        }
+    }
+
+    private void changeObjectPriority(GraphObjectFrame frame) {
+        String value = JOptionPane.showInputDialog(this,
+                "Priority of the Petri-object — the higher it is, the earlier this object acts "
+                        + "when several want to act at the same moment",
+                frame.getPriority());
+        if (value == null) {
+            return;
+        }
+        try {
+            frame.setPriority(Integer.parseInt(value.trim()));
+            repaint();
+        } catch (NumberFormatException malformed) {
+            MessageHelper.showError(this, "Priority has to be a whole number");
+        }
+    }
+
+    private void confirmRemoveObjectFrame(GraphObjectFrame frame) {
+        if (MessageHelper.showConfirmation(this,
+                "Remove the Petri-object frame '" + frame.getName() + "'? Its net stays on the canvas.")) {
+            removeObjectFrame(frame);
+        }
+    }
+
+    /**
+     * @return a frame that encloses the given elements with room to spare
+     */
+    private static Rectangle boundsAround(List<? extends GraphElement> elements) {
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        for (GraphElement element : elements) {
+            Point2D centre = element.getGraphElementCenter();
+            int border = Math.max(element.getBorder(), 20);
+            minX = Math.min(minX, (int) centre.getX() - border);
+            minY = Math.min(minY, (int) centre.getY() - border);
+            maxX = Math.max(maxX, (int) centre.getX() + border);
+            maxY = Math.max(maxY, (int) centre.getY() + border);
+        }
+        int padding = 24;
+        return new Rectangle(
+                Math.max(0, minX - padding),
+                Math.max(0, minY - padding - GraphObjectFrame.HEADER_HEIGHT),
+                maxX - minX + padding * 2,
+                maxY - minY + padding * 2 + GraphObjectFrame.HEADER_HEIGHT);
+    }
+
     public class MouseHandler extends MouseAdapter {
 
         private java.util.Timer timer;
         private boolean isMouseButtonHold = false;
 
+        /**
+         * Set once a right-click has already been handled as a Petri-object context menu, so
+         * the {@code mouseClicked} that follows the same gesture does not also clear the
+         * selection or reopen an element's own property dialog.
+         */
+        private boolean contextMenuShown = false;
+
         @Override
         public void mousePressed(MouseEvent ev) {
+            Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+            if (maybeShowContextMenu(ev, scaledCurrentMousePoint)) {
+                contextMenuShown = true;
+                return;
+            }
+
             startTimer();
 
-            Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
             if (SwingUtilities.isLeftMouseButton(ev)) {
                 leftMouseButtonPressed = true;
             }
@@ -655,6 +905,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseClicked(MouseEvent ev) {
+            if (contextMenuShown) {
+                contextMenuShown = false;
+                return;
+            }
 
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
 
@@ -722,9 +976,21 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseReleased(MouseEvent ev) {
-            removeTimer();
-
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+
+            // On some platforms (notably Windows) the popup trigger fires on release, not
+            // press — so a right-click on a frame being "dragged" by that same press still
+            // has to end in the context menu, not a completed drag.
+            if (maybeShowContextMenu(ev, scaledCurrentMousePoint)) {
+                contextMenuShown = true;
+                draggedFrame = null;
+                resizedFrame = null;
+                frameDragOffset = null;
+                setCursor(Cursor.getDefaultCursor());
+                return;
+            }
+
+            removeTimer();
 
             if (draggedFrame != null || resizedFrame != null) {
                 draggedFrame = null;
