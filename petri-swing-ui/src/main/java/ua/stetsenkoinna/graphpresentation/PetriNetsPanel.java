@@ -1665,10 +1665,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * frame, and if so, offers to actually join it.
      *
      * <p>Landing inside a frame's rectangle is only ever a proposal — claiming the element is
-     * this method's own doing, not a side effect of where it was dropped. A frame's own move
-     * ({@link #moveFrame}) cannot cause this at all: it repositions only the frame's rectangle,
-     * never anything it claims, so dragging one can never sweep up whatever it passes over —
-     * this method is reachable only by dragging a free element itself.
+     * this method's own doing, not a side effect of where it was dropped. That is also what
+     * keeps a frame's own move ({@link #moveFrame}) from doing the same thing to whatever it
+     * happens to end up over: that method only ever moves elements it already owns
+     * ({@link GraphObjectFrame#getMembers()}), it never looks at what else the frame's new
+     * position covers.
      */
     private void confirmMoveBetweenObjects() {
         GraphElement element = draggedElement;
@@ -2246,20 +2247,32 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Moves a frame's own rectangle on the canvas. What it claims never moves along: an
-     * object's elements are fixed the moment it exists, reachable only to connect to or, to
-     * actually change, through its own editor — dragging the frame is purely repositioning the
-     * label drawn around them, nothing that belongs to it.
+     * Moves a frame together with everything it claims, so its elements always stay inside it —
+     * they are still fixed relative to the frame itself, only ever repositioned individually
+     * through the object's own editor, not draggable or connectable-away one at a time here.
      *
-     * <p>This used to carry the frame's elements along by the same delta the frame itself
-     * moved by — computed from the raw target position, before {@link GraphObjectFrame#moveTo}
-     * clamps it to stay on the canvas. Dragging the frame into the top or left edge then moved
-     * the elements by the full, unclamped delta while the frame itself stopped at the edge,
-     * so they drifted away from it a little further with every such drag. Not moving them at
-     * all removes that mismatch by construction, along with the coupling that caused it.
+     * <p>The delta applied to the elements is measured from the frame's own bounds after
+     * {@link GraphObjectFrame#moveTo} runs, not before it: {@code moveTo} clamps its target to
+     * stay on the canvas, so measuring the delta from the raw, unclamped target (as this used
+     * to) let the elements keep moving by the full amount while the frame itself stopped dead
+     * at the edge — they drifted away from it a little further with every such drag. Moving the
+     * frame first and reading back where it actually ended up removes that mismatch outright.
      */
     private void moveFrame(GraphObjectFrame frame, int x, int y) {
+        int beforeX = frame.getBounds().x;
+        int beforeY = frame.getBounds().y;
         frame.moveTo(x, y);
+        int dx = frame.getBounds().x - beforeX;
+        int dy = frame.getBounds().y - beforeY;
+        if (dx == 0 && dy == 0) {
+            return;
+        }
+        for (GraphElement element : frame.getMembers()) {
+            Point2D centre = element.getGraphElementCenter();
+            element.setNewCoordinates(new Point2D.Double(centre.getX() + dx, centre.getY() + dy));
+        }
+        canvasModel.syncFusions();
+        updateArcCoordinates();
     }
 
     private void updateArcCoordinates() {

@@ -106,43 +106,51 @@ public class CanvasObjectFrameTest {
     }
 
     @Test
-    public void draggingAFrameLeavesItsElementsExactlyWhereTheyWere() throws Exception {
-        // An object's elements are fixed the moment it exists — moving the frame is only ever
-        // repositioning the label drawn around them, never anything that belongs to it.
+    public void draggingAFrameCarriesItsElementsAlong() throws Exception {
+        // Elements always stay inside their frame as it moves — they are fixed relative to the
+        // frame, only repositioned individually through the object's own editor, never left
+        // behind on the canvas by a drag of the frame itself.
         PetriNetsPanel panel = panelWithFramedNet();
         GraphPetriPlace place = panel.getGraphNet().getGraphPetriPlaceList().getFirst();
         double beforeX = place.getGraphElementCenter().getX();
         double beforeY = place.getGraphElementCenter().getY();
         GraphObjectFrame frame = panel.getCanvasModel().getFrames().getFirst();
+        int dx = 120;
+        int dy = 40;
 
         // Same path the mouse takes, through the public canvas API.
-        moveFrameMethod().invoke(panel, frame, frame.getBounds().x + 120, frame.getBounds().y + 40);
+        moveFrameMethod().invoke(panel, frame, frame.getBounds().x + dx, frame.getBounds().y + dy);
 
-        assertEquals(120, frame.getBounds().x);
-        assertEquals(40, frame.getBounds().y);
-        assertEquals(beforeX, place.getGraphElementCenter().getX(), 0.001);
-        assertEquals(beforeY, place.getGraphElementCenter().getY(), 0.001);
+        assertEquals(dx, frame.getBounds().x);
+        assertEquals(dy, frame.getBounds().y);
+        assertEquals(beforeX + dx, place.getGraphElementCenter().getX(), 0.001);
+        assertEquals(beforeY + dy, place.getGraphElementCenter().getY(), 0.001);
     }
 
     @Test
-    public void draggingAFrameIntoTheCanvasEdgeCannotDriftItsElements() throws Exception {
+    public void draggingAFrameIntoTheCanvasEdgeMovesElementsByTheClampedDeltaNotTheRawOne() throws Exception {
         // The reported bug: moveTo() clamps a negative target to 0, but the delta applied to
-        // the elements used to be computed from the raw, unclamped target — so dragging a
-        // frame into the top or left edge sent its elements drifting away from it, a little
-        // further with every such drag. Not moving elements at all removes that mismatch by
-        // construction, which this pins down directly: drag past the edge, elements untouched.
+        // the elements used to be measured from the raw, unclamped target — so dragging a
+        // frame into the top or left edge kept moving its elements by the full amount while the
+        // frame itself stopped dead at the edge, drifting them away from it a little further
+        // with every such drag. The delta must come from where the frame actually ended up.
         PetriNetsPanel panel = panelWithFramedNet();
-        GraphPetriPlace place = panel.getGraphNet().getGraphPetriPlaceList().getFirst();
-        double beforeX = place.getGraphElementCenter().getX();
-        double beforeY = place.getGraphElementCenter().getY();
         GraphObjectFrame frame = panel.getCanvasModel().getFrames().getFirst();
+        // Start away from the edge, so the clamp about to happen is a real one, not a no-op.
+        moveFrameMethod().invoke(panel, frame, 100, 100);
+        GraphPetriPlace place = panel.getGraphNet().getGraphPetriPlaceList().getFirst();
+        double atOneHundredX = place.getGraphElementCenter().getX();
+        double atOneHundredY = place.getGraphElementCenter().getY();
 
+        // Requests (-50,-50); moveTo clamps the frame to (0,0) — an actual delta of -100, not
+        // the -150 the raw, unclamped target would suggest.
         moveFrameMethod().invoke(panel, frame, -50, -50);
 
         assertEquals("moveTo clamps the frame itself to the canvas", 0, frame.getBounds().x);
         assertEquals(0, frame.getBounds().y);
-        assertEquals(beforeX, place.getGraphElementCenter().getX(), 0.001);
-        assertEquals(beforeY, place.getGraphElementCenter().getY(), 0.001);
+        assertEquals("moved by the frame's actual, clamped delta (-100), not the raw one (-150)",
+                atOneHundredX - 100, place.getGraphElementCenter().getX(), 0.001);
+        assertEquals(atOneHundredY - 100, place.getGraphElementCenter().getY(), 0.001);
     }
 
     @Test

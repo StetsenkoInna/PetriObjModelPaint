@@ -59,11 +59,10 @@ picture. Every object action — creating, naming, linking, deleting — is reac
 - right-click an existing frame for **Duplicate Petri-object**, the quick way to a model of
   several alike objects
 
-**Handling frames.** Grab a frame by its header to move it, by its bottom-right corner to
-resize it — either way, moving or resizing the frame never touches what is inside it: an
-object's elements are fixed the moment it exists, reachable only to connect to, changeable only
-in its own editor, so dragging the frame is purely repositioning the label drawn around them.
-The small eye icon in the header shows or hides the object's
+**Handling frames.** Grab a frame by its header to move it — its net travels with it, so an
+object's elements always stay inside its frame — by its bottom-right corner to resize it, which
+does not move them; either way an element's own position only ever changes one at a time inside
+the object's own editor. The small eye icon in the header shows or hides the object's
 own drawing without changing the frame's size at all — a purely visual choice, for a model with
 more objects than screen space; the object's places and transitions still exist and still hold
 their marking either way, they are just not painted while the eye is closed. `Ctrl+A` selects
@@ -269,12 +268,10 @@ curl -X POST http://localhost:8080/api/v2/model/parse \
   the object's own editor, instantiating it from the net library, duplicating an object, loading
   it from a file, or a confirmed drag onto a frame — nothing else changes it, so moving a frame
   across the canvas can never pick up an element it merely ends up on top of.
-- **A frame's rectangle and its elements' positions are independent.** Dragging or resizing a
-  frame moves only the frame; what it owns stays exactly where it was, which is also what makes
-  the frame safe to drag into the canvas edge — nothing it owns can be dragged along past that
-  edge with it. Saving in the object's own editor is what refits the frame around its elements
-  again, so the two stay visually together after actually editing the object, not after merely
-  moving its frame.
+- **Dragging a frame moves it by however far it actually moved.** Its elements shift by the same
+  delta the frame's own bounds just did — measured after `GraphObjectFrame.moveTo` clamps the
+  frame to stay on the canvas, not before, so dragging into the top or left edge stops the
+  elements exactly where it stops the frame, rather than letting them drift on past it.
 - **Fusion order matters.** Fusing A's place with B's place and then B's place with C's makes
   A point at what B held at the time. Declaration order is preserved on save, on load and on
   clone, so a model always rebuilds the same way.
