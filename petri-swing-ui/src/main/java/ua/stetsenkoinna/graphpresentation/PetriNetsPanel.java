@@ -16,6 +16,7 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Stroke;
+import java.awt.Window;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
@@ -556,6 +557,21 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         repaint();
     }
 
+    /**
+     * The window to centre dialogs over.
+     *
+     * <p>This panel is the viewport view of a scroll pane, so its own {@code getLocationOnScreen()}
+     * reflects the full — possibly large, possibly scrolled off-screen — canvas content rather
+     * than the visible window. Passing the panel itself as a dialog's parent therefore centres
+     * the dialog over whatever the canvas origin happens to be instead of over the application
+     * window; the enclosing window is what a "centered" dialog actually means to the user.
+     *
+     * @return the enclosing window, or {@code null} if this panel is not yet showing in one
+     */
+    private Window dialogOwner() {
+        return SwingUtilities.getWindowAncestor(this);
+    }
+
     // ------------------------------------------------------------------ Petri-object context menus
 
     /**
@@ -649,7 +665,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * split into objects.
      */
     private void groupIntoObject(List<GraphElement> selection) {
-        String name = JOptionPane.showInputDialog(this, "Name of the Petri-object",
+        String name = JOptionPane.showInputDialog(dialogOwner(), "Name of the Petri-object",
                 "Object " + (canvasModel.getFrames().size() + 1));
         if (name == null || name.isBlank()) {
             return;
@@ -661,7 +677,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * Puts an empty frame at the click location, to be drawn into.
      */
     private void addEmptyObjectFrame(Point at) {
-        String name = JOptionPane.showInputDialog(this, "Name of the Petri-object",
+        String name = JOptionPane.showInputDialog(dialogOwner(), "Name of the Petri-object",
                 "Object " + (canvasModel.getFrames().size() + 1));
         if (name == null || name.isBlank()) {
             return;
@@ -676,7 +692,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private void addObjectFromLibrary(Point at) {
         NetTemplateDialog dialog = new NetTemplateDialog(
-                SwingUtilities.getWindowAncestor(this),
+                dialogOwner(),
                 "Object " + (canvasModel.getFrames().size() + 1));
         dialog.setVisible(true);
         if (dialog.getBuilt() == null) {
@@ -695,7 +711,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             repaint();
         } catch (Exception failure) {
             LOGGER.error("Failed to add a Petri-object from the net library", failure);
-            MessageHelper.showException(this, "Cannot put the net library template on the canvas", failure);
+            MessageHelper.showException(dialogOwner(), "Cannot put the net library template on the canvas", failure);
         }
     }
 
@@ -716,7 +732,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
         }
         if (inside.isEmpty()) {
-            MessageHelper.showError(this, "The Petri-object has no net to copy yet");
+            MessageHelper.showError(dialogOwner(), "The Petri-object has no net to copy yet");
             return;
         }
 
@@ -738,7 +754,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     private void renameObject(GraphObjectFrame frame) {
-        String name = JOptionPane.showInputDialog(this, "Name of the Petri-object", frame.getName());
+        String name = JOptionPane.showInputDialog(dialogOwner(), "Name of the Petri-object", frame.getName());
         if (name != null && !name.isBlank()) {
             frame.setName(name.trim());
             repaint();
@@ -746,7 +762,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     private void changeObjectPriority(GraphObjectFrame frame) {
-        String value = JOptionPane.showInputDialog(this,
+        String value = JOptionPane.showInputDialog(dialogOwner(),
                 "Priority of the Petri-object — the higher it is, the earlier this object acts "
                         + "when several want to act at the same moment",
                 frame.getPriority());
@@ -757,12 +773,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             frame.setPriority(Integer.parseInt(value.trim()));
             repaint();
         } catch (NumberFormatException malformed) {
-            MessageHelper.showError(this, "Priority has to be a whole number");
+            MessageHelper.showError(dialogOwner(), "Priority has to be a whole number");
         }
     }
 
     private void confirmRemoveObjectFrame(GraphObjectFrame frame) {
-        if (MessageHelper.showConfirmation(this,
+        if (MessageHelper.showConfirmation(dialogOwner(),
                 "Remove the Petri-object frame '" + frame.getName() + "'? Its net stays on the canvas.")) {
             removeObjectFrame(frame);
         }
@@ -1193,7 +1209,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         String question = "'" + element.getName() + "' has " + countArcsOf(element)
                 + " arc(s) and would move from " + describe(before) + " to " + describe(after)
                 + ". Move it to the other Petri-object?";
-        if (MessageHelper.showConfirmation(this, question)) {
+        if (MessageHelper.showConfirmation(dialogOwner(), question)) {
             return;
         }
         element.setNewCoordinates(new Point2D.Double(origin.getX(), origin.getY()));
@@ -1246,7 +1262,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             repaint();
             return true;
         } catch (IllegalArgumentException rejected) {
-            MessageHelper.showError(this, rejected.getMessage());
+            MessageHelper.showError(dialogOwner(), rejected.getMessage());
             return false;
         }
     }
