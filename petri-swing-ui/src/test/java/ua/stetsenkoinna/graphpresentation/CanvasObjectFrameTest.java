@@ -98,22 +98,51 @@ public class CanvasObjectFrameTest {
         assertFalse(frame.isCollapsed());
     }
 
+    private static java.lang.reflect.Method moveFrameMethod() throws NoSuchMethodException {
+        java.lang.reflect.Method move = PetriNetsPanel.class
+                .getDeclaredMethod("moveFrame", GraphObjectFrame.class, int.class, int.class);
+        move.setAccessible(true);
+        return move;
+    }
+
     @Test
-    public void draggingAFrameCarriesItsNetAlong() throws Exception {
+    public void draggingAFrameLeavesItsElementsExactlyWhereTheyWere() throws Exception {
+        // An object's elements are fixed the moment it exists — moving the frame is only ever
+        // repositioning the label drawn around them, never anything that belongs to it.
         PetriNetsPanel panel = panelWithFramedNet();
         GraphPetriPlace place = panel.getGraphNet().getGraphPetriPlaceList().getFirst();
-        double before = place.getGraphElementCenter().getX();
+        double beforeX = place.getGraphElementCenter().getX();
+        double beforeY = place.getGraphElementCenter().getY();
+        GraphObjectFrame frame = panel.getCanvasModel().getFrames().getFirst();
 
         // Same path the mouse takes, through the public canvas API.
-        GraphObjectFrame frame = panel.getCanvasModel().getFrames().getFirst();
-        int dx = 120;
-        java.lang.reflect.Method move = PetriNetsPanel.class
-                .getDeclaredMethod("moveFrameWithContents", GraphObjectFrame.class, int.class, int.class);
-        move.setAccessible(true);
-        move.invoke(panel, frame, frame.getBounds().x + dx, frame.getBounds().y);
+        moveFrameMethod().invoke(panel, frame, frame.getBounds().x + 120, frame.getBounds().y + 40);
 
-        assertEquals(before + dx, place.getGraphElementCenter().getX(), 0.001);
-        assertEquals(dx, frame.getBounds().x);
+        assertEquals(120, frame.getBounds().x);
+        assertEquals(40, frame.getBounds().y);
+        assertEquals(beforeX, place.getGraphElementCenter().getX(), 0.001);
+        assertEquals(beforeY, place.getGraphElementCenter().getY(), 0.001);
+    }
+
+    @Test
+    public void draggingAFrameIntoTheCanvasEdgeCannotDriftItsElements() throws Exception {
+        // The reported bug: moveTo() clamps a negative target to 0, but the delta applied to
+        // the elements used to be computed from the raw, unclamped target — so dragging a
+        // frame into the top or left edge sent its elements drifting away from it, a little
+        // further with every such drag. Not moving elements at all removes that mismatch by
+        // construction, which this pins down directly: drag past the edge, elements untouched.
+        PetriNetsPanel panel = panelWithFramedNet();
+        GraphPetriPlace place = panel.getGraphNet().getGraphPetriPlaceList().getFirst();
+        double beforeX = place.getGraphElementCenter().getX();
+        double beforeY = place.getGraphElementCenter().getY();
+        GraphObjectFrame frame = panel.getCanvasModel().getFrames().getFirst();
+
+        moveFrameMethod().invoke(panel, frame, -50, -50);
+
+        assertEquals("moveTo clamps the frame itself to the canvas", 0, frame.getBounds().x);
+        assertEquals(0, frame.getBounds().y);
+        assertEquals(beforeX, place.getGraphElementCenter().getX(), 0.001);
+        assertEquals(beforeY, place.getGraphElementCenter().getY(), 0.001);
     }
 
     @Test
@@ -124,11 +153,8 @@ public class CanvasObjectFrameTest {
         panel.getGraphNet().getGraphPetriPlaceList().add(stray);
         GraphObjectFrame frame = panel.getCanvasModel().getFrames().getFirst();
 
-        java.lang.reflect.Method move = PetriNetsPanel.class
-                .getDeclaredMethod("moveFrameWithContents", GraphObjectFrame.class, int.class, int.class);
-        move.setAccessible(true);
         // Drag the frame so its new rectangle lands right on top of the stray element.
-        move.invoke(panel, frame, 1700, 1700);
+        moveFrameMethod().invoke(panel, frame, 1700, 1700);
 
         assertNull("a free element the frame merely passed over must not become a member",
                 panel.getCanvasModel().ownerOf(stray));

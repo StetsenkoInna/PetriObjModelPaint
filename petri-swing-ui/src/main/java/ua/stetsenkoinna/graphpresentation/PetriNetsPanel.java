@@ -1665,10 +1665,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * frame, and if so, offers to actually join it.
      *
      * <p>Landing inside a frame's rectangle is only ever a proposal — claiming the element is
-     * this method's own doing, not a side effect of where it was dropped. That is also what
-     * keeps a frame's own move ({@link #moveFrameWithContents}) from doing the same thing to
-     * whatever it happens to end up over: that method only ever moves elements it already
-     * owns, it never looks at what else the frame's new position covers.
+     * this method's own doing, not a side effect of where it was dropped. A frame's own move
+     * ({@link #moveFrame}) cannot cause this at all: it repositions only the frame's rectangle,
+     * never anything it claims, so dragging one can never sweep up whatever it passes over —
+     * this method is reachable only by dragging a free element itself.
      */
     private void confirmMoveBetweenObjects() {
         GraphElement element = draggedElement;
@@ -1871,7 +1871,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
             if (draggedFrame != null) {
-                moveFrameWithContents(draggedFrame,
+                moveFrame(draggedFrame,
                         scaledCurrentMousePoint.x - frameDragOffset.x,
                         scaledCurrentMousePoint.y - frameDragOffset.y);
                 repaint();
@@ -2246,33 +2246,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Moves a frame together with everything drawn inside it, which is what makes a
-     * Petri-object feel like one thing on the canvas.
+     * Moves a frame's own rectangle on the canvas. What it claims never moves along: an
+     * object's elements are fixed the moment it exists, reachable only to connect to or, to
+     * actually change, through its own editor — dragging the frame is purely repositioning the
+     * label drawn around them, nothing that belongs to it.
+     *
+     * <p>This used to carry the frame's elements along by the same delta the frame itself
+     * moved by — computed from the raw target position, before {@link GraphObjectFrame#moveTo}
+     * clamps it to stay on the canvas. Dragging the frame into the top or left edge then moved
+     * the elements by the full, unclamped delta while the frame itself stopped at the edge,
+     * so they drifted away from it a little further with every such drag. Not moving them at
+     * all removes that mismatch by construction, along with the coupling that caused it.
      */
-    private void moveFrameWithContents(GraphObjectFrame frame, int x, int y) {
-        int dx = x - frame.getBounds().x;
-        int dy = y - frame.getBounds().y;
-        if (dx == 0 && dy == 0) {
-            return;
-        }
-        List<GraphElement> inside = new ArrayList<>();
-        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
-            if (canvasModel.ownerOf(place) == frame) {
-                inside.add(place);
-            }
-        }
-        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
-            if (canvasModel.ownerOf(transition) == frame) {
-                inside.add(transition);
-            }
-        }
+    private void moveFrame(GraphObjectFrame frame, int x, int y) {
         frame.moveTo(x, y);
-        for (GraphElement element : inside) {
-            Point2D centre = element.getGraphElementCenter();
-            element.setNewCoordinates(new Point2D.Double(centre.getX() + dx, centre.getY() + dy));
-        }
-        canvasModel.syncFusions();
-        updateArcCoordinates();
     }
 
     private void updateArcCoordinates() {
