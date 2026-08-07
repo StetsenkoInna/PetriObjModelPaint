@@ -21,9 +21,12 @@ import java.awt.Container;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -585,5 +588,59 @@ public class CanvasObjectFrameTest {
         graphics.dispose();
 
         assertNotNull(panel.getCanvasModel());
+    }
+
+    @Test
+    public void rightClickNeverSelectsAnElement() throws Exception {
+        PetriP.initNext();
+        PetriNetsPanel panel = new PetriNetsPanel(null, true);
+        GraphPetriPlace place = new GraphPetriPlace(new PetriP("Free", 0), 900);
+        place.setNewCoordinates(new Point2D.Double(100, 100));
+        panel.getGraphNet().getGraphPetriPlaceList().add(place);
+
+        // popupTrigger=false matches how a right-click actually arrives on Windows, where the
+        // popup fires on release rather than on press — the exact case that let a right-click
+        // reach the same selection code a left-click does.
+        PetriNetsPanel.MouseHandler handler = panel.new MouseHandler();
+        handler.mousePressed(new MouseEvent(
+                panel, MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0, 100, 100, 1, false, MouseEvent.BUTTON3));
+        handler.mouseClicked(new MouseEvent(
+                panel, MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0, 100, 100, 1, false, MouseEvent.BUTTON3));
+
+        assertNull("a right-click must never select an element", panel.getChoosen());
+        assertNull(panel.getCurrent());
+    }
+
+    @Test
+    public void leftClickStillSelectsAnElement() throws Exception {
+        // Sanity check alongside rightClickNeverSelectsAnElement, so that test isn't secretly
+        // passing because nothing about this gesture selects anything any more.
+        PetriP.initNext();
+        PetriNetsPanel panel = new PetriNetsPanel(null, true);
+        GraphPetriPlace place = new GraphPetriPlace(new PetriP("Free", 0), 900);
+        place.setNewCoordinates(new Point2D.Double(100, 100));
+        panel.getGraphNet().getGraphPetriPlaceList().add(place);
+
+        PetriNetsPanel.MouseHandler handler = panel.new MouseHandler();
+        handler.mousePressed(new MouseEvent(
+                panel, MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0, 100, 100, 1, false, MouseEvent.BUTTON1));
+        handler.mouseClicked(new MouseEvent(
+                panel, MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0, 100, 100, 1, false, MouseEvent.BUTTON1));
+
+        assertEquals(place, panel.getChoosen());
+    }
+
+    @Test
+    public void selectAllAlsoSelectsEveryFrame() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+
+        panel.selectAll();
+
+        Field field = PetriNetsPanel.class.getDeclaredField("choosenFrames");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        List<GraphObjectFrame> choosenFrames = (List<GraphObjectFrame>) field.get(panel);
+
+        assertEquals(new HashSet<>(panel.getCanvasModel().getFrames()), new HashSet<>(choosenFrames));
     }
 }

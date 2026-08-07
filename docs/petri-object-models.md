@@ -63,10 +63,13 @@ picture. Every object action — creating, naming, linking, deleting — is reac
 bottom-right corner to resize it. The small eye icon in the header shows or hides the object's
 own drawing without changing the frame's size at all — a purely visual choice, for a model with
 more objects than screen space; the object's places and transitions still exist and still hold
-their marking either way, they are just not painted while the eye is closed. `Delete` removes
-the selected frame (its net stays on the canvas), `Ctrl+D` duplicates it — the same actions the
-elements inside it already respond to, now extended to the object as a whole. Rename, priority
-and removal are also on the frame's right-click menu.
+their marking either way, they are just not painted while the eye is closed. `Ctrl+A` selects
+every frame along with every place and transition; `Delete` removes whatever frames are
+selected (their nets stay on the canvas), `Ctrl+D` duplicates the current one — the same
+actions the elements on the canvas already respond to, extended to objects too. Rename,
+priority and removal are also on a frame's right-click menu. Right-clicking a place or
+transition, unlike everywhere else on the canvas, does nothing on its own — it neither selects
+nor opens anything; double-click it instead.
 
 **Editing an object's net.** Once elements belong to a frame they are locked on the shared
 canvas — position, arcs and everything else about them can only be changed by opening the
@@ -82,8 +85,11 @@ applies nothing else. A frame without anything inside is empty until you open it
 one small labelled circle per place and per transition, sitting on whichever of the frame's
 left, right or bottom sides is nearest to that element's own position inside the object, so a
 port reads as roughly where its element actually is rather than an arbitrary slot; the top side,
-under the header, never carries one. Dragging from a port makes the link that fits what it is
-dropped on — another port, or a free place or transition:
+under the header, never carries one. A port is only drawn while the eye icon has that object's
+own content hidden — with the real element on screen there is nothing left for the port to
+stand in for, though it still exists and can still be dragged from once it is visible again.
+Dragging from a port makes the link that fits what it is dropped on — another port, or a free
+place or transition:
 
 | Drag from a place port to | What you get |
 |---------------------------|---------------|

@@ -52,7 +52,7 @@ public class GraphObjectFrame implements Serializable {
     private static final int EYE_ICON_MARGIN = 4;
 
     private static final Color BORDER = new Color(0x33, 0x5A, 0x8A);
-    private static final Color BORDER_SELECTED = new Color(0xD9, 0x7A, 0x00);
+    private static final Color BORDER_SELECTED = new Color(0x4A, 0x4A, 0x4A);
     private static final Color HEADER = new Color(0xE4, 0xEC, 0xF7);
     private static final Color BODY = new Color(0xF8, 0xFA, 0xFD, 0x80);
     private static final Color TEXT = new Color(0x1C, 0x2B, 0x3A);
@@ -281,7 +281,7 @@ public class GraphObjectFrame implements Serializable {
         g2.fillRect(bounds.x, bounds.y + HEADER_HEIGHT - 4, bounds.width, 8);
 
         g2.setColor(selected ? BORDER_SELECTED : BORDER);
-        g2.setStroke(new BasicStroke(selected ? 2.4f : 1.4f));
+        g2.setStroke(new BasicStroke(selected ? 1.6f : 1.4f));
         g2.drawRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 14, 14);
         g2.drawLine(bounds.x, bounds.y + HEADER_HEIGHT, bounds.x + bounds.width, bounds.y + HEADER_HEIGHT);
 
@@ -289,7 +289,7 @@ public class GraphObjectFrame implements Serializable {
 
         g2.setColor(TEXT);
         g2.setFont(NAME_FONT);
-        String title = "O" + index + "  " + name + (collapsed ? "  ▸" : "  ▾");
+        String title = "O" + index + "  " + name;
         int titleX = bounds.x + EYE_ICON_MARGIN + EYE_ICON_SIZE + 6;
         g2.drawString(title, titleX, bounds.y + 15);
 

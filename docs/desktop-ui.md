@@ -57,8 +57,10 @@ Located under `ua.stetsenkoinna.graphpresentation.statistic`:
 
 A Petri-object is a named frame on the same canvas the nets are drawn on: what is inside it
 belongs to it. Every object action is reached by **right-clicking** whatever it applies to —
-a selection, an existing frame, or empty canvas — there is no separate menu. `Delete` and
-`Ctrl+D` act on the selected frame the same way they already act on elements.
+a selection, an existing frame, or empty canvas — there is no separate menu. `Ctrl+A` selects
+every frame along with every element; `Delete` and `Ctrl+D` act on whatever frames are selected
+the same way they already act on elements. Right-clicking a place or transition itself does
+nothing — only double-click opens it, and only a left-click ever selects it.
 
 Once elements belong to a frame they are locked on the shared canvas; the object's own net is
 edited in a window of its own, opened by double-clicking anywhere on the frame or via its
@@ -70,9 +72,10 @@ was and applies nothing.
 The eye icon in a frame's header shows or hides its own drawing, independent of the frame's
 size — the elements still exist and still hold their marking either way. A locked object
 connects to others through **ports** — small labelled circles around the frame's border, one
-per place and transition — dragged from one to another, or onto a free element, to make a
-link; a connection is drawn straight between its two elements when both are on screen, and from
-a port only for whichever end has its object's content hidden.
+per place and transition, drawn only while the eye has that object's content hidden — dragged
+from one to another, or onto a free element, to make a link; a connection is drawn straight
+between its two elements when both are on screen, and from a port only for whichever end has
+its object's content hidden.
 
 | Class | Responsibility |
 |-------|----------------|

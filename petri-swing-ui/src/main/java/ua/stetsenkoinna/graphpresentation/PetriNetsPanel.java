@@ -108,6 +108,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private GraphObjectFrame draggedFrame;
     private GraphObjectFrame resizedFrame;
     private GraphObjectFrame selectedFrame;
+    /** Frames selected together, e.g. by Ctrl+A — the frame-level equivalent of choosenElements. */
+    private final List<GraphObjectFrame> choosenFrames = new ArrayList<>();
     /** Offset between the pointer and the dragged frame's corner, so it does not jump. */
     private Point frameDragOffset;
 
@@ -173,8 +175,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     // arc, a single element, a rubber-band selection) is also selected, so
                     // Delete keeps its existing per-element meaning everywhere else.
                     if (selectedFrame != null && choosenArc == null && choosen == null
-                            && choosenElements.isEmpty()) {
+                            && choosenElements.isEmpty() && choosenFrames.isEmpty()) {
                         confirmRemoveObjectFrame(selectedFrame);
+                    }
+                    if (!choosenFrames.isEmpty() && choosenArc == null && choosen == null
+                            && choosenElements.isEmpty()) {
+                        confirmRemoveObjectFrames(new ArrayList<>(choosenFrames));
                     }
                     if (choosenArc != null) {
                         removeArc(choosenArc);
@@ -498,17 +504,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 g2.fillRoundRect(frame.getBounds().x, frame.getBounds().y,
                         frame.getBounds().width, frame.getBounds().height, 14, 14);
             }
-            frame.draw(g2, index, frame == selectedFrame, countElementsIn(frame));
+            frame.draw(g2, index, frame == selectedFrame || choosenFrames.contains(frame), countElementsIn(frame));
         }
     }
 
     /**
-     * Draws every frame's ports on top of everything else, collapsed frames included — a
-     * port is how a locked object is still connected to others, so it stays reachable
-     * whether or not its internals are on screen.
+     * Draws the ports of every frame whose content is currently hidden — while an object's own
+     * net is on screen there is nothing a port needs to stand in for, so drawing its circle
+     * over the real element right next to it would only be clutter.
      */
     private void paintPorts(Graphics2D g2) {
         for (GraphObjectFrame frame : canvasModel.getFrames()) {
+            if (!isContentHidden(frame)) {
+                continue;
+            }
             for (FramePort port : canvasModel.portsOf(frame)) {
                 port.draw(g2, port == draggedFromPort || port == hoveredPort);
             }
@@ -600,13 +609,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Draws a plain line, optionally with an arrowhead at {@code to} — the same small triangle
-     * {@link GraphArc#drawArrowHead} uses, reimplemented here since it is anchored to that
-     * arc's own (currently not meaningful) coordinates rather than to arbitrary points.
+     * Draws a line the same way an ordinary arc would — solid, one pixel wide, black — with an
+     * arrowhead at {@code to} using the same small triangle {@link GraphArc#drawArrowHead}
+     * draws, reimplemented here since that one is anchored to an actual arc's own coordinates
+     * rather than to arbitrary points. The stroke and colour are set explicitly rather than
+     * left to whatever the graphics context happens to have active: {@code GraphArcIn} and
+     * {@code GraphArcOut} both set their own stroke without ever restoring the caller's, so
+     * relying on the ambient state here inherited whatever the last-drawn arc left behind.
      */
     private void drawConnectionLine(Graphics2D g2, Point from, Point to, boolean arrowAtEnd) {
         Color previousColor = g2.getColor();
+        Stroke previousStroke = g2.getStroke();
         g2.setColor(Color.BLACK);
+        g2.setStroke(new BasicStroke(1));
         g2.drawLine(from.x, from.y, to.x, to.y);
         if (arrowAtEnd) {
             java.awt.Polygon arrowHead = new java.awt.Polygon();
@@ -618,11 +633,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             tx.translate(to.x, to.y);
             tx.rotate(angle - Math.PI / 2d);
             Graphics2D arrowGraphics = (Graphics2D) g2.create();
+            arrowGraphics.setStroke(new BasicStroke(1));
             arrowGraphics.transform(tx);
             arrowGraphics.fill(arrowHead);
             arrowGraphics.dispose();
         }
         g2.setColor(previousColor);
+        g2.setStroke(previousStroke);
     }
 
     private void printPointLocation(Point point, String s) {
@@ -695,7 +712,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     }
 
-    public void selectAll() { // works when key event is Ctrl+a  
+    public void selectAll() { // works when key event is Ctrl+a
         choosenElements.clear();
         for (GraphPetriPlace p : graphNet.getGraphPetriPlaceList()) {
             choosenElements.add(p);
@@ -707,6 +724,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             tr.setColor(Color.GREEN);
 
         }
+        // A Petri-object frame is as much a selectable thing on this canvas as a place or a
+        // transition is, so Ctrl+A reaches it too.
+        choosenFrames.clear();
+        choosenFrames.addAll(canvasModel.getFrames());
     }
 
     private void setDefaultColorGraphElements() {
@@ -1142,6 +1163,21 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
+     * The bulk-selection counterpart of {@link #confirmRemoveObjectFrame} — what Delete does
+     * with several frames selected together, e.g. by Ctrl+A, the same way it already bulk-
+     * removes a multi-selection of places and transitions.
+     */
+    private void confirmRemoveObjectFrames(List<GraphObjectFrame> frames) {
+        if (MessageHelper.showConfirmation(dialogOwner(),
+                "Remove " + frames.size() + " Petri-object frames? Their nets stay on the canvas.")) {
+            for (GraphObjectFrame frame : frames) {
+                removeObjectFrame(frame);
+            }
+            choosenFrames.clear();
+        }
+    }
+
+    /**
      * @return a frame that encloses the given elements with room to spare
      */
     private static Rectangle boundsAround(List<? extends GraphElement> elements) {
@@ -1247,11 +1283,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 startDragMouseLocation = scaledCurrentMousePoint;
             }
             prevMouseLocation = scaledCurrentMousePoint;
-            if (current != null) {
+            // A right-click never selects an element — it either falls through to its own
+            // context menu above, or, on a lone element maybeShowContextMenu deliberately
+            // leaves alone, does nothing at all now that that used to mean opening the
+            // element's properties.
+            if (current != null && SwingUtilities.isLeftMouseButton(ev)) {
                 current.setColor(Color.BLACK); //26.07.2018
                 current = null;
                 repaint();
-            } else {
+            } else if (SwingUtilities.isLeftMouseButton(ev)) {
                 current = find(scaledCurrentMousePoint);
                 if (current != null) {
                     setDefaultColorGraphElements();
@@ -1286,7 +1326,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 // currentPlacementPoint = e.getPoint();
             }
 
-            if (isSettingArc == true) {
+            if (isSettingArc == true && SwingUtilities.isLeftMouseButton(ev)) {
                 current = find(scaledCurrentMousePoint);
                 if (current != null) {
                     current.setColor(Color.BLUE);
@@ -1335,6 +1375,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             GraphObjectFrame frameAtPoint = canvasModel.frameAt(scaledCurrentMousePoint);
             if (frameAtPoint != null) {
                 selectedFrame = frameAtPoint;
+                choosenFrames.clear();
                 if (ev.getClickCount() >= 2) {
                     openObjectEditor(frameAtPoint);
                 }
@@ -1348,28 +1389,34 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 setDefaultColorGraphElements();
                 setDefaultColorGraphArcs();
                 choosenElements.clear();
+                choosenFrames.clear();
                 choosen = null;
             }
             if (current != null) {
                 current.setColor(Color.BLUE); //26.07.2018
                 choosenElements.clear(); // 27.08.2018
             } else {
-                current = find(scaledCurrentMousePoint);
-                if (current != null) {
-                    current.setColor(Color.BLUE);//26.07.2018
-                    choosen = current;
-                }
-                if (current != null && (ev.getClickCount() >= 2 || SwingUtilities.isRightMouseButton(ev))) { //change 2->1??
-                    current.setColor(Color.BLUE);//26.07.2018
-                    choosen = current;
+                // A right-click never selects an element, here any more than in mousePressed —
+                // it either hits the element's own context menu above, or, since
+                // maybeShowContextMenu deliberately leaves a lone element alone, does nothing.
+                if (SwingUtilities.isLeftMouseButton(ev)) {
+                    current = find(scaledCurrentMousePoint);
+                    if (current != null) {
+                        current.setColor(Color.BLUE);//26.07.2018
+                        choosen = current;
+                    }
+                    if (current != null && ev.getClickCount() >= 2) {
+                        current.setColor(Color.BLUE);//26.07.2018
+                        choosen = current;
 
-                    if (choosen.getClass().equals(GraphPetriPlace.class)) {
-                        setPositionFrame.setVisible(true);
-                        setPositionFrame.setInfo(choosen);
+                        if (choosen.getClass().equals(GraphPetriPlace.class)) {
+                            setPositionFrame.setVisible(true);
+                            setPositionFrame.setInfo(choosen);
 
-                    } else {
-                        setTransitionFrame.setVisible(true);
-                        setTransitionFrame.setInfo(choosen);
+                        } else {
+                            setTransitionFrame.setVisible(true);
+                            setTransitionFrame.setInfo(choosen);
+                        }
                     }
                 }
 
@@ -2080,6 +2127,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         canvasModel.getFusions().clear();
         canvasModel.getFusions().addAll(model.getFusions());
         selectedFrame = null;
+        choosenFrames.clear();
         choosen = null;
         current = null;
         choosenElements.clear();
