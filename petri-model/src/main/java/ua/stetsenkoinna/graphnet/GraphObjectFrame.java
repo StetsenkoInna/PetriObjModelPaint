@@ -52,8 +52,15 @@ public class GraphObjectFrame implements Serializable {
     private static final int EYE_ICON_MARGIN = 4;
 
     private static final Color BORDER = new Color(0x33, 0x5A, 0x8A);
-    private static final Color BORDER_SELECTED = new Color(0x4A, 0x4A, 0x4A);
+    /** Selected frames get the same green the canvas already uses for selected elements, so
+     *  one selection reads as one selection whether it caught elements, frames or both. The
+     *  previous dark grey sat too close to {@link #BORDER}'s blue to be noticeable at all. */
+    private static final Color BORDER_SELECTED = new Color(0x1E, 0x8E, 0x3E);
+    /** Wash over a selected frame's body — the cue that survives being read at a glance,
+     *  where a border a fraction of a pixel thicker does not. */
+    private static final Color BODY_SELECTED = new Color(0x1E, 0x8E, 0x3E, 0x1F);
     private static final Color HEADER = new Color(0xE4, 0xEC, 0xF7);
+    private static final Color HEADER_SELECTED = new Color(0xD8, 0xEF, 0xDC);
     private static final Color BODY = new Color(0xF8, 0xFA, 0xFD, 0x80);
     private static final Color TEXT = new Color(0x1C, 0x2B, 0x3A);
     private static final Font NAME_FONT = new Font(Font.SANS_SERIF, Font.BOLD, 12);
@@ -308,12 +315,16 @@ public class GraphObjectFrame implements Serializable {
 
         g2.setColor(BODY);
         g2.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 14, 14);
-        g2.setColor(HEADER);
+        if (selected) {
+            g2.setColor(BODY_SELECTED);
+            g2.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 14, 14);
+        }
+        g2.setColor(selected ? HEADER_SELECTED : HEADER);
         g2.fillRoundRect(bounds.x, bounds.y, bounds.width, HEADER_HEIGHT + 8, 14, 14);
         g2.fillRect(bounds.x, bounds.y + HEADER_HEIGHT - 4, bounds.width, 8);
 
         g2.setColor(highlightColor != null ? highlightColor : (selected ? BORDER_SELECTED : BORDER));
-        g2.setStroke(new BasicStroke(highlightColor != null ? 2.6f : (selected ? 1.6f : 1.4f)));
+        g2.setStroke(new BasicStroke(highlightColor != null ? 2.6f : (selected ? 2.4f : 1.4f)));
         g2.drawRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 14, 14);
         g2.drawLine(bounds.x, bounds.y + HEADER_HEIGHT, bounds.x + bounds.width, bounds.y + HEADER_HEIGHT);
 

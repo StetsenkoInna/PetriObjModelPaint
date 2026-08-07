@@ -15,17 +15,45 @@ import javax.swing.*;
  * @author Inna
  */
 public class RunPetriObjModel extends PetriObjModel{
-    
+
     private final JTextArea area; // specifies where simulation protokol is printed
 
     private StatisticGraphMonitor statisticGraphMonitor;
 
+    /** Set by the Stop button; go()'s own loop checks this once per event step. */
+    private volatile boolean halted;
+
+    /** Notified with the 0.0-1.0 fraction of simulation time elapsed, once per event step. */
+    private java.util.function.DoubleConsumer progressListener;
+
     public RunPetriObjModel(ArrayList<PetriSim> list, JTextArea area){
         super(list);
         this.area = area;
-     
+
     }
-    
+
+    /**
+     * Interrupts an in-progress {@link #go}: the very next loop iteration exits instead of
+     * running the next event. Unlike {@code PetriSim.go(double)}'s single blocking call, this
+     * loop already steps one discrete event at a time, so a flag checked once per iteration
+     * is all the granularity interruption needs.
+     */
+    public void halt() {
+        halted = true;
+    }
+
+    public boolean isHalted() {
+        return halted;
+    }
+
+    /**
+     * @param progressListener called with a 0.0-1.0 fraction after every event step while
+     *        {@link #go} runs — e.g. to drive a progress bar. May be {@code null}.
+     */
+    public void setProgressListener(java.util.function.DoubleConsumer progressListener) {
+        this.progressListener = progressListener;
+    }
+
     @Override
         public void go(double timeModeling) { //виведення протоколу подій та результатів моделювання у об"єкт класу JTextArea
         area.setText(" Events protocol ");
@@ -41,7 +69,7 @@ public class RunPetriObjModel extends PetriObjModel{
         ArrayList<PetriSim> conflictObj = new ArrayList<>();
         Random r = new Random();
 
-        while (super.getCurrentTime() < super.getSimulationTime()) {
+        while (super.getCurrentTime() < super.getSimulationTime() && !halted) {
 
             conflictObj.clear();
 
@@ -74,6 +102,10 @@ public class RunPetriObjModel extends PetriObjModel{
             }
 
             super.setCurrentTime(min); // просування часу
+
+            if (progressListener != null && timeModeling > 0) {
+                progressListener.accept(Math.min(1.0, super.getCurrentTime() / timeModeling));
+            }
 
             printInfo(" \n Time progress: time = " + super.getCurrentTime() + "\n");
 
