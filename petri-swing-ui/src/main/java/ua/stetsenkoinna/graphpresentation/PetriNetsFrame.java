@@ -161,7 +161,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         if (net == null) {
             return;
         }
-        getPetriNetsPanel().placeNetInteractively(net, netNameOf(net, methodFullName));
+        getPetriNetsPanel().placeNetInteractively(net);
         // The canvas has to be the thing being looked at for "click where it goes" to make
         // sense; the Nets window is non-modal and would otherwise still be covering it.
         if (libraryListDialog != null && libraryListDialog.isVisible()) {
@@ -188,7 +188,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // Nothing else is on the canvas now, so there is no placement decision to make — the
         // middle of the view is the only sensible answer and asking would be busywork.
         net.changeLocation(viewportCentreOnCanvas());
-        getPetriNetsPanel().addNetAsObject(net, netNameOf(net, methodFullName));
+        getPetriNetsPanel().addNet(net);
         netNameTextField.setText(netNameOf(net, methodFullName));
     }
 

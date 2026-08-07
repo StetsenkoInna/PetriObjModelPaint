@@ -156,7 +156,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     /** A loaded net waiting to be placed, and where the pointer currently says it goes; both
      *  set only while {@link CanvasTool#PLACE_LOADED_NET} is active. */
     private GraphPetriNet pendingNet;
-    private String pendingNetName;
     private Point placementPoint;
 
     /** The scroll pane viewport being panned, and where the drag started, while tool == PAN
@@ -1031,15 +1030,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * the canvas can make.
      *
      * @param net the net to place, carrying whatever coordinates it was built or read with
-     * @param name name for the Petri-object frame drawn around it
      */
-    public void placeNetInteractively(GraphPetriNet net, String name) {
+    public void placeNetInteractively(GraphPetriNet net) {
         if (net == null) {
             return;
         }
         setTool(CanvasTool.PLACE_LOADED_NET, null);
         pendingNet = net;
-        pendingNetName = name;
         // Until the pointer has been over the canvas there is nowhere to draw the outline;
         // mouseMoved fills this in on the first movement.
         placementPoint = null;
@@ -1058,12 +1055,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Adds a net at the coordinates it already carries, wrapped in a Petri-object frame — the
-     * non-interactive counterpart of {@link #placeNetInteractively}, for when there is nothing
-     * on the canvas to collide with and therefore no placement to ask about.
+     * Adds a net at the coordinates it already carries — the non-interactive counterpart of
+     * {@link #placeNetInteractively}, for when there is nothing on the canvas to collide with
+     * and therefore no placement to ask about.
      */
-    public void addNetAsObject(GraphPetriNet net, String name) {
-        placeGraphNet(net, uniqueObjectName(name), null);
+    public void addNet(GraphPetriNet net) {
+        absorbNet(net);
+        repaint();
     }
 
     /**
@@ -1075,14 +1073,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return;
         }
         GraphPetriNet net = pendingNet;
-        String name = pendingNetName;
         pendingNet = null;
-        pendingNetName = null;
         placementPoint = null;
 
         net.changeLocation(at);
-        placeGraphNet(net, uniqueObjectName(name), null);
+        // No Petri-object frame around it: a loaded net is a net, and boxing it up would
+        // declare it one object of a model, which is a modelling decision the user makes
+        // themselves afterwards by grouping what they want.
+        absorbNet(net);
         setTool(CanvasTool.SELECT, null);
+        repaint();
     }
 
     /**
@@ -1094,7 +1094,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return;
         }
         pendingNet = null;
-        pendingNetName = null;
         placementPoint = null;
         repaint();
     }
@@ -1150,6 +1149,38 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * the file and must not be re-laid-out, whereas a library template has none and has to be.
      */
     private void placeGraphNet(GraphPetriNet built, String objectName, NetTemplateRef template) {
+        List<GraphElement> members = absorbNet(built);
+
+        GraphObjectFrame frame = new GraphObjectFrame(objectName, boundsAround(members));
+        frame.setTemplate(template);
+        for (GraphElement element : members) {
+            frame.addMember(element);
+            // Locked inside a frame from the moment it lands, so it is never left looking
+            // selected — nothing on the canvas could act on that selection anyway.
+            element.setColor(Color.BLACK);
+        }
+        choosenElements.clear();
+        choosen = null;
+        addObjectFrame(frame);
+        // addObjectFrame leaves what it added selected, which is right when the user created
+        // one deliberately but wrong here: stamping drops object after object, and each would
+        // sit highlighted with nothing having been selected at all.
+        selectedFrame = null;
+        repaint();
+    }
+
+    /**
+     * Takes a freshly built net's own places, transitions and arcs onto the canvas, at the
+     * coordinates they already carry.
+     *
+     * <p>Deliberately not {@link #addGraphNet}: that merges, and merging copies every element
+     * before adding it, so the instances the caller is holding are not the ones that end up on
+     * screen — which matters to anything that needs to keep hold of them afterwards, like
+     * drawing a frame around exactly this net.
+     *
+     * @return the elements now on the canvas, in the caller's own instances
+     */
+    private List<GraphElement> absorbNet(GraphPetriNet built) {
         List<GraphElement> members = new ArrayList<>();
         members.addAll(built.getGraphPetriPlaceList());
         members.addAll(built.getGraphPetriTransitionList());
@@ -1168,23 +1199,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         for (GraphArcOut arcOut : built.getGraphArcOutList()) {
             arcOut.updateCoordinates();
         }
-
-        GraphObjectFrame frame = new GraphObjectFrame(objectName, boundsAround(members));
-        frame.setTemplate(template);
-        for (GraphElement element : members) {
-            frame.addMember(element);
-            // Locked inside a frame from the moment it lands, so it is never left looking
-            // selected — nothing on the canvas could act on that selection anyway.
-            element.setColor(Color.BLACK);
-        }
-        choosenElements.clear();
-        choosen = null;
-        addObjectFrame(frame);
-        // addObjectFrame leaves what it added selected, which is right when the user created
-        // one deliberately but wrong here: stamping drops object after object, and each would
-        // sit highlighted with nothing having been selected at all.
-        selectedFrame = null;
-        repaint();
+        return members;
     }
 
     /**
