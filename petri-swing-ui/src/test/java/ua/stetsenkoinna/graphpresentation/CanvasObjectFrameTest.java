@@ -200,6 +200,75 @@ public class CanvasObjectFrameTest {
     }
 
     @Test
+    public void objectNetFiltersOutJustThatFramesOwnElements() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphObjectFrame frameA = panel.getCanvasModel().getFrames().getFirst();
+
+        Method build = PetriNetsPanel.class.getDeclaredMethod("buildObjectNet", GraphObjectFrame.class);
+        build.setAccessible(true);
+        GraphPetriNet objectNet = (GraphPetriNet) build.invoke(panel, frameA);
+
+        assertEquals(1, objectNet.getGraphPetriPlaceList().size());
+        assertEquals("PA", objectNet.getGraphPetriPlaceList().getFirst().getName());
+        assertEquals(1, objectNet.getGraphPetriTransitionList().size());
+        assertEquals("TA", objectNet.getGraphPetriTransitionList().getFirst().getName());
+    }
+
+    @Test
+    public void objectNetExcludesArcsCrossingToAnotherObject() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        List<GraphObjectFrame> frames = panel.getCanvasModel().getFrames();
+        FramePort ta = portOf(panel, frames.get(0), "TA");
+        FramePort pb = portOf(panel, frames.get(1), "PB");
+        dragPort(panel, ta, pb); // TA -> PB, a crossing arc that belongs to neither object's own net
+
+        Method build = PetriNetsPanel.class.getDeclaredMethod("buildObjectNet", GraphObjectFrame.class);
+        build.setAccessible(true);
+        GraphPetriNet netA = (GraphPetriNet) build.invoke(panel, frames.get(0));
+        GraphPetriNet netB = (GraphPetriNet) build.invoke(panel, frames.get(1));
+
+        assertTrue("the crossing arc is a link, not part of A's own net", netA.getGraphArcOutList().isEmpty());
+        assertTrue("nor of B's", netB.getGraphArcInList().isEmpty());
+    }
+
+    @Test
+    public void reconcileAddsWhatIsNewAndDropsWhatWasRemoved() throws Exception {
+        Method reconcile = PetriNetsPanel.class.getDeclaredMethod(
+                "reconcile", List.class, List.class, List.class);
+        reconcile.setAccessible(true);
+
+        String survivor = "kept";
+        String removed = "gone";
+        String added = "new";
+        java.util.List<String> main = new java.util.ArrayList<>(List.of(survivor, removed));
+        List<String> before = List.of(survivor, removed);
+        List<String> after = List.of(survivor, added);
+
+        reconcile.invoke(null, main, before, after);
+
+        assertEquals(List.of(survivor, added), main);
+    }
+
+    @Test
+    public void theEditorToolbarAddsAPlaceAndATransition() throws Exception {
+        PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
+        editorPanel.setGraphNet(new GraphPetriNet());
+        ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame editor =
+                new ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame(null, "Test", editorPanel);
+
+        Method addPlace = editor.getClass().getDeclaredMethod("addPlace");
+        addPlace.setAccessible(true);
+        addPlace.invoke(editor);
+        Method addTransition = editor.getClass().getDeclaredMethod("addTransition");
+        addTransition.setAccessible(true);
+        addTransition.invoke(editor);
+
+        assertEquals(1, editorPanel.getGraphNet().getGraphPetriPlaceList().size());
+        assertEquals(1, editorPanel.getGraphNet().getGraphPetriTransitionList().size());
+        editor.dispose();
+    }
+
+    @Test
     public void aCanvasWithFramesPaints() throws Exception {
         PetriNetsPanel panel = panelWithFramedNet();
         panel.getCanvasModel().getFrames().getFirst().setCollapsed(true);

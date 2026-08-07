@@ -46,44 +46,57 @@ and rebuilt on a server from the same description.
 
 A Petri-object is a named frame on the canvas the nets are drawn on. Whatever is drawn
 inside it belongs to it, so the structure of a model and the behaviour of its objects are one
-picture — and an arc crossing a frame border is a token crossing an object border.
+picture. Every object action — creating, naming, linking, deleting — is reached by
+**right-clicking** whatever it applies to; there is no separate menu for it.
 
-**Making objects**, from the **Model** menu:
+**Making objects.** Right-click gives you the action that fits what is under the pointer:
 
-- **Group selection into Petri-object** (`Ctrl+G`) draws a frame around the selected
-  elements. This is how an existing net is split into objects.
-- **New empty Petri-object** puts an empty frame down to draw into.
-- **Petri-object from net library...** instantiates a template with arguments of its own —
-  `CreateNetSMOwithoutQueue(2, 0.5, "First")` — and frames the result.
-- **Duplicate selected Petri-object** (`Ctrl+D`) copies an object with its net, the quick way
-  to a model of several alike objects.
+- select some elements first, then right-click any of them (or the empty canvas) for
+  **Group selection into Petri-object** — the way an existing net is split into objects
+- right-click empty canvas for **New empty Petri-object** or **Petri-object from net
+  library...**, which instantiates a template with arguments of its own —
+  `CreateNetSMOwithoutQueue(2, 0.5, "First")` — and frames the result
+- right-click an existing frame for **Duplicate Petri-object**, the quick way to a model of
+  several alike objects
 
 **Handling frames.** Grab a frame by its header to move it — its net travels with it — by its
 bottom-right corner to resize it, and double-click the header to collapse it to a node when
-the model outgrows the screen. Name and priority are on the same menu. Removing a frame
-leaves its net on the canvas.
+the model outgrows the screen. `Delete` removes the selected frame (its net stays on the
+canvas), `Ctrl+D` duplicates it — the same actions the elements inside it already respond to,
+now extended to the object as a whole. Rename, priority and removal are also on the frame's
+right-click menu.
 
-**Linking objects** uses the ordinary arc tool; where the arc ends decides what it means:
+**Editing an object's net.** Once elements belong to a frame they are locked on the shared
+canvas — position, arcs and everything else about them can only be changed by opening the
+object's own editor: **double-click anywhere inside the frame**, or right-click it and choose
+**Edit net...**. That opens an ordinary net editor scoped to just this object, operating on
+the very same places, transitions and arcs the main canvas holds for it, so a change is live
+the moment it happens; there is nothing to save. Closing the window is what applies anything
+you added or removed there back onto the canvas. A frame without anything inside is empty
+until you open it and draw.
 
-| You draw | Between | What you get |
-|----------|---------|--------------|
-| place → transition | different frames | the place becomes an extra input of that transition |
-| transition → place | different frames | the transition delivers tokens into that place |
-| place → place | different frames | the two become one shared place |
-| anything | inside one frame | an ordinary arc of that object's net |
+**Linking objects.** A locked object still reaches the outside world through its **ports** —
+one small labelled circle per place and per transition, spaced around the frame's border.
+Dragging from one port to another makes the link that fits the two ends:
 
-A stroke from a place to a place used to be discarded as invalid; between two objects it is
-now the shared place. Both halves are kept on top of each other and drawn as one circle with
-a second ring, because that is what they are. An arc's weight and its informational flag are
-edited by double-clicking it, as for any arc.
+| Drag between | What you get |
+|---------------|---------------|
+| two place ports | the two places become one shared place |
+| a place port and a transition port | the place becomes an extra input of that transition |
+| a transition port and a place port | the transition delivers tokens into that place |
 
-Because the frame decides who owns an element, dragging a wired element across a border would
-rewire the model — so that move asks first and is undone when the answer is no.
+A shared place is drawn as a line between the two ports, since the places themselves may sit
+deep inside two different, unrelated objects — there is no reason to move either of them.
+Weight and the informational flag for a place-to-transition link are set the same way an
+ordinary arc's are, by double-clicking it. Free elements — anything outside every frame — are
+completely unaffected by any of this: they stay directly draggable and connectable, exactly
+as before Petri-object composition existed.
 
 **Running.** **Run** and **Animate** simulate the whole canvas: every frame is an object,
-crossing arcs are links, and anything outside every frame is one more object. Animation plays
-on the same canvas, so a token leaving one object is seen arriving in another. A canvas
-without frames is a model of one object and behaves exactly as a plain net always did.
+every port-to-port link is a link between them, and anything outside every frame is one more
+object. Animation plays on the same canvas, so a token leaving one object is seen arriving in
+another. A canvas without frames is a model of one object and behaves exactly as a plain net
+always did.
 
 **Storing.** **File → Import PNML** opens a model and lays it out as frames; **Save → Export
 PNML** writes the canvas as a model.
@@ -224,9 +237,9 @@ curl -X POST http://localhost:8080/api/v2/model/parse \
 - **Element indices are positions.** A link addresses the n-th place or transition of an
   object. Reordering the elements of a net reorders what its links point at; the editor
   rebuilds the net from its drawing before every run and every save, so the two stay in step.
-- **A shared place is the one thing geometry cannot decide.** Both halves are drawn in the
-  same spot, so the frame they sit in cannot say which belongs to which object; the fusion
-  remembers that from the moment the two were joined.
+- **A shared place does not move either half.** The two places may sit deep inside two
+  different objects; joining them never repositions either one, and the connection is drawn
+  as a line between their ports rather than a ring around a shared point.
 - **A transition needs a local input place.** External arcs extend the firing condition, so a
   transition fed only by another object is not a valid net.
 - **Fusion order matters.** Fusing A's place with B's place and then B's place with C's makes

@@ -50,6 +50,7 @@ import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphpresentation.dragndrop.PnsDropHandler;
 import ua.stetsenkoinna.graphpresentation.dragndrop.UnifiedDropHandler;
 import ua.stetsenkoinna.graphpresentation.objmodel.NetTemplateDialog;
+import ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteGraphElementsEdit;
@@ -689,6 +690,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         JPopupMenu menu = new JPopupMenu();
 
+        JMenuItem editNet = new JMenuItem("Edit net...");
+        editNet.setToolTipText("Open this object's own net for editing — the same as double-clicking it");
+        editNet.addActionListener(e -> openObjectEditor(frame));
+        menu.add(editNet);
+
+        menu.addSeparator();
+
         JMenuItem rename = new JMenuItem("Rename Petri-object...");
         rename.addActionListener(e -> renameObject(frame));
         menu.add(rename);
@@ -855,13 +863,98 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Opens the dedicated editor for one Petri-object's own net — implemented alongside the
-     * port-based cross-object linking this replaces direct element dragging with.
+     * Opens the dedicated editor for one Petri-object's own net.
+     *
+     * <p>The editor operates on the very same place, transition and arc instances the main
+     * canvas already holds for this object — filtered into a net of their own, but not
+     * copied — so a moved place or an edited property is already live once it happens. What
+     * is not automatically live is structure: the editor's net is a separate list, so an
+     * element added or removed there has to be reconciled back into the main canvas's own
+     * lists, which is what happens once the (modal) dialog closes and this method resumes.
      *
      * @param frame the object to edit
      */
     private void openObjectEditor(GraphObjectFrame frame) {
-        // TODO: dedicated per-object editor window
+        GraphPetriNet objectNet = buildObjectNet(frame);
+        List<GraphPetriPlace> placesBefore = List.copyOf(objectNet.getGraphPetriPlaceList());
+        List<GraphPetriTransition> transitionsBefore = List.copyOf(objectNet.getGraphPetriTransitionList());
+        List<GraphArcIn> arcsInBefore = List.copyOf(objectNet.getGraphArcInList());
+        List<GraphArcOut> arcsOutBefore = List.copyOf(objectNet.getGraphArcOutList());
+
+        PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
+        editorPanel.setCanvasNet(objectNet);
+        editorPanel.setPreferredSize(new java.awt.Dimension(
+                Math.max(500, frame.getBounds().width), Math.max(400, frame.getBounds().height)));
+
+        new ObjectEditorFrame(dialogOwner(), frame.getName(), editorPanel).setVisible(true);
+        // Modal: execution resumes here only once the user closes the editor.
+
+        reconcile(graphNet.getGraphPetriPlaceList(), placesBefore, objectNet.getGraphPetriPlaceList());
+        reconcile(graphNet.getGraphPetriTransitionList(), transitionsBefore, objectNet.getGraphPetriTransitionList());
+        reconcile(graphNet.getGraphArcInList(), arcsInBefore, objectNet.getGraphArcInList());
+        reconcile(graphNet.getGraphArcOutList(), arcsOutBefore, objectNet.getGraphArcOutList());
+
+        canvasModel.removeDanglingFusions();
+        updateArcCoordinates();
+        repaint();
+    }
+
+    /**
+     * Filters out one Petri-object's own places, transitions and internal arcs into a net of
+     * their own — the same instances the main canvas holds, not copies. An arc crossing to
+     * another object is a link, not part of this object's own net, and is left out: it stays
+     * exactly as it is, addressed through the frame's ports, whatever happens in the editor.
+     *
+     * @param frame the object to filter out
+     * @return a net ready to hand to the object's own editor panel
+     */
+    private GraphPetriNet buildObjectNet(GraphObjectFrame frame) {
+        ArrayList<GraphPetriPlace> places = new ArrayList<>();
+        ArrayList<GraphPetriTransition> transitions = new ArrayList<>();
+        ArrayList<GraphArcIn> arcsIn = new ArrayList<>();
+        ArrayList<GraphArcOut> arcsOut = new ArrayList<>();
+        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
+            if (canvasModel.ownerOf(place) == frame) {
+                places.add(place);
+            }
+        }
+        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
+            if (canvasModel.ownerOf(transition) == frame) {
+                transitions.add(transition);
+            }
+        }
+        for (GraphArcIn arc : graphNet.getGraphArcInList()) {
+            if (canvasModel.ownerOf((GraphPetriPlace) arc.getBeginElement()) == frame
+                    && canvasModel.ownerOf((GraphPetriTransition) arc.getEndElement()) == frame) {
+                arcsIn.add(arc);
+            }
+        }
+        for (GraphArcOut arc : graphNet.getGraphArcOutList()) {
+            if (canvasModel.ownerOf((GraphPetriTransition) arc.getBeginElement()) == frame
+                    && canvasModel.ownerOf((GraphPetriPlace) arc.getEndElement()) == frame) {
+                arcsOut.add(arc);
+            }
+        }
+        return new GraphPetriNet(null, places, transitions, arcsIn, arcsOut);
+    }
+
+    /**
+     * Applies to the main canvas's list of one kind of element whatever the object editor did
+     * to its own copy of that same kind: an element the editor no longer has was deleted,
+     * anything it now has that it did not start with was added. Surviving elements need no
+     * change here — they are the same instances in both lists already.
+     *
+     * @param mainList the main canvas's list to update
+     * @param before what this object contributed to that list when the editor opened
+     * @param after what the editor's own list contains now that it has closed
+     */
+    private static <T> void reconcile(List<T> mainList, List<T> before, List<T> after) {
+        mainList.removeIf(element -> before.contains(element) && !after.contains(element));
+        for (T element : after) {
+            if (!before.contains(element)) {
+                mainList.add(element);
+            }
+        }
     }
 
     private void confirmRemoveObjectFrame(GraphObjectFrame frame) {

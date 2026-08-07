@@ -56,15 +56,25 @@ Located under `ua.stetsenkoinna.graphpresentation.statistic`:
 ## Petri-objects on the Canvas
 
 A Petri-object is a named frame on the same canvas the nets are drawn on: what is inside it
-belongs to it, and an arc crossing its border links it to another object. The **Model** menu
-creates objects — around the current selection (`Ctrl+G`), empty, from a net library template,
-or by duplicating one (`Ctrl+D`) — and edits the selected object's name and priority.
+belongs to it. Every object action is reached by **right-clicking** whatever it applies to —
+a selection, an existing frame, or empty canvas — there is no separate menu. `Delete` and
+`Ctrl+D` act on the selected frame the same way they already act on elements.
+
+Once elements belong to a frame they are locked on the shared canvas; the object's own net is
+edited in a window of its own, opened by double-clicking the frame or via its right-click
+**Edit net...**. That window operates on the same element instances the canvas holds, so
+changes are live; closing it is what applies any add/remove back onto the canvas.
+
+A locked object connects to others through **ports** — small labelled circles around the
+frame's border, one per place and transition — dragged from one to another to make a link.
 
 | Class | Responsibility |
 |-------|----------------|
-| `ua.stetsenkoinna.graphnet.GraphCanvasModel` | The canvas document: the drawing, its object frames, its shared places — and reading all that as a model |
+| `ua.stetsenkoinna.graphnet.GraphCanvasModel` | The canvas document: the drawing, its object frames, its shared places, its ports — and reading all that as a model |
 | `ua.stetsenkoinna.graphnet.GraphObjectFrame` | One object's frame: move, resize, collapse, its name and priority |
+| `ua.stetsenkoinna.graphnet.FramePort` | One port on a frame's border, standing in for a locked place or transition |
 | `ua.stetsenkoinna.graphnet.GraphPlaceFusion` | Two places joined into one shared place |
+| `ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame` | The window one Petri-object's own net is edited in |
 | `ua.stetsenkoinna.graphpresentation.objmodel.NetTemplateDialog` | Instantiating a net library template with arguments |
 
 Run and Animate simulate the whole canvas, animation included — a token leaving one object is
