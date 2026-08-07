@@ -17,5 +17,11 @@ public enum CanvasTool {
     /** Every click drops a new place at the click point; stays active for the next one. */
     ADD_PLACE,
     /** Every click drops a new transition at the click point; stays active for the next one. */
-    ADD_TRANSITION
+    ADD_TRANSITION,
+    /**
+     * Every click stamps another copy of the armed Petri-object template at the click point;
+     * stays active for the next one. Which template is armed is held separately by the panel,
+     * since every template shares this one mode.
+     */
+    ADD_PETRI_OBJECT
 }

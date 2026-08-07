@@ -1,6 +1,7 @@
 package ua.stetsenkoinna.graphpresentation;
 
 import ua.stetsenkoinna.petriobj.ExceptionInvalidNetStructure;
+import ua.stetsenkoinna.petriobj.PetriNet;
 import ua.stetsenkoinna.petriobj.PetriP;
 import ua.stetsenkoinna.petriobj.PetriT;
 import ua.stetsenkoinna.petriobj.ArcIn;
@@ -50,6 +51,7 @@ import ua.stetsenkoinna.graphnet.GraphElementIdGenerator;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPlaceFusion;
+import ua.stetsenkoinna.graphnet.NetTemplateRef;
 import ua.stetsenkoinna.graphnet.PortAnchor;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
@@ -60,6 +62,11 @@ import ua.stetsenkoinna.graphpresentation.dragndrop.PnsDropHandler;
 import ua.stetsenkoinna.graphpresentation.dragndrop.UnifiedDropHandler;
 import ua.stetsenkoinna.graphpresentation.objmodel.NetTemplateDialog;
 import ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame;
+import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectPalette;
+import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectTemplate;
+import ua.stetsenkoinna.graphnet.GraphNetBuilder;
+import ua.stetsenkoinna.libnet.NetTemplateCatalog;
+import ua.stetsenkoinna.pnml.PnmlParser;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
@@ -142,10 +149,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     /** Which gesture a left-click-drag currently performs; see {@link CanvasTool}. */
     private CanvasTool tool = CanvasTool.SELECT;
 
-    /** The scroll pane viewport being panned, and where the drag started, while tool == PAN. */
+    /** The Petri-object stamped by each click while {@link CanvasTool#ADD_PETRI_OBJECT} is
+     *  active; {@code null} under every other tool. */
+    private PetriObjectTemplate armedTemplate;
+
+    /** The scroll pane viewport being panned, and where the drag started, while tool == PAN
+     *  — or, during a double-click-to-pan gesture on the Select tool, while
+     *  {@link #selectToolPanning} is true instead. */
     private JViewport panViewport;
     private Point panDragOrigin;
     private Point panViewportOrigin;
+    /** True mid-gesture after a double-click on empty canvas with the Select tool active,
+     *  panning the view without actually switching tools. */
+    private boolean selectToolPanning;
 
     private static final Cursor ERASER_CURSOR = buildEraserCursor();
 
@@ -203,8 +219,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                             && choosenElements.isEmpty() && choosenFrames.isEmpty()) {
                         confirmRemoveObjectFrame(selectedFrame);
                     }
-                    if (!choosenFrames.isEmpty() && choosenArc == null && choosen == null
-                            && choosenElements.isEmpty()) {
+                    // Deliberately not also requiring choosenElements to be empty: Ctrl+A fills
+                    // both lists, so that condition meant a select-all followed by Delete wiped
+                    // every place and transition and left the objects behind as empty
+                    // rectangles. Frames go first, since removing one releases its members back
+                    // to the canvas and the element sweep below then accounts for them.
+                    if (!choosenFrames.isEmpty() && choosenArc == null && choosen == null) {
                         confirmRemoveObjectFrames(new ArrayList<>(choosenFrames));
                     }
                     if (choosenArc != null) {
@@ -830,6 +850,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         duplicate.addActionListener(e -> duplicateObject(frame));
         menu.add(duplicate);
 
+        JMenuItem saveAsTemplate = new JMenuItem("Save as Petri-object...");
+        saveAsTemplate.setToolTipText(
+                "Keep this object to reuse — it joins the PObjects list and can live on the left toolbar");
+        saveAsTemplate.addActionListener(e -> saveObjectAsTemplate(frame));
+        menu.add(saveAsTemplate);
+
         menu.addSeparator();
 
         JMenuItem remove = new JMenuItem("Remove Petri-object frame");
@@ -908,22 +934,148 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return;
         }
         try {
-            GraphPetriNet built = SimpleNetGraphBuilder.build(dialog.getBuilt(), at);
-            addGraphNet(built);
-
-            List<GraphElement> builtElements = new ArrayList<>();
-            builtElements.addAll(built.getGraphPetriPlaceList());
-            builtElements.addAll(built.getGraphPetriTransitionList());
-            GraphObjectFrame frame = new GraphObjectFrame(dialog.getObjectName(), boundsAround(builtElements));
-            frame.setTemplate(dialog.getReference());
-            for (GraphElement element : builtElements) {
-                frame.addMember(element);
-            }
-            addObjectFrame(frame);
-            repaint();
+            placeBuiltNet(dialog.getBuilt(), at, dialog.getObjectName(), dialog.getReference());
         } catch (Exception failure) {
             LOGGER.error("Failed to add a Petri-object from the net library", failure);
             MessageHelper.showException(dialogOwner(), "Cannot put the net library template on the canvas", failure);
+        }
+    }
+
+    /**
+     * Stamps the armed Petri-object template at the click point — the toolbar's placement
+     * tool, which unlike {@link #addObjectFromLibrary} asks nothing and can therefore be
+     * repeated as fast as the user can click.
+     */
+    private void stampArmedTemplate(Point at) {
+        if (armedTemplate == null) {
+            return;
+        }
+        try {
+            String name = uniqueObjectName(armedTemplate.displayName());
+            if (armedTemplate.kind() == PetriObjectTemplate.Kind.PROTOTYPE) {
+                // Re-read per stamp rather than deep-copying one held prototype: the file is
+                // the single source of truth, and two stamps then cannot share any state.
+                PnmlParser parser = new PnmlParser();
+                PetriNet net = parser.parse(armedTemplate.prototypeFile().toFile());
+                placeGraphNet(GraphNetBuilder.build(net, parser.getAllPlaceCoordinates(),
+                        parser.getAllTransitionCoordinates(), at), name, null);
+            } else {
+                PetriNet net = NetTemplateCatalog.instantiate(
+                        armedTemplate.methodName(), armedTemplate.arguments());
+                placeBuiltNet(net, at, name, armedTemplate.toReference());
+            }
+        } catch (Exception failure) {
+            LOGGER.error("Failed to stamp the Petri-object template {}", armedTemplate.id(), failure);
+            MessageHelper.showException(dialogOwner(),
+                    "Cannot put '" + armedTemplate.displayName() + "' on the canvas", failure);
+        }
+    }
+
+    /**
+     * Saves a Petri-object so it can be stamped again later, from the toolbar or the PObjects
+     * list. The object's net is deep-copied first: writing it out calls {@code createPetriNet},
+     * which renumbers the elements it is given, and doing that to the canvas's own instances
+     * would renumber the live drawing underneath the user.
+     */
+    private void saveObjectAsTemplate(GraphObjectFrame frame) {
+        GraphPetriNet inside = buildObjectNet(frame);
+        if (inside.getGraphPetriPlaceList().isEmpty() && inside.getGraphPetriTransitionList().isEmpty()) {
+            MessageHelper.showError(dialogOwner(), "This Petri-object has no net to save yet");
+            return;
+        }
+        String name = JOptionPane.showInputDialog(dialogOwner(),
+                "Name for the saved Petri-object", frame.getName());
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        try {
+            new PetriObjectPalette().saveCustom(new GraphPetriNet(inside), name.trim());
+            MessageHelper.showInfo(dialogOwner(), "'" + name.trim()
+                    + "' saved. Add it to the toolbar from the PObjects menu.");
+        } catch (Exception failure) {
+            LOGGER.error("Failed to save the Petri-object {} as a template", frame.getName(), failure);
+            MessageHelper.showException(dialogOwner(), "Cannot save this Petri-object", failure);
+        }
+    }
+
+    /**
+     * Lays a freshly built net out at a point and wraps it in a Petri-object frame.
+     *
+     * <p>The net's own elements are appended to the canvas directly rather than through
+     * {@link #addGraphNet}: that path merges via {@code GraphPetriNet.mergeGraphNet}, which
+     * copies every element and then repositions the copies by its own layout calculator. The
+     * frame would end up drawn around — and claiming as members — the originals, which by then
+     * are not the instances on the canvas and are not where the user clicked either.
+     *
+     * @param net the newly instantiated net; must not already be on the canvas
+     * @param at where the user clicked, in canvas coordinates
+     * @param objectName name for the new Petri-object
+     * @param template provenance recorded on the frame, so a saved model remembers the recipe
+     */
+    private void placeBuiltNet(PetriNet net, Point at, String objectName, NetTemplateRef template) {
+        placeGraphNet(SimpleNetGraphBuilder.build(net, at), objectName, template);
+    }
+
+    /**
+     * Adds an already laid-out net to the canvas as a Petri-object. Split from
+     * {@link #placeBuiltNet} because a saved prototype arrives with its own coordinates from
+     * the file and must not be re-laid-out, whereas a library template has none and has to be.
+     */
+    private void placeGraphNet(GraphPetriNet built, String objectName, NetTemplateRef template) {
+        List<GraphElement> members = new ArrayList<>();
+        members.addAll(built.getGraphPetriPlaceList());
+        members.addAll(built.getGraphPetriTransitionList());
+
+        if (graphNet == null) {
+            setCanvasNet(built);
+        } else {
+            graphNet.getGraphPetriPlaceList().addAll(built.getGraphPetriPlaceList());
+            graphNet.getGraphPetriTransitionList().addAll(built.getGraphPetriTransitionList());
+            graphNet.getGraphArcInList().addAll(built.getGraphArcInList());
+            graphNet.getGraphArcOutList().addAll(built.getGraphArcOutList());
+        }
+        for (GraphArcIn arcIn : built.getGraphArcInList()) {
+            arcIn.updateCoordinates();
+        }
+        for (GraphArcOut arcOut : built.getGraphArcOutList()) {
+            arcOut.updateCoordinates();
+        }
+
+        GraphObjectFrame frame = new GraphObjectFrame(objectName, boundsAround(members));
+        frame.setTemplate(template);
+        for (GraphElement element : members) {
+            frame.addMember(element);
+            // Locked inside a frame from the moment it lands, so it is never left looking
+            // selected — nothing on the canvas could act on that selection anyway.
+            element.setColor(Color.BLACK);
+        }
+        choosenElements.clear();
+        choosen = null;
+        addObjectFrame(frame);
+        // addObjectFrame leaves what it added selected, which is right when the user created
+        // one deliberately but wrong here: stamping drops object after object, and each would
+        // sit highlighted with nothing having been selected at all.
+        selectedFrame = null;
+        repaint();
+    }
+
+    /**
+     * @return {@code base}, or {@code base} with a counter appended, so that two stamps of the
+     *         same template never share a name — Petri-objects are addressed by name in the
+     *         statistics formulas, where a duplicate would be ambiguous
+     */
+    private String uniqueObjectName(String base) {
+        boolean taken = canvasModel.getFrames().stream()
+                .anyMatch(frame -> base.equals(frame.getName()));
+        if (!taken) {
+            return base;
+        }
+        for (int suffix = 2; ; suffix++) {
+            String candidate = base + " " + suffix;
+            String attempt = candidate;
+            if (canvasModel.getFrames().stream().noneMatch(frame -> attempt.equals(frame.getName()))) {
+                return candidate;
+            }
         }
     }
 
@@ -1171,6 +1323,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     /**
      * @return a frame that encloses the given elements with room to spare
      */
+    /**
+     * The rubber band as a rectangle. The two drag points arrive in whichever order the drag
+     * happened, so they are normalised here — comparing them directly, as this used to, meant
+     * only a drag going down-and-right ever enclosed anything, and one going up or left
+     * silently selected nothing at all.
+     */
+    private Rectangle marqueeRectangle() {
+        int x = Math.min(startDragMouseLocation.x, currentDragMouseLocation.x);
+        int y = Math.min(startDragMouseLocation.y, currentDragMouseLocation.y);
+        int width = Math.abs(currentDragMouseLocation.x - startDragMouseLocation.x);
+        int height = Math.abs(currentDragMouseLocation.y - startDragMouseLocation.y);
+        return new Rectangle(x, y, width, height);
+    }
+
     private static Rectangle boundsAround(List<? extends GraphElement> elements) {
         int minX = Integer.MAX_VALUE;
         int minY = Integer.MAX_VALUE;
@@ -1184,7 +1350,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             maxX = Math.max(maxX, (int) centre.getX() + border);
             maxY = Math.max(maxY, (int) centre.getY() + border);
         }
-        int padding = 24;
+        // A transition draws its name above and, below it, both its parameter and its
+        // probability on their own lines — together reaching about 65px past its own
+        // centre, well outside the 20px "border" that boundsAround otherwise uses (which
+        // only accounts for the transition's own shape, not the text stacked under it).
+        // The padding has to clear that worst case on every side, not just what a place's
+        // shorter single mark label underneath it would need.
+        int padding = 48;
         return new Rectangle(
                 Math.max(0, minX - padding),
                 Math.max(0, minY - padding - GraphObjectFrame.HEADER_HEIGHT),
@@ -1234,6 +1406,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (tool == CanvasTool.ADD_PLACE || tool == CanvasTool.ADD_TRANSITION) {
                 if (SwingUtilities.isLeftMouseButton(ev)) {
                     addElementAt(tool, scaledCurrentMousePoint);
+                }
+                return;
+            }
+
+            if (tool == CanvasTool.ADD_PETRI_OBJECT) {
+                if (SwingUtilities.isLeftMouseButton(ev)) {
+                    stampArmedTemplate(scaledCurrentMousePoint);
                 }
                 return;
             }
@@ -1297,6 +1476,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
                 isSettingArc = false;
                 repaint();
+                return;
+            }
+
+            // A double-click that doesn't land on anything selectable pans the canvas
+            // instead of doing nothing — restores a shortcut that existed before Pan became
+            // its own dedicated tool, so nudging the view doesn't require switching tools.
+            // Gated on clickCount so a normal single click still just clears the selection.
+            if (tool == CanvasTool.SELECT && ev.getClickCount() >= 2
+                    && SwingUtilities.isLeftMouseButton(ev)
+                    && find(scaledCurrentMousePoint) == null
+                    && findArc(scaledCurrentMousePoint) == null) {
+                beginPan(ev.getPoint());
+                selectToolPanning = true;
+                setCursor(new Cursor(Cursor.HAND_CURSOR));
                 return;
             }
 
@@ -1422,6 +1615,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 setDefaultColorGraphArcs();
                 choosenElements.clear();
                 choosenFrames.clear();
+                // Clicking nothing deselects the current Petri-object too. It used to survive
+                // here, which went unnoticed only because a selected frame was drawn almost
+                // identically to an unselected one.
+                selectedFrame = null;
                 choosen = null;
             }
             if (current != null) {
@@ -1494,8 +1691,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
-            if (tool == CanvasTool.DELETE
-                    || tool == CanvasTool.ADD_PLACE || tool == CanvasTool.ADD_TRANSITION) {
+            if (selectToolPanning) {
+                endPan();
+                selectToolPanning = false;
+                setCursor(Cursor.getDefaultCursor());
+                return;
+            }
+
+            if (tool == CanvasTool.DELETE || tool == CanvasTool.ADD_PLACE
+                    || tool == CanvasTool.ADD_TRANSITION || tool == CanvasTool.ADD_PETRI_OBJECT) {
                 return;
             }
 
@@ -1525,22 +1729,25 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
 
             if (startDragMouseLocation != null && currentDragMouseLocation != null && leftMouseButtonPressed) {
+                Rectangle marquee = marqueeRectangle();
                 for (GraphPetriPlace p : graphNet.getGraphPetriPlaceList()) {
-                    if (p.getGraphElementCenter().getX() >= startDragMouseLocation.x
-                            && p.getGraphElementCenter().getX() <= currentDragMouseLocation.getX()
-                            && p.getGraphElementCenter().getY() >= startDragMouseLocation.y
-                            && p.getGraphElementCenter().getY() <= currentDragMouseLocation.getY()) {
+                    if (marquee.contains(p.getGraphElementCenter())) {
                         choosenElements.add(p);
                         p.setColor(Color.GREEN);
                     }
                 }
                 for (GraphPetriTransition tr : graphNet.getGraphPetriTransitionList()) {
-                    if (tr.getGraphElementCenter().getX() >= startDragMouseLocation.x
-                            && tr.getGraphElementCenter().getX() <= currentDragMouseLocation.getX()
-                            && tr.getGraphElementCenter().getY() >= startDragMouseLocation.y
-                            && tr.getGraphElementCenter().getY() <= currentDragMouseLocation.getY()) {
+                    if (marquee.contains(tr.getGraphElementCenter())) {
                         choosenElements.add(tr);
                         tr.setColor(Color.GREEN);
+                    }
+                }
+                // A Petri-object is caught the same way its elements are — by the rubber band
+                // covering it — so a drag across the canvas selects what it visibly encloses
+                // rather than silently skipping every object drawn there.
+                for (GraphObjectFrame frame : canvasModel.getFrames()) {
+                    if (marquee.contains(frame.getBounds()) && !choosenFrames.contains(frame)) {
+                        choosenFrames.add(frame);
                     }
                 }
                 repaint();
@@ -1569,7 +1776,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                         currentArc.setPetriElements();
                         currentArc.changeBorder();
                         currentArc.updateCoordinates();
-                        isSettingArc = false;
+                        // Stays armed for the next arc instead of falling back to a plain
+                        // click — the Arc tool is only actually left via setTool(), the same
+                        // way Add Place/Add Transition already stay active across clicks.
+                        isSettingArc = true;
                         currentArc.setColor(Color.BLACK);
                         int currBeginId, currEndId;
                         boolean isrepeat;
@@ -1889,12 +2099,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseDragged(MouseEvent ev) {
-            if (tool == CanvasTool.PAN) {
+            if (tool == CanvasTool.PAN || selectToolPanning) {
                 updatePan(ev.getPoint());
                 return;
             }
-            if (tool == CanvasTool.DELETE
-                    || tool == CanvasTool.ADD_PLACE || tool == CanvasTool.ADD_TRANSITION) {
+            if (tool == CanvasTool.DELETE || tool == CanvasTool.ADD_PLACE
+                    || tool == CanvasTool.ADD_TRANSITION || tool == CanvasTool.ADD_PETRI_OBJECT) {
                 return;
             }
 
@@ -1978,7 +2188,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         @Override
         public void mouseMoved(MouseEvent ev) {
             if (tool == CanvasTool.PAN || tool == CanvasTool.DELETE
-                    || tool == CanvasTool.ADD_PLACE || tool == CanvasTool.ADD_TRANSITION) {
+                    || tool == CanvasTool.ADD_PLACE || tool == CanvasTool.ADD_TRANSITION
+                    || tool == CanvasTool.ADD_PETRI_OBJECT) {
                 // These tools keep their own dedicated cursor regardless of what is underneath
                 // the pointer — port hovering is a Select-tool affordance only.
                 return;
@@ -2069,7 +2280,21 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param newTool the tool to activate
      */
     public void setTool(CanvasTool newTool) {
-        if (tool == newTool) {
+        setTool(newTool, null);
+    }
+
+    /**
+     * Switches tool, arming a Petri-object template at the same time.
+     *
+     * @param newTool the tool to activate
+     * @param template the template every click should stamp while {@link
+     *        CanvasTool#ADD_PETRI_OBJECT} is active, or {@code null} for every other tool
+     */
+    public void setTool(CanvasTool newTool, PetriObjectTemplate template) {
+        // Every template shares the one ADD_PETRI_OBJECT mode, so "same tool" is not the same
+        // question as "nothing to do" any more: switching straight from one template's button
+        // to another has to re-arm even though the tool itself did not change.
+        if (tool == newTool && java.util.Objects.equals(armedTemplate, template)) {
             return;
         }
         if (currentArc != null) {
@@ -2078,6 +2303,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         isSettingArc = false;
         clearSelectionState();
         tool = newTool;
+        armedTemplate = template;
         setCursor(cursorFor(newTool));
         repaint();
     }
@@ -2088,6 +2314,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         current = null;
         choosen = null;
         choosenArc = null;
+        selectedFrame = null;
         choosenElements.clear();
         choosenFrames.clear();
         startDragMouseLocation = null;
@@ -2103,6 +2330,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return ERASER_CURSOR;
             case ADD_PLACE:
             case ADD_TRANSITION:
+            case ADD_PETRI_OBJECT:
                 return new Cursor(Cursor.CROSSHAIR_CURSOR);
             default:
                 return Cursor.getDefaultCursor();

@@ -29,6 +29,15 @@ public class AnimRunPetriObjModel extends PetriObjModel{
     private volatile boolean paused = false;
 
     /**
+     * True from {@link #stepOnce} until the in-flight event finishes and {@link #go}'s loop
+     * re-arms {@link #paused} at the next event boundary. While true, the per-checkpoint waits
+     * in {@link AnimRunPetriSim#doAfterStep} let the thread through without blocking — same as
+     * a normal run — so the one event already in progress (or about to start) plays out fully
+     * before the run holds again, rather than freezing wherever a checkpoint happens to be.
+     */
+    private volatile boolean stepping = false;
+
+    /**
      * Whether the simulation should completely stop immediately
      */
     private volatile boolean halted = false;
@@ -189,6 +198,15 @@ public class AnimRunPetriObjModel extends PetriObjModel{
                 printInfo("Markers enter transitions:");
                 super.printMark(area::append);
             }
+
+            // One whole event has now finished. Re-arming the pause here rather than at the
+            // top of the loop is what makes a step from a standing start work: stepping can
+            // be set before go() is even entered, and the first event still plays out in full
+            // before anything blocks, instead of freezing at its first checkpoint.
+            if (stepping) {
+                stepping = false;
+                paused = true;
+            }
         }
 
         if (isLastStatisticSegment()) {
@@ -259,6 +277,11 @@ public class AnimRunPetriObjModel extends PetriObjModel{
      * Pause or unpause the simulation
      */
     public void setPaused(boolean isPaused) {
+        if (!isPaused) {
+            // An explicit resume outranks a step still playing out: without this, pressing
+            // Start during that one event would be undone the moment the step re-paused.
+            stepping = false;
+        }
         this.paused = isPaused;
         for (AnimRunPetriSim petriObject: runlist) {
             petriObject.setPaused(isPaused);
@@ -270,6 +293,23 @@ public class AnimRunPetriObjModel extends PetriObjModel{
      */
     public boolean isPaused() {
         return paused;
+    }
+
+    /**
+     * Lets the run advance by exactly one more full event, then re-pauses at the next event
+     * boundary — for a "step forward" control. Works the same whether the run is currently
+     * paused (already blocked mid-event in some {@code doAfterStep()} checkpoint) or actively
+     * playing (running freely, no checkpoint blocking yet): either way {@code stepping} is
+     * what actually re-arms the pause, in {@link #go}'s own loop, at the top of whichever event
+     * comes next — so it always lands on a clean, whole event rather than an arbitrary
+     * mid-event checkpoint.
+     */
+    public void stepOnce() {
+        stepping = true;
+        paused = false;
+        synchronized (this) {
+            notifyAll();
+        }
     }
 
     /**

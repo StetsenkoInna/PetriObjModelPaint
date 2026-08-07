@@ -17,7 +17,7 @@ public class StopSimulationAction extends AbstractAction {
     
     public StopSimulationAction(AnimationControls controls) {
         this.controls = controls;
-        putValue(SHORT_DESCRIPTION, "Stop / Commit changes");
+        putValue(SHORT_DESCRIPTION, "Stop");
     }
 
     @Override
