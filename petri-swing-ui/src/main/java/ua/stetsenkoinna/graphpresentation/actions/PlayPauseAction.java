@@ -34,7 +34,7 @@ public class PlayPauseAction extends AbstractAction {
      */
     public void switchToPauseButton() {
         putValue(LARGE_ICON_KEY, pauseIcon);
-        String PAUSE_DESCRIPTION = "Pause animation";
+        String PAUSE_DESCRIPTION = "Pause";
         putValue(SHORT_DESCRIPTION, PAUSE_DESCRIPTION);
     }
     
@@ -44,7 +44,7 @@ public class PlayPauseAction extends AbstractAction {
      */
     public void switchToPlayButton() {
         putValue(LARGE_ICON_KEY, playIcon);
-        String PLAY_DESCRIPTION = "Start net animation";
+        String PLAY_DESCRIPTION = "Start";
         putValue(SHORT_DESCRIPTION, PLAY_DESCRIPTION);
     }
     

@@ -1,6 +1,7 @@
 package ua.stetsenkoinna.server.service;
 
 import ua.stetsenkoinna.api.simulation.SimulationStatus;
+import ua.stetsenkoinna.server.dto.ObjectModelResultDto;
 import ua.stetsenkoinna.server.dto.SimulationResultDto;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -16,6 +17,7 @@ public class SimulationSession {
 
     private volatile Thread thread;
     private volatile SimulationResultDto result;
+    private volatile ObjectModelResultDto objectModelResult;
 
     public SimulationSession(String id) {
         this.id = id;
@@ -44,4 +46,11 @@ public class SimulationSession {
     public SimulationResultDto getResult() { return result; }
 
     public void setResult(SimulationResultDto result) { this.result = result; }
+
+    /** Per-object statistics of a Petri-object model run; null until the run finishes. */
+    public ObjectModelResultDto getObjectModelResult() { return objectModelResult; }
+
+    public void setObjectModelResult(ObjectModelResultDto objectModelResult) {
+        this.objectModelResult = objectModelResult;
+    }
 }

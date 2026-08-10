@@ -14,6 +14,11 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("PetriObjModelPaint API")
                         .version("2.0.0")
-                        .description("REST API for Petri net simulation. WebSocket (STOMP/SockJS) endpoint: ws://localhost:8080/ws"));
+                        .description("""
+                                REST API for Petri net simulation. \
+                                /api/v1 runs a single Petri net; /api/v2 runs a Petri-object \
+                                model composed of several linked Petri-objects and reports \
+                                statistics per object. WebSocket (STOMP/SockJS) endpoint: \
+                                ws://localhost:8080/ws"""));
     }
 }

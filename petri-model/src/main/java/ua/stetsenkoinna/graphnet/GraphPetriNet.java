@@ -7,7 +7,6 @@ import ua.stetsenkoinna.petriobj.PetriT;
 import ua.stetsenkoinna.petriobj.ArcIn;
 import ua.stetsenkoinna.petriobj.ArcOut;
 import ua.stetsenkoinna.petriobj.ExceptionInvalidTimeDelay;
-import ua.stetsenkoinna.utils.NetworkPositionCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,8 +30,6 @@ import java.util.function.Consumer;
 public class GraphPetriNet implements Cloneable, Serializable {
 
     private static final Logger log = LoggerFactory.getLogger(GraphPetriNet.class);
-
-    private static final int bigNumber = 10000; // для правильного коригування нумерації позицій та переходів
 
     private ArrayList<GraphPetriPlace> graphPetriPlaceList;
     private ArrayList<GraphPetriTransition> graphPetriTransitionList;
@@ -68,6 +65,20 @@ public class GraphPetriNet implements Cloneable, Serializable {
      * @param graphPetriNet: GraphPetriNet to copy
      */
     public GraphPetriNet(GraphPetriNet graphPetriNet) {
+        this(graphPetriNet, new java.util.IdentityHashMap<>());
+    }
+
+    /**
+     * Copying constructor that also reports which new element replaced which old one — for a
+     * caller that holds something else pointing at the original instances (a Petri-object
+     * frame's membership, a place fusion's two halves) and needs to translate it onto this
+     * copy instead of leaving it referencing the net being copied FROM.
+     *
+     * @param graphPetriNet net to copy
+     * @param oldToNew filled in by this constructor: every old place/transition mapped to the
+     *        new instance copied from it
+     */
+    public GraphPetriNet(GraphPetriNet graphPetriNet, Map<GraphElement, GraphElement> oldToNew) {
         graphPetriPlaceList = new ArrayList<>();
         graphPetriTransitionList = new ArrayList<>();
         graphArcInList = new ArrayList<>();
@@ -102,6 +113,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
         }
         graphArcInList.addAll(fragment.inArcs);
         graphArcOutList.addAll(fragment.outArcs);
+        oldToNew.putAll(fragment.oldToNew);
     }
 
     @Override
@@ -214,26 +226,33 @@ public class GraphPetriNet implements Cloneable, Serializable {
     }
 
     public boolean isCorrectInArcs() {
-        boolean b = false;
         for (GraphPetriTransition grT : graphPetriTransitionList) {
+            boolean hasInArc = false;
             for (GraphArcIn in : graphArcInList) {
                 if (in.getArcIn().getNumT() == grT.getNumber()) {
-                    b = true;
+                    hasInArc = true;
                     break;
                 }
             }
-            if (!b) {
-                break;
+            if (!hasInArc) {
+                return false;
             }
         }
-        return b;
+        return true;
     }
 
+    /**
+     * A transition with no output arc at all is a legitimate sink — {@link
+     * ua.stetsenkoinna.petriobj.PetriT#createOutP} only warns about one, it does not reject it —
+     * so unlike {@link #isCorrectInArcs()} this deliberately is not "every transition must have
+     * an output": that would block models that use sinks on purpose. Kept lenient, matching its
+     * behavior before {@link #isCorrectInArcs()} was tightened alongside it.
+     */
     public boolean isCorrectOutArcs() {
         boolean b = false;
         for (GraphPetriTransition grT : graphPetriTransitionList) {
-            for (GraphArcOut in : graphArcOutList) {
-                if (in.getArcOut().getNumT() == grT.getNumber()) {
+            for (GraphArcOut out : graphArcOutList) {
+                if (out.getArcOut().getNumT() == grT.getNumber()) {
                     b = true;
                     break;
                 }
@@ -247,109 +266,44 @@ public class GraphPetriNet implements Cloneable, Serializable {
 
     public void createPetriNet(String s) throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
         //створюється мережа Петрі у відповідності до графічних елементів
-        correctingNumP();
-        correctingNumT();
+        renumberFromGraph();
         pNet = new PetriNet(s, this.getPetriPList(), this.getPetriTList(), this.getArcInList(), this.getArcOutList());
     }
 
-    public boolean isCorrectNumberP() {
-        ArrayList<PetriP> list = this.getPetriPList();
-        boolean b = true;
-        for (int j = 0; j < list.size(); j++) {
-            if (list.get(j).getNumber() != j) {
-                b = false;
-                break;
-            }
+    /**
+     * Numbers every place and transition by its position in this net's own lists — which is what
+     * {@link PetriNet} needs, since it indexes its arrays by those numbers — and then re-derives
+     * every arc's place and transition number from the element the arc is actually attached to.
+     *
+     * <p>Deriving each arc's endpoints from its own {@code getBeginElement()}/{@code getEndElement()}
+     * references, rather than from the number it last cached, is the whole point. One canvas holds
+     * several nets: each Petri-object is numbered from zero independently of every other, so two
+     * elements sharing a number is normal rather than exceptional, and the only thing that can tell
+     * one of them from the other is which element an arc actually points at. Matching on the cached
+     * number instead used to sweep both elements' arcs onto whichever one came last, leaving the
+     * other with none and the net rejected as having a transition with no input positions.
+     */
+    private void renumberFromGraph() {
+        for (int j = 0; j < graphPetriPlaceList.size(); j++) {
+            graphPetriPlaceList.get(j).getPetriPlace().setNumber(j);
         }
-        return b;
-    }
-
-    public boolean isCorrectNumberT() {
-        ArrayList<PetriT> list = this.getPetriTList();
-        boolean b = true;
-        for (int j = 0; j < list.size(); j++) {
-            if (list.get(j).getNumber() != j) {
-                b = false;
-                break;
-            }
+        for (int j = 0; j < graphPetriTransitionList.size(); j++) {
+            graphPetriTransitionList.get(j).getPetriTransition().setNumber(j);
         }
-        return b;
-    }
-
-    public void correctingNumP() {
-        if (!isCorrectNumberP()) {
-            for (int j = 0; j < this.getPetriPList().size(); j++) {
-                if (this.getPetriPList().get(j).getNumber() != j) {
-                    int actualNumber = getPetriPList().get(j).getNumber();
-                    
-                    for (ArcIn in : this.getArcInList()) {
-                        if (in.getNumP() == actualNumber) {
-                            in.setNumP(j + bigNumber);
-                        }
-                    }
-                    for (ArcOut out : this.getArcOutList()) {
-                        if (out.getNumP() == actualNumber) {
-                            out.setNumP(j + bigNumber);
-                        }
-                    }
-                    this.getPetriPList().get(j).setNumber(j + bigNumber); //встановлення номера позиції по порядку слідування в списку
-                }
+        for (GraphArcIn arc : graphArcInList) {
+            // An arc still being dragged has no end yet; it is not part of the net until dropped.
+            if (arc.getBeginElement() == null || arc.getEndElement() == null) {
+                continue;
             }
-            
-            for (int j = 0; j < this.getPetriPList().size(); j++) { // added by Katya 08.12.2016
-                if (this.getPetriPList().get(j).getNumber() >= bigNumber) {
-                    this.getPetriPList().get(j).setNumber(this.getPetriPList().get(j).getNumber() - bigNumber);
-                }
-            }
-            for (ArcIn in : this.getArcInList()) {
-                if (in.getNumP() >= bigNumber) {
-                    in.setNumP(in.getNumP() - bigNumber);
-                }
-            }
-            for (ArcOut out : this.getArcOutList()) {
-                if (out.getNumP() >= bigNumber) {
-                    out.setNumP(out.getNumP() - bigNumber);
-                }
-            }
+            arc.getArcIn().setNumP(arc.getBeginElement().getNumber());
+            arc.getArcIn().setNumT(arc.getEndElement().getNumber());
         }
-    }
-
-    public void correctingNumT() {
-        if (!isCorrectNumberT()) {
-            for (int j = 0; j < this.getPetriTList().size(); j++) {
-                if (this.getPetriTList().get(j).getNumber() != j) {
-                    int actualNumber = getPetriTList().get(j).getNumber();
-                    
-                    for (ArcIn in : this.getArcInList()) {
-                        if (in.getNumT() == actualNumber) {
-                            in.setNumT(j + bigNumber);
-                        }
-                    }
-                    for (ArcOut out : this.getArcOutList()) {
-                        if (out.getNumT() == actualNumber) {
-                            out.setNumT(j + bigNumber);
-                        }
-                    }
-                    //встановлення номера переходу по порядку слідування в списку
-                    this.getPetriTList().get(j).setNumber(j + bigNumber);
-                }
+        for (GraphArcOut arc : graphArcOutList) {
+            if (arc.getBeginElement() == null || arc.getEndElement() == null) {
+                continue;
             }
-            
-            for (int j = 0; j < this.getPetriTList().size(); j++) {
-                if (this.getPetriTList().get(j).getNumber() >= bigNumber) {
-                    this.getPetriTList().get(j).setNumber(this.getPetriTList().get(j).getNumber() - bigNumber);
-                }
-            }
-            for (ArcIn in : this.getArcInList()) {
-                if (in.getNumT() >= bigNumber) {
-                    in.setNumT(in.getNumT() - bigNumber);
-                }
-            }
-            for (ArcOut out : this.getArcOutList()) {
-                if (out.getNumT() >= bigNumber) {
-                    out.setNumT(out.getNumT() - bigNumber);
-                }
-            }
+            arc.getArcOut().setNumT(arc.getBeginElement().getNumber());
+            arc.getArcOut().setNumP(arc.getEndElement().getNumber());
         }
     }
 
@@ -488,14 +442,24 @@ public class GraphPetriNet implements Cloneable, Serializable {
     /* a bean representing a fragement of a GraphNet */
     public static class GraphNetFragment {
         public List<GraphElement> elements;
-        public List<GraphArcIn> inArcs; 
+        public List<GraphArcIn> inArcs;
         public List<GraphArcOut> outArcs;
-        
+        /** Every source element mapped to the copy made of it — how a caller that also needs
+         *  to translate something ELSE that referenced the originals (a frame's membership, a
+         *  fusion's places) finds the corresponding new instance. */
+        public Map<GraphElement, GraphElement> oldToNew;
+
         public GraphNetFragment(List<GraphElement> e, List<GraphArcIn> i, List<GraphArcOut> o) {
+            this(e, i, o, new java.util.IdentityHashMap<>());
+        }
+
+        public GraphNetFragment(List<GraphElement> e, List<GraphArcIn> i, List<GraphArcOut> o,
+                                Map<GraphElement, GraphElement> oldToNew) {
             this.elements = e;
             this.inArcs = i;
             this.outArcs = o;
-        } 
+            this.oldToNew = oldToNew;
+        }
     }
     
     public GraphNetFragment bulkCopyNoPasteElements(List<GraphElement> elements) {
@@ -575,13 +539,17 @@ public class GraphPetriNet implements Cloneable, Serializable {
         List<GraphElement> copiedElements = new ArrayList<>(transitionsCopies.values());
         copiedElements.addAll(positionCopies.values());
 
-        return new GraphNetFragment(copiedElements, arcInsToAdd, arcOutsToAdd);
+        Map<GraphElement, GraphElement> oldToNew = new java.util.IdentityHashMap<>();
+        oldToNew.putAll(positionCopies);
+        oldToNew.putAll(transitionsCopies);
+
+        return new GraphNetFragment(copiedElements, arcInsToAdd, arcOutsToAdd, oldToNew);
     }
 
     /**
      * Merges another GraphPetriNet into this one by adding all its elements.
-     * The elements from the other net will be copied with new IDs to avoid conflicts.
-     * The new elements will be positioned to the right of the existing net using NetworkPositionCalculator.
+     * The elements from the other net will be copied with new IDs to avoid conflicts, and
+     * keep the coordinates they already carry — position them before merging.
      * @param other The GraphPetriNet to merge into this one
      */
     public void mergeGraphNet(GraphPetriNet other) {
@@ -601,40 +569,13 @@ public class GraphPetriNet implements Cloneable, Serializable {
             other.graphArcOutList
         );
 
-        // Create a temporary GraphPetriNet to hold the copied fragment for position calculation
-        GraphPetriNet tempNet = new GraphPetriNet();
-        for (GraphElement element : fragment.elements) {
-            if (element instanceof GraphPetriPlace) {
-                tempNet.graphPetriPlaceList.add((GraphPetriPlace) element);
-            } else if (element instanceof GraphPetriTransition) {
-                tempNet.graphPetriTransitionList.add((GraphPetriTransition) element);
-            }
-        }
-
-        // Calculate optimal position using NetworkPositionCalculator
-        List<GraphPetriNet> existingNetworks = new ArrayList<>();
-        if (!NetworkPositionCalculator.isNetworkEmpty(this)) {
-            existingNetworks.add(this);
-        }
-
-        Point targetLocation = NetworkPositionCalculator.calculateTargetPosition(
-            existingNetworks,
-            tempNet,
-            null  // No drop location for merge operation
-        );
-
-        // Move the copied elements to the calculated position
-        Point currentCenter = tempNet.getCurrentLocation();
-        double xOffset = targetLocation.getX() - currentCenter.getX();
-        double yOffset = targetLocation.getY() - currentCenter.getY();
-
-        for (GraphElement element : fragment.elements) {
-            Point newPos = new Point(
-                (int) (element.getGraphElementCenter().getX() + xOffset),
-                (int) (element.getGraphElementCenter().getY() + yOffset)
-            );
-            element.setNewCoordinates(newPos);
-        }
+        // The merged net keeps the coordinates it arrives with. It used to be repositioned
+        // here to "the right of everything already on the canvas", which was the source of the
+        // overlapping messes: the calculation measured only element centres (so shapes, labels
+        // and arcs were never accounted for), had no vertical component at all (so every import
+        // landed in the same horizontal band), and treated the whole canvas as one blob, so
+        // repeated imports marched off-screen. Where a net should land is the caller's
+        // business now — a drop point, a click, or the coordinates its own file recorded.
 
         // Add copied elements to this net's lists
         for (GraphElement element : fragment.elements) {
@@ -811,24 +752,46 @@ public class GraphPetriNet implements Cloneable, Serializable {
     }
 
     public void paintGraphPetriNet(Graphics2D g2, Graphics g) {
+        paintGraphPetriNet(g2, g, java.util.Collections.emptySet());
+    }
+
+    /**
+     * Draws the net, leaving out whatever is in {@code hiddenElements} — a place or transition
+     * there is not drawn at all, and an arc is left out the moment either of its ends is, since
+     * a line to or from something not on screen would not mean anything. Nothing here decides
+     * what belongs in that set: it is how a Petri-object's own eye icon, on the canvas this net
+     * is drawn on, actually hides its content without this net needing to know what a
+     * Petri-object or an eye icon even is.
+     *
+     * @param hiddenElements places and transitions to skip drawing
+     */
+    public void paintGraphPetriNet(Graphics2D g2, Graphics g, java.util.Set<GraphElement> hiddenElements) {
         if (!graphPetriPlaceList.isEmpty()) {
             for (GraphPetriPlace e : graphPetriPlaceList) {
-               e.drawGraphElement(g2);
+                if (!hiddenElements.contains(e)) {
+                    e.drawGraphElement(g2);
+                }
             }
         }
         if (!graphPetriTransitionList.isEmpty()) {
             for (GraphPetriTransition e : graphPetriTransitionList) {
-                e.drawGraphElement(g2);
+                if (!hiddenElements.contains(e)) {
+                    e.drawGraphElement(g2);
+                }
             }
         }
         if (!graphArcOutList.isEmpty()) {
-            for (GraphArcOut a : graphArcOutList) {   
-              a.drawGraphElement(g2);
+            for (GraphArcOut a : graphArcOutList) {
+                if (!hiddenElements.contains(a.getBeginElement()) && !hiddenElements.contains(a.getEndElement())) {
+                    a.drawGraphElement(g2);
+                }
             }
         }
         if (!graphArcInList.isEmpty()) {
             for (GraphArcIn a : graphArcInList) {
-               a.drawGraphElement(g2);
+                if (!hiddenElements.contains(a.getBeginElement()) && !hiddenElements.contains(a.getEndElement())) {
+                    a.drawGraphElement(g2);
+                }
             }
         }
     }
