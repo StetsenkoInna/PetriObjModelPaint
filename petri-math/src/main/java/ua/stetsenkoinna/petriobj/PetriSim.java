@@ -43,7 +43,13 @@ public class PetriSim implements Cloneable, Serializable {
 
     protected PetriT eventMin; // modifier is edited on protected for the subclass access
     protected double timeMin; // modifier is edited on protected for the subclass access
-    
+
+    /**
+     * Transient because a deserialized Petri-object belongs to no model yet, and it is the
+     * model — not the object — that decides who observes a firing.
+     */
+    private transient TransitionFiringListener firingListener;
+
     /**
      * Constructs the Petri simulator with given Petri net and time modeling
      *
@@ -223,6 +229,69 @@ public class PetriSim implements Cloneable, Serializable {
     }
 
     /**
+     * Installs the observer of this object's firings, or {@code null} to remove it.
+     *
+     * <p>Called by {@link PetriObjModel}; a Petri-object never installs one on itself, which is
+     * what keeps a clone — built by {@link #clone()} into a model that has no collector yet —
+     * from inheriting an observer that belongs to another run. A headless or Swing run leaves
+     * it {@code null} and pays one null check per firing.
+     *
+     * @param listener the observer of the four firing phases
+     */
+    public void setFiringListener(TransitionFiringListener listener) {
+        this.firingListener = listener;
+    }
+
+    private void notifyPhase(FiringPhase phase, PetriT tr) {
+        if (firingListener != null) {
+            firingListener.onFiringPhase(phase, tr, this.getCurrentTime());
+        }
+    }
+
+    /**
+     * Runs the tokens-in half of a firing: reports it, lets a subclass animate around it, and
+     * tells the caller whether the run may go on.
+     *
+     * <p>Each phase is reported before the corresponding hook, because a hook is where an
+     * animating subclass sleeps or blocks on a pause monitor — an observer that only learned
+     * of the phase afterwards would be reporting a state the simulation has already left.
+     *
+     * @return {@code false} when the caller must return from {@code input()} straight away
+     */
+    private boolean fireActIn(PetriT tr) {
+        notifyPhase(FiringPhase.BEFORE_ACT_IN, tr);
+        beforeActIn(tr);
+        tr.actIn(listP, this.getCurrentTime());
+        notifyPhase(FiringPhase.AFTER_ACT_IN, tr);
+        afterActIn(tr);
+        return !shouldInterrupt();
+    }
+
+    /**
+     * Runs the tokens-out half of a firing, the same way {@link #fireActIn(PetriT)} runs the
+     * other one.
+     *
+     * <p>{@link PetriT#actOut(PetriP[], double)} does nothing at all for a transition with an
+     * empty buffer, so an empty one is not reported: an observer would otherwise see a pair of
+     * phases across which neither the marking nor the buffer moved.
+     *
+     * @return {@code false} when the caller must return from {@code output()} straight away
+     */
+    private boolean fireActOut(PetriT tr) {
+        boolean real = tr != null && tr.getBuffer() > 0;
+        if (real) {
+            notifyPhase(FiringPhase.BEFORE_ACT_OUT, tr);
+        }
+        beforeActOut(tr);
+        tr.actOut(listP, this.getCurrentTime());
+        if (real) {
+            notifyPhase(FiringPhase.AFTER_ACT_OUT, tr);
+        }
+        afterActOut(tr);
+        return !shouldInterrupt();
+    }
+
+    /**
      * Determines the next event and its moment.
      */
     public void eventMin() {
@@ -318,6 +387,11 @@ public class PetriSim implements Cloneable, Serializable {
 
     /**
      * Do one event
+     *
+     * <p>This is the standalone single-object loop, reached only from {@link #go()}; a model
+     * drives its objects through {@link #input()} and {@link #output()} instead. It fires
+     * transitions directly and therefore reports no {@link FiringPhase} to a
+     * {@link TransitionFiringListener}.
      */
     public void step() {
         // використовується для одного об'єкту мережа Петрі
@@ -405,10 +479,7 @@ public class PetriSim implements Cloneable, Serializable {
         } else {
             while (!activeT.isEmpty()) {
                 PetriT tr = this.doConflikt(activeT);
-                beforeActIn(tr);
-                tr.actIn(listP, this.getCurrentTime());
-                afterActIn(tr);
-                if (shouldInterrupt()) return;
+                if (!fireActIn(tr)) return;
                 activeT = this.findActiveT();
             }
             this.eventMin();
@@ -420,19 +491,13 @@ public class PetriSim implements Cloneable, Serializable {
      */
     public void output() {
         if (this.getCurrentTime() <= this.getSimulationTime()) {
-            beforeActOut(eventMin);
-            eventMin.actOut(listP, this.getCurrentTime());
-            afterActOut(eventMin);
-            if (shouldInterrupt()) return;
+            if (!fireActOut(eventMin)) return;
             if (eventMin.getBuffer() > 0) {
                 boolean u = true;
                 while (u) {
                     eventMin.minEvent();
                     if (eventMin.getMinTime() == this.getCurrentTime()) {
-                        beforeActOut(eventMin);
-                        eventMin.actOut(listP, this.getCurrentTime());
-                        afterActOut(eventMin);
-                        if (shouldInterrupt()) return;
+                        if (!fireActOut(eventMin)) return;
                     } else {
                         u = false;
                     }
@@ -440,19 +505,13 @@ public class PetriSim implements Cloneable, Serializable {
             }
             for (PetriT transition : listT) {
                 if (transition.getBuffer() > 0 && transition.getMinTime() == this.getCurrentTime()) {
-                    beforeActOut(transition);
-                    transition.actOut(listP, this.getCurrentTime());
-                    afterActOut(transition);
-                    if (shouldInterrupt()) return;
+                    if (!fireActOut(transition)) return;
                     if (transition.getBuffer() > 0) {
                         boolean u = true;
                         while (u) {
                             transition.minEvent();
                             if (transition.getMinTime() == this.getCurrentTime()) {
-                                beforeActOut(transition);
-                                transition.actOut(listP, this.getCurrentTime());
-                                afterActOut(transition);
-                                if (shouldInterrupt()) return;
+                                if (!fireActOut(transition)) return;
                             } else {
                                 u = false;
                             }
