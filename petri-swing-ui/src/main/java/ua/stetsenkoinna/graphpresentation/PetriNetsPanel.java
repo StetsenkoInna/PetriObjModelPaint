@@ -2741,11 +2741,23 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
                         currentArc = null;
                         setDefaultColorGraphArcs();
+                    } else if (currentArc.getBeginElement() instanceof GraphPetriPlace beginPlace
+                            && current instanceof GraphPetriPlace targetPlace) {
+                        // Place to place is not a valid arc, but it is exactly what a shared
+                        // place is for - the same join port-drag already does when released on
+                        // another place. The Arc tool used to just discard this instead of
+                        // trying it, on the reasoning that a shared place was reachable through
+                        // ports alone; a second gesture is not obviously better than the tool
+                        // simply doing the one useful thing a place-to-place drag can mean.
+                        removeCurrentArc();
+                        try {
+                            canvasModel.joinPlaces(beginPlace, targetPlace);
+                        } catch (IllegalArgumentException rejected) {
+                            MessageHelper.showError(dialogOwner(), rejected.getMessage());
+                        }
                     } else {                        //1.02.2013 цей фрагмент дозволяє відслідковувати намагання
-                        // Place to place, or transition to transition, is not a valid arc —
-                        // and a shared place between two Petri-objects is now made by
-                        // dragging between their ports instead, so this attempt is simply
-                        // discarded.
+                        // Transition to transition has no operation to fall back to either -
+                        // discarded the same way place-to-place used to be unconditionally.
                         removeCurrentArc();// з"єднати позицію з позицією чи перехід з переходом
                         //та знищувати неправильно намальовану дугу
                     }

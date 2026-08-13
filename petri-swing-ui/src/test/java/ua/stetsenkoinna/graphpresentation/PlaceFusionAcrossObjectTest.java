@@ -4,7 +4,9 @@ import org.junit.Test;
 
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
+import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.petriobj.PetriP;
+import ua.stetsenkoinna.petriobj.PetriT;
 
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
@@ -17,10 +19,12 @@ import static org.junit.Assert.assertTrue;
 /**
  * A shared place between a free place and one inside a Petri-object is not an arc - arcs only
  * ever connect a place to a transition, on one canvas or across an object boundary alike, which
- * is exactly why {@code finishSettingNewArc} rejects a place-to-place pairing outright (see
+ * is exactly why {@code finishSettingNewArc} rejects a place-to-place pairing (see
  * {@code ArcToolFullInteractionTest} for the arc side of the same boundary). Two places sharing
- * one marking is a fusion instead, reachable only by dragging from a place's own port - never
- * from the Arc tool - which is what this pins down for the cross-object case specifically.
+ * one marking is a fusion instead. It was reachable only by dragging from a place's own port
+ * until the Arc tool started falling back to it too: a place-to-place drag with the Arc tool has
+ * exactly one useful meaning, so the tool makes it rather than discarding the gesture and making
+ * the user start over with a different one.
  */
 public class PlaceFusionAcrossObjectTest {
 
@@ -28,6 +32,7 @@ public class PlaceFusionAcrossObjectTest {
 
     private static PetriNetsPanel freshPanel() {
         PetriP.initNext();
+        PetriT.initNext();
         idCounter = 1;
         return new PetriNetsPanel(null, true);
     }
@@ -59,6 +64,15 @@ public class PlaceFusionAcrossObjectTest {
         handler.mouseReleased(event(panel, MouseEvent.MOUSE_RELEASED, toX, toY));
     }
 
+    private static void assertFusion(PetriNetsPanel panel, GraphPetriPlace a, GraphPetriPlace b) {
+        assertEquals("the two places must now share one fusion",
+                1, panel.getCanvasModel().getFusions().size());
+        var fusion = panel.getCanvasModel().getFusions().get(0);
+        assertTrue("both places are the two sides of it",
+                (fusion.getMaster() == a && fusion.getJoined() == b)
+                        || (fusion.getMaster() == b && fusion.getJoined() == a));
+    }
+
     @Test
     public void draggingFromTheFramedPlacesPortToAFreePlaceFusesThem() {
         PetriNetsPanel panel = freshPanel();
@@ -84,19 +98,11 @@ public class PlaceFusionAcrossObjectTest {
         // just be an ordinary element drag, never a link gesture.
         dragFromTo(panel, port.getPosition().x, port.getPosition().y, 400, 140);
 
-        assertEquals("the two places must now share one fusion",
-                1, panel.getCanvasModel().getFusions().size());
-        var fusion = panel.getCanvasModel().getFusions().get(0);
-        assertTrue("both the framed and the free place are the two sides of it",
-                (fusion.getMaster() == framedPlace && fusion.getJoined() == freePlace)
-                        || (fusion.getMaster() == freePlace && fusion.getJoined() == framedPlace));
+        assertFusion(panel, framedPlace, freePlace);
     }
 
     @Test
-    public void theArcToolItselfNeverCreatesAFusionEvenAcrossAnObjectBoundary() {
-        // The negative case the user actually hit: starting from a free PLACE with the Arc tool
-        // and releasing on a place inside an object. finishSettingNewArc rejects same-class
-        // pairs by design - this is true on a single plain canvas too, nothing to do with objects.
+    public void theArcToolFusesAFreePlaceWithOneInsideAnExpandedObject() {
         PetriNetsPanel panel = freshPanel();
 
         GraphPetriPlace freePlace = new GraphPetriPlace(new PetriP("Free", 1), idCounter++);
@@ -109,13 +115,62 @@ public class PlaceFusionAcrossObjectTest {
         GraphObjectFrame frame = new GraphObjectFrame("Other", new Rectangle(40, 40, 160, 160));
         panel.getCanvasModel().claim(frame, framedPlace);
         panel.addObjectFrame(frame);
+        // Left expanded (the default) - the framed place is reached directly, the same as
+        // arcToolTargetAt already resolves for a place/transition pairing.
 
         panel.setIsSettingArc(true);
         dragFromTo(panel, 400, 140, 120, 140);
 
-        assertEquals("no arc gets created for a place-to-place pairing",
+        assertEquals("no plain arc gets created for a place-to-place pairing",
                 0, panel.getGraphNet().getGraphArcInList().size());
-        assertEquals("and no fusion either - the Arc tool cannot make one",
-                0, panel.getCanvasModel().getFusions().size());
+        assertFusion(panel, freePlace, framedPlace);
+    }
+
+    @Test
+    public void theArcToolFusesAFreePlaceWithOneInsideACollapsedObjectThroughItsPort() {
+        PetriNetsPanel panel = freshPanel();
+
+        GraphPetriPlace freePlace = new GraphPetriPlace(new PetriP("Free", 1), idCounter++);
+        freePlace.setNewCoordinates(new Point2D.Double(400, 140));
+        panel.getGraphNet().getGraphPetriPlaceList().add(freePlace);
+
+        GraphPetriPlace framedPlace = new GraphPetriPlace(new PetriP("Pin", 1), idCounter++);
+        framedPlace.setNewCoordinates(new Point2D.Double(120, 140));
+        panel.getGraphNet().getGraphPetriPlaceList().add(framedPlace);
+        GraphObjectFrame frame = new GraphObjectFrame("Hidden", new Rectangle(40, 40, 160, 160));
+        panel.getCanvasModel().claim(frame, framedPlace);
+        panel.addObjectFrame(frame);
+        frame.setCollapsed(true);
+
+        var port = panel.getCanvasModel().portsOf(frame).stream()
+                .filter(p -> p.getElement() == framedPlace)
+                .findFirst()
+                .orElseThrow();
+
+        panel.setIsSettingArc(true);
+        dragFromTo(panel, 400, 140, port.getPosition().x, port.getPosition().y);
+
+        assertFusion(panel, freePlace, framedPlace);
+    }
+
+    @Test
+    public void theArcToolStillRejectsTransitionToTransition() {
+        // The other same-class pairing finishSettingNewArc refuses - there is no operation to
+        // fall back to for two transitions, unlike two places, so this stays a plain discard.
+        PetriNetsPanel panel = freshPanel();
+
+        GraphPetriTransition freeTransition = new GraphPetriTransition(new PetriT("Free", 1.0), idCounter++);
+        freeTransition.setNewCoordinates(new Point2D.Double(400, 140));
+        panel.getGraphNet().getGraphPetriTransitionList().add(freeTransition);
+
+        GraphPetriTransition otherTransition = new GraphPetriTransition(new PetriT("Other", 1.0), idCounter++);
+        otherTransition.setNewCoordinates(new Point2D.Double(200, 140));
+        panel.getGraphNet().getGraphPetriTransitionList().add(otherTransition);
+
+        panel.setIsSettingArc(true);
+        dragFromTo(panel, 400, 140, 200, 140);
+
+        assertEquals(0, panel.getGraphNet().getGraphArcOutList().size());
+        assertEquals(0, panel.getCanvasModel().getFusions().size());
     }
 }
