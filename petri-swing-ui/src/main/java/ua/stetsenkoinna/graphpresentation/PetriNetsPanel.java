@@ -757,6 +757,23 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
+     * @param frame a Petri-object frame
+     * @return true if the active canvas is the one this frame is edited on - it is nested
+     *         directly under the focused object, the frame-shaped analogue of
+     *         {@link #isOnThisCanvas}. Being drawn here is not enough: a frame nested two or
+     *         more levels deep is still drawn directly on this canvas whenever every object
+     *         between it and here is expanded ({@link #isFrameDrawnOnThisCanvas}), the same way
+     *         a doubly-framed element's own body is - but neither is "edited here" the way a
+     *         direct child's own header, resize handle, or context menu is. Structural changes
+     *         (move, resize, rename, priority, duplicate, remove) are gated on this; a plain
+     *         display toggle (the eye icon, collapse) is not, since it changes nothing the
+     *         object's own canvas would disagree about.
+     */
+    private boolean isFrameOnThisCanvas(GraphObjectFrame frame) {
+        return frame != null && canvasModel.enclosingOf(frame) == focusedFrame;
+    }
+
+    /**
      * @return every place and transition {@code paintGraphPetriNet} must leave out: those on
      *         another canvas entirely, and those whose own object, or an object enclosing it, is
      *         collapsed or eye-hidden
@@ -1179,7 +1196,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         for (GraphElement element : selection.elements()) {
             element.moveBy(dx, dy);
         }
-        for (GraphObjectFrame frame : selection.allFrames()) {
+        // A frame reaches selection.allFrames() by being merely drawn here, the same as a click
+        // or a marquee selects it by (see isFrameOnThisCanvas) - an element in the same selection
+        // never does, since a click always resolves to the owning frame before it ever reaches a
+        // locked element and selectIn's own element half already checks isOnThisCanvas. Filtering
+        // here is what stops a marquee that happened to catch a deeper object's frame from moving
+        // it right along with whatever the drag was actually meant to move.
+        for (GraphObjectFrame frame : framesOnThisCanvas(selection.allFrames())) {
             moveFrame(frame, frame.getBounds().x + dx, frame.getBounds().y + dy);
         }
         canvasModel.syncFusions();
@@ -1213,12 +1236,28 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         // group on its own as well without producing two.
         PetriNetsFrame.getUndoSupport().beginUpdate();
         try {
-            for (GraphObjectFrame frame : selection.allFrames()) {
+            for (GraphObjectFrame frame : framesOnThisCanvas(selection.allFrames())) {
                 duplicateObject(frame);
             }
         } finally {
             PetriNetsFrame.getUndoSupport().endUpdate();
         }
+    }
+
+    /**
+     * @param frames a selection that may include a frame nested deeper than a direct child of
+     *        the focused object - the marquee and a single click both select whatever frame is
+     *        merely drawn here, not only what is edited here (see {@link #isFrameOnThisCanvas})
+     * @return only the ones actually eligible to be changed from this canvas
+     */
+    private List<GraphObjectFrame> framesOnThisCanvas(List<GraphObjectFrame> frames) {
+        List<GraphObjectFrame> eligible = new ArrayList<>(frames.size());
+        for (GraphObjectFrame frame : frames) {
+            if (isFrameOnThisCanvas(frame)) {
+                eligible.add(frame);
+            }
+        }
+        return eligible;
     }
 
     /**
@@ -1230,7 +1269,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * as the frame's own "Remove Petri-object frame", which says what it keeps.
      */
     public void deleteSelection() {
-        List<GraphObjectFrame> frames = selection.allFrames();
+        List<GraphObjectFrame> frames = framesOnThisCanvas(selection.allFrames());
         if (!frames.isEmpty() && choosenArc == null && choosen == null) {
             String what = frames.size() == 1
                     ? "the Petri-object '" + frames.getFirst().getName() + "'"
@@ -1287,7 +1326,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * operation that exists only behind a modal dialog cannot be tested at all.
      */
     public void deleteSelectedObjects() {
-        List<GraphObjectFrame> roots = selection.allFrames();
+        List<GraphObjectFrame> roots = framesOnThisCanvas(selection.allFrames());
         if (roots.isEmpty()) {
             return;
         }
@@ -1437,6 +1476,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return false;
         }
         GraphObjectFrame frame = frameAt(point);
+        if (!isFrameOnThisCanvas(frame)) {
+            // Renaming, changing priority, duplicating or removing it is only for its own
+            // direct parent's canvas to do - see isFrameOnThisCanvas - so a frame nested deeper
+            // than that gets no menu of its own here, the same as if nothing were under the
+            // point at all.
+            frame = null;
+        }
         if (frame != null && find(point) == null) {
             showObjectFrameMenu(ev, frame);
             return true;
@@ -2362,6 +2408,18 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (SwingUtilities.isLeftMouseButton(ev)) {
                 resizedFrame = frameHandleAt(scaledCurrentMousePoint);
                 draggedFrame = resizedFrame == null ? frameHeaderAt(scaledCurrentMousePoint) : null;
+                // A frame nested two or more levels deep can still be drawn directly on this
+                // canvas - every object between it and here expanded is all that takes - but
+                // moving or resizing it is still only for its own direct parent's canvas to do,
+                // the same boundary an element has always had. Falling through here leaves the
+                // click to whatever ordinary selection logic is below instead of a silent no-op
+                // drag that never moves anything.
+                if (!isFrameOnThisCanvas(resizedFrame)) {
+                    resizedFrame = null;
+                }
+                if (!isFrameOnThisCanvas(draggedFrame)) {
+                    draggedFrame = null;
+                }
             }
             if (resizedFrame != null || draggedFrame != null) {
                 GraphObjectFrame grabbed = resizedFrame != null ? resizedFrame : draggedFrame;
@@ -3215,16 +3273,25 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // a NullPointerException, aborting the drag mid-gesture - which is exactly what
             // "drawing an arc silently doesn't work" looks like from outside.
             if (currentArc == null && !selection.isEmpty() && leftMouseButtonPressed) { // moving the whole selection
-
-                selection.paintHighlight();
-                setCursor(new Cursor(Cursor.MOVE_CURSOR));
-                // One operation for both kinds of selected thing: elements move directly, objects
-                // move with their whole subtree. Frames used to be left behind entirely.
-                moveSelectionBy(
-                        (int) scaledCurrentMousePoint.getX() - prevMouseLocation.x,
-                        (int) scaledCurrentMousePoint.getY() - prevMouseLocation.y);
-                selectionDragged = true;
-                prevMouseLocation = scaledCurrentMousePoint;
+                if (prevMouseLocation == null) {
+                    // Selecting a frame by clicking its body (or, since isFrameOnThisCanvas, its
+                    // header while it is not eligible to be dragged) returns without arming a
+                    // drag the way the general fallthrough below does - so the very next drag
+                    // event here would read a null prevMouseLocation instead of a real delta.
+                    // Treating this first event as establishing the baseline, not a move, is
+                    // what the general fallthrough already does for every other selection.
+                    prevMouseLocation = scaledCurrentMousePoint;
+                } else {
+                    selection.paintHighlight();
+                    setCursor(new Cursor(Cursor.MOVE_CURSOR));
+                    // One operation for both kinds of selected thing: elements move directly, objects
+                    // move with their whole subtree. Frames used to be left behind entirely.
+                    moveSelectionBy(
+                            (int) scaledCurrentMousePoint.getX() - prevMouseLocation.x,
+                            (int) scaledCurrentMousePoint.getY() - prevMouseLocation.y);
+                    selectionDragged = true;
+                    prevMouseLocation = scaledCurrentMousePoint;
+                }
             }
             repaint();
         }
@@ -3489,7 +3556,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return;
         }
         GraphObjectFrame frame = frameAt(scaledPoint);
-        if (frame != null) {
+        if (frame != null && isFrameOnThisCanvas(frame)) {
             confirmRemoveObjectFrame(frame);
             return;
         }

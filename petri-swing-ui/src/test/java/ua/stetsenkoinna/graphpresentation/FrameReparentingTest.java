@@ -73,6 +73,11 @@ public class FrameReparentingTest {
         panel.addObjectFrame(inner);
         panel.getCanvasModel().nest(inner, outer);
         assertSame(outer, panel.getCanvasModel().enclosingOf(inner));
+        // Only Inner's own direct parent's canvas can move it at all (isFrameOnThisCanvas) - see
+        // FrameEditScopeTest for the boundary itself. This test is about what a valid drag does
+        // once it is allowed to happen, so it opens Outer's canvas first, the same as a user
+        // would have to before dragging Inner for real.
+        panel.openObjectCanvas(outer);
 
         // Drags the inner frame's header far to the right, well clear of the outer frame.
         int fromX = inner.getBounds().x + 20;
