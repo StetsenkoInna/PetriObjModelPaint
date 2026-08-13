@@ -199,6 +199,47 @@ public class PlaceFusionLifecycleTest {
                 panel.getCanvasModel().getFusions().isEmpty());
     }
 
+    // ------------------------------------------------------------------ copied nests
+
+    /**
+     * Duplicating a nest whose insides shared a place used to drop the fusion from the copy:
+     * it looked identical but its places were no longer shared, so the copy simulated
+     * differently from the original.
+     */
+    @Test
+    public void duplicatingANestCopiesItsInternalFusions() throws Exception {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace pa = placeAt(panel, "PA", 200, 200);
+        GraphObjectFrame a = frameWith(panel, "A", new Rectangle(140, 140, 160, 140), pa);
+        GraphPetriPlace pb = placeAt(panel, "PB", 500, 200);
+        GraphObjectFrame b = frameWith(panel, "B", new Rectangle(440, 140, 160, 140), pb);
+        fuseThroughPanel(panel, pa, pb);
+        GraphObjectFrame pipeline = panel.groupIntoObject(
+                List.of(), List.of(a, b), "Pipeline");
+
+        GraphObjectFrame copy = panel.duplicateObject(pipeline, "Pipeline copy");
+
+        assertEquals("the copy carries its own fusion",
+                2, panel.getCanvasModel().getFusions().size());
+        GraphPlaceFusion copied = panel.getCanvasModel().getFusions().get(1);
+        assertFalse("joining the clones, not the originals",
+                copied.involves(pa) || copied.involves(pb));
+        assertTrue("the copied halves live inside the copied nest",
+                panel.getCanvasModel().membersOfSubtree(copy).contains(copied.getMaster())
+                        && panel.getCanvasModel().membersOfSubtree(copy).contains(copied.getJoined()));
+
+        // The whole duplicate, fusions included, is one Ctrl+Z.
+        UndoManager undo = watchUndo();
+        panel.getSelection().setSelectedFrame(copy);
+        // no edit was recorded by the selection; undo the duplicate posted before watchUndo
+        // is not visible to this manager, so re-duplicate under observation instead
+        GraphObjectFrame observed = panel.duplicateObject(pipeline, "Pipeline copy 2");
+        assertEquals(3, panel.getCanvasModel().getFusions().size());
+        undo.undo();
+        assertEquals("undoing the duplicate takes its fusion with it",
+                2, panel.getCanvasModel().getFusions().size());
+    }
+
     // ------------------------------------------------------------------ serialization
 
     @Test

@@ -399,6 +399,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 pasteEdit.rememberAdoption(focusedFrame, adopted);
             }
 
+            recreateFusionsAmongCopies(clonedFragment.oldToNew);
+
             copiedElements = new ArrayList<>(clonedFragment.elements);
             // The pasted objects, not the originals, are what another Ctrl+V should paste next -
             // otherwise every paste after the first stacks another copy on top of the first one.
@@ -435,6 +437,30 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 original.getName() + " copy", PASTE_OFFSET, PASTE_OFFSET);
         if (duplicate != null) {
             recentlyPasted.add(duplicate);
+        }
+    }
+
+    /**
+     * Recreates every shared place both of whose halves were cloned by a copy, joining the
+     * clones the way the originals were joined. A duplicated or pasted nest used to come
+     * back with its internal fusions silently dropped: the copy looked identical but its
+     * places were no longer shared, so the copy simulated differently from the original.
+     * Posted as one {@code JoinPlacesEdit} each, inside the caller's compound edit, so the
+     * undo and redo of the copy carry the fusions with everything else.
+     *
+     * @param oldToNew every copied element mapped to its copy
+     */
+    private void recreateFusionsAmongCopies(Map<GraphElement, GraphElement> oldToNew) {
+        for (GraphPlaceFusion fusion : new ArrayList<>(canvasModel.getFusions())) {
+            GraphElement masterCopy = oldToNew.get(fusion.getMaster());
+            GraphElement joinedCopy = oldToNew.get(fusion.getJoined());
+            if (masterCopy instanceof GraphPetriPlace masterPlace
+                    && joinedCopy instanceof GraphPetriPlace joinedPlace) {
+                GraphPlaceFusion copy = new GraphPlaceFusion(masterPlace, joinedPlace,
+                        canvasModel.ownerOf(masterPlace), canvasModel.ownerOf(joinedPlace));
+                canvasModel.restoreFusion(copy);
+                PetriNetsFrame.getUndoSupport().postEdit(new JoinPlacesEdit(this, copy));
+            }
         }
     }
 
@@ -2231,6 +2257,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             PetriNetsFrame.getUndoSupport().postEdit(new PasteElementsEdit(this, copy));
 
             GraphObjectFrame duplicate = recreateFrameSubtree(frame, copy.oldToNew, name, dx, 0);
+            recreateFusionsAmongCopies(copy.oldToNew);
             repaint();
             return duplicate;
         } finally {
