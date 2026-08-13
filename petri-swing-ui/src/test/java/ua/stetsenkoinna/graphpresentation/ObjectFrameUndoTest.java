@@ -179,4 +179,65 @@ public class ObjectFrameUndoTest {
                 panel.getCanvasModel().ownerOf(place));
         assertEquals(2, panel.countElementsIn(frame));
     }
+
+    /** Builds the net a collection entry would hand over: two elements and the arc between them. */
+    private static ua.stetsenkoinna.graphnet.GraphPetriNet templateNet() {
+        GraphPetriPlace place = placeAt("TP", 500, 500);
+        GraphPetriTransition transition = transitionAt("TT", 600, 500);
+        ua.stetsenkoinna.graphnet.GraphPetriNet net = new ua.stetsenkoinna.graphnet.GraphPetriNet();
+        net.getGraphPetriPlaceList().add(place);
+        net.getGraphPetriTransitionList().add(transition);
+        net.getGraphArcInList().add(
+                ua.stetsenkoinna.graphnet.GraphArcFactory.inArc(place, transition, 1, false));
+        return net;
+    }
+
+    private static void placeAsObject(PetriNetsPanel panel,
+            ua.stetsenkoinna.graphnet.GraphPetriNet net, String name) {
+        try {
+            java.lang.reflect.Method method = PetriNetsPanel.class.getDeclaredMethod(
+                    "placeGraphNet", ua.stetsenkoinna.graphnet.GraphPetriNet.class, String.class,
+                    ua.stetsenkoinna.graphnet.NetTemplateRef.class);
+            method.setAccessible(true);
+            method.invoke(panel, net, name, null);
+        } catch (java.lang.reflect.InvocationTargetException failure) {
+            throw new AssertionError(failure.getCause());
+        } catch (ReflectiveOperationException broken) {
+            throw new AssertionError(broken);
+        }
+    }
+
+    @Test
+    public void undoingAnObjectFromTheCollectionTakesItsContentsWithIt() {
+        PetriNetsPanel panel = panelWithTwoFreeElements();
+        int before = everything(panel).size();
+
+        List<UndoableEdit> posted =
+                editsPostedBy(() -> placeAsObject(panel, templateNet(), "FromCollection"));
+
+        assertEquals("putting one object on the canvas is one Ctrl+Z", 1, posted.size());
+        assertEquals("fixture: the object brought its net with it", before + 2, everything(panel).size());
+        assertEquals(1, panel.getCanvasModel().getFrames().size());
+
+        posted.getFirst().undo();
+
+        assertTrue("the frame is gone", panel.getCanvasModel().getFrames().isEmpty());
+        // The defect this pins: the frame came off and its net stayed behind as loose elements
+        // nobody had drawn, so the object survived its own undo in pieces.
+        assertEquals("and so is everything it brought", before, everything(panel).size());
+    }
+
+    @Test
+    public void redoingItPutsBackBothTheFrameAndTheNet() {
+        PetriNetsPanel panel = panelWithTwoFreeElements();
+        int before = everything(panel).size();
+
+        List<UndoableEdit> posted =
+                editsPostedBy(() -> placeAsObject(panel, templateNet(), "FromCollection"));
+        posted.getFirst().undo();
+        posted.getFirst().redo();
+
+        assertEquals("the net is back", before + 2, everything(panel).size());
+        assertEquals("and so is the object", 1, panel.getCanvasModel().getFrames().size());
+    }
 }

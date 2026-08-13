@@ -1657,28 +1657,37 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * the file and must not be re-laid-out, whereas a library template has none and has to be.
      */
     private void placeGraphNet(GraphPetriNet built, String objectName, NetTemplateRef template) {
-        List<GraphElement> members = absorbNet(built);
+        // One object arriving is one thing the user did, so it is one Ctrl+Z. Without the
+        // grouping the frame and the net it brought are separate edits, and undoing took the
+        // frame off while leaving its contents behind as loose elements: the object appeared to
+        // survive its own undo, as a scattering of places and transitions nobody had drawn.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            List<GraphElement> members = absorbNet(built);
 
-        GraphObjectFrame frame = new GraphObjectFrame(objectName, boundsAround(members));
-        frame.setTemplate(template);
-        canvasModel.nest(frame, focusedFrame);
-        addObjectFrame(frame);
-        for (GraphElement element : members) {
-            canvasModel.claim(frame, element);
-            // Locked inside a frame from the moment it lands, so it is never left looking
-            // selected — nothing on the canvas could act on that selection anyway.
-            element.setColor(Color.BLACK);
+            GraphObjectFrame frame = new GraphObjectFrame(objectName, boundsAround(members));
+            frame.setTemplate(template);
+            canvasModel.nest(frame, focusedFrame);
+            addObjectFrame(frame);
+            for (GraphElement element : members) {
+                canvasModel.claim(frame, element);
+                // Locked inside a frame from the moment it lands, so it is never left looking
+                // selected — nothing on the canvas could act on that selection anyway.
+                element.setColor(Color.BLACK);
+            }
+            selection.clear();
+            choosen = null;
+            if (focusedFrame != null) {
+                growToContain(focusedFrame, frame.getBounds());
+                frame.setCollapsed(true);
+            }
+            // addObjectFrame leaves what it added selected, which is right when the user created
+            // one deliberately but wrong here: stamping drops object after object, and each would
+            // sit highlighted with nothing having been selected at all.
+            selection.setSelectedFrame(null);
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
         }
-        selection.clear();
-        choosen = null;
-        if (focusedFrame != null) {
-            growToContain(focusedFrame, frame.getBounds());
-            frame.setCollapsed(true);
-        }
-        // addObjectFrame leaves what it added selected, which is right when the user created
-        // one deliberately but wrong here: stamping drops object after object, and each would
-        // sit highlighted with nothing having been selected at all.
-        selection.setSelectedFrame(null);
         repaint();
     }
 
@@ -1691,12 +1700,21 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * screen — which matters to anything that needs to keep hold of them afterwards, like
      * drawing a frame around exactly this net.
      *
+     * <p>Posts the elements it took on as one undoable edit. It used to post none at all, which
+     * is what let an object's contents outlive the undo that removed its frame.
+     *
      * @return the elements now on the canvas, in the caller's own instances
      */
     private List<GraphElement> absorbNet(GraphPetriNet built) {
         List<GraphElement> members = new ArrayList<>();
         members.addAll(built.getGraphPetriPlaceList());
         members.addAll(built.getGraphPetriTransitionList());
+
+        PetriNetsFrame.getUndoSupport().postEdit(new PasteElementsEdit(this,
+                new GraphPetriNet.GraphNetFragment(
+                        new ArrayList<>(members),
+                        new ArrayList<>(built.getGraphArcInList()),
+                        new ArrayList<>(built.getGraphArcOutList()))));
 
         if (graphNet == null) {
             setCanvasNet(built);
