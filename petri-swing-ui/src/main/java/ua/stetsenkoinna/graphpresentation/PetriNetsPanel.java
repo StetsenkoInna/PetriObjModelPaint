@@ -2654,6 +2654,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             removeTimer();
 
             if (draggedFrame != null || resizedFrame != null) {
+                confirmFrameReparenting(draggedFrame);
                 draggedFrame = null;
                 resizedFrame = null;
                 frameDragOffset = null;
@@ -2835,11 +2836,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * frame, and if so, offers to actually join it.
      *
      * <p>Landing inside a frame's rectangle is only ever a proposal — claiming the element is
-     * this method's own doing, not a side effect of where it was dropped. That is also what
-     * keeps a frame's own move ({@link #moveFrame}) from doing the same thing to whatever it
-     * happens to end up over: that method only ever moves elements it already owns
-     * ({@link GraphObjectFrame#getMembers()}), it never looks at what else the frame's new
-     * position covers.
+     * this method's own doing, not a side effect of where it was dropped. {@link #moveFrame}
+     * itself never does this to whatever a dragged frame ends up over: it only ever moves
+     * elements it already owns ({@link GraphObjectFrame#getMembers()}). {@link
+     * #confirmFrameReparenting} is the frame-shaped counterpart of this method, called
+     * separately once the drag that moved the frame itself ends.
      */
     private void confirmMoveBetweenObjects() {
         GraphElement element = draggedElement;
@@ -2871,6 +2872,70 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
         }
         canvasModel.claim(after, element);
+    }
+
+    /**
+     * Checks whether a frame that was just dragged now belongs under a different parent than
+     * the one it started under - lifted to the top level, moved into a sibling, or moved back
+     * over where it already was - and re-nests it if so. The frame-shaped counterpart of
+     * {@link #confirmMoveBetweenObjects}: dragging a nested object was moving its rectangle
+     * without this ever checking whether that rectangle still landed inside its parent's, so a
+     * child could end up drawn entirely outside the frame the model still said it was nested in.
+     *
+     * <p>Silent rather than asking first, unlike an element's move: nothing inside the frame's
+     * own subtree changes ownership or loses an arc by this happening - only which frame
+     * encloses the frame itself does - so there is no structural consequence for a confirmation
+     * to warn about the way there is for an element carrying arcs across a boundary.
+     *
+     * @param frame the frame that was just dragged, or {@code null} when this drag was a resize
+     *        rather than a move
+     */
+    private void confirmFrameReparenting(GraphObjectFrame frame) {
+        if (frame == null) {
+            return;
+        }
+        GraphObjectFrame before = canvasModel.enclosingOf(frame);
+        Rectangle bounds = frame.getBounds();
+        Point centre = new Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+        GraphObjectFrame after = frameAtExcluding(centre, canvasModel.subtreeOf(frame));
+        if (after == before) {
+            return;
+        }
+        canvasModel.nest(frame, after);
+        if (after != null) {
+            growToContain(after, frame.getBounds());
+        }
+    }
+
+    /**
+     * The same search {@link #frameAt} does, except a frame that is itself one of the
+     * candidates - the one just dragged - is never a valid answer, together with everything
+     * nested inside it: landing back over its own rectangle must resolve to whatever encloses
+     * it, not to itself, and landing over one of its own children can only ever mean the parent
+     * dragged far enough that a child's rectangle happens to cover the point, never that the
+     * parent should become nested inside what it already contains.
+     *
+     * @param point a point on the canvas
+     * @param excluded the frames that cannot be the answer - normally a dragged frame's own
+     *        {@link GraphCanvasModel#subtreeOf}, which already includes the frame itself
+     * @return the innermost remaining frame the active canvas draws at that point, or
+     *         {@code null}
+     */
+    private GraphObjectFrame frameAtExcluding(Point2D point, java.util.Collection<GraphObjectFrame> excluded) {
+        GraphObjectFrame best = null;
+        int bestLevel = -1;
+        for (GraphObjectFrame candidate : canvasModel.getFrames()) {
+            if (candidate == focusedFrame || excluded.contains(candidate)
+                    || !isFrameDrawnOnThisCanvas(candidate) || !candidate.contains(point)) {
+                continue;
+            }
+            int level = canvasModel.levelOf(candidate);
+            if (level >= bestLevel) {
+                best = candidate;
+                bestLevel = level;
+            }
+        }
+        return best;
     }
 
     /**
