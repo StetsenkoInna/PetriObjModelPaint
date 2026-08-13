@@ -27,6 +27,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
+import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.net.URL;
 import java.util.ArrayList;
@@ -520,16 +521,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         paintPorts(g2);
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
             if (fusion.isAnchoredToAFrame()) {
-                // Asks the canvas who owns each half rather than the fusion's own remembered
-                // owners: those were recorded when the fusion was made and a removed frame went
-                // on answering with itself forever, so a shared place could resolve to an object
-                // that is no longer on the canvas at all.
-                Point masterPoint = connectionEndpoint(
-                        canvasModel.ownerOf(fusion.getMaster()), fusion.getMaster());
-                Point joinedPoint = connectionEndpoint(
-                        canvasModel.ownerOf(fusion.getJoined()), fusion.getJoined());
-                if (masterPoint != null && joinedPoint != null) {
-                    fusion.drawBetweenPorts(g2, masterPoint, joinedPoint, false);
+                Line2D line = trimmedFusionLine(fusion);
+                if (line != null) {
+                    fusion.drawBetweenPorts(g2,
+                            new Point((int) line.getX1(), (int) line.getY1()),
+                            new Point((int) line.getX2(), (int) line.getY2()),
+                            false);
                 }
             }
         }
@@ -832,6 +829,29 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
         Point2D centre = anchor.getGraphElementCenter();
         return centre == null ? null : new Point((int) centre.getX(), (int) centre.getY());
+    }
+
+    /**
+     * The line a fusion anchored to at least one frame is drawn as, trimmed to each half's
+     * actual border the same way {@link #settleCrossingSubstitute} trims a crossing arc's line -
+     * {@link GraphPlaceFusion#drawBetweenPorts} itself just draws whatever line it is given, so
+     * without this it drew straight to {@link #connectionEndpoint}'s raw centre point instead of
+     * stopping at the place's edge (or the port's) the way every other connection on the canvas
+     * does.
+     *
+     * @return the trimmed line, or {@code null} if either half's anchor cannot currently be found
+     */
+    private Line2D trimmedFusionLine(GraphPlaceFusion fusion) {
+        GraphElement masterAnchor = connectionAnchor(canvasModel.ownerOf(fusion.getMaster()), fusion.getMaster());
+        GraphElement joinedAnchor = connectionAnchor(canvasModel.ownerOf(fusion.getJoined()), fusion.getJoined());
+        if (masterAnchor == null || joinedAnchor == null) {
+            return null;
+        }
+        GraphArc temp = new GraphArc();
+        temp.settingNewArc(masterAnchor);
+        temp.setEndElement(joinedAnchor);
+        temp.changeBorder();
+        return temp.getGraphElement();
     }
 
     /**
