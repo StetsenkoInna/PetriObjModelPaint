@@ -20,8 +20,8 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 /**
- * The strip itself: one pill per open canvas, badged with its level, and hidden while there is
- * nothing to navigate. Constructible without a display, so this runs anywhere.
+ * The strip itself: one pill per open canvas, badged with its level, the net's own pill always
+ * present and always first. Constructible without a display, so this runs anywhere.
  */
 public class CanvasTabsBarTest {
 
@@ -48,17 +48,20 @@ public class CanvasTabsBarTest {
     }
 
     @Test
-    public void aPlainNetWithNoObjectsShowsNoStripAtAll() {
+    public void aPlainNetWithNoObjectsStillShowsItsOwnPill() {
         GraphCanvasModel model = new GraphCanvasModel("M", new GraphPetriNet());
         CanvasStack stack = new CanvasStack(model);
 
         CanvasTabsBar bar = barFor(stack, model, new ArrayList<>(), new ArrayList<>());
 
-        assertFalse("a strip would only take room away from the drawing", bar.isVisible());
+        // The strip does not appear out of nowhere the first time an object is created, and the
+        // user always has the one landmark that says which canvas they are looking at.
+        assertTrue("the strip is always there", bar.isVisible());
+        assertEquals("0  Net", descendants(bar, JToggleButton.class).getFirst().getText());
     }
 
     @Test
-    public void theStripAppearsAsSoonAsTheDocumentHasAnObject() {
+    public void theStripStaysVisibleOnceTheDocumentHasAnObject() {
         GraphCanvasModel model = new GraphCanvasModel("M", new GraphPetriNet());
         CanvasStack stack = new CanvasStack(model);
         CanvasTabsBar bar = barFor(stack, model, new ArrayList<>(), new ArrayList<>());
@@ -68,6 +71,31 @@ public class CanvasTabsBarTest {
 
         assertTrue(bar.isVisible());
         assertEquals("0  Net", descendants(bar, JToggleButton.class).getFirst().getText());
+    }
+
+    @Test
+    public void theNetsPillIsFirstWhateverElseIsOpenedOrClosed() {
+        GraphCanvasModel model = new GraphCanvasModel("M", new GraphPetriNet());
+        GraphObjectFrame outer = frame("Outer");
+        GraphObjectFrame inner = frame("Inner");
+        model.getFrames().add(outer);
+        model.getFrames().add(inner);
+        model.nest(inner, outer);
+
+        CanvasStack stack = new CanvasStack(model);
+        CanvasTabsBar bar = barFor(stack, model, new ArrayList<>(), new ArrayList<>());
+
+        stack.open(inner);
+        assertEquals("0  Net", descendants(bar, JToggleButton.class).getFirst().getText());
+
+        stack.close(outer);
+        assertEquals("closing everything leaves the net's pill, and leaves it first",
+                "0  Net", descendants(bar, JToggleButton.class).getFirst().getText());
+        assertEquals("and it is the only one left", 1, descendants(bar, JToggleButton.class).size());
+
+        stack.reset();
+        assertEquals("0  Net", descendants(bar, JToggleButton.class).getFirst().getText());
+        assertTrue(bar.isVisible());
     }
 
     @Test

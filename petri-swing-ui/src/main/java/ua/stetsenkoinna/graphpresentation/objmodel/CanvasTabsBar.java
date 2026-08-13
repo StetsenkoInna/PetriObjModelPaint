@@ -83,10 +83,13 @@ public class CanvasTabsBar extends JPanel {
             GraphObjectFrame frame = open.get(index);
             add(pillFor(frame, index == stack.getActiveIndex(), group));
         }
-        // Hidden while there is nothing to navigate: a plain net has one canvas and no objects,
-        // so a strip would only take room away from the drawing. It appears the moment the
-        // document has a Petri-object in it at all, which is also when it becomes reachable.
-        setVisible(!(stack.isRootOnly() && model.getFrames().isEmpty()));
+        // Always shown, the net's own pill included. It used to hide itself while a document had
+        // no objects, on the reasoning that a strip with one pill navigates nowhere. That reads as
+        // a control appearing out of nowhere the first time an object is created, and it leaves
+        // the user without the one landmark that says which canvas they are looking at. A strip
+        // that is always there is one the user can rely on, and the net's pill is where they came
+        // from.
+        setVisible(true);
         revalidate();
         repaint();
     }
