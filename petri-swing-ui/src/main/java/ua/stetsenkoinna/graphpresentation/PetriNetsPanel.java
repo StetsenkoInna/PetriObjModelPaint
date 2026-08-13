@@ -1078,10 +1078,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseWheelMoved(MouseWheelEvent e) {
-            if (e.getWheelRotation() == -1 && scale <= 0.15) {
-                return;
-            }
-            scale += (double) e.getWheelRotation() / 10;
+            // A fast spin delivers several notches in one event, so guarding a single -1
+            // step used to let the scale blow straight through the floor and turn zero or
+            // negative - at which point the whole drawing silently disappears and every
+            // hit test divides by a non-positive scale. Clamping the result holds at any
+            // spin speed, and the ceiling keeps a runaway zoom-in from doing the same in
+            // the other direction.
+            scale = Math.min(5.0, Math.max(0.1, scale + (double) e.getWheelRotation() / 10));
             repaint();
         }
 
@@ -2456,12 +2459,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // by frameAt, so a click inside the room the user is standing in reaches its net.
             GraphObjectFrame frameAtPoint = frameAt(scaledCurrentMousePoint);
             if (frameAtPoint != null) {
+                // Pressing an object that is not part of the current selection replaces the
+                // selection, like any fresh single click - otherwise the drag that follows
+                // would carry the leftovers of the previous gesture along with the frame.
+                if (!selection.contains(frameAtPoint)) {
+                    setDefaultColorGraphElements();
+                    selection.clear();
+                }
                 selection.setSelectedFrame(frameAtPoint);
+                // This press can start a body drag, so it anchors the drag origin itself -
+                // the drag handler's null-guard would otherwise swallow the first drag
+                // event's worth of movement as its baseline.
+                prevMouseLocation = scaledCurrentMousePoint;
                 if (current != null) {
                     current.setColor(Color.BLACK);
                     current = null;
                 }
-                isSettingArc = false;
                 repaint();
                 return;
             }
@@ -2486,7 +2499,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             prevMouseLocation = scaledCurrentMousePoint;
             if (tool == CanvasTool.MARQUEE) {
                 // The marquee tool always rubber-band selects, even starting on top of an
-                // element — never picks it up the way the default Select tool would.
+                // element — never picks it up the way the default Select tool would. The
+                // previous selection is dropped right away: it used to survive into the
+                // drag, whose move-selection branch then dragged it across the canvas
+                // instead of drawing the band.
                 if (current != null) {
                     current.setColor(Color.BLACK);
                     current = null;
@@ -2495,6 +2511,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     choosenArc.setColor(Color.BLACK);
                 }
                 choosenArc = null;
+                choosen = null;
+                setDefaultColorGraphElements();
+                selection.clear();
             } else if (current != null && SwingUtilities.isLeftMouseButton(ev)) {
                 // A right-click never selects an element — it either falls through to its own
                 // context menu above, or, on a lone element maybeShowContextMenu deliberately
@@ -2505,14 +2524,32 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 repaint();
             } else if (SwingUtilities.isLeftMouseButton(ev)) {
                 current = find(scaledCurrentMousePoint);
+                if (current == null) {
+                    // The press landed on nothing: this gesture is a plain deselect or the
+                    // start of a marquee. The old selection used to survive into the drag,
+                    // and the move-selection branch then teleported it across the canvas
+                    // by the delta from wherever the previous gesture ended.
+                    choosen = null;
+                    setDefaultColorGraphElements();
+                    selection.clear();
+                }
                 if (current != null) {
+                    // An element already inside the selection drags the whole selection;
+                    // anything else replaces it, like any fresh single click.
+                    if (!selection.contains(current)) {
+                        selection.clear();
+                    }
                     setDefaultColorGraphElements();
                     current.setColor(Color.BLUE); //26.07.2018
                     choosen = current;
                     // Remember where this element started: dragging it into another frame
-                    // moves it to another Petri-object, which the user gets to confirm.
-                    draggedElement = current;
-                    ownerBeforeDrag = canvasModel.ownerOf(current);
+                    // moves it to another Petri-object, which the user gets to confirm. A
+                    // grab inside a multi-selection is the bulk gesture's business instead -
+                    // recording it here too would reparent the same element twice.
+                    if (!selection.contains(current)) {
+                        draggedElement = current;
+                        ownerBeforeDrag = canvasModel.ownerOf(current);
+                    }
                     Point2D centre = current.getGraphElementCenter();
                     positionBeforeDrag = centre == null ? null
                             : new Point2D.Double(centre.getX(), centre.getY());
@@ -2554,13 +2591,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                         graphNet.getGraphArcOutList().add((GraphArcOut) currentArc); //3.12.2012
                         currentArc.settingNewArc(current);
                     }
-                } else {    //26.01.2013
-
+                    // The armed state travels with currentArc until the release finishes or
+                    // discards the arc; the release then re-arms the tool either way. A press
+                    // on empty canvas keeps the tool armed instead of the old silent disarm,
+                    // which made the next drag move an element instead of drawing an arc.
                     isSettingArc = false;
                 }
             }
 
-            isSettingArc = false;//26.01.2013
             choosenArc = null;
             repaint();
         }
@@ -2668,6 +2706,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         public void mouseReleased(MouseEvent ev) {
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
 
+            // Whatever this release ends, the next gesture starts from its own press: a
+            // stale drag origin surviving here made the very next body-drag teleport the
+            // selection by the vector from wherever the previous gesture happened to end.
+            prevMouseLocation = null;
+
+            // The hold timer dies with the gesture, before any early return below - the
+            // context-menu path used to leak it, leaving isMouseButtonHold stuck true, so
+            // a later plain click teleported the element under the pointer.
+            removeTimer();
+
             // On some platforms (notably Windows) the popup trigger fires on release, not
             // press — so a right-click on a frame being "dragged" by that same press still
             // has to end in the context menu, not a completed drag.
@@ -2676,6 +2724,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 draggedFrame = null;
                 resizedFrame = null;
                 frameDragOffset = null;
+                // The press that led here armed the marquee anchor like any other press;
+                // leaving it set anchored the next gesture's band at a stale corner.
+                startDragMouseLocation = null;
+                currentDragMouseLocation = null;
+                leftMouseButtonPressed = false;
                 setCursor(Cursor.getDefaultCursor());
                 return;
             }
@@ -2709,8 +2762,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
-            removeTimer();
-
             if (draggedFrame != null || resizedFrame != null) {
                 confirmFrameReparenting(draggedFrame);
                 draggedFrame = null;
@@ -2733,6 +2784,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (selectionDragged) {
                 selectionDragged = false;
                 confirmBulkMoveBetweenObjects();
+                // A frame dragged as part of the selection - grabbed by its body, or caught
+                // in a marquee - moved without the header-drag path, so it never got its
+                // re-nest check: it could sit visibly outside its parent while the model
+                // still said it was nested inside. Same rule as a header drag, per frame.
+                for (GraphObjectFrame moved : framesOnThisCanvas(selection.allFrames())) {
+                    confirmFrameReparenting(moved);
+                }
             }
 
             startDragMouseLocation = null;
@@ -2741,6 +2799,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             //  setDefaultColorGraphElements();// deleted 27.07.2018
 
             setCursor(Cursor.getDefaultCursor());
+            boolean arcGestureEnded = currentArc != null;
             if (currentArc != null) {
                 currentArc.setColor(Color.BLUE);
                 current = arcToolTargetAt(scaledCurrentMousePoint);
@@ -2862,6 +2921,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     removeCurrentArc();//1.02.2013;
                 }
             }
+            if (arcGestureEnded) {
+                // The Arc tool stays armed whether the arc succeeded or not - it used to
+                // disarm silently on a miss (an empty release, place-to-place, transition-
+                // to-transition), so the user's next attempt moved the element instead of
+                // drawing an arc. The tool is only actually left via setTool().
+                isSettingArc = true;
+            }
             currentArc = null;
             setDefaultColorGraphArcs();
             leftMouseButtonPressed = false;
@@ -2956,6 +3022,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         Rectangle bounds = frame.getBounds();
         Point centre = new Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
         GraphObjectFrame after = frameAtExcluding(centre, canvasModel.subtreeOf(frame));
+        // The focused frame is skipped by every hit test, so on an object's own canvas a
+        // drop that lands on none of its children used to read as "left every frame" - and
+        // a 15px tidy-up nudge inside the object silently tore the child out of it. Landing
+        // still inside the room the user is standing in means staying in that room, the
+        // same fallback an element's drop already has (ownerForDropAt); only a drop clear
+        // of the focused frame's own rectangle is really a lift out of it.
+        if (after == null && focusedFrame != null && focusedFrame.containsPoint(centre)) {
+            after = focusedFrame;
+        }
         if (after == before) {
             return;
         }
@@ -3245,7 +3320,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 PetriNetsPanel.this.setDefaultColorGraphElements();
                 currentDragMouseLocation = scaledCurrentMousePoint;
             }
-            if (current != null && currentArc == null) {  // moving place or transition
+            // An element grabbed inside a multi-selection is moved by the selection branch
+            // below, by the same delta as everything else - snapping it to the pointer here
+            // as well made it run ahead of the rest of the selection.
+            if (current != null && currentArc == null && !selection.contains(current)) {  // moving place or transition
 
                 current.setColor(Color.BLUE);
                 PetriNetsPanel.this.setDefaultColorGraphArcs(); //26.07.2018
