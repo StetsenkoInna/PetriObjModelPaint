@@ -29,6 +29,16 @@ public final class PnmlConstants {
     public static final String ELEMENT_OFFSET = "offset";
     public static final String ELEMENT_TOOLSPECIFIC = "toolspecific";
     public static final String ELEMENT_COORDINATES = "coordinates";
+    public static final String ELEMENT_INFORMATIONAL = "informational";
+    public static final String ELEMENT_INITIAL_MARKING_PARAMETER = "initialMarkingParameter";
+
+    /**
+     * ISO/IEC 15909-2 reference nodes: a node on one page that stands for a node on another.
+     * They are how the standard says "these two pages share this element", the only way an
+     * inter-object link is visible to a reader that does not know this tool.
+     */
+    public static final String ELEMENT_REFERENCE_PLACE = "referencePlace";
+    public static final String ELEMENT_REFERENCE_TRANSITION = "referenceTransition";
 
     // XML attribute names
     public static final String ATTR_ID = "id";
@@ -41,12 +51,29 @@ public final class PnmlConstants {
     public static final String ATTR_Y = "y";
     public static final String ATTR_XMLNS = "xmlns";
 
+    /** Points a reference node at the node it stands for. */
+    public static final String ATTR_REF = "ref";
+
     // Tool-specific values
     public static final String TOOL_PETRI_OBJ_MODEL = "PetriObjModel";
     public static final String TOOL_VERSION = "1.0";
 
-    /** Tool-specific version that marks a document carrying a composed Petri-object model. */
+    /**
+     * Tool-specific version of the first composed format, pages plus a positional link
+     * block, with no reference nodes. Still written by other tools in this family and still
+     * sitting in saved files, so it stays a value readers must accept.
+     */
     public static final String TOOL_VERSION_OBJECT_MODEL = "2.0";
+
+    /**
+     * Tool-specific version stamped on the page-level and net-level blocks of a document
+     * whose inter-object structure is also expressed with reference nodes.
+     *
+     * <p>It is a hint about what else the document carries, never a filter: a reader that
+     * selects tool-specific blocks by their {@code version} would drop the object metadata
+     * of every document written by a newer build. Match on {@link #ATTR_TOOL} only.
+     */
+    public static final String TOOL_VERSION_OBJECT_MODEL_CONFORMANT = "2.1";
 
     // Petri-object model extension: one <page> per Petri-object, links at net level
     public static final String ELEMENT_PETRI_OBJECT = "petriObject";
@@ -54,6 +81,26 @@ public final class PnmlConstants {
     public static final String ELEMENT_TEMPLATE_ARGUMENT = "argument";
     public static final String ELEMENT_PETRI_OBJECT_LINKS = "petriObjectLinks";
     public static final String ELEMENT_LINK = "link";
+
+    /**
+     * Tells apart the two things a reference node can mean to the Petri-object technique.
+     * Flattening a document deliberately erases the difference, to a conformant reader both
+     * are node merges, so the distinction can only live in a tool-specific block.
+     */
+    public static final String ELEMENT_REFERENCE_ROLE = "referenceRole";
+
+    /** The object's own place slot <em>is</em> the shared place: it has no place of its own. */
+    public static final String ROLE_FUSION = "fusion";
+
+    /** The page only draws a stand-in for a place or transition that belongs to another object. */
+    public static final String ROLE_REPRESENTATIVE = "representative";
+
+    /**
+     * The initial marking a fused-away place used to carry. It has no effect once the fusion
+     * is wired, the target's place is the surviving one, so it is not part of the standard
+     * projection, but a drawing that loses it silently loses what the user typed.
+     */
+    public static final String ELEMENT_FUSED_INITIAL_MARKING = "fusedInitialMarking";
 
     public static final String ATTR_INDEX = "index";
     public static final String ATTR_NAME = "name";
@@ -66,6 +113,14 @@ public final class PnmlConstants {
     public static final String ATTR_TARGET_ELEMENT = "targetElement";
     public static final String ATTR_QUANTITY = "quantity";
     public static final String ATTR_INFORMATIONAL = "informational";
+
+    /**
+     * Id-valued companions of {@link #ATTR_SOURCE_ELEMENT} / {@link #ATTR_TARGET_ELEMENT}.
+     * The positional indices keep their meaning, but an id survives a reader that numbers
+     * elements differently, so it is what a conformant reader matches on first.
+     */
+    public static final String ATTR_SOURCE_ELEMENT_ID = "sourceElementId";
+    public static final String ATTR_TARGET_ELEMENT_ID = "targetElementId";
     public static final String ATTR_WIDTH = "width";
     public static final String ATTR_HEIGHT = "height";
     public static final String ATTR_COLLAPSED = "collapsed";
@@ -82,10 +137,43 @@ public final class PnmlConstants {
     /** Prefix of the generated page id of the n-th Petri-object. */
     public static final String OBJECT_PAGE_ID_PREFIX = "object";
 
+    /**
+     * Prefix of a representative reference node's id, followed by the page id and the id of
+     * the element it stands for. Reserved: an element id is never allowed to start with it.
+     */
+    public static final String REFERENCE_NODE_ID_PREFIX = "ref_";
+
+    /** Prefix of the id of an arc that realises a link, followed by the link's index. */
+    public static final String LINK_ARC_ID_PREFIX = "larc_";
+
+    /**
+     * Prefix that namespaces an element id by its object, used only when the same id occurs
+     * in more than one object of a document.
+     */
+    public static final String OBJECT_ID_NAMESPACE_FORMAT = "o%d_%s";
+
+    /** Matches a namespace prefix already applied, so that re-export stays idempotent. */
+    public static final String OBJECT_ID_NAMESPACE_PATTERN = "^o\\d+_";
+
+    /**
+     * How far a chain of reference nodes is followed before the document is declared
+     * malformed. A legitimate chain is one or two hops; anything deeper is a cycle that a
+     * naive follower would spin on forever.
+     */
+    public static final int MAX_REFERENCE_DEPTH = 16;
+
     // Error messages
     public static final String ERROR_INVALID_ROOT = "Invalid PNML file: root element must be 'pnml'";
     public static final String ERROR_NO_NET = "No net element found in PNML file";
     public static final String ERROR_OBJECT_MODEL_NOT_SUPPORTED =
             "This PNML document describes a Petri-object model of %d objects. "
                     + "Read it with PnmlModelParser, or send it to the v2 simulation API.";
+    public static final String ERROR_DUPLICATE_ID =
+            "Duplicate element id '%s': a reference node's ref= would be ambiguous";
+    public static final String ERROR_REFERENCE_CYCLE =
+            "Reference node '%s' stands for itself, directly or through a cycle";
+    public static final String ERROR_DANGLING_REFERENCE =
+            "Reference node '%s' points at '%s', which is not an element of this net";
+    public static final String ERROR_NO_OBJECTS =
+            "A Petri-object model document needs at least one object";
 }
