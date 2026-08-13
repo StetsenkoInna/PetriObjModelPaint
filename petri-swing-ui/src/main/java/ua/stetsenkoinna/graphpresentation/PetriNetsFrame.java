@@ -47,6 +47,7 @@ import ua.stetsenkoinna.graphpresentation.actions.RunNetAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunOneEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.StepBackAction;
 import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
+import ua.stetsenkoinna.graphpresentation.objmodel.CanvasTabsBar;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectManagerDialog;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectPalette;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectTemplate;
@@ -314,6 +315,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         petriNetsPanel = new PetriNetsPanel(netNameTextField);
         petriNetPanelScrollPane.setViewportView(petriNetsPanel);
+        buildCanvasTabsBar();
 
         // Enable drag and drop for both PNML and PNS files
         petriNetsPanel.enableDragAndDrop(this);
@@ -439,6 +441,29 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private int expandedSidebarWidth = 340;
     /** Splits the canvas from the sidebar; lets the user drag-resize the sidebar's width. */
     private javax.swing.JSplitPane mainSplitPane;
+
+    /** Height of the canvas strip: one row of pills, and never more than that. */
+    private static final int CANVAS_TABS_HEIGHT = 30;
+    /** Holds the canvas and the strip of open canvases under it. */
+    private javax.swing.JPanel canvasArea;
+    /** Scrolls the strip sideways when more canvases are open than fit across the window. */
+    private javax.swing.JScrollPane canvasTabsScrollPane;
+    /** One pill per open canvas, the active one badged and named. */
+    private CanvasTabsBar canvasTabsBar;
+
+    /**
+     * Puts the strip of open canvases into its scroll pane. Called from the constructor rather than
+     * from {@code initComponents}, because the strip reads the canvas panel's canvas stack and its
+     * document, and the panel is only created once {@code initComponents} has finished.
+     */
+    private void buildCanvasTabsBar() {
+        canvasTabsBar = new CanvasTabsBar(
+                getPetriNetsPanel().getCanvasStack(),
+                getPetriNetsPanel().getCanvasModel(),
+                frame -> getPetriNetsPanel().openObjectCanvas(frame),
+                frame -> getPetriNetsPanel().closeObjectCanvas(frame));
+        canvasTabsScrollPane.setViewportView(canvasTabsBar);
+    }
     /** True while {@link #sidebarToggleButtonActionPerformed} is itself moving the divider,
      *  so the drag listener that syncs collapsed state back from it does not re-trigger. */
     private boolean sidebarTogglingProgrammatically;
@@ -1162,10 +1187,30 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         });
 
+        // The strip of open canvases goes at the bottom of the canvas area, directly under the
+        // canvas and its sidebar and above the modeling parameters row. SOUTH of petriNetDesign is
+        // already the parameters row, so the canvas and the strip share a panel of their own.
+        // Only the container is built here. The strip itself needs the canvas panel, which the
+        // constructor does not create until after this method has run to completion, so it is
+        // installed by buildCanvasTabsBar() at that point instead.
+        canvasTabsScrollPane = new javax.swing.JScrollPane();
+        canvasTabsScrollPane.setBorder(null);
+        canvasTabsScrollPane.setHorizontalScrollBarPolicy(
+                javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        canvasTabsScrollPane.setVerticalScrollBarPolicy(
+                javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+        // Bound so eight open canvases scroll the strip horizontally rather than growing it until
+        // the window itself has to scroll.
+        canvasTabsScrollPane.setPreferredSize(new java.awt.Dimension(0, CANVAS_TABS_HEIGHT));
+
+        canvasArea = new javax.swing.JPanel(new java.awt.BorderLayout());
+        canvasArea.add(mainSplitPane, java.awt.BorderLayout.CENTER);
+        canvasArea.add(canvasTabsScrollPane, java.awt.BorderLayout.SOUTH);
+
         petriNetDesign.setLayout(new java.awt.BorderLayout());
         petriNetDesign.add(modelingParametersPanel, java.awt.BorderLayout.SOUTH);
         petriNetDesign.add(leftIconToolBar, java.awt.BorderLayout.WEST);
-        petriNetDesign.add(mainSplitPane, java.awt.BorderLayout.CENTER);
+        petriNetDesign.add(canvasArea, java.awt.BorderLayout.CENTER);
 
 
         petriNetsFrameMenuBar.setBackground(new java.awt.Color(186, 213, 241));
@@ -1533,6 +1578,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public void runNet() {
         protocolTextArea.setText("---------Events protocol----------");
         protocolTextArea.setText("---------STATISTICS---------");
+        // A run is a run of the whole model, so it is watched where the whole model is drawn.
+        // Without this, pressing Run from inside a Petri-object's own canvas would show a fragment
+        // of what is actually running.
+        getPetriNetsPanel().activateRootCanvas();
         try {
             if(isCorrectNet()){
                 getPetriNetsPanel().getGraphNet().createPetriNet(netNameTextField.getText());
@@ -1602,6 +1651,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public void animateNet() {
         protocolTextArea.setText("---------Events protocol----------");
         protocolTextArea.setText("---------STATISTICS---------");
+        // See runNet: an animation animates the whole model, so it belongs on the net's canvas.
+        getPetriNetsPanel().activateRootCanvas();
         try {
             if(isCorrectNet()){
                 getPetriNetsPanel().getGraphNet().createPetriNet(netNameTextField.getText());
@@ -1679,7 +1730,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         LOGGER.debug("{}  {}", pane.getLocation().x, pane.getBounds().width);
         Point center = new Point(pane.getLocation().x + pane.getBounds().width
                 / 2, pane.getLocation().y + pane.getBounds().height / 2);
-        this.getPetriNetsPanel().getGraphNet().changeLocation(center);
+        // Through the canvas rather than straight at the net: the net alone has no notion of a
+        // Petri-object frame, so moving it directly slid every object's net out from under its own
+        // frame and left every frame where it was.
+        this.getPetriNetsPanel().centreCanvasAt(center);
 
         panel.repaint();
     }// GEN-LAST:event_centerLocationOfGraphNetActionPerformed
