@@ -127,8 +127,20 @@ public class GraphPlaceFusion implements Serializable {
     /**
      * Puts the joined place back on top of the master, which is what makes the two read as
      * one place. Called after either of them was dragged.
+     *
+     * <p>Does nothing once either half is framed - see the class doc: a locked place cannot be
+     * moved onto anything, and moving a free one onto a place buried inside someone else's
+     * object would corrupt that object's own layout, so both keep whatever position they
+     * already had and only the drawn line ({@link #drawBetweenPorts}) shows the fusion. Left
+     * unguarded here, {@link GraphCanvasModel#syncFusions()} - called after every frame drag,
+     * to keep a free-free fusion's ring coincident - pulled a framed half's counterpart on top
+     * of wherever the frame had just moved it, so the two places visibly merged the moment
+     * either object was dragged.
      */
     public void syncPosition() {
+        if (isAnchoredToAFrame()) {
+            return;
+        }
         Point2D centre = master.getGraphElementCenter();
         if (centre != null) {
             joined.setNewCoordinates(new Point2D.Double(centre.getX(), centre.getY()));

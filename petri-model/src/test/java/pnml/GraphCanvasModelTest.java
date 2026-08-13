@@ -607,4 +607,28 @@ public class GraphCanvasModelTest {
         assertEquals(canvas.getFrames().getFirst(), fusion.getMasterOwner());
         assertNull(fusion.getJoinedOwner());
     }
+
+    @Test
+    public void movingAFramedHalfOfAFusionLeavesTheFreeHalfWhereItWas() {
+        // syncFusions() runs after every frame drag to keep a free-free fusion's ring coincident
+        // - GraphPlaceFusion#syncPosition() used to do that unconditionally, so dragging the
+        // object that owns one half pulled the other half on top of wherever it ended up, the
+        // instant the two places were joined this way rather than becoming two circles kept
+        // apart by nothing but a line.
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphPetriPlace framed = canvas.getNet().getGraphPetriPlaceList().get(1); // P1, owned by Source
+        GraphPetriPlace free = place(canvas, "Free", 0, 900, 900);
+        canvas.joinPlaces(framed, free);
+
+        Point2D freeBefore = free.getGraphElementCenter();
+
+        // What moving the "Source" object does to its own member's position before
+        // PetriNetsPanel#moveFrame calls syncFusions() at the end of the same drag.
+        Point2D framedCentre = framed.getGraphElementCenter();
+        framed.setNewCoordinates(new Point2D.Double(framedCentre.getX() + 50, framedCentre.getY() + 50));
+        canvas.syncFusions();
+
+        assertEquals("the free half must stay exactly where it was, not jump onto the framed one",
+                freeBefore, free.getGraphElementCenter());
+    }
 }
