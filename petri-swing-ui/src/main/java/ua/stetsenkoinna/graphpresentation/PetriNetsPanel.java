@@ -645,18 +645,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Draws the ports of every frame the active canvas shows only as a boundary: the collapsed or
-     * eye-hidden objects on it, plus the focused object's own border, which is where a connection
-     * from inside it leaves through. While an object's own net is on screen there is nothing a
-     * port needs to stand in for, so drawing its circle over the real element right next to it
-     * would only be clutter.
+     * Draws the ports of every frame the active canvas shows only as a boundary: the collapsed and
+     * the eye-hidden objects on it. While an object's own net is on screen there is nothing a port
+     * needs to stand in for, so drawing its circle over the real element right next to it would
+     * only be clutter.
+     *
+     * <p>The focused object has none drawn either. On its own canvas it is a plain net, and a
+     * circle on a border that is not painted would be the last trace of a box the user was told
+     * they are not in. A link to another object is made from the canvas that shows both, which is
+     * the level above.
      */
     private void paintPorts(Graphics2D g2) {
-        if (focusedFrame != null) {
-            for (FramePort port : canvasModel.portsOf(focusedFrame)) {
-                port.draw(g2, port == draggedFromPort || port == hoveredPort);
-            }
-        }
         for (GraphObjectFrame frame : canvasModel.getFrames()) {
             if (frame == focusedFrame || !isFrameDrawnOnThisCanvas(frame) || !isContentHidden(frame)) {
                 continue;
@@ -3601,17 +3600,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @return the port under that point, across the frames the active canvas draws, or
      *         {@code null}. A port whose own object is not on this canvas is unreachable, so a
      *         press on empty screen space cannot start a link from an element that is not drawn.
-     *         The focused object's own border ports come first: they are how a connection out of
-     *         the object being edited is made.
+     *         The focused object has no reachable ports at all: its own canvas draws neither its
+     *         border nor the circles on it, and a hit target nobody can see is worse than one
+     *         that is not there.
      */
     private FramePort portOnCanvasAt(Point2D point) {
-        if (focusedFrame != null) {
-            for (FramePort port : canvasModel.portsOf(focusedFrame)) {
-                if (port.isNear(point)) {
-                    return port;
-                }
-            }
-        }
         for (GraphObjectFrame frame : canvasModel.getFrames()) {
             if (frame == focusedFrame || !isFrameDrawnOnThisCanvas(frame)) {
                 continue;

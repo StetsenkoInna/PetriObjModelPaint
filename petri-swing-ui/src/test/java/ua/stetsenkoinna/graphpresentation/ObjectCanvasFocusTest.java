@@ -312,4 +312,24 @@ public class ObjectCanvasFocusTest {
         assertTrue("a child object is still drawn as a frame",
                 inkIn(panel, new Rectangle(150, 240, 120, 18)) > 0);
     }
+
+    @Test
+    public void theFocusedObjectShowsNoPortsAndOffersNoneToTheMouse() {
+        PetriNetsPanel panel = twoObjectsAndAFreePlace();
+        GraphObjectFrame subject = subjectOf(panel);
+
+        List<ua.stetsenkoinna.graphnet.FramePort> ports = panel.getCanvasModel().portsOf(subject);
+        assertTrue("fixture: an object with members has ports on its border", !ports.isEmpty());
+
+        panel.openObjectCanvas(subject);
+
+        for (ua.stetsenkoinna.graphnet.FramePort port : ports) {
+            java.awt.Point at = port.getPosition();
+            assertNull("a port of the object being edited is not offered to the mouse either",
+                    invoke(panel, "portOnCanvasAt", new Class<?>[]{Point2D.class},
+                            new Point2D.Double(at.x, at.y)));
+            assertEquals("and nothing is painted where its circle used to be",
+                    0, inkIn(panel, new Rectangle(at.x - 4, at.y - 4, 8, 8)));
+        }
+    }
 }
