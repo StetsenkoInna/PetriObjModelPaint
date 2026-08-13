@@ -370,9 +370,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // snapshotting its live membership) and deletes the clones last; the reverse
             // order snapshotted frames whose members were already deleted, and redo then
             // rebuilt the objects empty.
-            PetriNetsFrame.getUndoSupport().postEdit(
-                    new PasteElementsEdit(this, clonedFragment)
-            );
+            PasteElementsEdit pasteEdit = new PasteElementsEdit(this, clonedFragment);
+            PetriNetsFrame.getUndoSupport().postEdit(pasteEdit);
 
             for (GraphObjectFrame original : copiedFrames) {
                 // A frame whose ancestor is also in the clipboard travels with that
@@ -382,6 +381,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     continue;
                 }
                 recreateCopiedObject(original, clonedFragment.oldToNew);
+            }
+
+            // Pasted on an object's canvas means pasted into that object, the same rule the
+            // placement tools follow. Loose clones used to land unowned, which this canvas
+            // does not even draw - the paste looked like it did nothing, while a ghost copy
+            // lay around on the root canvas.
+            if (focusedFrame != null) {
+                List<GraphElement> adopted = new ArrayList<>();
+                for (GraphElement clone : clonedFragment.elements) {
+                    if (canvasModel.ownerOf(clone) == null) {
+                        canvasModel.claim(focusedFrame, clone);
+                        adopted.add(clone);
+                    }
+                }
+                growToHoldMembers(focusedFrame, adopted);
+                pasteEdit.rememberAdoption(focusedFrame, adopted);
             }
 
             copiedElements = new ArrayList<>(clonedFragment.elements);
@@ -3729,7 +3744,29 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         AddGraphElementEdit edit = new AddGraphElementEdit(this, element, focusedFrame);
         edit.doFirstTime();
         PetriNetsFrame.getUndoSupport().postEdit(edit);
+        growToHoldMembers(focusedFrame, List.of(element));
         repaint();
+    }
+
+    /**
+     * Grows a frame (and its enclosing chain) so elements just claimed for it sit inside its
+     * rectangle with the standard clearance. A member drawn on an object's own canvas past the
+     * frame's border used to stay outside it on the parent canvas: visibly loose, and not even
+     * locked, since the lock is the frame's body.
+     *
+     * @param frame the frame that claims the elements, or {@code null} for the root canvas
+     * @param members the newly claimed elements
+     */
+    private void growToHoldMembers(GraphObjectFrame frame, List<? extends GraphElement> members) {
+        if (frame == null || members.isEmpty()) {
+            return;
+        }
+        Rectangle fitted = boundsAround(members);
+        Rectangle grown = frame.getBounds().union(fitted);
+        if (!grown.equals(frame.getBounds())) {
+            frame.setBounds(grown);
+        }
+        growAncestorsToContain(frame);
     }
 
     /**

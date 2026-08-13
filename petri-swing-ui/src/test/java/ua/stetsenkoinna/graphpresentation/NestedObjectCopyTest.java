@@ -244,6 +244,78 @@ public class NestedObjectCopyTest {
         }
     }
 
+    // ------------------------------------------------------------------ object-canvas paste
+
+    /**
+     * Pasted on an object's canvas means pasted into that object, like the placement tools.
+     * Loose clones used to land unowned, which the object's canvas does not even draw: the
+     * paste looked like it did nothing, while a ghost copy lay on the root canvas.
+     */
+    @Test
+    public void pastingOnAnObjectsCanvasClaimsTheClonesForIt() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace place = placeAt(panel, "P1", 260, 200);
+        GraphObjectFrame frame = new GraphObjectFrame("Obj", new Rectangle(120, 100, 360, 300));
+        panel.addObjectFrame(frame);
+        panel.getCanvasModel().claim(frame, place);
+        panel.openObjectCanvas(frame);
+
+        panel.getSelection().add(place);
+        panel.copySelection();
+        panel.pasteClipboard();
+
+        assertEquals("the clone exists", 2, panel.getGraphNet().getGraphPetriPlaceList().size());
+        GraphPetriPlace clone = panel.getGraphNet().getGraphPetriPlaceList().get(1);
+        assertSame("and belongs to the object whose canvas it was pasted on",
+                frame, panel.getCanvasModel().ownerOf(clone));
+    }
+
+    @Test
+    public void redoingAnObjectCanvasPasteClaimsTheClonesAgain() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace place = placeAt(panel, "P1", 260, 200);
+        GraphObjectFrame frame = new GraphObjectFrame("Obj", new Rectangle(120, 100, 360, 300));
+        panel.addObjectFrame(frame);
+        panel.getCanvasModel().claim(frame, place);
+        panel.openObjectCanvas(frame);
+        UndoManager undo = watchUndo();
+
+        panel.getSelection().add(place);
+        panel.copySelection();
+        panel.pasteClipboard();
+        undo.undo();
+        undo.redo();
+
+        assertEquals(2, panel.getGraphNet().getGraphPetriPlaceList().size());
+        GraphPetriPlace clone = panel.getGraphNet().getGraphPetriPlaceList().get(1);
+        assertSame("the redo claims the clone for the object again",
+                frame, panel.getCanvasModel().ownerOf(clone));
+    }
+
+    /**
+     * An element stamped on the object's canvas past the frame's border used to stay drawn
+     * outside the rectangle that owned it, where it was not even locked.
+     */
+    @Test
+    public void anElementAddedOutsideTheFrameGrowsTheFrameAroundIt() throws Exception {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace place = placeAt(panel, "P1", 260, 200);
+        GraphObjectFrame frame = new GraphObjectFrame("Obj", new Rectangle(120, 100, 360, 300));
+        panel.addObjectFrame(frame);
+        panel.getCanvasModel().claim(frame, place);
+        panel.openObjectCanvas(frame);
+
+        java.lang.reflect.Method add = PetriNetsPanel.class.getDeclaredMethod(
+                "addElementAt", CanvasTool.class, java.awt.Point.class);
+        add.setAccessible(true);
+        add.invoke(panel, CanvasTool.ADD_PLACE, new java.awt.Point(700, 500));
+
+        GraphPetriPlace added = panel.getGraphNet().getGraphPetriPlaceList().get(1);
+        assertSame(frame, panel.getCanvasModel().ownerOf(added));
+        assertTrue("the frame grew to hold its new member: " + frame.getBounds(),
+                frame.getBounds().contains(added.getGraphElementCenter()));
+    }
+
     // ------------------------------------------------------------------ undo navigation
 
     /**
