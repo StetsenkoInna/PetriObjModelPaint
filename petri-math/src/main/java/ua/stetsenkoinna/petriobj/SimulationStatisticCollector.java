@@ -26,6 +26,25 @@ public interface SimulationStatisticCollector {
     void flush(double currentTime);
 
     /**
+     * Called once per atomic firing phase, on the simulation thread, in the order the phases
+     * occur — between the {@link #onTimeStep} calls of two time steps rather than instead of
+     * them. Collectors that only report statistics ignore it; a streaming one turns the phases
+     * into the animation steps a client replays between two snapshots.
+     *
+     * <p>Default-implemented on purpose: a firing phase is finer-grained than anything this
+     * interface promised before, and a collector that has no use for one should not have to
+     * say so.
+     *
+     * @param time model current time at the instant the phase was recorded
+     * @param phase which instant of the firing this is
+     * @param transition the transition being fired
+     * @param objects the whole model's object list — read markings and buffers
+     *        <em>synchronously</em>, the arrays are mutated by the next firing
+     */
+    default void onFiringPhase(double time, FiringPhase phase, PetriT transition,
+                               Iterable<PetriSim> objects) {}
+
+    /**
      * Called at the end of simulation for final segment statistics.
      */
     void onSimulationEnd(double simulationEndTime, Iterable<PetriSim> objects);
