@@ -1604,7 +1604,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         Rectangle bounds = loose.isEmpty() ? null : boundsAround(loose);
         for (GraphObjectFrame child : nested) {
-            bounds = bounds == null ? new Rectangle(child.getBounds()) : bounds.union(child.getBounds());
+            Rectangle padded = new Rectangle(child.getBounds());
+            padded.grow(FRAME_MARGIN, FRAME_MARGIN);
+            bounds = bounds == null ? padded : bounds.union(padded);
         }
 
         GraphObjectFrame frame = new GraphObjectFrame(name, bounds);
@@ -1647,12 +1649,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Grows a frame just enough to contain a rectangle. Applied once, when a nested object is
-     * created and the box fitted around its net escapes its parent - there is no auto-refit
-     * afterwards, so moving things around later never resizes anything behind the user's back.
+     * Gap kept between a Petri-object frame's own border and whatever else's border it is fitted
+     * around - another frame nested inside it, or an enclosing frame grown around it - so two
+     * frame borders never land flush against each other. {@link #boundsAround} already does the
+     * same for loose elements, with a wider margin there because that one also has to clear a
+     * transition's stacked name/parameter/probability labels, not just give two borders room to
+     * read as separate.
+     */
+    private static final int FRAME_MARGIN = 24;
+
+    /**
+     * Grows a frame just enough to contain a rectangle, plus {@link #FRAME_MARGIN} of breathing
+     * room so the two frames' borders do not land flush against each other. Applied once, when a
+     * nested object is created and the box fitted around its net escapes its parent - there is
+     * no auto-refit afterwards, so moving things around later never resizes anything behind the
+     * user's back.
      */
     private void growToContain(GraphObjectFrame frame, Rectangle inner) {
-        Rectangle grown = frame.getBounds().union(inner);
+        Rectangle padded = new Rectangle(inner);
+        padded.grow(FRAME_MARGIN, FRAME_MARGIN);
+        Rectangle grown = frame.getBounds().union(padded);
         if (!grown.equals(frame.getBounds())) {
             frame.setBounds(grown);
         }

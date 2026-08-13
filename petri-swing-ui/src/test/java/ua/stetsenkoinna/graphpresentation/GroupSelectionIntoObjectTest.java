@@ -301,6 +301,65 @@ public class GroupSelectionIntoObjectTest {
                 inkPixelsIn(panel, visible) > 0);
     }
 
+    @Test
+    public void groupingASelectionThatIncludesAnObjectLeavesAMarginAroundItsFrame() {
+        // The reported symptom: marqueeing a Petri-object together with some free elements
+        // around it and grouping the lot used to fit the new frame exactly to the union of
+        // their bounds, so its border landed flush against the nested object's own border - the
+        // two looked fused into one rectangle instead of one object sitting inside another.
+        PetriP.initNext();
+        PetriT.initNext();
+        PetriNetsPanel panel = new PetriNetsPanel(null, true);
+        GraphPetriPlace left = new GraphPetriPlace(new PetriP("P1", 0), 700);
+        left.setNewCoordinates(new Point2D.Double(150, 150));
+        panel.getGraphNet().getGraphPetriPlaceList().add(left);
+        GraphObjectFrame nested = new GraphObjectFrame("Generator", new Rectangle(400, 400, 200, 150));
+        panel.addObjectFrame(nested);
+
+        GraphObjectFrame outer = panel.groupIntoObject(List.of(left), List.of(nested), "Outer");
+
+        int margin = frameMargin(panel);
+        Rectangle inner = nested.getBounds();
+        Rectangle outerBounds = outer.getBounds();
+        assertTrue("left gap must be at least the frame margin",
+                inner.x - outerBounds.x >= margin);
+        assertTrue("top gap must be at least the frame margin",
+                inner.y - outerBounds.y >= margin);
+        assertTrue("right gap must be at least the frame margin",
+                (outerBounds.x + outerBounds.width) - (inner.x + inner.width) >= margin);
+        assertTrue("bottom gap must be at least the frame margin",
+                (outerBounds.y + outerBounds.height) - (inner.y + inner.height) >= margin);
+    }
+
+    @Test
+    public void growingAnEnclosingFrameKeepsAMarginAroundTheFrameItNowContains() throws Exception {
+        PetriNetsPanel panel = panelWithTwoFreePlaces();
+        GraphObjectFrame enclosing = new GraphObjectFrame("Outer", new Rectangle(0, 0, 100, 100));
+        Rectangle inner = new Rectangle(500, 500, 50, 50); // escapes the enclosing frame entirely
+
+        Method growToContain = PetriNetsPanel.class.getDeclaredMethod(
+                "growToContain", GraphObjectFrame.class, Rectangle.class);
+        growToContain.setAccessible(true);
+        growToContain.invoke(panel, enclosing, inner);
+
+        int margin = frameMargin(panel);
+        Rectangle grown = enclosing.getBounds();
+        assertTrue("right gap must be at least the frame margin",
+                (grown.x + grown.width) - (inner.x + inner.width) >= margin);
+        assertTrue("bottom gap must be at least the frame margin",
+                (grown.y + grown.height) - (inner.y + inner.height) >= margin);
+    }
+
+    private static int frameMargin(PetriNetsPanel panel) {
+        try {
+            java.lang.reflect.Field field = PetriNetsPanel.class.getDeclaredField("FRAME_MARGIN");
+            field.setAccessible(true);
+            return field.getInt(panel);
+        } catch (ReflectiveOperationException broken) {
+            throw new AssertionError(broken);
+        }
+    }
+
     /**
      * Paints a panel the way Swing does inside a scrolled viewport - translated by the scroll
      * position, clipped to the visible rectangle - and counts the pixels it put ink on, the
