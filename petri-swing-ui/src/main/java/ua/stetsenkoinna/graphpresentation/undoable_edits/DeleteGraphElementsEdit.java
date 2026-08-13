@@ -86,6 +86,26 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
         }
     }
 
+    /**
+     * Shared places the deletion is about to drop, recorded for the same reason as the
+     * owners: deleting a fused place removes its fusion as a side effect, and undo used to
+     * restore the place but silently forget it had been shared.
+     */
+    private final List<ua.stetsenkoinna.graphnet.GraphPlaceFusion> fusionsAtDeletion =
+            new ArrayList<>();
+
+    /**
+     * Records a fusion that will disappear with one of the deleted places, so undo can put
+     * it back.
+     *
+     * @param fusion the shared place one of the deleted elements is half of
+     */
+    public void rememberFusion(ua.stetsenkoinna.graphnet.GraphPlaceFusion fusion) {
+        if (fusion != null && !fusionsAtDeletion.contains(fusion)) {
+            fusionsAtDeletion.add(fusion);
+        }
+    }
+
     @Override
     public void undo() {
         super.undo();
@@ -133,9 +153,14 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
         for (GraphArcIn arcIn : inArcs) {
             panel.getGraphNet().getGraphArcInList().add(arcIn);
         }
-        
+
         for (GraphArcOut arcOut : outArcs) {
             panel.getGraphNet().getGraphArcOutList().add(arcOut);
+        }
+
+        // The shared places the deletion dropped come back with the places they joined.
+        for (ua.stetsenkoinna.graphnet.GraphPlaceFusion fusion : fusionsAtDeletion) {
+            panel.getCanvasModel().restoreFusion(fusion);
         }
 
         // elements = new ArrayList<>(elementsToSpawn);
@@ -175,6 +200,11 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
                 log.error("Unexpected error while redoing delete", e);
                 // theoretically this exception should never happen here
             }
+        }
+        // The same cleanup the original deletion did: a fused place going away takes its
+        // fusion with it, else the restored-then-redone delete leaves the fusion dangling.
+        for (ua.stetsenkoinna.graphnet.GraphPlaceFusion fusion : fusionsAtDeletion) {
+            panel.getCanvasModel().removeFusion(fusion);
         }
         panel.repaint();
     }

@@ -53,9 +53,22 @@ public class GraphPlaceFusion implements Serializable {
      * owns it. A shared place is the one case where that cannot work: the two halves sit on
      * top of each other, so they are drawn in the same frame while belonging to two objects.
      * Null means the half belongs to no frame — the free elements.
+     *
+     * <p>Not final: ownership changes after the join (the owning object is ungrouped, a half
+     * is dragged into another object), and a snapshot frozen at join time kept the fusion
+     * anchored to a frame that was no longer on the canvas. {@link GraphCanvasModel} refreshes
+     * these from the claims whenever ownership moves.
      */
-    private final GraphObjectFrame masterOwner;
-    private final GraphObjectFrame joinedOwner;
+    private GraphObjectFrame masterOwner;
+    private GraphObjectFrame joinedOwner;
+
+    /**
+     * Re-reads which frame owns each half; see {@link GraphCanvasModel#refreshFusionOwners}.
+     */
+    void refreshOwners(GraphObjectFrame masterOwner, GraphObjectFrame joinedOwner) {
+        this.masterOwner = masterOwner;
+        this.joinedOwner = joinedOwner;
+    }
 
     /**
      * @param master the place the shared marking lives in

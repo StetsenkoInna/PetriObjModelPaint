@@ -75,9 +75,11 @@ import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddObjectFrameEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteGraphElementsEdit;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.JoinPlacesEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.ObjectFrameSnapshot;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.PasteElementsEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.RemoveObjectFrameEdit;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.SplitSharedPlaceEdit;
 import ua.stetsenkoinna.graphpresentation.dragndrop.PnmlDropHandler;
 import ua.stetsenkoinna.utils.MessageHelper;
 
@@ -1454,6 +1456,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 // Read before remove(): removing releases the element, so this is the last moment
                 // the answer exists, and undo needs it to put the element back into its object.
                 edit.rememberOwner(graphElement, canvasModel.ownerOf(graphElement));
+                if (graphElement instanceof GraphPetriPlace place) {
+                    // Same timing for the shared place a deleted half drags down with it.
+                    edit.rememberFusion(canvasModel.fusionOf(place));
+                }
                 remove(graphElement);
                 PetriNetsPanel.this.setDefaultColorGraphElements(); //27.07.2018
             }
@@ -3018,7 +3024,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                             // joinPlaces(p, p) and pop a bewildering error about the place
                             // already belonging to the same Petri-object.
                             try {
-                                canvasModel.joinPlaces(beginPlace, targetPlace);
+                                GraphPlaceFusion fusion =
+                                        canvasModel.joinPlaces(beginPlace, targetPlace);
+                                PetriNetsFrame.getUndoSupport().postEdit(
+                                        new JoinPlacesEdit(PetriNetsPanel.this, fusion));
                             } catch (IllegalArgumentException rejected) {
                                 MessageHelper.showError(dialogOwner(), rejected.getMessage());
                             }
@@ -3353,19 +3362,28 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         boolean sourceIsPlace = source instanceof GraphPetriPlace;
         boolean targetIsPlace = target instanceof GraphPetriPlace;
         try {
+            // Every branch posts its edit: a link made through a port used to be the one
+            // creation Ctrl+Z could not see, so undo right after it reached past the link
+            // into whatever older action was next on the stack.
             if (sourceIsPlace && targetIsPlace) {
-                canvasModel.joinPlaces((GraphPetriPlace) source, (GraphPetriPlace) target);
+                GraphPlaceFusion fusion =
+                        canvasModel.joinPlaces((GraphPetriPlace) source, (GraphPetriPlace) target);
+                PetriNetsFrame.getUndoSupport().postEdit(new JoinPlacesEdit(this, fusion));
             } else if (!sourceIsPlace && !targetIsPlace) {
                 throw new IllegalArgumentException(
                         "A transition cannot connect directly to another transition");
             } else if (sourceIsPlace) {
                 // place -> transition: the place becomes an extra input of the transition
-                canvasModel.getNet().getGraphArcInList().add(GraphArcFactory.inArc(
-                        (GraphPetriPlace) source, (GraphPetriTransition) target, 1, false));
+                GraphArcIn arc = GraphArcFactory.inArc(
+                        (GraphPetriPlace) source, (GraphPetriTransition) target, 1, false);
+                canvasModel.getNet().getGraphArcInList().add(arc);
+                PetriNetsFrame.getUndoSupport().postEdit(new AddArcEdit(this, arc));
             } else {
                 // transition -> place: the transition delivers tokens into the place
-                canvasModel.getNet().getGraphArcOutList().add(GraphArcFactory.outArc(
-                        (GraphPetriTransition) source, (GraphPetriPlace) target, 1));
+                GraphArcOut arc = GraphArcFactory.outArc(
+                        (GraphPetriTransition) source, (GraphPetriPlace) target, 1);
+                canvasModel.getNet().getGraphArcOutList().add(arc);
+                PetriNetsFrame.getUndoSupport().postEdit(new AddArcEdit(this, arc));
             }
         } catch (IllegalArgumentException rejected) {
             MessageHelper.showError(dialogOwner(), rejected.getMessage());
@@ -3378,8 +3396,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param fusion the shared place to split
      */
     public void splitSharedPlace(GraphPlaceFusion fusion) {
-        canvasModel.getFusions().remove(fusion);
+        canvasModel.removeFusion(fusion);
         fusion.getJoined().moveBy(60, 40);
+        PetriNetsFrame.getUndoSupport().postEdit(new SplitSharedPlaceEdit(this, fusion, 60, 40));
         updateArcCoordinates();
         repaint();
     }
@@ -3745,6 +3764,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // Read before remove(), which releases the element: this is the last moment the
             // answer exists, and undo needs it to put the element back into its own object.
             edit.rememberOwner(element, canvasModel.ownerOf(element));
+            if (element instanceof GraphPetriPlace place) {
+                // Same timing for the shared place a deleted half drags down with it.
+                edit.rememberFusion(canvasModel.fusionOf(place));
+            }
             remove(element);
             PetriNetsFrame.getUndoSupport().postEdit(edit);
         } catch (ExceptionInvalidNetStructure ex) {
@@ -4322,7 +4345,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         repaint();
     }
 
-    private void updateArcCoordinates() {
+    /** Re-derives every arc's drawn line from its endpoints; public for the undoable edits. */
+    public void updateArcCoordinates() {
         for (GraphArcIn arc : graphNet.getGraphArcInList()) {
             arc.updateCoordinates();
         }

@@ -218,6 +218,7 @@ public class GraphCanvasModel implements Serializable {
         if (frame != null) {
             frame.addMember(element);
         }
+        refreshFusionOwners();
     }
 
     /**
@@ -231,10 +232,23 @@ public class GraphCanvasModel implements Serializable {
         for (GraphObjectFrame frame : frames) {
             if (frame.hasMember(element)) {
                 frame.removeMember(element);
+                refreshFusionOwners();
                 return frame;
             }
         }
         return null;
+    }
+
+    /**
+     * Re-reads which frame owns each half of every shared place. A fusion used to freeze its
+     * two owners at join time, so ungrouping the owning object, dragging a half elsewhere or
+     * removing a frame left it anchored to a frame no longer on the canvas: it kept drawing a
+     * line to a ghost and could never fall back to the coincident-ring form.
+     */
+    public void refreshFusionOwners() {
+        for (GraphPlaceFusion fusion : fusions) {
+            fusion.refreshOwners(ownerOf(fusion.getMaster()), ownerOf(fusion.getJoined()));
+        }
     }
 
     // ------------------------------------------------------------------ nesting
@@ -394,6 +408,9 @@ public class GraphCanvasModel implements Serializable {
             child.setEnclosing(outer);
         }
         removed.setEnclosing(null);
+        // The direct removeMember above bypasses claim/release, so the shared places that
+        // pointed at this frame refresh here.
+        refreshFusionOwners();
     }
 
     /**
@@ -622,9 +639,34 @@ public class GraphCanvasModel implements Serializable {
      * Keeps every shared place drawn as one circle after elements were moved.
      */
     public void syncFusions() {
+        refreshFusionOwners();
         for (GraphPlaceFusion fusion : fusions) {
             fusion.syncPosition();
         }
+    }
+
+    /**
+     * Takes a shared place apart, leaving the two places ordinary again. The inverse of
+     * {@link #joinPlaces}; {@link #restoreFusion} puts the same fusion back, which is what
+     * the undo of a join and the redo of a split both do.
+     *
+     * @param fusion the shared place to remove
+     */
+    public void removeFusion(GraphPlaceFusion fusion) {
+        fusions.remove(fusion);
+    }
+
+    /**
+     * Puts a previously removed fusion back, with its owners re-read from the claims as they
+     * are now.
+     *
+     * @param fusion the shared place to restore
+     */
+    public void restoreFusion(GraphPlaceFusion fusion) {
+        if (!fusions.contains(fusion)) {
+            fusions.add(fusion);
+        }
+        refreshFusionOwners();
     }
 
     // ------------------------------------------------------------------ splitting
