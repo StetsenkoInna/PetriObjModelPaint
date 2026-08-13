@@ -262,6 +262,89 @@ public class GestureStateResetTest {
                 1, panel.getGraphNet().getGraphArcInList().size());
     }
 
+    // ------------------------------------------------------------------ right-click selection survival
+
+    /**
+     * Runs a Windows-style popup right-click (plain press, popup-trigger release) and
+     * reports which of the Petri-object menus the release decided on. The panel is not in
+     * a window, so {@code JPopupMenu.show} always throws before anything is painted, and
+     * the frame it throws from names the decision.
+     */
+    private static String menuOpenedByRightClick(PetriNetsPanel panel, int x, int y) {
+        PetriNetsPanel.MouseHandler handler = mouseHandlerOf(panel);
+        handler.mousePressed(new MouseEvent(panel, MouseEvent.MOUSE_PRESSED,
+                System.currentTimeMillis(), 0, x, y, 1, false, MouseEvent.BUTTON3));
+        try {
+            handler.mouseReleased(new MouseEvent(panel, MouseEvent.MOUSE_RELEASED,
+                    System.currentTimeMillis(), 0, x, y, 1, true, MouseEvent.BUTTON3));
+        } catch (RuntimeException expected) {
+            for (StackTraceElement frame : expected.getStackTrace()) {
+                if (frame.getMethodName().startsWith("show") && frame.getMethodName().endsWith("Menu")) {
+                    return frame.getMethodName();
+                }
+            }
+        }
+        return "none";
+    }
+
+    /**
+     * The select-elements, right-click, "group selection into a Petri-object" flow: the
+     * right press must leave the selection alone for the release's menu to offer it. With
+     * the Marquee tool armed, the press used to clear it, so the menu opened as if nothing
+     * was selected.
+     */
+    @Test
+    public void aRightClickWithTheMarqueeToolKeepsTheSelectionForTheMenu() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace first = placeAt(panel, "P1", 200, 200);
+        GraphPetriPlace second = placeAt(panel, "P2", 320, 200);
+        panel.setTool(CanvasTool.MARQUEE);
+        drag(panel, 140, 140, 380, 260);
+        assertTrue(panel.getSelection().contains(first) && panel.getSelection().contains(second));
+
+        String menu = menuOpenedByRightClick(panel, 260, 200);
+
+        assertTrue("the selection survives the right press",
+                panel.getSelection().contains(first) && panel.getSelection().contains(second));
+        assertEquals("and the menu offers to group it", "showGroupSelectionMenu", menu);
+    }
+
+    @Test
+    public void aRightClickWithTheSelectToolKeepsTheSelectionForTheMenu() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace first = placeAt(panel, "P1", 200, 200);
+        GraphPetriPlace second = placeAt(panel, "P2", 320, 200);
+        drag(panel, 140, 140, 380, 260);
+        assertTrue(panel.getSelection().contains(first) && panel.getSelection().contains(second));
+
+        String menu = menuOpenedByRightClick(panel, 260, 200);
+
+        assertTrue("the selection survives the right press",
+                panel.getSelection().contains(first) && panel.getSelection().contains(second));
+        assertEquals("and the menu offers to group it", "showGroupSelectionMenu", menu);
+    }
+
+    /**
+     * Same rule when the right press lands on a frame's body: the left press replaces the
+     * selection there, but the right press is on its way to the context menu, whose group
+     * option combines the selected elements with the clicked object.
+     */
+    @Test
+    public void aRightClickOnAFrameBodyKeepsTheElementSelection() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace loose = placeAt(panel, "Loose", 200, 200);
+        GraphPetriPlace member = placeAt(panel, "PM", 600, 200);
+        GraphObjectFrame frame = framedPlace(panel, "Obj", new Rectangle(540, 140, 160, 140), member);
+        panel.getSelection().add(loose);
+
+        PetriNetsPanel.MouseHandler handler = mouseHandlerOf(panel);
+        handler.mousePressed(new MouseEvent(panel, MouseEvent.MOUSE_PRESSED,
+                System.currentTimeMillis(), 0, 570, 250, 1, false, MouseEvent.BUTTON3));
+
+        assertTrue("the element selection survives a right press on an object",
+                panel.getSelection().contains(loose));
+    }
+
     // ------------------------------------------------------------------ hold timer
 
     /**

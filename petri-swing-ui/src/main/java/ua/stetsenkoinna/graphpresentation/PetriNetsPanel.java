@@ -2602,7 +2602,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 // Pressing an object that is not part of the current selection replaces the
                 // selection, like any fresh single click - otherwise the drag that follows
                 // would carry the leftovers of the previous gesture along with the frame.
-                if (!selection.contains(frameAtPoint)) {
+                // Left button only: a right press is on its way to the context menu, and
+                // the selection it would clear is exactly what "group selection into a
+                // Petri-object" is about to offer to group together with this frame.
+                if (SwingUtilities.isLeftMouseButton(ev) && !selection.contains(frameAtPoint)) {
                     setDefaultColorGraphElements();
                     selection.clear();
                 }
@@ -2642,7 +2645,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 // element — never picks it up the way the default Select tool would. The
                 // previous selection is dropped right away: it used to survive into the
                 // drag, whose move-selection branch then dragged it across the canvas
-                // instead of drawing the band.
+                // instead of drawing the band. Only a left press starts a band, though: a
+                // right press is on its way to the context menu, and clearing here wiped
+                // the very selection the menu's "group into Petri-object" was about to
+                // offer to group.
                 if (current != null) {
                     current.setColor(Color.BLACK);
                     current = null;
@@ -2651,9 +2657,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     choosenArc.setColor(Color.BLACK);
                 }
                 choosenArc = null;
-                choosen = null;
-                setDefaultColorGraphElements();
-                selection.clear();
+                if (SwingUtilities.isLeftMouseButton(ev)) {
+                    choosen = null;
+                    setDefaultColorGraphElements();
+                    selection.clear();
+                }
             } else if (current != null && SwingUtilities.isLeftMouseButton(ev)) {
                 // A right-click never selects an element — it either falls through to its own
                 // context menu above, or, on a lone element maybeShowContextMenu deliberately
