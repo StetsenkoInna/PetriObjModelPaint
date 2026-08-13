@@ -32,12 +32,16 @@ public class PasteElementsEdit extends AbstractUndoableEdit {
     @Override
     public void undo() {
         super.undo(); // checking whether it can be undone and setting hasBeenDone = false
-        
+
         for (GraphElement element : fragment.elements) {
             if (element == panel.getCurrent()) {
                 panel.setCurrent(null);
             }
             panel.getChoosenElements().remove(element);
+            // Whatever frame claims this clone must let go of it: deleting without
+            // releasing left ghost membership behind, so a frame kept counting and
+            // fitting itself around elements that no longer existed in the net.
+            panel.getCanvasModel().release(element);
             try {
                panel.getGraphNet().delGraphElement(element);
             } catch (ExceptionInvalidNetStructure e) {

@@ -457,12 +457,15 @@ public class ObjectFrameDefectSweepTest {
     /**
      * The copy's net sits inside its own frame where the original's did.
      * {@code duplicateObject} used to translate the original's rectangle by the frame width and
-     * forget that {@code addNetFragment} adds a paste offset of 15,15 to every element on top of
-     * that, so the copy's net drifted 15 pixels inside its own frame. It is fitted with
-     * {@code boundsAround} now, like every other creation path.
+     * forget that {@code addNetFragment} added a paste offset of 15,15 to every element on top
+     * of that, so the copy's net drifted 15 pixels inside its own frame. The whole subtree -
+     * frame rectangles and elements alike - is now translated by one shared delta, so the copy
+     * keeps the original's exact fit: the same frame size, with the net at the same offset
+     * inside it. (A refit with {@code boundsAround} would be wrong for a nest: it cannot see
+     * the nested frames' own rectangles, only elements.)
      */
     @Test
-    public void theDuplicatesFrameIsFittedAroundTheCopyItActuallyHolds() {
+    public void theDuplicateKeepsTheOriginalsFitAroundItsNet() {
         PetriNetsPanel panel = freshPanel();
         GraphPetriPlace place = placeAt("PDrift", 200, 200);
         panel.getGraphNet().getGraphPetriPlaceList().add(place);
@@ -477,8 +480,15 @@ public class ObjectFrameDefectSweepTest {
         assertTrue("the copy's own element is inside its own frame: "
                         + copyFrame.getBounds() + " vs " + copied,
                 copyFrame.getBounds().contains(copied.getX(), copied.getY()));
-        assertEquals("and the frame is exactly the fit around what it holds",
-                boundsAround(panel, List.of(copiedPlace)), copyFrame.getBounds());
+        assertEquals("the copy keeps the original's frame size",
+                frame.getBounds().getSize(), copyFrame.getBounds().getSize());
+        Point2D original = place.getGraphElementCenter();
+        assertEquals("the net sits at the same offset inside the copy's frame",
+                original.getX() - frame.getBounds().x,
+                copied.getX() - copyFrame.getBounds().x, 0.0);
+        assertEquals("the net sits at the same offset inside the copy's frame",
+                original.getY() - frame.getBounds().y,
+                copied.getY() - copyFrame.getBounds().y, 0.0);
     }
 
     /**
@@ -556,14 +566,4 @@ public class ObjectFrameDefectSweepTest {
                         place.getGraphElementCenter().getY()));
     }
 
-    private static Rectangle boundsAround(PetriNetsPanel panel,
-            List<? extends ua.stetsenkoinna.graphnet.GraphElement> elements) {
-        try {
-            Method boundsAround = PetriNetsPanel.class.getDeclaredMethod("boundsAround", List.class);
-            boundsAround.setAccessible(true);
-            return (Rectangle) boundsAround.invoke(null, elements);
-        } catch (ReflectiveOperationException broken) {
-            throw new AssertionError(broken);
-        }
-    }
 }

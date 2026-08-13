@@ -378,10 +378,20 @@ public class GraphObjectFrame implements Serializable, CanvasItem {
     }
 
     /**
-     * Moves the frame, keeping its size.
+     * Moves the frame, keeping its size. The remembered expanded rectangle travels by the
+     * same delta: it used to stay behind, so dragging a collapsed object and expanding it
+     * snapped the frame back to where it was collapsed while its net, carried by the drag,
+     * stayed at the drop point - frame and net permanently separated.
      */
     public void moveTo(int x, int y) {
-        bounds = new Rectangle(Math.max(0, x), Math.max(0, y), bounds.width, bounds.height);
+        Rectangle moved = new Rectangle(Math.max(0, x), Math.max(0, y), bounds.width, bounds.height);
+        if (expandedBounds != null) {
+            expandedBounds = new Rectangle(
+                    expandedBounds.x + moved.x - bounds.x,
+                    expandedBounds.y + moved.y - bounds.y,
+                    expandedBounds.width, expandedBounds.height);
+        }
+        bounds = moved;
     }
 
     /**

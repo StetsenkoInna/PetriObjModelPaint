@@ -33,6 +33,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -354,9 +355,30 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         GraphPetriNet.GraphNetFragment clonedFragment;
         try {
             clonedFragment = graphNet.bulkCopyNoPasteElements(toClone);
+            // The paste offset is applied here, once, rather than inside addNetFragment:
+            // the redo of a paste replays addNetFragment on the same instances, so an
+            // offset in there shifted the pasted net another 15 pixels down-right on
+            // every undo/redo cycle, sliding it out of its own reinstated frame.
+            for (GraphElement element : clonedFragment.elements) {
+                element.moveBy(PASTE_OFFSET, PASTE_OFFSET);
+            }
             addNetFragment(clonedFragment);
 
+            // Posted before the frames, so a compound undo removes the frames first (each
+            // snapshotting its live membership) and deletes the clones last; the reverse
+            // order snapshotted frames whose members were already deleted, and redo then
+            // rebuilt the objects empty.
+            PetriNetsFrame.getUndoSupport().postEdit(
+                    new PasteElementsEdit(this, clonedFragment)
+            );
+
             for (GraphObjectFrame original : copiedFrames) {
+                // A frame whose ancestor is also in the clipboard travels with that
+                // ancestor: recreating it separately as well would steal the copies of
+                // its elements from the copied nest and leave a second, empty object.
+                if (enclosedByAnyOf(original, copiedFrames)) {
+                    continue;
+                }
                 recreateCopiedObject(original, clonedFragment.oldToNew);
             }
 
@@ -371,15 +393,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             copiedFrames = pasted;
             recentlyPasted.clear();
-
-            // Inside the update, so it joins the frames in one edit rather than following them.
-            PetriNetsFrame.getUndoSupport().postEdit(
-                    new PasteElementsEdit(this, clonedFragment)
-            );
         } finally {
             PetriNetsFrame.getUndoSupport().endUpdate();
         }
     }
+
+    /** How far a pasted copy lands from what it was copied from, in canvas units. */
+    private static final int PASTE_OFFSET = 15;
 
     /** Frames created by the paste currently in progress; see {@link #pasteClipboard}. */
     private final List<GraphObjectFrame> recentlyPasted = new ArrayList<>();
@@ -387,44 +407,72 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     /**
      * Rebuilds one copied Petri-object around the copies of its own elements: same name with a
      * "copy" suffix, same priority, template and collapsed state, nested wherever the original
-     * was, and fitted to what it actually holds.
+     * was.
      *
      * @param original the frame that was copied
      * @param oldToNew every copied element mapped to its copy
      */
     private void recreateCopiedObject(GraphObjectFrame original,
             Map<GraphElement, GraphElement> oldToNew) {
-        List<GraphElement> members = new ArrayList<>();
-        for (GraphElement member : canvasModel.membersOfSubtree(original)) {
-            GraphElement copy = oldToNew.get(member);
-            if (copy != null) {
-                members.add(copy);
-            }
+        GraphObjectFrame duplicate = recreateFrameSubtree(original, oldToNew,
+                original.getName() + " copy", PASTE_OFFSET, PASTE_OFFSET);
+        if (duplicate != null) {
+            recentlyPasted.add(duplicate);
         }
-        if (members.isEmpty()) {
-            return;
-        }
-        GraphObjectFrame duplicate = new GraphObjectFrame(
-                original.getName() + " copy", boundsAround(members));
-        duplicate.setPriority(original.getPriority());
-        duplicate.setTemplate(original.getTemplate());
-        duplicate.setContentVisible(original.isContentVisible());
-        canvasModel.nest(duplicate, canvasModel.enclosingOf(original));
-        addObjectFrame(duplicate);
-        for (GraphElement member : members) {
-            canvasModel.claim(duplicate, member);
-            member.setColor(Color.BLACK);
-            selection.remove(member);
-        }
-        if (original.isCollapsed()) {
-            duplicate.setCollapsed(true);
-        }
-        recentlyPasted.add(duplicate);
     }
 
     /**
-     * Adds a fragment of a net onto the canvas. Fragments' coordinates are
-     * updated in the process.
+     * Rebuilds a copied Petri-object together with everything nested inside it. Copying used
+     * to flatten a nest: one frame was recreated and every subtree element's copy claimed for
+     * it directly, so a pasted "A copy" quietly swallowed the whole net of A's nested objects
+     * while the objects themselves vanished from the copy - and the model's own semantics
+     * (per-object priorities, statistics, links) silently changed with them.
+     *
+     * @param originalRoot the copied frame at the top of the nest
+     * @param oldToNew every copied element mapped to its copy
+     * @param rootName name for the copy of {@code originalRoot}; nested copies keep their own
+     *        names, uniquified the way every other creation path does
+     * @param dx how far right the element copies were shifted from the originals
+     * @param dy how far down the element copies were shifted from the originals
+     * @return the copy of {@code originalRoot}, or {@code null} when there was nothing to copy
+     */
+    private GraphObjectFrame recreateFrameSubtree(GraphObjectFrame originalRoot,
+            Map<GraphElement, GraphElement> oldToNew, String rootName, int dx, int dy) {
+        if (originalRoot == null || oldToNew.isEmpty()) {
+            return null;
+        }
+        // subtreeOf is parent-first, so by the time a child is nested its parent's copy exists.
+        Map<GraphObjectFrame, GraphObjectFrame> copies = new LinkedHashMap<>();
+        for (GraphObjectFrame original : canvasModel.subtreeOf(originalRoot)) {
+            GraphObjectFrame copy = new GraphObjectFrame(original, oldToNew);
+            copy.moveBy(dx, dy);
+            copy.setName(uniqueObjectName(original == originalRoot ? rootName : original.getName()));
+            copies.put(original, copy);
+        }
+        for (Map.Entry<GraphObjectFrame, GraphObjectFrame> entry : copies.entrySet()) {
+            GraphObjectFrame original = entry.getKey();
+            GraphObjectFrame copy = entry.getValue();
+            GraphObjectFrame parent = original == originalRoot
+                    ? canvasModel.enclosingOf(originalRoot)
+                    : copies.get(canvasModel.enclosingOf(original));
+            canvasModel.nest(copy, parent);
+            addObjectFrame(copy);
+            for (GraphElement member : copy.getMembers()) {
+                // Locked inside the copy, so leaving one selected would let Delete or a
+                // drag act on an object's own net from the shared canvas.
+                member.setColor(Color.BLACK);
+                selection.remove(member);
+            }
+        }
+        return copies.get(originalRoot);
+    }
+
+    /**
+     * Adds a fragment of a net onto the canvas, at the coordinates the fragment already
+     * carries. It used to add a paste offset of its own, which the redo of a paste then
+     * re-applied on every undo/redo cycle, sliding the pasted net 15 pixels down-right
+     * each time - out of the very frame reinstated around it. The offset is the paster's
+     * business, applied once.
      *
      * @param fragment fragment to add
      */
@@ -438,18 +486,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         selection.clear();
 
         for (GraphElement element : elementsToSpawn) {
-            Point2D spawnPoint = element.getGraphElementCenter();
-            spawnPoint.setLocation(spawnPoint.getX() + 15, spawnPoint.getY() + 15);
-
-            element.setNewCoordinates(spawnPoint);
-
             if (element instanceof GraphPetriPlace) {
                 this.getGraphNet().getGraphPetriPlaceList().add((GraphPetriPlace) element);
             } else {
                 this.getGraphNet().getGraphPetriTransitionList().add((GraphPetriTransition) element);
             }
 
-            selection.add(element);
+            // An element already claimed by an object is locked inside it; selecting it
+            // here would let Delete or a drag act on that object's net from the shared
+            // canvas. Happens on the redo of an object paste, where the frame and its
+            // claims are reinstated before this replays.
+            if (canvasModel.ownerOf(element) == null) {
+                selection.add(element);
+            }
         }
 
         for (GraphArcIn arcIn : fragment.inArcs) {
@@ -2070,17 +2119,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @return the copy, or {@code null} when there was nothing to copy
      */
     public GraphObjectFrame duplicateObject(GraphObjectFrame frame, String name) {
-        List<GraphElement> inside = new ArrayList<>();
-        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
-            if (canvasModel.ownerOf(place) == frame) {
-                inside.add(place);
-            }
-        }
-        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
-            if (canvasModel.ownerOf(transition) == frame) {
-                inside.add(transition);
-            }
-        }
+        // The whole subtree, not only the direct members: duplicating an object that held a
+        // nested object used to silently produce a copy without the nested object or its
+        // net - data loss the user only noticed later - and an object holding nothing but
+        // a nested object refused to duplicate at all, claiming it had no net.
+        List<GraphElement> inside = canvasModel.membersOfSubtree(frame);
         if (inside.isEmpty()) {
             MessageHelper.showError(dialogOwner(), "The Petri-object has no net to copy yet");
             return null;
@@ -2090,39 +2133,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         // one each, so undoing cannot take the frame off and leave the copy behind.
         PetriNetsFrame.getUndoSupport().beginUpdate();
         try {
-        GraphPetriNet.GraphNetFragment copy = graphNet.bulkCopyNoPasteElements(inside);
-        int dx = frame.getBounds().width + 40;
-        for (GraphElement element : copy.elements) {
-            element.moveBy(dx, 0);
-        }
-        addNetFragment(copy);
-        // Posted for the same reason absorbNet posts: without it the copied net has no edit of
-        // its own, so undoing a duplicate took the frame off and left the copy on the canvas.
-        PetriNetsFrame.getUndoSupport().postEdit(new PasteElementsEdit(this, copy));
+            GraphPetriNet.GraphNetFragment copy = graphNet.bulkCopyNoPasteElements(inside);
+            int dx = frame.getBounds().width + 40;
+            for (GraphElement element : copy.elements) {
+                element.moveBy(dx, 0);
+            }
+            addNetFragment(copy);
+            // Posted for the same reason absorbNet posts: without it the copied net has no edit
+            // of its own, so undoing a duplicate took the frame off and left the copy behind.
+            PetriNetsFrame.getUndoSupport().postEdit(new PasteElementsEdit(this, copy));
 
-        // Fitted around the copy it actually holds, exactly like every other creation path. It
-        // used to be the original's rectangle translated by the same dx, which forgot that
-        // addNetFragment adds a 15,15 paste offset of its own to every element - so the copy's net
-        // sat 15 pixels off inside its own frame, a drift no other path had.
-        GraphObjectFrame duplicate = new GraphObjectFrame(name, boundsAround(copy.elements));
-        duplicate.setPriority(frame.getPriority());
-        duplicate.setTemplate(frame.getTemplate());
-        duplicate.setContentVisible(frame.isContentVisible());
-        canvasModel.nest(duplicate, canvasModel.enclosingOf(frame));
-        addObjectFrame(duplicate);
-        for (GraphElement element : copy.elements) {
-            canvasModel.claim(duplicate, element);
-            // Locked inside the copy, so leaving it selected would let Delete or a drag act on an
-            // object's own net from the shared canvas - which is exactly what every other creation
-            // path deliberately avoids.
-            element.setColor(Color.BLACK);
-            selection.remove(element);
-        }
-        if (frame.isCollapsed()) {
-            duplicate.setCollapsed(true);
-        }
-        repaint();
-        return duplicate;
+            GraphObjectFrame duplicate = recreateFrameSubtree(frame, copy.oldToNew, name, dx, 0);
+            repaint();
+            return duplicate;
         } finally {
             PetriNetsFrame.getUndoSupport().endUpdate();
         }
@@ -3940,11 +3963,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     public void removeObjectFrameSilently(GraphObjectFrame frame) {
         canvasModel.getFrames().remove(frame);
+        // Eager, where the web editor is lazy about an orphaned tab: a pill here holds the live
+        // frame, so a canvas whose frame is gone cannot be painted at all. Pruned before
+        // releaseMembers nulls the frame's enclosing pointer - the stack walks that pointer to
+        // hand the active canvas to the nearest surviving ancestor, so pruning afterwards
+        // always teleported the user to the root canvas instead of the parent they were in.
+        canvasStack.pruneRemoved(frame);
         canvasModel.releaseMembers(frame);
         selection.remove(frame);
-        // Eager, where the web editor is lazy about an orphaned tab: a pill here holds the live
-        // frame, so a canvas whose frame is gone cannot be painted at all.
-        canvasStack.pruneRemoved(frame);
         if (focusedFrame == frame || !canvasModel.getFrames().contains(focusedFrame)) {
             focusedFrame = canvasStack.getActive();
         }
@@ -3968,6 +3994,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         canvasModel.nest(frame, snapshot.getEnclosing());
         for (GraphElement member : snapshot.getMembers()) {
             canvasModel.claim(frame, member);
+            // Claimed means locked inside the object: redo used to leave a pasted net
+            // selected while claiming it, so Delete or a drag could act on the object's
+            // own members from the shared canvas.
+            member.setColor(Color.BLACK);
+            selection.remove(member);
         }
         for (GraphObjectFrame child : snapshot.getChildren()) {
             if (canvasModel.getFrames().contains(child)) {
