@@ -345,28 +345,38 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return;
         }
 
-        GraphPetriNet.GraphNetFragment clonedFragment = graphNet.bulkCopyNoPasteElements(toClone);
-        addNetFragment(clonedFragment);
+        // One paste is one Ctrl+Z. Without the grouping a paste that carried objects posted the
+        // fragment and then one edit per object, so undoing it peeled the objects off one at a
+        // time and left their nets behind, the same shape of bug as putting one on the canvas.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        GraphPetriNet.GraphNetFragment clonedFragment;
+        try {
+            clonedFragment = graphNet.bulkCopyNoPasteElements(toClone);
+            addNetFragment(clonedFragment);
 
-        for (GraphObjectFrame original : copiedFrames) {
-            recreateCopiedObject(original, clonedFragment.oldToNew);
-        }
-
-        copiedElements = new ArrayList<>(clonedFragment.elements);
-        // The pasted objects, not the originals, are what another Ctrl+V should paste next -
-        // otherwise every paste after the first stacks another copy on top of the first one.
-        List<GraphObjectFrame> pasted = new ArrayList<>();
-        for (GraphObjectFrame frame : canvasModel.getFrames()) {
-            if (recentlyPasted.contains(frame)) {
-                pasted.add(frame);
+            for (GraphObjectFrame original : copiedFrames) {
+                recreateCopiedObject(original, clonedFragment.oldToNew);
             }
-        }
-        copiedFrames = pasted;
-        recentlyPasted.clear();
 
-        PetriNetsFrame.getUndoSupport().postEdit(
-                new PasteElementsEdit(this, clonedFragment)
-        );
+            copiedElements = new ArrayList<>(clonedFragment.elements);
+            // The pasted objects, not the originals, are what another Ctrl+V should paste next -
+            // otherwise every paste after the first stacks another copy on top of the first one.
+            List<GraphObjectFrame> pasted = new ArrayList<>();
+            for (GraphObjectFrame frame : canvasModel.getFrames()) {
+                if (recentlyPasted.contains(frame)) {
+                    pasted.add(frame);
+                }
+            }
+            copiedFrames = pasted;
+            recentlyPasted.clear();
+
+            // Inside the update, so it joins the frames in one edit rather than following them.
+            PetriNetsFrame.getUndoSupport().postEdit(
+                    new PasteElementsEdit(this, clonedFragment)
+            );
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
     }
 
     /** Frames created by the paste currently in progress; see {@link #pasteClipboard}. */
@@ -1122,24 +1132,37 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * it - a promise the documentation already made and the mechanism never kept.
      */
     public void duplicateSelection() {
-        for (GraphObjectFrame frame : selection.allFrames()) {
-            duplicateObject(frame);
+        // Ctrl+D on several objects is still one gesture, so it is one Ctrl+Z. Nested updates
+        // collapse into a single edit at the outermost end, which is why duplicateObject can
+        // group on its own as well without producing two.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            for (GraphObjectFrame frame : selection.allFrames()) {
+                duplicateObject(frame);
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
         }
     }
 
     /**
      * Delete: removes everything selected, of either kind, in one gesture, asking first.
      *
-     * <p>Objects go first: removing one lifts its net one level out, and the element sweep below
-     * then accounts for those elements as ordinary members of whatever now holds them.
+     * <p>Deleting a Petri-object deletes the net inside it. It used to lift that net out and drop
+     * only the frame, which is ungrouping rather than deleting: the user pressed Delete on one
+     * thing and was left with its contents scattered on the canvas. Ungrouping is still there,
+     * as the frame's own "Remove Petri-object frame", which says what it keeps.
      */
     public void deleteSelection() {
         List<GraphObjectFrame> frames = selection.allFrames();
         if (!frames.isEmpty() && choosenArc == null && choosen == null) {
-            if (frames.size() == 1) {
-                confirmRemoveObjectFrame(frames.getFirst());
-            } else {
-                confirmRemoveObjectFrames(frames);
+            String what = frames.size() == 1
+                    ? "the Petri-object '" + frames.getFirst().getName() + "'"
+                    : frames.size() + " Petri-objects";
+            if (MessageHelper.showConfirmation(dialogOwner(),
+                    "Delete " + what + " and the net inside? To keep the net and drop only the "
+                            + "frame, use the object's own Remove Petri-object frame.")) {
+                deleteSelectedObjects();
             }
         }
         if (choosenArc != null) {
@@ -1175,6 +1198,57 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * test JVM, and an operation that only exists behind a modal confirmation cannot be exercised
      * at all. The confirmation lives in {@link #deleteSelection}.
      */
+    /**
+     * The object half of {@link #deleteSelection}: every selected Petri-object, everything nested
+     * inside it, and the whole net all of them hold, as one undoable step.
+     *
+     * <p>Works by adding the members to the element selection and letting the ordinary element
+     * delete do the work, so the arcs that touch them go too and undo restores each element into
+     * the object that held it, exactly as it does for a plain delete. The frames come off deepest
+     * first, so removing one never has to lift anything out of it.
+     *
+     * <p>Asks nothing, for the same reason {@link #deleteSelectedElements} asks nothing: an
+     * operation that exists only behind a modal dialog cannot be tested at all.
+     */
+    public void deleteSelectedObjects() {
+        List<GraphObjectFrame> roots = selection.allFrames();
+        if (roots.isEmpty()) {
+            return;
+        }
+        List<GraphObjectFrame> deepestFirst = new ArrayList<>();
+        for (GraphObjectFrame root : roots) {
+            collectSubtree(root, deepestFirst);
+        }
+
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            for (GraphObjectFrame frame : deepestFirst) {
+                for (GraphElement member : canvasModel.membersOfSubtree(frame)) {
+                    selection.add(member);
+                }
+            }
+            deleteSelectedElements();
+            for (GraphObjectFrame frame : deepestFirst) {
+                removeObjectFrame(frame);
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+        selection.clear();
+        repaint();
+    }
+
+    /** Appends a frame's whole subtree to {@code into}, children before the frame itself. */
+    private void collectSubtree(GraphObjectFrame frame, List<GraphObjectFrame> into) {
+        if (into.contains(frame)) {
+            return;
+        }
+        for (GraphObjectFrame child : canvasModel.childrenOf(frame)) {
+            collectSubtree(child, into);
+        }
+        into.add(frame);
+    }
+
     public void deleteSelectedElements() {
         List<GraphElement> deleted = new ArrayList<>(selection.elements());
         List<GraphArcIn> inArcsToBeRemoved = new ArrayList<>();
@@ -1812,6 +1886,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return null;
         }
 
+        // One duplicate is one Ctrl+Z: the copied net and the frame around it are one edit, not
+        // one each, so undoing cannot take the frame off and leave the copy behind.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
         GraphPetriNet.GraphNetFragment copy = graphNet.bulkCopyNoPasteElements(inside);
         int dx = frame.getBounds().width + 40;
         for (GraphElement element : copy.elements) {
@@ -1819,6 +1897,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             element.setNewCoordinates(new Point2D.Double(centre.getX() + dx, centre.getY()));
         }
         addNetFragment(copy);
+        // Posted for the same reason absorbNet posts: without it the copied net has no edit of
+        // its own, so undoing a duplicate took the frame off and left the copy on the canvas.
+        PetriNetsFrame.getUndoSupport().postEdit(new PasteElementsEdit(this, copy));
 
         // Fitted around the copy it actually holds, exactly like every other creation path. It
         // used to be the original's rectangle translated by the same dx, which forgot that
@@ -1843,6 +1924,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
         repaint();
         return duplicate;
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
     }
 
     private void renameObject(GraphObjectFrame frame) {
@@ -1991,21 +2075,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
     }
 
-    /**
-     * The bulk-selection counterpart of {@link #confirmRemoveObjectFrame} — what Delete does
-     * with several frames selected together, e.g. by Ctrl+A, the same way it already bulk-
-     * removes a multi-selection of places and transitions.
-     */
-    private void confirmRemoveObjectFrames(List<GraphObjectFrame> frames) {
-        if (MessageHelper.showConfirmation(dialogOwner(),
-                "Remove " + frames.size() + " Petri-object frames? Their nets stay on the canvas.")) {
-            for (GraphObjectFrame frame : frames) {
-                removeObjectFrame(frame);
-            }
-            selection.frames().clear();
-            selection.setSelectedFrame(null);
-        }
-    }
 
     /**
      * @return a frame that encloses the given elements with room to spare

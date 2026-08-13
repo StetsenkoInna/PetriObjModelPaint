@@ -240,4 +240,113 @@ public class ObjectFrameUndoTest {
         assertEquals("the net is back", before + 2, everything(panel).size());
         assertEquals("and so is the object", 1, panel.getCanvasModel().getFrames().size());
     }
+
+    @Test
+    public void deletingAnObjectDeletesTheNetInsideIt() {
+        PetriNetsPanel panel = panelWithTwoFreeElements();
+        List<GraphElement> chunk = everything(panel);
+        GraphObjectFrame frame = panel.groupIntoObject(chunk, "Object");
+        panel.getSelection().clear();
+        panel.getSelection().add(frame);
+
+        List<UndoableEdit> posted = editsPostedBy(panel::deleteSelectedObjects);
+
+        assertEquals("deleting one object is one Ctrl+Z", 1, posted.size());
+        assertTrue("the object is gone", panel.getCanvasModel().getFrames().isEmpty());
+        // The defect this pins: Delete used to lift the net out and drop only the frame, which
+        // is ungrouping. The user pressed Delete on one thing and got its contents back.
+        assertEquals("and so is the net it held", 0, everything(panel).size());
+    }
+
+    @Test
+    public void undoingThatDeleteBringsBackTheObjectAndItsNet() {
+        PetriNetsPanel panel = panelWithTwoFreeElements();
+        List<GraphElement> chunk = everything(panel);
+        GraphObjectFrame frame = panel.groupIntoObject(chunk, "Object");
+        panel.getSelection().clear();
+        panel.getSelection().add(frame);
+
+        List<UndoableEdit> posted = editsPostedBy(panel::deleteSelectedObjects);
+        posted.getFirst().undo();
+
+        assertEquals("the net is back", 2, everything(panel).size());
+        assertEquals("and so is the object", 1, panel.getCanvasModel().getFrames().size());
+        GraphObjectFrame restored = panel.getCanvasModel().getFrames().getFirst();
+        assertEquals("with its members still claimed by it", 2, panel.countElementsIn(restored));
+    }
+
+    @Test
+    public void deletingAnObjectTakesWhatIsNestedInsideItToo() {
+        PetriNetsPanel panel = panelWithTwoFreeElements();
+        GraphObjectFrame outer = panel.groupIntoObject(everything(panel), "Outer");
+        GraphElement innerMember = placeAt("PInner", 900, 900);
+        panel.getGraphNet().getGraphPetriPlaceList().add((GraphPetriPlace) innerMember);
+        GraphObjectFrame inner = panel.groupIntoObject(List.of(innerMember), "Inner");
+        panel.getCanvasModel().nest(inner, outer);
+        assertSame("fixture: the inner object really is nested",
+                outer, panel.getCanvasModel().enclosingOf(inner));
+        assertEquals("fixture: and it holds its own place", 1, panel.countElementsIn(inner));
+
+        panel.getSelection().clear();
+        panel.getSelection().add(outer);
+        panel.deleteSelectedObjects();
+
+        assertTrue("a nested object cannot outlive the object it was nested in",
+                panel.getCanvasModel().getFrames().isEmpty());
+        assertEquals("nor can its net", 0, everything(panel).size());
+    }
+
+    @Test
+    public void removingOnlyTheFrameStillKeepsTheNet() {
+        PetriNetsPanel panel = panelWithTwoFreeElements();
+        List<GraphElement> chunk = everything(panel);
+        GraphObjectFrame frame = panel.groupIntoObject(chunk, "Object");
+
+        // Ungrouping is the other operation, and it is unchanged: it is what the frame's own
+        // Remove Petri-object frame does, and the only way to keep a net without its object.
+        panel.removeObjectFrame(frame);
+
+        assertTrue(panel.getCanvasModel().getFrames().isEmpty());
+        assertEquals("the net stays on the canvas", 2, everything(panel).size());
+        assertNull("free again", panel.getCanvasModel().ownerOf(chunk.getFirst()));
+    }
+
+    @Test
+    public void duplicatingAnObjectIsOneUndoStepThatTakesTheCopiedNetWithIt() {
+        PetriNetsPanel panel = panelWithTwoFreeElements();
+        GraphObjectFrame frame = panel.groupIntoObject(everything(panel), "Object");
+        panel.getSelection().clear();
+        panel.getSelection().add(frame);
+
+        List<UndoableEdit> posted = editsPostedBy(panel::duplicateSelection);
+
+        assertEquals("duplicating is one Ctrl+Z", 1, posted.size());
+        assertEquals(2, panel.getCanvasModel().getFrames().size());
+        assertEquals("the copy brought a net of its own", 4, everything(panel).size());
+
+        posted.getFirst().undo();
+
+        assertEquals("the copy is gone whole", 1, panel.getCanvasModel().getFrames().size());
+        assertEquals("net included", 2, everything(panel).size());
+    }
+
+    @Test
+    public void pastingAnObjectIsOneUndoStepThatTakesItsNetWithIt() {
+        PetriNetsPanel panel = panelWithTwoFreeElements();
+        GraphObjectFrame frame = panel.groupIntoObject(everything(panel), "Object");
+        panel.getSelection().clear();
+        panel.getSelection().add(frame);
+        panel.copySelection();
+
+        List<UndoableEdit> posted = editsPostedBy(panel::pasteClipboard);
+
+        assertEquals("pasting is one Ctrl+Z", 1, posted.size());
+        assertEquals(2, panel.getCanvasModel().getFrames().size());
+        assertEquals(4, everything(panel).size());
+
+        posted.getFirst().undo();
+
+        assertEquals("the pasted object is gone whole", 1, panel.getCanvasModel().getFrames().size());
+        assertEquals("net included", 2, everything(panel).size());
+    }
 }
