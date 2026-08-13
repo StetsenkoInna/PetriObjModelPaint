@@ -611,6 +611,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
         paintObjectFrames(g2, true);
         paintPorts(g2);
+        // The boundary ports of the object being edited: where its connections to the rest
+        // of the document enter this canvas, each labelled with the outside element's name.
+        for (FramePort port : focusedBoundaryPorts()) {
+            port.draw(g2, false);
+        }
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
             if (fusion.isAnchoredToAFrame()) {
                 Line2D line = trimmedFusionLine(fusion);
@@ -900,13 +905,24 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private GraphElement connectionAnchor(GraphObjectFrame frame, GraphElement element) {
         GraphObjectFrame hiding = outermostHidden(frame);
-        if (hiding == null) {
-            return element;
-        }
         // The OUTERMOST hidden object, not the element's own: a place inside an object nested in a
         // collapsed object is drawn nowhere, and the only border on screen for a link to reach is
         // the collapsed ancestor's. Its ports cover its whole subtree, so the element has one.
-        return portAnchorFor(hiding, element);
+        if (hiding != null && isFrameDrawnOnThisCanvas(hiding)) {
+            return portAnchorFor(hiding, element);
+        }
+        if (isDrawnOnThisCanvas(element)) {
+            return element;
+        }
+        if (focusedFrame != null) {
+            // From inside an object, a shared place's outside half is reached through the
+            // focused border's labelled boundary port, same as a crossing arc's outside end.
+            GraphElement boundary = boundaryPortAnchor(element);
+            if (boundary != null) {
+                return boundary;
+            }
+        }
+        return hiding == null ? element : portAnchorFor(hiding, element);
     }
 
     /**
@@ -917,6 +933,87 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private GraphElement portAnchorFor(GraphObjectFrame frame, GraphElement element) {
         for (FramePort port : canvasModel.portsOf(frame)) {
             if (port.getElement() == element) {
+                return new PortAnchor(port.getPosition(), FramePort.RADIUS);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The boundary ports of the object being edited: one labelled port per outside element
+     * this object's net is connected to, stacked down the focused frame's left edge. From
+     * inside an object, a link to something outside used to be drawn from a bare, unmarked
+     * point on the focused frame's border - a border this canvas deliberately does not paint
+     * - so the arrow appeared out of nowhere and nothing said what was on its far end. Each
+     * port carries the outside element's own name, and every connection through it anchors
+     * its line there.
+     *
+     * <p>Derived on every ask, like {@link GraphCanvasModel#portsOf}: the set changes with
+     * every arc drawn or element moved between objects, and the positions with the frame.
+     *
+     * @return the ports, in a stable order; empty on the net's own canvas
+     */
+    private List<FramePort> focusedBoundaryPorts() {
+        List<FramePort> ports = new ArrayList<>();
+        if (focusedFrame == null) {
+            return ports;
+        }
+        List<GraphElement> outsideEnds = new ArrayList<>();
+        for (GraphArcIn arc : graphNet.getGraphArcInList()) {
+            collectBoundaryCrossing(outsideEnds, arc.getBeginElement(), arc.getEndElement());
+        }
+        for (GraphArcOut arc : graphNet.getGraphArcOutList()) {
+            collectBoundaryCrossing(outsideEnds, arc.getBeginElement(), arc.getEndElement());
+        }
+        for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
+            collectBoundaryCrossing(outsideEnds, fusion.getMaster(), fusion.getJoined());
+        }
+        Rectangle bounds = focusedFrame.getBounds();
+        int y = bounds.y + GraphObjectFrame.HEADER_HEIGHT + 30;
+        for (GraphElement outer : outsideEnds) {
+            ports.add(new FramePort(outer, new Point(bounds.x, y), FramePort.Edge.LEFT));
+            y += 44;
+        }
+        return ports;
+    }
+
+    /**
+     * Adds the outside end of a connection to {@code outsideEnds} when the connection
+     * crosses this canvas's boundary: exactly one end drawn here, the other reachable
+     * through no port already on screen. One entry per outside element, however many
+     * connections come through it - the same rule an ordinary frame port follows.
+     */
+    private void collectBoundaryCrossing(List<GraphElement> outsideEnds,
+            GraphElement a, GraphElement b) {
+        if (a == null || b == null) {
+            return;
+        }
+        boolean aDrawn = isDrawnOnThisCanvas(a);
+        boolean bDrawn = isDrawnOnThisCanvas(b);
+        if (aDrawn == bDrawn) {
+            return; // internal to this canvas, or entirely elsewhere
+        }
+        GraphElement outer = aDrawn ? b : a;
+        // A hidden end whose collapsed or eye-hidden object is itself drawn here anchors to
+        // that object's own port instead of the focused border.
+        GraphObjectFrame hiding = outermostHidden(canvasModel.ownerOf(outer));
+        if (hiding != null && isFrameDrawnOnThisCanvas(hiding)) {
+            return;
+        }
+        if (!outsideEnds.contains(outer)) {
+            outsideEnds.add(outer);
+        }
+    }
+
+    /**
+     * @param outer an element not drawn on this canvas that something drawn here connects to
+     * @return the anchor on the focused frame's left-edge boundary port for it, or
+     *         {@code null} when there is none (never on an object's canvas, where every
+     *         such element has one)
+     */
+    private GraphElement boundaryPortAnchor(GraphElement outer) {
+        for (FramePort port : focusedBoundaryPorts()) {
+            if (port.getElement() == outer) {
                 return new PortAnchor(port.getPosition(), FramePort.RADIUS);
             }
         }
@@ -1050,7 +1147,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return element;
         }
         if (focusedFrame != null) {
-            return portAnchorFor(focusedFrame, otherEnd);
+            // Out through the labelled boundary port that stands for this outside element,
+            // not a bare point on the invisible focused border: the line used to appear
+            // out of nowhere, with nothing saying what was on its far end.
+            return boundaryPortAnchor(element);
         }
         return null;
     }
@@ -3695,8 +3795,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     public void setTool(CanvasTool newTool, PetriObjectTemplate template) {
         // Every template shares the one ADD_PETRI_OBJECT mode, so "same tool" is not the same
         // question as "nothing to do" any more: switching straight from one template's button
-        // to another has to re-arm even though the tool itself did not change.
-        if (tool == newTool && java.util.Objects.equals(armedTemplate, template)) {
+        // to another has to re-arm even though the tool itself did not change. The Arc mode
+        // has the same shape: it is SELECT plus the isSettingArc flag, so leaving it via the
+        // Select button is also a same-enum switch - the early return here used to swallow
+        // that click, and since the Arc tool stays armed across misses, there was no way
+        // out of arc mode at all: every element press kept starting arcs instead of moves.
+        if (tool == newTool && java.util.Objects.equals(armedTemplate, template) && !isSettingArc) {
             return;
         }
         if (currentArc != null) {
