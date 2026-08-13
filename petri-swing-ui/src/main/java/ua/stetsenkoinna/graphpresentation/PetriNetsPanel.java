@@ -3094,7 +3094,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 currentArc.setNewCoordinates(scaledCurrentMousePoint);
             }
 
-            if (!selection.isEmpty() && leftMouseButtonPressed) { // moving the whole selection
+            // currentArc == null: this drag is dragging out a new arc, not the selection - the
+            // two used to be able to fire on the same gesture whenever a frame was already
+            // selected (creating one leaves it selected), and moveFrame's updateArcCoordinates
+            // walks every arc unconditionally, including the one being drawn, whose endElement
+            // is still null until the release that finishes it. changeBorder() on that arc threw
+            // a NullPointerException, aborting the drag mid-gesture - which is exactly what
+            // "drawing an arc silently doesn't work" looks like from outside.
+            if (currentArc == null && !selection.isEmpty() && leftMouseButtonPressed) { // moving the whole selection
 
                 selection.paintHighlight();
                 setCursor(new Cursor(Cursor.MOVE_CURSOR));
