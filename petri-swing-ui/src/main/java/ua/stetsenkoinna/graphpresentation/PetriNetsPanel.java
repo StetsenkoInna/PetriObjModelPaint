@@ -855,30 +855,49 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     private void paintCrossingArcSubstitute(Graphics2D g2, GraphArc arc, GraphArc temp) {
+        if (!settleCrossingSubstitute(arc, temp)) {
+            return;
+        }
+        temp.setQuantity(arc.getQuantity());
+        temp.setInf(arc.getIsInf());
+        temp.setColor(arc.getColor());
+        temp.drawGraphElement(g2);
+    }
+
+    /**
+     * Anchors {@code temp} to the same on-screen substitute a crossing arc is drawn as - see
+     * {@link #paintCrossingArcSubstitute} - so painting and hit-testing a crossing arc always
+     * agree on where its visible line actually is, instead of painting one line and hit-testing
+     * a different one. {@link #findArc} is the other caller: a click on a crossing arc's visible
+     * line used to never find the real arc underneath it, since only the real arc's own line -
+     * reaching to whichever end is off screen - was ever hit-tested.
+     *
+     * @return true if {@code temp} now holds the substitute line, border-trimmed and ready to
+     *         paint or hit-test; false, leaving {@code temp} untouched, when {@code arc} is not a
+     *         crossing arc at all - internal to one object, both free, or both ends on screen
+     */
+    private boolean settleCrossingSubstitute(GraphArc arc, GraphArc temp) {
         GraphElement begin = arc.getBeginElement();
         GraphElement end = arc.getEndElement();
         GraphObjectFrame beginOwner = canvasModel.ownerOf(begin);
         GraphObjectFrame endOwner = canvasModel.ownerOf(end);
         if (beginOwner == endOwner) {
-            return; // internal to one object, or both free — paintGraphPetriNet already drew it
+            return false; // internal to one object, or both free — paintGraphPetriNet already drew it
         }
         if (isDrawnOnThisCanvas(begin) && isDrawnOnThisCanvas(end)) {
-            return; // both ends are on screen already, drawn directly by paintGraphPetriNet
+            return false; // both ends are on screen already, drawn directly by paintGraphPetriNet
         }
         GraphElement beginAnchor = crossingAnchor(begin, end);
         GraphElement endAnchor = crossingAnchor(end, begin);
         if (beginAnchor == null || endAnchor == null) {
-            return;
+            return false;
         }
         // settingNewArc is also what initializes the arc's own Line2D — setBeginElement alone
         // leaves it null, which changeBorder() (called below) unconditionally writes through.
         temp.settingNewArc(beginAnchor);
         temp.setEndElement(endAnchor);
-        temp.setQuantity(arc.getQuantity());
-        temp.setInf(arc.getIsInf());
-        temp.setColor(arc.getColor());
         temp.changeBorder();
-        temp.drawGraphElement(g2);
+        return true;
     }
 
     /**
@@ -946,18 +965,30 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     public GraphArc findArc(Point2D p) {
         for (GraphArcOut to : graphNet.getGraphArcOutList()) {
-            if (to.isEnoughDistance(p) && isDrawnOnThisCanvas(to.getBeginElement())
-                    && isDrawnOnThisCanvas(to.getEndElement())) {
+            if (arcIsHitAt(to, new GraphArcOut(), p)) {
                 return to;
             }
         }
         for (GraphArcIn ti : graphNet.getGraphArcInList()) {
-            if (ti.isEnoughDistance(p) && isDrawnOnThisCanvas(ti.getBeginElement())
-                    && isDrawnOnThisCanvas(ti.getEndElement())) {
+            if (arcIsHitAt(ti, new GraphArcIn(), p)) {
                 return ti;
             }
         }
         return null;
+    }
+
+    /**
+     * @param arc the real arc being tested
+     * @param temp a scratch arc of the same kind, settled onto the crossing substitute (if any)
+     *        and discarded - {@code arc} itself is never mutated by a hit test
+     * @return true if {@code p} lands on {@code arc}'s own line while both ends are on screen,
+     *         or on the substitute {@link #settleCrossingSubstitute} computes while they are not
+     */
+    private boolean arcIsHitAt(GraphArc arc, GraphArc temp, Point2D p) {
+        if (isDrawnOnThisCanvas(arc.getBeginElement()) && isDrawnOnThisCanvas(arc.getEndElement())) {
+            return arc.isEnoughDistance(p);
+        }
+        return settleCrossingSubstitute(arc, temp) && temp.isEnoughDistance(p);
     }
 
     /**
