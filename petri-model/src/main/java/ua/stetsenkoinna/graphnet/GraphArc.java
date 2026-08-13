@@ -13,6 +13,13 @@ import org.slf4j.LoggerFactory;
 
 public class GraphArc implements Serializable {
 
+    /**
+     * Pinned for the same reason as {@link GraphElement#serialVersionUID}: every arc in every
+     * saved {@code .pns} is a {@code GraphArc} subclass instance, and none of them declare their
+     * own id.
+     */
+    private static final long serialVersionUID = -1508566441016938813L;
+
     private static final Logger log = LoggerFactory.getLogger(GraphArc.class);
 
     private Line2D graphElement;

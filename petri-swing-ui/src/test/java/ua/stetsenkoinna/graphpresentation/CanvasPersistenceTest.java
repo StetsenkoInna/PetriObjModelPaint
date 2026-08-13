@@ -148,7 +148,20 @@ public class CanvasPersistenceTest {
                 GraphCanvasModel.class,
                 GraphObjectFrame.class,
                 ua.stetsenkoinna.graphnet.FramePort.class,
-                ua.stetsenkoinna.graphnet.GraphPlaceFusion.class}) {
+                ua.stetsenkoinna.graphnet.GraphPlaceFusion.class,
+                // Pinned to today's value ahead of GraphElement gaining `implements CanvasItem` -
+                // see the memory note this session worked from. Every place and transition on a
+                // saved canvas is one of these, so the whole hierarchy on both sides (elements and
+                // arcs) gets the same net, not just the one class whose shape is actually changing.
+                ua.stetsenkoinna.graphnet.GraphElement.class,
+                ua.stetsenkoinna.graphnet.GraphPlace.class,
+                ua.stetsenkoinna.graphnet.GraphTransition.class,
+                ua.stetsenkoinna.graphnet.PortAnchor.class,
+                GraphPetriPlace.class,
+                GraphPetriTransition.class,
+                ua.stetsenkoinna.graphnet.GraphArc.class,
+                ua.stetsenkoinna.graphnet.GraphArcIn.class,
+                ua.stetsenkoinna.graphnet.GraphArcOut.class}) {
             java.lang.reflect.Field field = persisted.getDeclaredField("serialVersionUID");
             assertNotNull(persisted.getSimpleName() + " must pin its serialVersionUID", field);
         }

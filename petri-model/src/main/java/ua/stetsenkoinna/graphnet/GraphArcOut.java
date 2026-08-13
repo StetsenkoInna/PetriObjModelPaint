@@ -14,6 +14,9 @@ import java.util.List;
  */
 public class GraphArcOut extends GraphArc implements Serializable {
 
+    /** Pinned for the same reason as {@link GraphArc#serialVersionUID}. */
+    private static final long serialVersionUID = 1196373091481903423L;
+
     private static ArrayList<GraphArcOut> graphArcOutList = new ArrayList<>();
 
     private final ArcOut arc;

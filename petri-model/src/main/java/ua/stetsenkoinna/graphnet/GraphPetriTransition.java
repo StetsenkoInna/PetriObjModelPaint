@@ -10,6 +10,9 @@ import java.io.Serializable;
  */
 public class GraphPetriTransition extends GraphTransition implements Serializable {
 
+    /** Pinned for the same reason as {@link GraphPlace#serialVersionUID}. */
+    private static final long serialVersionUID = 8294794337604230394L;
+
     private static int simpleInd = 0;
 
     private final int id; // UI element ID

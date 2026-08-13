@@ -9,6 +9,9 @@ import java.awt.geom.RoundRectangle2D;
 
 public class GraphTransition extends GraphElement {
 
+    /** Pinned for the same reason as {@link GraphPlace#serialVersionUID}. */
+    private static final long serialVersionUID = 4033344158994788562L;
+
     private static int height = 50;
     private static final int defaultWidth = 19;
     private int width = 19;

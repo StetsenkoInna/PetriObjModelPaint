@@ -11,6 +11,9 @@ import java.io.Serializable;
  */
 public class GraphPetriPlace extends GraphPlace implements Serializable {
 
+    /** Pinned for the same reason as {@link GraphPlace#serialVersionUID}. */
+    private static final long serialVersionUID = -4684049651039812064L;
+
     private static int simpleInd=0;
 
     private final int id; // UI element ID

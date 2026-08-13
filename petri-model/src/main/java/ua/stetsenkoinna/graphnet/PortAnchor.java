@@ -16,6 +16,9 @@ import java.util.Objects;
  */
 public final class PortAnchor extends GraphElement {
 
+    /** Pinned for the same reason as {@link GraphPlace#serialVersionUID}. */
+    private static final long serialVersionUID = 6000598388561772887L;
+
     private final Point2D center;
     private final int border;
 

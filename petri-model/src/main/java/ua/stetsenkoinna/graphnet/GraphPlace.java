@@ -8,6 +8,14 @@ import java.awt.geom.Point2D;
 
 public class GraphPlace extends GraphElement {
 
+    /**
+     * Pinned alongside {@link GraphElement}'s own id: a concrete class's default id depends only
+     * on its own declared shape, not its superclass, so nothing here is actually changing yet -
+     * but every place on a saved canvas is one of these, so it gets the same safety net rather
+     * than staying one accidental field away from breaking every file on disk.
+     */
+    private static final long serialVersionUID = 3105490110026436094L;
+
     private static int diameter = 40;
 
     public static int getDiameter() { return diameter; }

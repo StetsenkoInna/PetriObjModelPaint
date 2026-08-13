@@ -12,6 +12,15 @@ import java.io.Serializable;
  */
 public class GraphElement implements Serializable {
 
+    /**
+     * Pinned to the value the compiler already computes for today's shape, before this class
+     * gains {@code implements CanvasItem}. Every place and transition in every saved {@code .pns}
+     * is a {@code GraphElement} subclass instance, and none of them declare their own id, so left
+     * to the compiler this recomputes the moment the interface is added and every file on disk
+     * stops loading.
+     */
+    private static final long serialVersionUID = 7232492741244001431L;
+
     private int lineWidth;
     private Color color;
 
