@@ -791,8 +791,12 @@ public class GraphCanvasModel implements Serializable {
             if (!free) {
                 object.setPriority(frame.getPriority());
                 object.setTemplate(frame.getTemplate());
-                object.setPosition(new Point(frame.getBounds().x, frame.getBounds().y));
-                object.setSize(frame.getBounds().width, frame.getBounds().height);
+                // The expanded rectangle, never the collapsed summary box: a collapsed
+                // frame saved with its 170x56 box came back as an object whose whole net
+                // was piled into that box, and expanding it restored the box size.
+                Rectangle exported = frame.getExpandedBounds();
+                object.setPosition(new Point(exported.x, exported.y));
+                object.setSize(exported.width, exported.height);
                 object.setCollapsed(frame.isCollapsed());
             }
             model.addObject(object);

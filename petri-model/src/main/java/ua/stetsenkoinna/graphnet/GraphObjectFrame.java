@@ -199,6 +199,19 @@ public class GraphObjectFrame implements Serializable, CanvasItem {
     }
 
     /**
+     * @return the rectangle this frame occupies when expanded: its bounds as they are, or,
+     *         while collapsed, the remembered expanded ones. This is what persistence has to
+     *         write: saving a collapsed frame's summary-box rectangle as its size meant the
+     *         reloaded object expanded into a box smaller than the minimum a user could ever
+     *         resize one to, with its whole net piled inside.
+     */
+    public Rectangle getExpandedBounds() {
+        return collapsed && expandedBounds != null
+                ? new Rectangle(expandedBounds)
+                : new Rectangle(bounds);
+    }
+
+    /**
      * Collapses the frame to a node, or restores the size it had before.
      *
      * @param collapsed true to hide the net inside

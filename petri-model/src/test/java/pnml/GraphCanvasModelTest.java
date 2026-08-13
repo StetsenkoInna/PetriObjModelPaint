@@ -631,4 +631,31 @@ public class GraphCanvasModelTest {
         assertEquals("the free half must stay exactly where it was, not jump onto the framed one",
                 freeBefore, free.getGraphElementCenter());
     }
+
+    /**
+     * A collapsed object used to export its 170x56 summary box as its size: reloading piled
+     * the whole net inside that box, and expanding the object restored the box's size
+     * instead of the frame the user had drawn.
+     */
+    @Test
+    public void aCollapsedObjectRoundTripsWithItsExpandedSize() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Doc", new GraphPetriNet());
+        GraphObjectFrame frame = new GraphObjectFrame("Obj", new Rectangle(100, 80, 400, 300));
+        canvas.getFrames().add(frame);
+        GraphPetriPlace inside = place(canvas, "P1", 0, 200, 200);
+        canvas.claim(frame, inside);
+        frame.setCollapsed(true);
+
+        GraphCanvasModel restored = GraphCanvasModel.fromObjModel(canvas.toObjModel());
+
+        GraphObjectFrame restoredFrame = restored.getFrames().get(0);
+        assertTrue("the object comes back collapsed", restoredFrame.isCollapsed());
+        restoredFrame.setCollapsed(false);
+        assertEquals("expanded, it has the size the user gave it",
+                new Rectangle(100, 80, 400, 300), restoredFrame.getBounds());
+        GraphPetriPlace restoredPlace = restored.getNet().getGraphPetriPlaceList().get(0);
+        assertTrue("and its net sits inside it",
+                restoredFrame.getBounds().contains(restoredPlace.getGraphElementCenter()));
+    }
 }
