@@ -611,12 +611,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     /**
      * Draws the Petri-object frames that belong on the active canvas: on the net's own canvas,
      * every top-level object and, inside each one, whatever it has nested that nothing above
-     * hides; on an object's canvas, that object itself plus what is nested inside it.
+     * hides; on an object's canvas, whatever is nested inside that object.
      *
-     * <p>The object being edited is drawn expanded, under the net, however its own collapsed flag
-     * happens to stand - it is the room the user is standing in, and its border and header are
-     * what makes the boundary being edited inside visible. That visibility is one of the five
-     * things that keeps a canvas with no Save button from being a guess.
+     * <p>The object being edited is not drawn at all. On its own canvas it is not a box the user
+     * is inside, it is simply the net they are editing, and a border around the whole drawing
+     * would only be a wall around everything on screen. Which canvas this is comes from the
+     * canvas strip, where the object's pill is the active one, so the frame has nothing left to
+     * say. Its ports are still drawn, by paintPorts, because those stand for real connections to
+     * other objects rather than for the boundary.
      *
      * <p>Frames are drawn parent-first, so a nested object is painted over the parent it sits
      * inside rather than underneath it.
@@ -627,13 +629,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private void paintObjectFrames(Graphics2D g2, boolean collapsedOnes) {
         List<GraphObjectFrame> flat = canvasModel.getFrames();
         for (GraphObjectFrame frame : canvasModel.framesParentFirst()) {
-            boolean focused = frame == focusedFrame;
-            if (!focused && !isFrameDrawnOnThisCanvas(frame)) {
+            if (frame == focusedFrame || !isFrameDrawnOnThisCanvas(frame)) {
                 continue;
             }
-            // The focused frame is always drawn as the expanded room around the net it holds.
-            boolean drawNowAsCollapsed = !focused && frame.isCollapsed();
-            if (drawNowAsCollapsed != collapsedOnes) {
+            if (frame.isCollapsed() != collapsedOnes) {
                 continue;
             }
             if (collapsedOnes) {
@@ -707,7 +706,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private boolean isFrameDrawnOnThisCanvas(GraphObjectFrame frame) {
         if (frame == null || frame == focusedFrame) {
-            return frame == focusedFrame;
+            // Neither is a box this canvas paints. The net has no frame of its own, and the
+            // object being edited is drawn as the net it holds rather than as a room around it,
+            // which is also why nothing of its chrome, its header or its eye icon, is clickable.
+            return false;
         }
         int guard = 0;
         for (GraphObjectFrame above = canvasModel.enclosingOf(frame);

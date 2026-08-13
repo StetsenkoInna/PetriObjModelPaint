@@ -276,4 +276,40 @@ public class ObjectCanvasFocusTest {
         assertEquals(List.of(), panel.getCanvasStack().getOpen().stream()
                 .filter(java.util.Objects::nonNull).toList());
     }
+
+    @Test
+    public void anObjectOnItsOwnCanvasIsDrawnAsAPlainNetWithNoFrame() {
+        PetriNetsPanel panel = twoObjectsAndAFreePlace();
+        GraphObjectFrame subject = subjectOf(panel);
+        Rectangle bounds = subject.getBounds();
+
+        // A strip along the frame's top edge, which is where its header and border are painted on
+        // the net's canvas. Kept clear of the elements inside so only the frame can put ink here.
+        Rectangle header = new Rectangle(bounds.x, bounds.y, bounds.width, 18);
+
+        assertTrue("fixture: the net's canvas does draw the frame", inkIn(panel, header) > 0);
+
+        panel.openObjectCanvas(subject);
+
+        assertEquals("on its own canvas the object is the net, not a box around it",
+                0, inkIn(panel, header));
+        assertTrue("its own elements are still drawn",
+                inkIn(panel, new Rectangle(170, 170, 170, 70)) > 0);
+    }
+
+    @Test
+    public void aNestedObjectIsStillDrawnWhenItsParentIsTheCanvas() {
+        PetriNetsPanel panel = twoObjectsAndAFreePlace();
+        GraphObjectFrame parent = subjectOf(panel);
+        GraphObjectFrame child = new GraphObjectFrame("Child", new Rectangle(150, 240, 120, 80));
+        panel.addObjectFrame(child);
+        panel.getCanvasModel().nest(child, parent);
+
+        panel.openObjectCanvas(parent);
+
+        // Only the focused object loses its box. What is nested inside it keeps one, which is how
+        // the hierarchy stays visible from the level above it.
+        assertTrue("a child object is still drawn as a frame",
+                inkIn(panel, new Rectangle(150, 240, 120, 18)) > 0);
+    }
 }
