@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 
+import ua.stetsenkoinna.graphnet.CanvasItem;
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 
@@ -18,13 +19,17 @@ import ua.stetsenkoinna.graphnet.GraphObjectFrame;
  * {@code Ctrl+D} only ever duplicated the last-clicked one, and the eraser refused frames
  * outright. One store means an operation is written once and reaches everything.
  *
- * <p>It is a selection abstraction rather than a common supertype of both kinds, and that is a
- * deliberate choice, not a shortcut. {@link GraphElement} is inside every {@code .pns} file on
- * disk and declares no {@code serialVersionUID}, so adding even a marker interface to it changes
- * its computed id and makes every saved net unreadable. A supertype implemented by
- * {@link GraphObjectFrame} alone would buy nothing. Java has no common ancestor to dispatch on
- * here, so the dispatch happens in one place per operation instead: each of the canvas's eight
- * selection operations iterates both kinds once and calls a per-kind primitive.
+ * <p>It used to be a selection abstraction rather than a common supertype of both kinds, on
+ * purpose: {@link GraphElement} is inside every {@code .pns} file on disk and declared no
+ * {@code serialVersionUID}, so adding even a marker interface to it would have changed its
+ * computed id and made every saved net unreadable. Both now implement
+ * {@code ua.stetsenkoinna.graphnet.CanvasItem}, with that id pinned first - see the type for what
+ * it does and does not claim to unify. The two live, mutable stores below stay exactly as they
+ * were even so: {@link #elements()} in particular is handed out live because undoable edits mutate
+ * it through {@code PetriNetsPanel.getChoosenElements()}, and a filtered view over one combined
+ * list cannot promise that without either copying on every read or reimplementing {@code List}.
+ * {@link #allItems()} is the new door in: everything selected, once, for an operation that
+ * genuinely wants to treat both kinds the same way instead of writing two loops by hand.
  *
  * <p>The element list is handed out live and mutable ({@link #elements()}), because the undoable
  * edits mutate it through {@code PetriNetsPanel.getChoosenElements()} and have done so since
@@ -161,6 +166,18 @@ public class CanvasSelection {
         if (selectedFrame != null && !all.contains(selectedFrame)) {
             all.add(selectedFrame);
         }
+        return all;
+    }
+
+    /**
+     * @return every selected thing exactly once, elements and Petri-objects alike - built fresh
+     *         each call, the same as {@link #allFrames()}, so it stays a read view rather than a
+     *         third store that could drift from the two live ones it is built from
+     */
+    public List<CanvasItem> allItems() {
+        List<CanvasItem> all = new ArrayList<>(elements.size() + frames.size() + 1);
+        all.addAll(elements);
+        all.addAll(allFrames());
         return all;
     }
 

@@ -43,7 +43,7 @@ import java.util.Set;
  * them is a drawing choice, not a structural one, which is also why a locked object still
  * reaches the rest of the model through its ports regardless of whether its content is shown.
  */
-public class GraphObjectFrame implements Serializable {
+public class GraphObjectFrame implements Serializable, CanvasItem {
     /**
      * Pinned before this class ever reached a saved file, which it does from now on.
      * Left to the compiler it would be recomputed from the class shape, and the next
@@ -290,6 +290,16 @@ public class GraphObjectFrame implements Serializable {
     }
 
     /**
+     * @return {@link #contains(Point2D)} under the name every {@link CanvasItem} hit-tests by -
+     *         kept as a separate method rather than a rename, since {@code contains} already had
+     *         callers of its own before this interface existed
+     */
+    @Override
+    public boolean containsPoint(Point2D point) {
+        return contains(point);
+    }
+
+    /**
      * @param element a place or transition on the canvas
      * @return true if this object claims the element
      */
@@ -372,6 +382,17 @@ public class GraphObjectFrame implements Serializable {
      */
     public void moveTo(int x, int y) {
         bounds = new Rectangle(Math.max(0, x), Math.max(0, y), bounds.width, bounds.height);
+    }
+
+    /**
+     * Moves this frame alone by a delta - never its nested subtree or the elements it claims, the
+     * same restriction {@link CanvasItem#moveBy} documents. A drag that must cascade to those
+     * still goes through {@code moveTo} directly the way it always did, one call per item in the
+     * subtree, since only {@link GraphCanvasModel} knows what that subtree is.
+     */
+    @Override
+    public void moveBy(int dx, int dy) {
+        moveTo(bounds.x + dx, bounds.y + dy);
     }
 
     /**

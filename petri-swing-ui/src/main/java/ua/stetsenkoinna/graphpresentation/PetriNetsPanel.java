@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 
 import ua.stetsenkoinna.config.ResourcePathConfig;
+import ua.stetsenkoinna.graphnet.CanvasItem;
 import ua.stetsenkoinna.graphnet.FramePort;
 import ua.stetsenkoinna.graphnet.GraphArcFactory;
 import ua.stetsenkoinna.graphnet.GraphCanvasModel;
@@ -1099,9 +1100,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param dy vertical offset in canvas units
      */
     public void moveSelectionBy(int dx, int dy) {
+        // An element has no subtree, so moving it is exactly CanvasItem#moveBy. A frame does -
+        // its own nested frames and members, which only GraphCanvasModel can find - so it still
+        // goes through moveFrame, which now performs that cascade with the same moveBy underneath.
         for (GraphElement element : selection.elements()) {
-            Point2D centre = element.getGraphElementCenter();
-            element.setNewCoordinates(new Point2D.Double(centre.getX() + dx, centre.getY() + dy));
+            element.moveBy(dx, dy);
         }
         for (GraphObjectFrame frame : selection.allFrames()) {
             moveFrame(frame, frame.getBounds().x + dx, frame.getBounds().y + dy);
@@ -1952,8 +1955,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         GraphPetriNet.GraphNetFragment copy = graphNet.bulkCopyNoPasteElements(inside);
         int dx = frame.getBounds().width + 40;
         for (GraphElement element : copy.elements) {
-            Point2D centre = element.getGraphElementCenter();
-            element.setNewCoordinates(new Point2D.Double(centre.getX() + dx, centre.getY()));
+            element.moveBy(dx, 0);
         }
         addNetFragment(copy);
         // Posted for the same reason absorbNet posts: without it the copied net has no edit of
@@ -2955,9 +2957,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     public void splitSharedPlace(GraphPlaceFusion fusion) {
         canvasModel.getFusions().remove(fusion);
-        Point2D centre = fusion.getJoined().getGraphElementCenter();
-        fusion.getJoined().setNewCoordinates(
-                new Point2D.Double(centre.getX() + 60, centre.getY() + 40));
+        fusion.getJoined().moveBy(60, 40);
         updateArcCoordinates();
         repaint();
     }
@@ -3781,6 +3781,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * to) let the elements keep moving by the full amount while the frame itself stopped dead
      * at the edge — they drifted away from it a little further with every such drag. Moving the
      * frame first and reading back where it actually ended up removes that mismatch outright.
+     *
+     * <p>Everything the delta then applies to - the nested frames and the members, two different
+     * types with nothing in common until now - moves through the one {@link CanvasItem#moveBy},
+     * which is exactly what each of these two loops did by hand before it existed. They stay two
+     * loops because {@link GraphCanvasModel#subtreeOf} and {@link GraphCanvasModel#membersOfSubtree}
+     * hand back different concrete list types, but what runs inside them is now one line each,
+     * not one hand-written formula per kind.
      */
     private void moveFrame(GraphObjectFrame frame, int x, int y) {
         int beforeX = frame.getBounds().x;
@@ -3793,12 +3800,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
         for (GraphObjectFrame nested : canvasModel.subtreeOf(frame)) {
             if (nested != frame) {
-                nested.moveTo(nested.getBounds().x + dx, nested.getBounds().y + dy);
+                nested.moveBy(dx, dy);
             }
         }
         for (GraphElement element : canvasModel.membersOfSubtree(frame)) {
-            Point2D centre = element.getGraphElementCenter();
-            element.setNewCoordinates(new Point2D.Double(centre.getX() + dx, centre.getY() + dy));
+            element.moveBy(dx, dy);
         }
         canvasModel.syncFusions();
         updateArcCoordinates();

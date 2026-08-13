@@ -3,6 +3,7 @@ package ua.stetsenkoinna.graphnet;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Point2D;
 
@@ -66,6 +67,9 @@ public class GraphPlace extends GraphElement {
 
     @Override
     public boolean isCircular() { return true; }
+
+    @Override
+    public Rectangle getBounds() { return graphElement.getBounds(); }
 
     public Ellipse2D getGraphElement() { return graphElement; }
     public void setGraphElement(Ellipse2D graphElement) { this.graphElement = graphElement; }

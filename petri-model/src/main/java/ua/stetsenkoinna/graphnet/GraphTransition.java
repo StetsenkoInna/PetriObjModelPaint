@@ -3,6 +3,7 @@ package ua.stetsenkoinna.graphnet;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.RoundRectangle2D;
@@ -64,6 +65,9 @@ public class GraphTransition extends GraphElement {
 
     @Override
     public int getBorder() { return getDefaultWidth() / 2; }
+
+    @Override
+    public Rectangle getBounds() { return graphElement.getBounds(); }
 
     public RoundRectangle2D getGraphElement() { return graphElement; }
     public void setGraphElement(RoundRectangle2D graphElement) { this.graphElement = graphElement; }
