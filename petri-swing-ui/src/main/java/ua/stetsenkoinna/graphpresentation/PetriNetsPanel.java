@@ -1266,7 +1266,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     public void copySelection() {
         copiedElements = new ArrayList<>(selection.elements());
-        copiedFrames = new ArrayList<>(selection.allFrames());
+        // Same scope filter as move, duplicate and delete: a marquee catches any frame merely
+        // drawn here, including one nested deep inside another object, but Ctrl+C copying it
+        // from this canvas let Ctrl+V create an object INSIDE that other object - the one
+        // structural change the edit-scope rule blocks everywhere else.
+        copiedFrames = new ArrayList<>(framesOnThisCanvas(selection.allFrames()));
         // A selected object's own members are carried by the object, not as loose elements too:
         // otherwise pasting would produce both a copy of the object and a second, unframed copy of
         // its net on top of it.
@@ -1687,6 +1691,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (candidate == focusedFrame || enclosedByAnyOf(candidate, objects)) {
                 continue;
             }
+            // Same scope rule as every other structural change: a marquee can catch a frame
+            // nested deep inside another object, and grouping used to yank it out of the
+            // object that owned it into the brand-new one - a re-parenting the edit-scope
+            // rule blocks for a plain drag from this same canvas.
+            if (!isFrameOnThisCanvas(candidate)) {
+                continue;
+            }
             nested.add(candidate);
         }
         if (chunk.isEmpty() && nested.isEmpty()) {
@@ -1770,6 +1781,61 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (!grown.equals(frame.getBounds())) {
             frame.setBounds(grown);
         }
+    }
+
+    /**
+     * Grows every enclosing frame, innermost out, until the whole chain contains the frame
+     * again with its margin. One level was never enough: a frame dragged or resized inside a
+     * deep nest can push its parent past the grandparent's border, and a single
+     * {@link #growToContain} left the overlap one level up instead.
+     *
+     * @param frame the frame whose drag or resize just ended
+     */
+    private void growAncestorsToContain(GraphObjectFrame frame) {
+        GraphObjectFrame current = frame;
+        // Bounded like every other walk over the nesting relation, in case a cycle arrives
+        // via serialization.
+        for (int guard = canvasModel.getFrames().size(); guard >= 0; guard--) {
+            GraphObjectFrame parent = canvasModel.enclosingOf(current);
+            if (parent == null) {
+                return;
+            }
+            growToContain(parent, current.getBounds());
+            current = parent;
+        }
+    }
+
+    /**
+     * The lowest right and bottom edge a frame's resize may reach without cutting into what
+     * it holds: its own elements with the same clearance {@link #boundsAround} gives them,
+     * and its nested objects with {@link #FRAME_MARGIN}. Shrinking a frame below its content
+     * used to be allowed, leaving the net drawn outside the border that claims to hold it.
+     *
+     * @param frame the frame being resized
+     * @return the smallest allowed (right, bottom) corner
+     */
+    private Point resizeFloorOf(GraphObjectFrame frame) {
+        Rectangle bounds = frame.getBounds();
+        int right = bounds.x + GraphObjectFrame.MIN_WIDTH;
+        int bottom = bounds.y + GraphObjectFrame.MIN_HEIGHT;
+        if (!frame.isContentShown()) {
+            return new Point(right, bottom);
+        }
+        for (GraphElement member : frame.getMembers()) {
+            Point2D centre = member.getGraphElementCenter();
+            if (centre == null) {
+                continue;
+            }
+            int border = Math.max(member.getBorder(), 20);
+            right = Math.max(right, (int) centre.getX() + border + BOUNDS_PADDING);
+            bottom = Math.max(bottom, (int) centre.getY() + border + BOUNDS_PADDING);
+        }
+        for (GraphObjectFrame child : canvasModel.childrenOf(frame)) {
+            Rectangle childBounds = child.getBounds();
+            right = Math.max(right, childBounds.x + childBounds.width + FRAME_MARGIN);
+            bottom = Math.max(bottom, childBounds.y + childBounds.height + FRAME_MARGIN);
+        }
+        return new Point(right, bottom);
     }
 
     /**
@@ -2338,19 +2404,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             maxX = Math.max(maxX, (int) centre.getX() + border);
             maxY = Math.max(maxY, (int) centre.getY() + border);
         }
-        // A transition draws its name above and, below it, both its parameter and its
-        // probability on their own lines — together reaching about 65px past its own
-        // centre, well outside the 20px "border" that boundsAround otherwise uses (which
-        // only accounts for the transition's own shape, not the text stacked under it).
-        // The padding has to clear that worst case on every side, not just what a place's
-        // shorter single mark label underneath it would need.
-        int padding = 48;
         return new Rectangle(
-                Math.max(0, minX - padding),
-                Math.max(0, minY - padding - GraphObjectFrame.HEADER_HEIGHT),
-                maxX - minX + padding * 2,
-                maxY - minY + padding * 2 + GraphObjectFrame.HEADER_HEIGHT);
+                Math.max(0, minX - BOUNDS_PADDING),
+                Math.max(0, minY - BOUNDS_PADDING - GraphObjectFrame.HEADER_HEIGHT),
+                maxX - minX + BOUNDS_PADDING * 2,
+                maxY - minY + BOUNDS_PADDING * 2 + GraphObjectFrame.HEADER_HEIGHT);
     }
+
+    /**
+     * Clearance a frame keeps around an element it is fitted to. A transition draws its name
+     * above and, below it, both its parameter and its probability on their own lines,
+     * together reaching about 65px past its own centre, well outside the 20px "border" that
+     * {@link #boundsAround} otherwise uses (which only accounts for the transition's own
+     * shape, not the text stacked under it). The padding has to clear that worst case on
+     * every side, not just what a place's shorter single mark label underneath it would need.
+     */
+    private static final int BOUNDS_PADDING = 48;
 
     public class MouseHandler extends MouseAdapter {
 
@@ -2642,6 +2711,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            // The stamping and deleting tools handle everything on the press; without this
+            // gate the click event trailing them fell through to the selection logic below,
+            // so a double-click with Add Place armed dropped two places AND opened the new
+            // place's properties dialog on top of them.
+            if (tool != CanvasTool.SELECT && tool != CanvasTool.MARQUEE) {
+                return;
+            }
+
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
 
             // The toggle already happened on mousePressed; this only keeps that same click
@@ -2705,7 +2782,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
 
                 currentArc = findArc(scaledCurrentMousePoint);
-                if (currentArc != null && ev.getClickCount() >= 2) {
+                // Same edit scope as the Delete tool: a locked object's internal arc can be
+                // looked at but not edited from outside its own canvas.
+                if (currentArc != null && ev.getClickCount() >= 2 && isArcEditableHere(currentArc)) {
                     currentArc.setColor(Color.BLUE);
                     choosenArc = currentArc;
                     setArcFrame.setVisible(true);
@@ -2787,6 +2866,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
             if (draggedFrame != null || resizedFrame != null) {
                 confirmFrameReparenting(draggedFrame);
+                if (resizedFrame != null) {
+                    // A child grown past its parent's border needs the same follow-up a
+                    // drop gets: the enclosing chain grows to keep the margin. Resize used
+                    // to skip it, leaving the two borders overlapping.
+                    growAncestorsToContain(resizedFrame);
+                }
                 draggedFrame = null;
                 resizedFrame = null;
                 frameDragOffset = null;
@@ -2927,10 +3012,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                         // ports alone; a second gesture is not obviously better than the tool
                         // simply doing the one useful thing a place-to-place drag can mean.
                         removeCurrentArc();
-                        try {
-                            canvasModel.joinPlaces(beginPlace, targetPlace);
-                        } catch (IllegalArgumentException rejected) {
-                            MessageHelper.showError(dialogOwner(), rejected.getMessage());
+                        if (beginPlace != targetPlace) {
+                            // A release on the very place the drag started from is a plain
+                            // click, not a fusion attempt - it used to fall through to
+                            // joinPlaces(p, p) and pop a bewildering error about the place
+                            // already belonging to the same Petri-object.
+                            try {
+                                canvasModel.joinPlaces(beginPlace, targetPlace);
+                            } catch (IllegalArgumentException rejected) {
+                                MessageHelper.showError(dialogOwner(), rejected.getMessage());
+                            }
                         }
                     } else {                        //1.02.2013 цей фрагмент дозволяє відслідковувати намагання
                         // Transition to transition has no operation to fall back to either -
@@ -3054,13 +3145,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (after == null && focusedFrame != null && focusedFrame.containsPoint(centre)) {
             after = focusedFrame;
         }
-        if (after == before) {
-            return;
+        if (after != before) {
+            canvasModel.nest(frame, after);
         }
-        canvasModel.nest(frame, after);
-        if (after != null) {
-            growToContain(after, frame.getBounds());
-        }
+        // Whether the parent changed or not, the chain of enclosing frames grows to keep its
+        // margin around wherever the frame landed. A drag that stayed inside its parent but
+        // pushed past the border used to leave the child sticking out of the object that
+        // still held it, and a drop into a deep nest only ever grew one level.
+        growAncestorsToContain(frame);
     }
 
     /**
@@ -3085,6 +3177,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     || !isFrameDrawnOnThisCanvas(candidate) || !candidate.contains(point)) {
                 continue;
             }
+            // A hidden interior cannot receive a drop: nesting into a collapsed or
+            // eye-hidden object made the dragged frame vanish from the canvas the moment
+            // it was released, with no confirmation and nothing visible to explain where
+            // it went - and the collapsed summary box got inflated by the margin growth.
+            if (!candidate.isContentShown()) {
+                continue;
+            }
             int level = canvasModel.levelOf(candidate);
             if (level >= bestLevel) {
                 best = candidate;
@@ -3103,6 +3202,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private GraphObjectFrame ownerForDropAt(Point2D point) {
         GraphObjectFrame frame = frameAt(point);
+        // A collapsed or eye-hidden object cannot receive a dropped element: claiming it
+        // would make it vanish from the canvas the moment the drag ends. The drop falls
+        // through to whatever encloses the hidden object instead. Bounded like every other
+        // walk over the nesting relation, in case a cycle arrives via serialization.
+        for (int guard = canvasModel.getFrames().size();
+                frame != null && !frame.isContentShown() && guard >= 0; guard--) {
+            frame = canvasModel.enclosingOf(frame);
+        }
         return frame != null ? frame : focusedFrame;
     }
 
@@ -3327,7 +3434,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
 
             if (resizedFrame != null) {
-                resizedFrame.resizeTo(scaledCurrentMousePoint.x, scaledCurrentMousePoint.y);
+                // Clamped to what the frame holds: shrinking it below its own net used to
+                // be allowed, leaving elements and nested objects drawn outside the border
+                // that still claimed them.
+                Point floor = resizeFloorOf(resizedFrame);
+                resizedFrame.resizeTo(
+                        Math.max(scaledCurrentMousePoint.x, floor.x),
+                        Math.max(scaledCurrentMousePoint.y, floor.y));
                 repaint();
                 return;
             }
@@ -3652,6 +3765,31 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *
      * @param scaledPoint the click point in canvas coordinates
      */
+    /**
+     * The edit-scope rule for arcs, the third kind after elements ({@code isOnThisCanvas})
+     * and frames ({@code isFrameOnThisCanvas}). An arc inside one object belongs to that
+     * object's canvas alone; a crossing arc between two objects belongs to whichever canvas
+     * draws it, since it is a link rather than part of either object's own net. Arcs used
+     * to have no scope at all, so the Delete tool could reach into a nested, locked object
+     * from the root canvas and remove an arc its places and transitions were protected from.
+     *
+     * @param arc an arc the active canvas draws
+     * @return true when this canvas is allowed to change or remove it
+     */
+    private boolean isArcEditableHere(GraphArc arc) {
+        GraphElement begin = arc.getBeginElement();
+        GraphElement end = arc.getEndElement();
+        if (begin == null || end == null) {
+            return true;
+        }
+        GraphObjectFrame beginOwner = canvasModel.ownerOf(begin);
+        GraphObjectFrame endOwner = canvasModel.ownerOf(end);
+        if (beginOwner != endOwner) {
+            return true;
+        }
+        return beginOwner == focusedFrame;
+    }
+
     private void handleDeleteClick(Point scaledPoint) {
         if (portOnCanvasAt(scaledPoint) != null) {
             return;
@@ -3674,6 +3812,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return;
         }
         GraphArc arc = findArc(scaledPoint);
+        if (arc != null && !isArcEditableHere(arc)) {
+            return;
+        }
         if (arc != null) {
             removeArc(arc);
             DeleteArcEdit edit = new DeleteArcEdit(this, arc);

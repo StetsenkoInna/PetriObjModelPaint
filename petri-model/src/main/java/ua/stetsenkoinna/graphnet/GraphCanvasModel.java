@@ -590,8 +590,14 @@ public class GraphCanvasModel implements Serializable {
         GraphObjectFrame masterOwner = ownerOf(master);
         GraphObjectFrame joinedOwner = ownerOf(joined);
         if (masterOwner == joinedOwner) {
-            throw new IllegalArgumentException(
-                    "Both places belong to the same Petri-object — a shared place joins two different objects");
+            // Both-null and both-the-same land here, and they are different mistakes: two
+            // free places used to get the "same Petri-object" message, which reads as
+            // nonsense when neither place is in any object at all.
+            throw new IllegalArgumentException(masterOwner == null
+                    ? "A shared place joins two different Petri-objects, but neither of these"
+                            + " places is inside one yet"
+                    : "Both places belong to the same Petri-object, a shared place joins two"
+                            + " different objects");
         }
         // Places keep whatever position they already have — the two owners are always
         // different by this point, so moving one onto the other would displace it out of its

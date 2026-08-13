@@ -1425,9 +1425,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }// GEN-LAST:event_openMenuItemActionPerformed
 
     private void newMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_newMenuItemActionPerformed
-        fileUse.newWorksheet(getPetriNetsPanel());
-        timeStartField.setText(String.valueOf(0));
-
+        // File > New discards a whole drawing exactly like the open-as-new paths, so it asks
+        // the same question and resets the same workspace. It used to do neither: the canvas
+        // was wiped with no confirmation, and the undo history survived into the new
+        // document, where Ctrl+Z would replay stale edits against a net they never touched.
+        if (!confirmDiscardingCurrentNet()) {
+            return;
+        }
+        resetWorkspaceForNewDocument();
         netNameTextField.setText("Untitled");
     }// GEN-LAST:event_newMenuItemActionPerformed
 
