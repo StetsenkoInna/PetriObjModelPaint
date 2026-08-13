@@ -30,6 +30,13 @@ import java.util.Objects;
  * fusion, which one the other is moved onto.
  */
 public class GraphPlaceFusion implements Serializable {
+    /**
+     * Pinned before this class ever reached a saved file, which it does from now on.
+     * Left to the compiler it would be recomputed from the class shape, and the next
+     * field added here would make every file written before that unreadable.
+     */
+    private static final long serialVersionUID = 1L;
+
 
     /** Radius added around the place to mark it as shared. */
     private static final int RING_MARGIN = 5;

@@ -44,6 +44,13 @@ import java.util.Set;
  * reaches the rest of the model through its ports regardless of whether its content is shown.
  */
 public class GraphObjectFrame implements Serializable {
+    /**
+     * Pinned before this class ever reached a saved file, which it does from now on.
+     * Left to the compiler it would be recomputed from the class shape, and the next
+     * field added here would make every file written before that unreadable.
+     */
+    private static final long serialVersionUID = 1L;
+
 
     /** Height of the header strip that carries the name, in canvas units. */
     public static final int HEADER_HEIGHT = 22;

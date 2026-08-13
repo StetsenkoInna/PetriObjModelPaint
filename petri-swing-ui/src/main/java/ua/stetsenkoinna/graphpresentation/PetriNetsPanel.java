@@ -3321,6 +3321,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         new DropTarget(this, dropHandler);
     }
 
+    /**
+     * Adds a whole Petri-object model to the canvas, the way {@link #addGraphNet} adds a plain
+     * net: the drawing is merged into whatever is already there and the frames that mark out its
+     * objects come with it, rather than replacing the canvas.
+     *
+     * <p>This is the path opening a saved file takes when that file has objects in it. A file
+     * written before objects were persisted holds a bare net and still goes to
+     * {@link #addGraphNet}, which is why both exist.
+     *
+     * @param model the canvas document to add, with its frames and shared places
+     */
+    public void addCanvasModel(GraphCanvasModel model) {
+        addGraphNet(model.getNet());
+        canvasModel.getFrames().addAll(model.getFrames());
+        canvasModel.getFusions().addAll(model.getFusions());
+        canvasModel.syncFusions();
+        updateArcCoordinates();
+        repaint();
+    }
+
     public void addGraphNet(GraphPetriNet net) {
         // If there's no existing net, just set the new one
         if (graphNet == null) {

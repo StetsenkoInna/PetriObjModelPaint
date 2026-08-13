@@ -22,6 +22,13 @@ import java.util.Objects;
  * @see GraphCanvasModel#portsOf(GraphObjectFrame)
  */
 public final class FramePort implements Serializable {
+    /**
+     * Pinned before this class ever reached a saved file, which it does from now on.
+     * Left to the compiler it would be recomputed from the class shape, and the next
+     * field added here would make every file written before that unreadable.
+     */
+    private static final long serialVersionUID = 1L;
+
 
     /** Radius of the drawn circle and the hit-test tolerance around it, in canvas units. */
     public static final int RADIUS = 6;

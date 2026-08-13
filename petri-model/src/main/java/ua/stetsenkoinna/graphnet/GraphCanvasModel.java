@@ -40,6 +40,13 @@ import java.util.Objects;
  * unnamed Petri-object, so a plain net drawn without any frame is a model of one object.
  */
 public class GraphCanvasModel implements Serializable {
+    /**
+     * Pinned before this class ever reached a saved file, which it does from now on.
+     * Left to the compiler it would be recomputed from the class shape, and the next
+     * field added here would make every file written before that unreadable.
+     */
+    private static final long serialVersionUID = 1L;
+
 
     /** Name given to the object that collects everything drawn outside every frame. */
     public static final String FREE_OBJECT_NAME = "Free elements";
