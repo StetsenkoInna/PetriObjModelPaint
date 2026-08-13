@@ -1365,7 +1365,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             showObjectFrameMenu(ev, frame);
             return true;
         }
-        if (!selection.elements().isEmpty()) {
+        if (!selection.elements().isEmpty() || !selection.allFrames().isEmpty()) {
             showGroupSelectionMenu(ev, new ArrayList<>(selection.elements()));
             return true;
         }
@@ -1460,12 +1460,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * operation that can only be exercised through a modal dialog cannot be tested at all.
      */
     private void askAndGroupIntoObject(List<GraphElement> chunk) {
+        List<GraphObjectFrame> objects = selection.allFrames();
         String name = JOptionPane.showInputDialog(dialogOwner(), "Name of the Petri-object",
                 "Object " + (canvasModel.getFrames().size() + 1));
         if (name == null || name.isBlank()) {
             return;
         }
-        groupIntoObject(chunk, name.trim());
+        // The whole selection, objects included: grouping a chunk that had an object in it used
+        // to leave that object behind and take only the loose elements.
+        groupIntoObject(chunk, objects, name.trim());
     }
 
     /**
@@ -1484,15 +1487,60 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @return the new frame, or {@code null} when there was nothing to group
      */
     public GraphObjectFrame groupIntoObject(List<GraphElement> chunk, String name) {
-        if (chunk.isEmpty()) {
+        // Exactly what was passed, and no objects: a caller naming a list means that list. The
+        // gesture that groups what the user has selected says so, by passing the frames too.
+        return groupIntoObject(chunk, List.of(), name);
+    }
+
+    /**
+     * Groups elements and whole Petri-objects together into one new object.
+     *
+     * <p>Selecting a chunk of net that includes an object and grouping it used to produce an
+     * object holding only the loose elements: an object is not a {@code GraphElement}, so it was
+     * never in the list being grouped and was quietly left where it was. Grouping now takes what
+     * the user actually selected, and an object caught in it becomes nested in the new one.
+     *
+     * @param chunk loose elements to claim for the new object
+     * @param objects objects to nest inside it; one already inside another in the same set stays
+     *        where it is, since it is already covered by grouping its parent
+     * @param name name for the new Petri-object
+     * @return the new frame, or {@code null} when there was nothing to group
+     */
+    public GraphObjectFrame groupIntoObject(List<GraphElement> chunk,
+            List<GraphObjectFrame> objects, String name) {
+        List<GraphObjectFrame> nested = new ArrayList<>();
+        for (GraphObjectFrame candidate : objects) {
+            if (candidate == focusedFrame || enclosedByAnyOf(candidate, objects)) {
+                continue;
+            }
+            nested.add(candidate);
+        }
+        if (chunk.isEmpty() && nested.isEmpty()) {
             return null;
         }
-        GraphObjectFrame frame = new GraphObjectFrame(name, boundsAround(chunk));
+
+        // An element of an object being nested belongs to that object, not to the new one, so
+        // claiming it here would take it out of the very object it is travelling with.
+        List<GraphElement> loose = new ArrayList<>(chunk);
+        for (GraphObjectFrame child : nested) {
+            loose.removeAll(canvasModel.membersOfSubtree(child));
+        }
+
+        Rectangle bounds = loose.isEmpty() ? null : boundsAround(loose);
+        for (GraphObjectFrame child : nested) {
+            bounds = bounds == null ? new Rectangle(child.getBounds()) : bounds.union(child.getBounds());
+        }
+
+        GraphObjectFrame frame = new GraphObjectFrame(name, bounds);
         canvasModel.nest(frame, focusedFrame);
         addObjectFrame(frame);
-        for (GraphElement element : chunk) {
+        for (GraphElement element : loose) {
             canvasModel.claim(frame, element);
         }
+        for (GraphObjectFrame child : nested) {
+            canvasModel.nest(child, frame);
+        }
+        chunk = loose;
         if (focusedFrame != null) {
             growToContain(focusedFrame, frame.getBounds());
             frame.setCollapsed(true);
@@ -1509,6 +1557,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         choosen = null;
         repaint();
         return frame;
+    }
+
+    /** @return true when some other frame in {@code others} already encloses this one */
+    private boolean enclosedByAnyOf(GraphObjectFrame frame, List<GraphObjectFrame> others) {
+        for (GraphObjectFrame above = canvasModel.enclosingOf(frame); above != null;
+                above = canvasModel.enclosingOf(above)) {
+            if (others.contains(above)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

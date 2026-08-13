@@ -349,4 +349,50 @@ public class ObjectFrameUndoTest {
         assertEquals("the pasted object is gone whole", 1, panel.getCanvasModel().getFrames().size());
         assertEquals("net included", 2, everything(panel).size());
     }
+
+    @Test
+    public void groupingASelectionThatHoldsAnObjectNestsThatObjectInTheNewOne() {
+        PetriNetsPanel panel = panelWithTwoFreeElements();
+        GraphObjectFrame existing = panel.groupIntoObject(everything(panel), "Existing");
+
+        GraphPetriPlace loose = placeAt("PLoose", 800, 200);
+        panel.getGraphNet().getGraphPetriPlaceList().add(loose);
+
+        // What the user selects with a marquee across a chunk of net that includes an object.
+        panel.getSelection().clear();
+        panel.getSelection().add(loose);
+        panel.getSelection().add(existing);
+
+        GraphObjectFrame grouped = panel.groupIntoObject(
+                List.of(loose), List.of(existing), "Grouped");
+
+        assertSame("the loose element joined the new object", grouped,
+                panel.getCanvasModel().ownerOf(loose));
+        // The defect this pins: an object is not a GraphElement, so it was never in the list
+        // being grouped and was quietly left where it was.
+        assertSame("and the object that was selected with it is nested inside it", grouped,
+                panel.getCanvasModel().enclosingOf(existing));
+        assertTrue("the nested object keeps its own net",
+                panel.countElementsIn(existing) == 2);
+        assertTrue("whose elements the new object did not steal",
+                panel.getCanvasModel().ownerOf(everything(panel).getFirst()) == existing);
+    }
+
+    @Test
+    public void groupingDoesNotReparentAnObjectAlreadyInsideAnotherOneBeingGrouped() {
+        PetriNetsPanel panel = panelWithTwoFreeElements();
+        GraphObjectFrame parent = panel.groupIntoObject(everything(panel), "Parent");
+        GraphPetriPlace innerPlace = placeAt("PInner", 900, 900);
+        panel.getGraphNet().getGraphPetriPlaceList().add(innerPlace);
+        GraphObjectFrame child = panel.groupIntoObject(List.of(innerPlace), "Child");
+        panel.getCanvasModel().nest(child, parent);
+
+        GraphObjectFrame grouped = panel.groupIntoObject(
+                List.of(), List.of(parent, child), "Grouped");
+
+        assertSame("the outer one moved into the new object", grouped,
+                panel.getCanvasModel().enclosingOf(parent));
+        assertSame("the one already inside it stayed where it was", parent,
+                panel.getCanvasModel().enclosingOf(child));
+    }
 }
