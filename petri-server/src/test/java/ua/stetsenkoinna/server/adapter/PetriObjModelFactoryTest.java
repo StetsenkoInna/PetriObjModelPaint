@@ -17,8 +17,13 @@ import ua.stetsenkoinna.pnml.PnmlModelGenerator;
 import ua.stetsenkoinna.server.dto.ObjectModelParseResultDto;
 import ua.stetsenkoinna.server.dto.ObjectModelResultDto;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -120,6 +125,85 @@ class PetriObjModelFactoryTest {
         ObjectModelParseResultDto parsed = ObjectModelDtos.of(PetriObjModelFactory.parse(xml));
         assertNotNull(parsed.objects().getFirst());
         assertTrue(parsed.links().isEmpty());
+    }
+
+    /**
+     * The document the three writers of this format agree on, read by the code the v2
+     * endpoints actually run.
+     *
+     * <p>It is petri-model's copy rather than one of this module's own: the fixture already
+     * exists in three repositories and is diffed between them, and a fourth copy here would
+     * be one more thing to drift without anything watching it.
+     */
+    private static String conformantFixture() throws Exception {
+        Path fixture = Paths.get("..", "petri-model", "src", "test", "resources", "pnml",
+                "composed_conformant_v21.pnml");
+        assertTrue(Files.exists(fixture),
+                "expected the shared fixture at " + fixture.toAbsolutePath());
+        return Files.readString(fixture, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * The off-by-one detector. The fused place sits in the <em>middle</em> of object 0's
+     * places, so anything that treated the reference node as an extra element rather than as
+     * the slot it replaces would shift every index after it, and the link that addresses
+     * place 1 would land somewhere else.
+     */
+    @Test
+    void aConformantDocumentDescribesItsObjectsAndLinksInOrder() throws Exception {
+        ObjectModelParseResultDto parsed =
+                ObjectModelDtos.of(PetriObjModelFactory.parse(conformantFixture()));
+
+        assertEquals("PipelineDemo", parsed.name());
+        assertEquals(2, parsed.objects().size());
+
+        ObjectModelParseResultDto.ObjectDto generator = parsed.objects().getFirst();
+        assertEquals(List.of("p_pool", "p_ready", "p_log"), generator.places().stream()
+                .map(place -> place.id()).toList());
+        assertEquals(List.of("t_gen"), generator.transitions().stream()
+                .map(transition -> transition.id()).toList());
+        assertEquals(1, generator.priority());
+        assertEquals(3, generator.arcs().size(), "the arc realising a link is not an arc of the object");
+
+        ObjectModelParseResultDto.ObjectDto server = parsed.objects().get(1);
+        assertEquals(List.of("p_in", "p_busy", "p_done"), server.places().stream()
+                .map(place -> place.id()).toList());
+        assertEquals(List.of("t_start", "t_end"), server.transitions().stream()
+                .map(transition -> transition.id()).toList());
+        assertEquals(4, server.arcs().size());
+
+        assertEquals(3, parsed.links().size());
+        assertLink(parsed, "placeFusion", 0, 1, 1, 0, 1, false);
+        assertLink(parsed, "transitionToPlace", 1, 0, 0, 2, 2, false);
+        assertLink(parsed, "placeToTransition", 0, 2, 1, 1, 1, true);
+    }
+
+    @Test
+    void aConformantDocumentBuildsALinkedModelThatRuns() throws Exception {
+        PetriObjModel model = PetriObjModelFactory.build("session", conformantFixture(), noStatistics());
+
+        PetriP[] generator = model.getListObj().getFirst().getNet().getListP();
+        PetriP[] server = model.getListObj().get(1).getNet().getListP();
+        assertSame(server[0], generator[1], "the fused place must be a single instance");
+
+        model.go(200.0);
+
+        assertEquals(0, generator[0].getMark(), "every token of the pool is generated");
+        assertTrue(generator[2].getMark() >= 5,
+                "the link into the log place delivered, so the two objects really are wired");
+        assertTrue(server[2].getMark() >= 1,
+                "and tokens reached the far end through the fused place");
+    }
+
+    private static void assertLink(ObjectModelParseResultDto parsed, String type,
+                                   int sourceObject, int sourceElement,
+                                   int targetObject, int targetElement,
+                                   int quantity, boolean informational) {
+        ObjectModelParseResultDto.LinkDto expected = new ObjectModelParseResultDto.LinkDto(
+                type, sourceObject, sourceElement, targetObject, targetElement,
+                quantity, informational);
+        assertTrue(parsed.links().contains(expected),
+                "expected " + expected + " among " + parsed.links());
     }
 
     /** A collector that records nothing — these tests assert on the model, not the stream. */

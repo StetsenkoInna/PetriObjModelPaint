@@ -35,6 +35,24 @@ final class XmlHelper {
     }
 
     /**
+     * Collects every element child of an element, in document order.
+     *
+     * <p>Order matters wherever it carries meaning: the position of a place among a page's
+     * place slots is the index every link declaration of the document is written in.
+     */
+    static List<Element> directChildren(Element parent) {
+        List<Element> children = new ArrayList<>();
+        NodeList nodes = parent.getChildNodes();
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Node node = nodes.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                children.add((Element) node);
+            }
+        }
+        return children;
+    }
+
+    /**
      * @return the first direct child with the given tag name, or {@code null} if there is none
      */
     static Element firstDirectChild(Element parent, String tagName) {
@@ -54,6 +72,40 @@ final class XmlHelper {
         }
         Element text = firstDirectChild(child, PnmlConstants.ELEMENT_TEXT);
         return text == null ? null : text.getTextContent();
+    }
+
+    /**
+     * Collects the tool-specific blocks this tool wrote, among the direct children of the
+     * given element.
+     *
+     * <p>Selection is on {@code tool} alone, never on {@code version}: a document written by
+     * a newer build carries a higher version on the very blocks that hold the object
+     * metadata, and filtering them out would silently turn a composed model into a pile of
+     * unrelated pages.
+     */
+    static List<Element> toolSpecificBlocks(Element scope) {
+        List<Element> blocks = new ArrayList<>();
+        for (Element toolspecific : directChildren(scope, PnmlConstants.ELEMENT_TOOLSPECIFIC)) {
+            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolspecific.getAttribute(PnmlConstants.ATTR_TOOL))) {
+                blocks.add(toolspecific);
+            }
+        }
+        return blocks;
+    }
+
+    /**
+     * Reads {@code <tagName>…</tagName>} from the tool-specific blocks of an element.
+     *
+     * @return the trimmed text of the first match, or {@code null} when there is none
+     */
+    static String getToolSpecificText(Element scope, String tagName) {
+        for (Element toolspecific : toolSpecificBlocks(scope)) {
+            Element child = firstDirectChild(toolspecific, tagName);
+            if (child != null) {
+                return child.getTextContent().trim();
+            }
+        }
+        return null;
     }
 
     /**
