@@ -963,6 +963,28 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         return null;
     }
 
+    /**
+     * What the Arc tool's release point resolves to as a connection target - the same two cases
+     * {@link #crossingAnchor} already draws an existing crossing arc reaching for, now used to
+     * let the tool finish a NEW one the same way: the real element itself while it is directly
+     * on screen, whether that is this canvas's own or another, fully expanded object's; or, while
+     * its owning object is collapsed or eye-hidden, the real element a port on that object's
+     * border stands in for. Connecting there still finishes onto that real place or transition,
+     * exactly as {@link #finishSettingNewArc} always has - a released arc has never cared which
+     * canvas its ends are drawn on, only what they are.
+     *
+     * @return the place or transition to finish the arc onto, or {@code null} if the point is
+     *         neither a visible element nor a port
+     */
+    private GraphElement arcToolTargetAt(Point2D point) {
+        GraphElement direct = find(point);
+        if (direct != null) {
+            return direct;
+        }
+        FramePort port = portOnCanvasAt(point);
+        return port != null ? port.getElement() : null;
+    }
+
     public GraphArc findArc(Point2D p) {
         for (GraphArcOut to : graphNet.getGraphArcOutList()) {
             if (arcIsHitAt(to, new GraphArcOut(), p)) {
@@ -2626,15 +2648,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             setCursor(Cursor.getDefaultCursor());
             if (currentArc != null) {
                 currentArc.setColor(Color.BLUE);
-                current = find(scaledCurrentMousePoint);
-                // An element belonging to another object only takes arcs through its ports -
-                // the arc tool cannot reach it directly, the same way it cannot be dragged.
-                // On an object's own canvas its members satisfy this, so the arc tool works
-                // inside it exactly as it does on a plain net.
-                boolean lockedInAnotherObject = current != null && !isOnThisCanvas(current);
-                if (lockedInAnotherObject) {
-                    current = null;
-                }
+                current = arcToolTargetAt(scaledCurrentMousePoint);
 
                 if (current != null) {
                     current.setColor(Color.BLUE);
@@ -2739,14 +2753,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     setDefaultColorGraphElements();
                 } else {
                     removeCurrentArc();//1.02.2013;
-                    if (lockedInAnotherObject) {
-                        // Otherwise this reads as the arc tool simply doing nothing: the release
-                        // point was right on a real, visible element, so silently discarding the
-                        // arc with no word why looks identical to a bug rather than a boundary.
-                        MessageHelper.showError(dialogOwner(),
-                                "Can't connect directly to an element locked inside a Petri-object. "
-                                        + "Drag from its port on the object's border instead.");
-                    }
                 }
             }
             currentArc = null;
