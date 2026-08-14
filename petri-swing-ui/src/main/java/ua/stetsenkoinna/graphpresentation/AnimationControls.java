@@ -35,7 +35,9 @@ public class AnimationControls {
          * button (>> or >>|) was used.
          */
         SAVED_STATE_EXISTS,
+        /** An animated run is playing right now. */
         ANIMATION_IN_PROGRESS,
+        /** An animated run is frozen mid-flight and can be resumed, stepped, or stopped. */
         ANIMATION_PAUSED,
         /**
          * Every transport button is locked out. Reached while a non-animated run is in
@@ -71,11 +73,13 @@ public class AnimationControls {
      */
     private final Deque<GraphCanvasModel> stepHistory = new ArrayDeque<>();
 
-    public final StepBackAction stepBackAction; // A (|<<)
-    public final PlayPauseAction playPauseAction; // B (> or ||)
-    public final StopSimulationAction stopSimulationAction; // C (square)
-    public final RunOneEventAction runOneEventAction; // D (>|)
-    public final RunNetAction runNetAction; // E (>>|)
+    // The transport actions, in toolbar order: |<< step back, >/|| play-pause,
+    // [] stop, >| one event forward, >>| run to completion.
+    public final StepBackAction stepBackAction;
+    public final PlayPauseAction playPauseAction;
+    public final StopSimulationAction stopSimulationAction;
+    public final RunOneEventAction runOneEventAction;
+    public final RunNetAction runNetAction;
 
     private static final String ILLEGAL_ACTION_MESSAGE = "Illegal action on AnimationControls. Current state: %s, attempted action: %s";
 
