@@ -99,10 +99,3 @@ The desktop editor and the simulation server may be used for noncommercial purpo
 personal use, research, education, and use by noncommercial organizations are all permitted.
 For commercial licensing of these modules, contact <inna.stetsenko-fiot@edu.kpi.ua> or
 <sergey24rybak@gmail.com>.
-
-## Authors
-
-- **Prof. Inna Stetsenko (StetsenkoInna)** — Igor Sikorsky Kyiv Polytechnic Institute; author of the
-  Petri-object simulation technique and of the original PetriObjModelPaint.
-- **Serhii Rybak (sergiorbk)** — Igor Sikorsky Kyiv Polytechnic Institute; the multi-module
-  architecture, desktop editor evolution, PNML round-trip and the simulation server.
