@@ -655,14 +655,15 @@ reaches it, with the same numbers in each.
 
 ---
 
-## Integrating with text2pnml
+## Integrating with the petri-net-sim web app
 
-`petri-server` can serve as a dedicated simulation backend for
-[text2pnml](https://github.com/your-org/text2pnml) or any system that produces PNML.
+`petri-server` can serve as a dedicated simulation backend for the
+[petri-net-sim web app](https://github.com/sergiorbk/petri-net-sim) or any system
+that produces PNML.
 
 **Workflow**
 
-1. Export PNML from text2pnml:
+1. Export PNML from the web app:
    ```
    GET /api/v1/sessions/{id}/net   → session net JSON
    ```
@@ -673,13 +674,13 @@ reaches it, with the same numbers in each.
    frames = list(run_simulation(pnml_string, simulation_time=3600, time_step=1.0))
    ```
 
-3. The `markings` keys in each frame match the place UUIDs from the text2pnml PNML export,
+3. The `markings` keys in each frame match the place UUIDs from the web app's PNML export,
    so results can be mapped back to the original net without any ID translation.
 
 **SSE event compatibility**
 
 The SSE snapshot shape emitted by petri-server is identical to the one produced by
-text2pnml's own `/sessions/{id}/simulate` endpoint:
+the web app's own `/sessions/{id}/simulate` endpoint:
 
 ```
 current_time  step_number  markings  buffers  progress

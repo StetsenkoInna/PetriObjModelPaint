@@ -18,6 +18,15 @@ In code terms, this technique lives in the `petri-math` module (`PetriObjModel`,
 
 **[docs/petri-object-models.md](docs/petri-object-models.md)** — full guide: objects and links, composing a model in the editor, the PNML form, running one from code or over HTTP.
 
+## Web app
+
+**[petri-net-sim web app](https://github.com/sergiorbk/petri-net-sim)** — an
+agent-powered super-app for building, generating and simulating Petri nets in the
+browser, with AI features at its core: describe a production or queueing system in
+plain language and an AI agent composes it into a net from a catalog of reusable
+patterns; then edit it in the live graph editor, run stochastic simulations and
+exchange models with this project over PNML.
+
 ## Requirements
 
 - Java 23+
@@ -67,7 +76,7 @@ model and reports statistics per object.
 
 **[docs/petri-server-integration.md](docs/petri-server-integration.md)** — full guide:
 REST API reference, SSE streaming, WebSocket/STOMP, session control, PNML requirements,
-the Petri-object model API, text2pnml integration.
+the Petri-object model API.
 
 ---
 
