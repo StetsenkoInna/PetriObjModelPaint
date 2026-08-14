@@ -1790,13 +1790,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             return;
         }
         try {
-            java.awt.FileDialog fdlg = new java.awt.FileDialog(this, "Import PNML File", java.awt.FileDialog.LOAD);
-            fdlg.setFile("*.pnml");
-            fdlg.setVisible(true);
-            if (fdlg.getFile() == null) {
+            javax.swing.JFileChooser chooser = newDocumentChooser("Open");
+            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                    "PNML or XML model (*.pnml, *.xml)", "pnml", "xml"));
+            if (chooser.showOpenDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) {
                 return;
             }
-            java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
+            java.io.File selectedFile = chooser.getSelectedFile();
+            lastChooserDirectory = selectedFile.getParentFile();
 
             GraphPetriObjModel objModel = new PnmlModelParser().parse(selectedFile);
             GraphCanvasModel canvas = GraphCanvasModel.fromObjModel(objModel);
@@ -1826,15 +1827,33 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 return;
             }
 
-            java.awt.FileDialog fdlg = new java.awt.FileDialog(this, "Save As PNML", java.awt.FileDialog.SAVE);
-            fdlg.setFile(netNameTextField.getText() + ".pnml");
-            fdlg.setVisible(true);
-            if (fdlg.getFile() == null) {
+            javax.swing.JFileChooser chooser = newDocumentChooser("Save As");
+            javax.swing.filechooser.FileNameExtensionFilter pnmlFilter =
+                    new javax.swing.filechooser.FileNameExtensionFilter("PNML model (*.pnml)", "pnml");
+            javax.swing.filechooser.FileNameExtensionFilter xmlFilter =
+                    new javax.swing.filechooser.FileNameExtensionFilter("XML document (*.xml)", "xml");
+            chooser.addChoosableFileFilter(pnmlFilter);
+            chooser.addChoosableFileFilter(xmlFilter);
+            chooser.setFileFilter(pnmlFilter);
+            chooser.setSelectedFile(new java.io.File(currentPnmlFile != null
+                    ? currentPnmlFile.getName()
+                    : netNameTextField.getText() + ".pnml"));
+            if (chooser.showSaveDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) {
                 return;
             }
-            java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
-            if (!selectedFile.getName().toLowerCase().endsWith(".pnml")) {
-                selectedFile = new java.io.File(selectedFile.getAbsolutePath() + ".pnml");
+            java.io.File selectedFile = chooser.getSelectedFile();
+            lastChooserDirectory = selectedFile.getParentFile();
+            String lower = selectedFile.getName().toLowerCase();
+            if (!lower.endsWith(".pnml") && !lower.endsWith(".xml")) {
+                // The chosen type filter decides the extension a bare name gets - the same
+                // document either way, since PNML is XML; only the suffix differs.
+                String extension = chooser.getFileFilter() == xmlFilter ? ".xml" : ".pnml";
+                selectedFile = new java.io.File(selectedFile.getAbsolutePath() + extension);
+            }
+            // JFileChooser approves silently over an existing file; asking is on us.
+            if (selectedFile.exists() && !MessageHelper.showConfirmation(this,
+                    "'" + selectedFile.getName() + "' already exists. Overwrite it?")) {
+                return;
             }
 
             writePnml(selectedFile);
@@ -1862,6 +1881,24 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             LOGGER.error("Failed to save PNML", ex);
             MessageHelper.showException(this, "Error saving PNML file", ex);
         }
+    }
+
+    /**
+     * A file chooser for the document dialogs, replacing the native AWT FileDialog: on
+     * Windows that one cannot list file-type filters at all, so its type box misleadingly
+     * said "All Files" for a dialog that only ever meant PNML.
+     *
+     * @param title the dialog title
+     * @return a chooser starting where the previous dialog ended up, or at the document's
+     *         own directory
+     */
+    private javax.swing.JFileChooser newDocumentChooser(String title) {
+        java.io.File startAt = lastChooserDirectory != null
+                ? lastChooserDirectory
+                : currentPnmlFile != null ? currentPnmlFile.getParentFile() : null;
+        javax.swing.JFileChooser chooser = new javax.swing.JFileChooser(startAt);
+        chooser.setDialogTitle(title);
+        return chooser;
     }
 
     /**
@@ -2030,6 +2067,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * when Save falls back to Save As.
      */
     private java.io.File currentPnmlFile;
+
+    /** Where the last Open or Save As dialog ended up, so the next one starts there. */
+    private java.io.File lastChooserDirectory;
     // End of variables declaration//GEN-END:variables
     private static PetriNetsPanel petriNetsPanel;
     private FileUse fileUse = new FileUse();
