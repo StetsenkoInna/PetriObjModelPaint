@@ -6,6 +6,7 @@ import ua.stetsenkoinna.api.dto.ChartConfigDto;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.drawings.ChartDrawingConfig;
 import ua.stetsenkoinna.graphpresentation.statistic.dto.drawings.ChartLineData;
 import ua.stetsenkoinna.config.ResourcePathConfig;
+import ua.stetsenkoinna.graphpresentation.theme.ThemeManager;
 import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
 import javafx.embed.swing.SwingFXUtils;
@@ -68,6 +69,34 @@ public class LineChartBuilderService implements ChartBuilderService {
     }
 
     @Override
+    public void applyTheme() {
+        if (lineChart == null) {
+            return;
+        }
+        Platform.runLater(this::installStylesheetForCurrentTheme);
+    }
+
+    /**
+     * Puts the current theme's stylesheet on the chart, replacing whichever one was there.
+     *
+     * <p>The two sheets replace each other rather than stack, so the old one has to go: JavaFX
+     * applies stylesheets in order and the dark sheet restates every rule the light one sets, but
+     * leaving both attached would make the result depend on which was added last.
+     *
+     * <p>Must run on the JavaFX application thread.
+     */
+    private void installStylesheetForCurrentTheme() {
+        String styleFileName = ThemeManager.currentVariant().isDark()
+                ? ResourcePathConfig.LINE_CHART_DARK_CSS
+                : ResourcePathConfig.LINE_CHART_CSS;
+        String cssFile = ResourcePathConfig.getCssUrl(getClass(), styleFileName);
+        lineChart.getStylesheets().clear();
+        if (cssFile != null) {
+            lineChart.getStylesheets().add(cssFile);
+        }
+    }
+
+    @Override
     public void createChart(JFXPanel jfxPanel, ChartConfigDto configDto) {
         this.chartConfigDto = configDto;
         Platform.runLater(() -> {
@@ -81,10 +110,7 @@ public class LineChartBuilderService implements ChartBuilderService {
             lineChart = new LineChart<>(xAxis, yAxis);
             lineChart.setTitle(configDto.getTitle());
 
-            String cssFile = ResourcePathConfig.getCssUrl(getClass(), ResourcePathConfig.LINE_CHART_CSS);
-            if (cssFile != null) {
-                lineChart.getStylesheets().add(cssFile);
-            }
+            installStylesheetForCurrentTheme();
 
             rootPane = new AnchorPane(lineChart);
             AnchorPane.setTopAnchor(lineChart, 0.0);

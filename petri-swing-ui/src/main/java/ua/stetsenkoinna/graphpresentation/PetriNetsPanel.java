@@ -70,6 +70,8 @@ import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectTemplate;
 import ua.stetsenkoinna.graphnet.GraphNetBuilder;
 import ua.stetsenkoinna.libnet.NetTemplateCatalog;
 import ua.stetsenkoinna.pnml.PnmlParser;
+import ua.stetsenkoinna.theme.CanvasColor;
+import ua.stetsenkoinna.theme.CanvasPalette;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddObjectFrameEdit;
@@ -168,8 +170,18 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     /** Frames a running animation is currently highlighting — see {@link #clearAnimationHighlight()}. */
     private final Set<GraphObjectFrame> activeAnimationFrames =
             Collections.newSetFromMap(new IdentityHashMap<>());
-    private static final Color ANIMATION_ACTIVE_COLOR = new Color(255, 77, 77);
-    private static final Color ANIMATION_CROSSING_COLOR = new Color(60, 120, 220);
+    /**
+     * The animation's two highlight colours. Methods rather than constants because the palette
+     * behind them changes with the theme, and a static field would freeze whichever one happened
+     * to be in force when this class was first loaded.
+     */
+    private static Color animationActiveColor() {
+        return CanvasPalette.current().get(CanvasColor.ANIMATION_ACTIVE);
+    }
+
+    private static Color animationCrossingColor() {
+        return CanvasPalette.current().get(CanvasColor.ANIMATION_CROSSING);
+    }
 
     /** The element being dragged, with where it started, so a move between objects can be undone. */
     private GraphElement draggedElement;
@@ -255,7 +267,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     public PetriNetsPanel(JTextField textField, boolean editable) {
         this.editable = editable;
         initComponents();
-        this.setBackground(Color.WHITE);
+        applyTheme();
 
         // These are plain JFrames with no owner window, so Swing has no way to tell they
         // belong with this panel. Left as APPLICATION_MODAL_EXCLUDE by default, opening one
@@ -316,6 +328,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
         });
 
+    }
+
+    /**
+     * Re-reads the canvas background from the current {@link CanvasPalette}.
+     *
+     * <p>Called from the constructor and again on every theme change. The elements draw
+     * themselves from the palette at paint time and so need nothing beyond the repaint; the
+     * background does, because it is a component property, and a component property that was
+     * ever set explicitly belongs to the application from then on - a look and feel change
+     * walks past it and leaves it exactly where it was.
+     */
+    public final void applyTheme() {
+        setBackground(CanvasPalette.current().get(CanvasColor.CANVAS_BACKGROUND));
+        repaint();
     }
 
     /**
@@ -641,7 +667,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         paintCrossingArcSubstitutes(g2);
         if (draggedFromPort != null && draggedPortCurrentPoint != null) {
             Color previous = g2.getColor();
-            g2.setColor(Color.GRAY);
+            g2.setColor(CanvasPalette.current().get(CanvasColor.GUIDE));
             // The same anchor a finished connection would use: the real element while it is on
             // screen, its port only while its object is hidden — not always the port's own
             // position, which would make the preview appear to start from the frame's border
@@ -675,6 +701,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         //  printPointLocation(startDragMouseLocation,"start");
         //   printArraySize(choosenElements, "");
         if (currentDragMouseLocation != null && startDragMouseLocation != null && leftMouseButtonPressed) {
+            // Set explicitly rather than inherited from whatever was drawn last: on an empty
+            // canvas nothing has been, and the graphics' default black is invisible in dark.
+            g2.setColor(CanvasPalette.current().get(CanvasColor.GUIDE));
             g2.setStroke((Stroke) new BasicStroke(1.0f,
                     BasicStroke.CAP_ROUND,
                     BasicStroke.JOIN_BEVEL,
@@ -716,7 +745,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         Stroke previousStroke = g2.getStroke();
         Color previousColor = g2.getColor();
-        g2.setColor(new Color(0x33, 0x5A, 0x8A));
+        g2.setColor(CanvasPalette.current().get(CanvasColor.ACCENT));
         g2.setStroke(new BasicStroke(1.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_BEVEL,
                 20.0f, new float[]{15.0f, 15.0f}, 0.0f));
         g2.drawRect(x, y, extent.width, extent.height);
@@ -752,7 +781,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 continue;
             }
             if (collapsedOnes) {
-                g2.setColor(Color.WHITE);
+                g2.setColor(CanvasPalette.current().get(CanvasColor.COLLAPSED_FRAME_FILL));
                 g2.fillRoundRect(frame.getBounds().x, frame.getBounds().y,
                         frame.getBounds().width, frame.getBounds().height, 14, 14);
             }
@@ -4856,7 +4885,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 list.add(t);
             }
         }
-        animArcIn(list, 100, 3, new Color(255, 77, 77));
+        animArcIn(list, 100, 3, animationActiveColor());
         animArcIn(list, 100, 5);
         animArcIn(list, 100, 7);
         animArcIn(list, 100, 5);
@@ -4872,7 +4901,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             list.add(transition);
             setActiveAnimationFrame(canvasModel.ownerOf(transition));
         }
-        animTransitions(list, 100, 7, new Color(255, 77, 77));
+        animTransitions(list, 100, 7, animationActiveColor());
         animTransitions(list, 100, 10);
         animTransitions(list, 100, 12);
         animTransitions(list, 100, 10);
@@ -4918,7 +4947,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
             }
         }
-        animPlaces(list, 100, 5, new Color(255, 77, 77));
+        animPlaces(list, 100, 5, animationActiveColor());
         animPlaces(list, 100, 7);
         animPlaces(list, 100, 10);
         animPlaces(list, 100, 7);
@@ -4940,7 +4969,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 list.add(t);
             }
         }
-        animArcOut(list, 50, 3, new Color(255, 77, 77));
+        animArcOut(list, 50, 3, animationActiveColor());
         animArcOut(list, 50, 5);
         animArcOut(list, 50, 7);
         animArcOut(list, 50, 5);
@@ -4992,7 +5021,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         addActiveAnimationFrame(otherOwner);
         if (otherEnd instanceof GraphPetriPlace place) {
             ArrayList<GraphPetriPlace> single = new ArrayList<>(List.of(place));
-            animPlaces(single, 80, 6, ANIMATION_CROSSING_COLOR);
+            animPlaces(single, 80, 6, animationCrossingColor());
             animPlaces(single, 80, 2, Color.BLACK);
         }
     }
@@ -5011,7 +5040,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
         activeAnimationFrames.clear();
         if (frame != null) {
-            frame.setHighlightColor(ANIMATION_ACTIVE_COLOR);
+            frame.setHighlightColor(animationActiveColor());
             activeAnimationFrames.add(frame);
         }
         repaint();
@@ -5024,7 +5053,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private void addActiveAnimationFrame(GraphObjectFrame frame) {
         if (frame != null && activeAnimationFrames.add(frame)) {
-            frame.setHighlightColor(ANIMATION_CROSSING_COLOR);
+            frame.setHighlightColor(animationCrossingColor());
             repaint();
         }
     }

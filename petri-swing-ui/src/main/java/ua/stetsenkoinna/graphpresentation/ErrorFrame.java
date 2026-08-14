@@ -1,5 +1,7 @@
 package ua.stetsenkoinna.graphpresentation;
 
+import ua.stetsenkoinna.graphpresentation.theme.ThemeManager;
+
 /**
  *
  * @author Ольга
@@ -40,7 +42,7 @@ public class ErrorFrame extends javax.swing.JFrame {
         });
 
         errorTextArea.setEditable(false);
-        errorTextArea.setBackground(new java.awt.Color(240, 240, 240));
+        errorTextArea.setBackground(ThemeManager.palette().getSurface());
         errorTextArea.setFont(new java.awt.Font("Tahoma", 0, 12)); // NOI18N
         errorTextArea.setLineWrap(true);
         errorTextArea.setWrapStyleWord(true);

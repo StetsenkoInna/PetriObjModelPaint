@@ -8,6 +8,8 @@ import java.awt.Point;
 import java.awt.Stroke;
 import java.io.Serializable;
 import java.util.Objects;
+import ua.stetsenkoinna.theme.CanvasColor;
+import ua.stetsenkoinna.theme.CanvasPalette;
 
 /**
  * A small connection point on a Petri-object frame's border, standing in for one of the
@@ -33,10 +35,8 @@ public final class FramePort implements Serializable {
     /** Radius of the drawn circle and the hit-test tolerance around it, in canvas units. */
     public static final int RADIUS = 6;
 
-    private static final Color FILL_PLACE = new Color(0xFF, 0xFF, 0xFF);
-    private static final Color FILL_TRANSITION = new Color(0x33, 0x5A, 0x8A);
-    private static final Color BORDER = new Color(0x1C, 0x2B, 0x3A);
-    private static final Color HIGHLIGHT = new Color(0xD9, 0x7A, 0x00);
+    // A port's fill, border, highlight and label plate all come from the palette, so the circle
+    // that stands in for a place still reads as a place-shaped hole in either theme.
     private static final Font LABEL_FONT = new Font(Font.SANS_SERIF, Font.PLAIN, 10);
 
     /** Which side of the frame's bounds the port sits on, used to place its label legibly. */
@@ -98,9 +98,12 @@ public final class FramePort implements Serializable {
         Stroke previousStroke = g2.getStroke();
         Font previousFont = g2.getFont();
 
-        g2.setColor(highlighted ? HIGHLIGHT : (isPlace() ? FILL_PLACE : FILL_TRANSITION));
+        CanvasPalette palette = CanvasPalette.current();
+        g2.setColor(highlighted
+                ? palette.get(CanvasColor.PORT_HIGHLIGHT)
+                : (isPlace() ? palette.get(CanvasColor.PORT_FILL_PLACE) : palette.get(CanvasColor.PORT_FILL_TRANSITION)));
         g2.fillOval(position.x - RADIUS, position.y - RADIUS, RADIUS * 2, RADIUS * 2);
-        g2.setColor(BORDER);
+        g2.setColor(palette.get(CanvasColor.PORT_BORDER));
         g2.setStroke(new BasicStroke(highlighted ? 2f : 1.2f));
         g2.drawOval(position.x - RADIUS, position.y - RADIUS, RADIUS * 2, RADIUS * 2);
 
@@ -117,9 +120,9 @@ public final class FramePort implements Serializable {
             case BOTTOM -> position.y + RADIUS + 12;
             case LEFT, RIGHT -> position.y + 4;
         };
-        g2.setColor(new Color(255, 255, 255, 210));
+        g2.setColor(palette.get(CanvasColor.PORT_LABEL_BACKDROP));
         g2.fillRect(x - 2, y - 10, labelWidth + 4, 13);
-        g2.setColor(BORDER);
+        g2.setColor(palette.get(CanvasColor.PORT_BORDER));
         g2.drawString(label, x, y);
 
         g2.setColor(previousColor);

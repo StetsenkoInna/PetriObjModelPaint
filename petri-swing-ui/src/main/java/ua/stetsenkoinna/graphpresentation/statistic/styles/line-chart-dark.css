@@ -1,0 +1,98 @@
+/*
+ * Dark counterpart to line-chart.css, loaded instead of it by LineChartBuilderService when the
+ * application is in the dark theme. The light stylesheet has nothing to override beyond the
+ * data-point hover state, because JavaFX's own (light) Modena defaults already read fine on a
+ * white plot; dark has no such default to lean on, so every surface Modena would otherwise paint
+ * white or near-white for a LineChart is overridden here, down to the tick labels and legend
+ * text. The built-in series colours are replaced too, with a palette picked for contrast against
+ * this dark surface rather than by inverting the light theme's - light never overrode them, so
+ * "the light ones inverted" would just be Modena's own defaults inverted, which is not a
+ * deliberate choice worth preserving.
+ */
+
+.chart {
+    -fx-background-color: #2B2E30;
+}
+
+.chart-title {
+    -fx-text-fill: #E0E3E6;
+}
+
+.chart-plot-background {
+    -fx-background-color: #232628;
+}
+
+.chart-vertical-grid-lines {
+    -fx-stroke: #45494D;
+}
+
+.chart-horizontal-grid-lines {
+    -fx-stroke: #45494D;
+}
+
+.chart-vertical-zero-line,
+.chart-horizontal-zero-line {
+    -fx-stroke: #6B7075;
+}
+
+.chart-alternative-row-fill {
+    -fx-background-color: transparent;
+    -fx-stroke: transparent;
+}
+
+.axis {
+    -fx-tick-label-fill: #C7CCD1;
+}
+
+.axis-label {
+    -fx-text-fill: #C7CCD1;
+}
+
+.axis-tick-mark,
+.axis-minor-tick-mark {
+    -fx-stroke: #8A9099;
+}
+
+.axis:top,
+.axis:bottom,
+.axis:left,
+.axis:right {
+    -fx-border-color: #8A9099;
+}
+
+.chart-legend {
+    -fx-background-color: #2B2E30;
+}
+
+.chart-legend-item {
+    -fx-text-fill: #E0E3E6;
+}
+
+/* Series colours, chosen to stay distinguishable from each other on a dark plot rather than by
+ * inverting anything - a straight inversion tends to wash out into a handful of near-identical
+ * pastels. */
+.default-color0.chart-series-line { -fx-stroke: #4FC3F7; }
+.default-color1.chart-series-line { -fx-stroke: #FFB74D; }
+.default-color2.chart-series-line { -fx-stroke: #81C784; }
+.default-color3.chart-series-line { -fx-stroke: #E57373; }
+.default-color4.chart-series-line { -fx-stroke: #BA68C8; }
+.default-color5.chart-series-line { -fx-stroke: #4DD0E1; }
+.default-color6.chart-series-line { -fx-stroke: #FFF176; }
+.default-color7.chart-series-line { -fx-stroke: #A1887F; }
+
+/* Data-point markers: same series colour on the outside, the plot's own background instead of
+ * white for the centre, so a marker reads as a ring on the dark plot instead of a punched-out
+ * white dot. */
+.default-color0.chart-line-symbol { -fx-background-color: #4FC3F7, #232628; }
+.default-color1.chart-line-symbol { -fx-background-color: #FFB74D, #232628; }
+.default-color2.chart-line-symbol { -fx-background-color: #81C784, #232628; }
+.default-color3.chart-line-symbol { -fx-background-color: #E57373, #232628; }
+.default-color4.chart-line-symbol { -fx-background-color: #BA68C8, #232628; }
+.default-color5.chart-line-symbol { -fx-background-color: #4DD0E1, #232628; }
+.default-color6.chart-line-symbol { -fx-background-color: #FFF176, #232628; }
+.default-color7.chart-line-symbol { -fx-background-color: #A1887F, #232628; }
+
+.onDataPointHover {
+    -fx-cursor: hand;
+    -fx-background-color: orangered;
+}

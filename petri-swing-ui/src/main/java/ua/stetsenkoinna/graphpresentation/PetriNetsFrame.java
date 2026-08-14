@@ -51,6 +51,13 @@ import ua.stetsenkoinna.graphpresentation.objmodel.CanvasTabsBar;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectManagerDialog;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectPalette;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectTemplate;
+import ua.stetsenkoinna.graphpresentation.settings.SettingsDialog;
+import ua.stetsenkoinna.graphpresentation.theme.ThemeManager;
+import ua.stetsenkoinna.graphpresentation.theme.ThemedMenuBar;
+import ua.stetsenkoinna.graphpresentation.theme.UiPalette;
+import ua.stetsenkoinna.config.AppSettings;
+import ua.stetsenkoinna.theme.ThemeMode;
+import ua.stetsenkoinna.theme.ThemeVariant;
 import ua.stetsenkoinna.utils.MessageHelper;
 
 import java.awt.Dialog.ModalityType;
@@ -63,6 +70,18 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private static final Logger LOGGER = LoggerFactory.getLogger(PetriNetsFrame.class);
 
     public Timer timer; // timer that starts repainting while simulation
+
+    /** The View > Theme radio items, kept so the tick can follow a change made anywhere else. */
+    private final java.util.EnumMap<ThemeMode, javax.swing.JRadioButtonMenuItem> themeMenuItems =
+            new java.util.EnumMap<>(ThemeMode.class);
+
+    /**
+     * Held so it can be unregistered in {@link #dispose()}. {@link ThemeManager} keeps a strong
+     * reference to every listener, and a frame that never unregisters is a frame that is never
+     * collected - which the test suite, which builds a great many of them, would notice first.
+     */
+    private ThemeManager.ThemeChangeListener themeListener;
+
     private final MethodNameDialogPanel dialogPanel = new MethodNameDialogPanel();
     private JDialog dialog;
     /** Temporary stand-in for the removed library sidebar — see {@link #openPObjectsLibraryWindow}. */
@@ -338,6 +357,80 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             undoMenuItem.setEnabled(undoManager.canUndo());
             redoMenuItem.setEnabled(undoManager.canRedo());
         });
+
+        // Last, so everything it colours exists. addListener calls back straight away, which is
+        // what paints this frame in the current theme in the first place - there is no separate
+        // "apply the theme once at startup" path to keep in step with this one.
+        themeListener = this::applyTheme;
+        ThemeManager.addListener(themeListener);
+    }
+
+    @Override
+    public void dispose() {
+        if (themeListener != null) {
+            ThemeManager.removeListener(themeListener);
+            themeListener = null;
+        }
+        super.dispose();
+    }
+
+    /**
+     * The View menu's theme switch: the three modes as radio items, the chosen one ticked.
+     *
+     * <p>Duplicates what the settings dialog offers, deliberately. Changing the theme is
+     * something a user does while looking at the canvas and deciding it is too bright, and
+     * making that a trip through a modal dialog would be making a two-click thing into a
+     * four-click one. The two stay in step because both write through {@link ThemeManager} and
+     * both are refreshed by {@link #applyTheme}.
+     */
+    private javax.swing.JMenu buildThemeMenu() {
+        themeMenu = new javax.swing.JMenu("Theme");
+        javax.swing.ButtonGroup group = new javax.swing.ButtonGroup();
+        for (ThemeMode mode : ThemeMode.values()) {
+            javax.swing.JRadioButtonMenuItem item =
+                    new javax.swing.JRadioButtonMenuItem(mode.getDisplayName());
+            item.addActionListener(evt -> ThemeManager.selectMode(mode));
+            group.add(item);
+            themeMenuItems.put(mode, item);
+            themeMenu.add(item);
+        }
+        return themeMenu;
+    }
+
+    /**
+     * Re-applies everything about this window that the look and feel cannot reach on its own:
+     * the backgrounds and borders set by hand in {@link #initComponents}, the canvas, and the
+     * tick in the theme menu.
+     *
+     * <p>Called by {@link ThemeManager} on every change and once when this frame registers, so
+     * it is also the only place these colours are ever set - {@code initComponents} no longer
+     * spells any of them out.
+     */
+    private void applyTheme(ThemeVariant variant, UiPalette palette) {
+        petriNetsFrameMenuBar.setBackground(palette.getMenuBarBackground());
+        petriNetsFrameMenuBar.setForeground(palette.getMenuBarForeground());
+
+        modelingParametersPanel.setBackground(palette.getChrome());
+        modelingParametersPanel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+                javax.swing.BorderFactory.createMatteBorder(1, 0, 0, 0, palette.getDivider()),
+                javax.swing.BorderFactory.createEmptyBorder(6, 12, 6, 12)));
+
+        leftIconToolBar.setBackground(palette.getChrome());
+        leftIconToolBar.setBorder(
+                javax.swing.BorderFactory.createMatteBorder(0, 0, 0, 1, palette.getDivider()));
+
+        modelingResultsPanel.setBackground(palette.getChromeAlt());
+
+        if (petriNetsPanel != null) {
+            petriNetsPanel.applyTheme();
+        }
+
+        javax.swing.JRadioButtonMenuItem selected = themeMenuItems.get(ThemeManager.currentMode());
+        if (selected != null) {
+            selected.setSelected(true);
+        }
+
+        repaint();
     }
 
     /**
@@ -812,7 +905,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         protocolTextArea = new javax.swing.JTextArea();
         statisticsScrollPane = new javax.swing.JScrollPane();
         statisticsTextArea = new javax.swing.JTextArea();
-        petriNetsFrameMenuBar = new javax.swing.JMenuBar();
+        petriNetsFrameMenuBar = new ThemedMenuBar();
         fileMenu = new javax.swing.JMenu();
         openMenuItem = new javax.swing.JMenuItem();
         newMenuItem = new javax.swing.JMenuItem();
@@ -956,10 +1049,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         headerSimulationGroup.add(skipForwardAnimationButton);
 
         modelingParametersPanel.setLayout(new java.awt.BorderLayout());
-        modelingParametersPanel.setBackground(new java.awt.Color(238, 238, 238));
-        modelingParametersPanel.setBorder(javax.swing.BorderFactory.createCompoundBorder(
-                javax.swing.BorderFactory.createMatteBorder(1, 0, 0, 0, new java.awt.Color(200, 200, 200)),
-                javax.swing.BorderFactory.createEmptyBorder(6, 12, 6, 12)));
+        // Background and border come from applyTheme, which runs before this frame is shown.
         modelingParametersPanel.add(netNameTextField, java.awt.BorderLayout.WEST);
         modelingParametersPanel.add(headerSimulationGroup, java.awt.BorderLayout.EAST);
 
@@ -970,8 +1060,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // stays pinned at the bottom where it is always reachable. A single BoxLayout column
         // could not do that — everything in it scrolls together or not at all.
         leftIconToolBar.setLayout(new java.awt.BorderLayout());
-        leftIconToolBar.setBackground(new java.awt.Color(238, 238, 238));
-        leftIconToolBar.setBorder(javax.swing.BorderFactory.createMatteBorder(0, 0, 0, 1, new java.awt.Color(200, 200, 200)));
         leftIconToolBar.setAlignmentX(0.0F);
         // Room for the templates' scrollbar is reserved permanently: letting the toolbar widen
         // and narrow as templates come and go would shove the whole canvas sideways.
@@ -1136,8 +1224,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         modelingResultsSplitPane.setRightComponent(
                 withOpenLogButton(statisticsScrollPane, statisticsTextArea, "petri-statistics"));
 
-        modelingResultsPanel.setBackground(new java.awt.Color(229, 229, 229));
-        modelingResultsPanel.setForeground(new java.awt.Color(255, 255, 255));
         modelingResultsPanel.setLayout(new java.awt.BorderLayout());
         // A hard floor on the sidebar's own width — without it, dragging mainSplitPane's
         // divider could squeeze the sidebar (and its toggle arrow) narrower than the
@@ -1215,8 +1301,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetDesign.add(canvasArea, java.awt.BorderLayout.CENTER);
 
 
-        petriNetsFrameMenuBar.setBackground(new java.awt.Color(186, 213, 241));
-        petriNetsFrameMenuBar.setForeground(new java.awt.Color(98, 147, 167));
 
         // The conventional File / Edit / View bar. PNML is the primary document format:
         // New, Open, Save and Save As all speak it, with the standard shortcuts. Every
@@ -1318,6 +1402,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         editNetParameters.addActionListener(this::editNetParametersActionPerformed);
         editMenu.add(editNetParameters);
 
+        // Where an application's settings live on Windows and Linux. The theme also has a
+        // direct switch under View, since that one is reached often enough to be worth two
+        // clicks rather than four - see buildThemeMenu.
+        editMenu.addSeparator();
+        preferencesMenuItem = new javax.swing.JMenuItem("Preferences...");
+        preferencesMenuItem.addActionListener(evt ->
+                SettingsDialog.showPreferences(this, AppSettings.shared()));
+        editMenu.add(preferencesMenuItem);
+
         petriNetsFrameMenuBar.add(editMenu);
 
         viewMenu = new javax.swing.JMenu("View");
@@ -1327,6 +1420,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         centerLocationOfGraphNet.setText("Center on net");
         centerLocationOfGraphNet.addActionListener(this::centerLocationOfGraphNetActionPerformed);
         viewMenu.add(centerLocationOfGraphNet);
+
+        viewMenu.addSeparator();
+        viewMenu.add(buildThemeMenu());
 
         petriNetsFrameMenuBar.add(viewMenu);
 
@@ -2014,6 +2110,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JMenuItem centerLocationOfGraphNet;
     private javax.swing.JMenu editMenu;
     private javax.swing.JMenuItem editNetParameters;
+    private javax.swing.JMenuItem preferencesMenuItem;
+    private javax.swing.JMenu themeMenu;
     private javax.swing.JMenu fileMenu;
     private javax.swing.JMenuItem jMenuItem2;
     private javax.swing.JPanel leftIconToolBar;

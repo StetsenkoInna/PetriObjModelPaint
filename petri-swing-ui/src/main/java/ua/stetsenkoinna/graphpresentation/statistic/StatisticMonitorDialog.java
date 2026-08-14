@@ -5,6 +5,9 @@
 package ua.stetsenkoinna.graphpresentation.statistic;
 
 import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
+import ua.stetsenkoinna.graphpresentation.theme.ThemeManager;
+import ua.stetsenkoinna.graphpresentation.theme.UiPalette;
+import ua.stetsenkoinna.theme.ThemeVariant;
 import ua.stetsenkoinna.api.dto.DataCollectionConfigDto;
 import ua.stetsenkoinna.graphpresentation.statistic.services.ChartBuilderService;
 import ua.stetsenkoinna.graphpresentation.statistic.services.LineChartBuilderService;
@@ -35,6 +38,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     private Map<Integer, List<String>> elementsWatchMap;
     private Boolean isFormulaValid = false;
     private ChartConfigDto chartConfigDto;
+    private ThemeManager.ThemeChangeListener themeListener;
 
 
     /**
@@ -55,6 +59,41 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         );
         this.chartBuilderService = new LineChartBuilderService();
         chartBuilderService.createChart(jfxPanel, chartConfigDto);
+
+        // Last, so everything it colours already exists. addListener calls back straight away,
+        // which is what paints this dialog in the current theme in the first place - there is no
+        // separate "apply the theme once at startup" path to keep in step with this one.
+        themeListener = this::applyTheme;
+        ThemeManager.addListener(themeListener);
+    }
+
+    @Override
+    public void dispose() {
+        if (themeListener != null) {
+            ThemeManager.removeListener(themeListener);
+            themeListener = null;
+        }
+        super.dispose();
+    }
+
+    /**
+     * Re-applies the colours {@code setBackground} makes permanent once called, so a theme
+     * change while this monitor is open does not leave it wearing the previous theme's chart
+     * surface. A tool button that is currently active keeps looking active across the change,
+     * since its highlight is the same kind of hand-set background as the panels around it.
+     */
+    private void applyTheme(ThemeVariant variant, UiPalette palette) {
+        chartViewPanel.setBackground(palette.getSurface());
+        chartToolsBar.setBackground(palette.getSurface());
+        if (chartBuilderService != null) {
+            chartBuilderService.applyTheme();
+        }
+        for (JToggleButton toolButton : List.of(dragChartBtn, drawVerticalLineBtn,
+                drawHorizontalLineBtn, clearDrawLineBtn, createLabelBtn)) {
+            if (toolButton.isSelected()) {
+                toolButton.setBackground(palette.getActiveControl());
+            }
+        }
     }
 
 
@@ -75,7 +114,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         formulaPanel = new javax.swing.JScrollPane();
         formulaInputField = new javax.swing.JTextArea();
         mainContentPanel = new javax.swing.JPanel();
-        JPanel chartViewPanel = new JPanel();
+        chartViewPanel = new JPanel();
         chartActionsBar = new javax.swing.JMenuBar();
         chartToolsBar = new javax.swing.JPanel();
         tableViewPanel = new javax.swing.JPanel();
@@ -143,7 +182,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
 
         mainContentPanel.setLayout(new javax.swing.BoxLayout(mainContentPanel, javax.swing.BoxLayout.LINE_AXIS));
         chartViewPanel.setLayout(new BorderLayout());
-        chartViewPanel.setBackground(Color.decode("#f4f4f4"));
 
         dragChartBtn = new JToggleButton();
         dragChartBtn.setPreferredSize(new Dimension(100, 40));
@@ -156,7 +194,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         dragChartBtn.addActionListener(e -> {
             if (dragChartBtn.isSelected()) {
                 dragChartBtn.setContentAreaFilled(true);
-                dragChartBtn.setBackground(Color.LIGHT_GRAY);
+                dragChartBtn.setBackground(ThemeManager.palette().getActiveControl());
                 dragChartBtn.transferFocus();
             } else {
                 dragChartBtn.setContentAreaFilled(false);
@@ -186,7 +224,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         drawVerticalLineBtn.addActionListener(e -> {
             if (drawVerticalLineBtn.isSelected()) {
                 drawVerticalLineBtn.setContentAreaFilled(true);
-                drawVerticalLineBtn.setBackground(Color.LIGHT_GRAY);
+                drawVerticalLineBtn.setBackground(ThemeManager.palette().getActiveControl());
                 drawVerticalLineBtn.transferFocus();
             } else {
                 drawVerticalLineBtn.setContentAreaFilled(false);
@@ -206,7 +244,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         drawHorizontalLineBtn.addActionListener(e -> {
             if (drawHorizontalLineBtn.isSelected()) {
                 drawHorizontalLineBtn.setContentAreaFilled(true);
-                drawHorizontalLineBtn.setBackground(Color.LIGHT_GRAY);
+                drawHorizontalLineBtn.setBackground(ThemeManager.palette().getActiveControl());
                 drawHorizontalLineBtn.transferFocus();
             } else {
                 drawHorizontalLineBtn.setContentAreaFilled(false);
@@ -226,7 +264,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         clearDrawLineBtn.addActionListener(e -> {
             if (clearDrawLineBtn.isSelected()) {
                 clearDrawLineBtn.setContentAreaFilled(true);
-                clearDrawLineBtn.setBackground(Color.LIGHT_GRAY);
+                clearDrawLineBtn.setBackground(ThemeManager.palette().getActiveControl());
                 clearDrawLineBtn.transferFocus();
             } else {
                 clearDrawLineBtn.setContentAreaFilled(false);
@@ -246,7 +284,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         createLabelBtn.addActionListener(e -> {
             if (createLabelBtn.isSelected()) {
                 createLabelBtn.setContentAreaFilled(true);
-                createLabelBtn.setBackground(Color.LIGHT_GRAY);
+                createLabelBtn.setBackground(ThemeManager.palette().getActiveControl());
                 createLabelBtn.transferFocus();
             } else {
                 createLabelBtn.setContentAreaFilled(false);
@@ -285,7 +323,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         chartSettingsBtn.setIcon(new javax.swing.ImageIcon(Objects.requireNonNull(ResourcePathConfig.getResource(getClass(), ResourcePathConfig.getIconPath(ResourcePathConfig.SETTINGS_ICON)))));
         chartSettingsBtn.addActionListener(this::onChartSettingOpenPerformed);
 
-        chartToolsBar.setBackground(Color.decode("#f4f4f4"));
         chartToolsBar.setLayout(new BoxLayout(chartToolsBar, BoxLayout.Y_AXIS));
         chartToolsBar.add(Box.createVerticalStrut(10));
         chartToolsBar.setPreferredSize(new Dimension(40, 100));
@@ -481,6 +518,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     private javax.swing.JButton exportCsvBtn;
     private javax.swing.JButton scaleChartBtn;
     private javax.swing.JToggleButton createLabelBtn;
+    private javax.swing.JPanel chartViewPanel;
     private javax.swing.JPanel chartToolsBar;
     private javax.swing.JToggleButton dragChartBtn;
     private javax.swing.JToggleButton drawVerticalLineBtn;

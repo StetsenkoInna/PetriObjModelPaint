@@ -1,13 +1,12 @@
 package ua.stetsenkoinna;
 
+import ua.stetsenkoinna.config.AppSettings;
 import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
+import ua.stetsenkoinna.graphpresentation.settings.SettingsDialog;
+import ua.stetsenkoinna.graphpresentation.theme.ThemeManager;
 import ua.stetsenkoinna.utils.MessageHelper;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import javax.swing.JFrame;
-import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
 
 /**
  * Entry point of the PetriObjModelPaint desktop editor (Swing UI).
@@ -15,12 +14,18 @@ import javax.swing.UnsupportedLookAndFeelException;
  */
 public class PetriObjPaintApp {
 
-    private static final Logger log = LoggerFactory.getLogger(PetriObjPaintApp.class);
-
     public static void main(String[] args) {
-        applyNimbusLookAndFeel();
-
+        // Everything, including the look and feel, on the event dispatch thread: the first-run
+        // dialog is a real window, and putting up a window from the main thread and then handing
+        // the rest to the event queue is the kind of split that works until it does not.
         java.awt.EventQueue.invokeLater(() -> {
+            AppSettings settings = AppSettings.shared();
+
+            // Before any window is built, so the first frame the user sees is already in the
+            // right theme rather than repainting itself into it a moment later.
+            ThemeManager.applySavedMode();
+            SettingsDialog.showIfFirstRun(settings);
+
             PetriNetsFrame frame = new PetriNetsFrame();
             frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
 
@@ -29,19 +34,5 @@ public class PetriObjPaintApp {
 
             frame.setVisible(true);
         });
-    }
-
-    private static void applyNimbusLookAndFeel() {
-        try {
-            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException
-                 | UnsupportedLookAndFeelException ex) {
-            log.error("Failed to apply Nimbus look and feel", ex);
-        }
     }
 }

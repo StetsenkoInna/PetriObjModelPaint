@@ -13,6 +13,8 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import ua.stetsenkoinna.theme.CanvasColor;
+import ua.stetsenkoinna.theme.CanvasPalette;
 
 /**
  * The frame that marks out one Petri-object on the canvas.
@@ -66,18 +68,14 @@ public class GraphObjectFrame implements Serializable, CanvasItem {
     public static final int EYE_ICON_SIZE = 14;
     private static final int EYE_ICON_MARGIN = 4;
 
-    private static final Color BORDER = new Color(0x33, 0x5A, 0x8A);
-    /** Selected frames get the same green the canvas already uses for selected elements, so
-     *  one selection reads as one selection whether it caught elements, frames or both. The
-     *  previous dark grey sat too close to {@link #BORDER}'s blue to be noticeable at all. */
-    private static final Color BORDER_SELECTED = new Color(0x1E, 0x8E, 0x3E);
-    /** Wash over a selected frame's body — the cue that survives being read at a glance,
-     *  where a border a fraction of a pixel thicker does not. */
-    private static final Color BODY_SELECTED = new Color(0x1E, 0x8E, 0x3E, 0x1F);
-    private static final Color HEADER = new Color(0xE4, 0xEC, 0xF7);
-    private static final Color HEADER_SELECTED = new Color(0xD8, 0xEF, 0xDC);
-    private static final Color BODY = new Color(0xF8, 0xFA, 0xFD, 0x80);
-    private static final Color TEXT = new Color(0x1C, 0x2B, 0x3A);
+    /**
+     * A frame's border, header, body wash and text all come from {@link CanvasPalette}. The
+     * roles are unchanged from when they were constants here — an unselected frame is bordered
+     * in the editor's blue, a selected one in the same green the canvas uses for a selected
+     * element, and the selected body carries a wash of it, because a border a fraction of a
+     * pixel thicker is not a cue anyone reads at a glance — only their values now depend on
+     * which theme is in force.
+     */
     private static final Font NAME_FONT = new Font(Font.SANS_SERIF, Font.BOLD, 12);
     private static final Font DETAIL_FONT = new Font(Font.SANS_SERIF, Font.PLAIN, 11);
 
@@ -440,24 +438,27 @@ public class GraphObjectFrame implements Serializable, CanvasItem {
         Color previousColor = g2.getColor();
         Font previousFont = g2.getFont();
 
-        g2.setColor(BODY);
+        CanvasPalette palette = CanvasPalette.current();
+        g2.setColor(palette.get(CanvasColor.FRAME_BODY));
         g2.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 14, 14);
         if (selected) {
-            g2.setColor(BODY_SELECTED);
+            g2.setColor(palette.get(CanvasColor.FRAME_BODY_SELECTED));
             g2.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 14, 14);
         }
-        g2.setColor(selected ? HEADER_SELECTED : HEADER);
+        g2.setColor(selected ? palette.get(CanvasColor.FRAME_HEADER_SELECTED) : palette.get(CanvasColor.FRAME_HEADER));
         g2.fillRoundRect(bounds.x, bounds.y, bounds.width, HEADER_HEIGHT + 8, 14, 14);
         g2.fillRect(bounds.x, bounds.y + HEADER_HEIGHT - 4, bounds.width, 8);
 
-        g2.setColor(highlightColor != null ? highlightColor : (selected ? BORDER_SELECTED : BORDER));
+        g2.setColor(highlightColor != null
+                ? highlightColor
+                : (selected ? palette.get(CanvasColor.FRAME_BORDER_SELECTED) : palette.get(CanvasColor.FRAME_BORDER)));
         g2.setStroke(new BasicStroke(highlightColor != null ? 2.6f : (selected ? 2.4f : 1.4f)));
         g2.drawRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 14, 14);
         g2.drawLine(bounds.x, bounds.y + HEADER_HEIGHT, bounds.x + bounds.width, bounds.y + HEADER_HEIGHT);
 
         drawEyeIcon(g2);
 
-        g2.setColor(TEXT);
+        g2.setColor(palette.get(CanvasColor.FRAME_TEXT));
         g2.setFont(NAME_FONT);
         String title = "O" + index + "  " + name;
         int titleX = bounds.x + EYE_ICON_MARGIN + EYE_ICON_SIZE + 6;
@@ -475,7 +476,7 @@ public class GraphObjectFrame implements Serializable, CanvasItem {
             g2.setFont(DETAIL_FONT);
             g2.drawString(elementCount + " elements hidden", bounds.x + 8, bounds.y + HEADER_HEIGHT + 20);
         } else {
-            g2.setColor(selected ? BORDER_SELECTED : BORDER);
+            g2.setColor(selected ? palette.get(CanvasColor.FRAME_BORDER_SELECTED) : palette.get(CanvasColor.FRAME_BORDER));
             g2.fillRect(bounds.x + bounds.width - RESIZE_HANDLE, bounds.y + bounds.height - RESIZE_HANDLE,
                     RESIZE_HANDLE, RESIZE_HANDLE);
         }
@@ -495,7 +496,7 @@ public class GraphObjectFrame implements Serializable, CanvasItem {
         Stroke previousStroke = g2.getStroke();
 
         Rectangle icon = eyeIconBounds();
-        g2.setColor(TEXT);
+        g2.setColor(CanvasPalette.current().get(CanvasColor.FRAME_TEXT));
         g2.setStroke(new BasicStroke(1.3f));
         g2.drawOval(icon.x, icon.y + icon.height / 4, icon.width, icon.height / 2);
         if (contentVisible) {

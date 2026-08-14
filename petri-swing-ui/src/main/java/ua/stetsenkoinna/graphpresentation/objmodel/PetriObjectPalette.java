@@ -1,6 +1,7 @@
 package ua.stetsenkoinna.graphpresentation.objmodel;
 
 import ua.stetsenkoinna.config.AppDirectoryType;
+import ua.stetsenkoinna.config.AppSettings;
 import ua.stetsenkoinna.config.UserDirectoryManager;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.libnet.NetTemplateCatalog;
@@ -10,15 +11,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -33,7 +31,6 @@ public final class PetriObjectPalette {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PetriObjectPalette.class);
 
-    private static final String SETTINGS_FILE = "ui.properties";
     private static final String PINNED_KEY = "toolbar.petriObjects";
     private static final String ID_SEPARATOR = ",";
     /** Under the app's data directory — user content that has to survive, unlike a cache. */
@@ -76,6 +73,13 @@ public final class PetriObjectPalette {
             new BuiltIn("CreateNetFork", "Fork", "F"));
 
     private final UserDirectoryManager directories;
+
+    /**
+     * Where the pinned list is kept. The same file, and the same class, the application's other
+     * preferences use - this list is one setting among several rather than a private format.
+     */
+    private final AppSettings settings;
+
     private final List<String> pinnedIds = new ArrayList<>();
 
     public PetriObjectPalette() {
@@ -88,6 +92,7 @@ public final class PetriObjectPalette {
             LOGGER.warn("User directory unavailable; Petri-object pinning will not persist", unavailable);
         }
         this.directories = manager;
+        this.settings = AppSettings.in(manager);
         load();
     }
 
@@ -219,8 +224,7 @@ public final class PetriObjectPalette {
 
     private void load() {
         pinnedIds.clear();
-        Properties properties = readSettings();
-        String stored = properties.getProperty(PINNED_KEY);
+        String stored = settings.getString(PINNED_KEY, null);
         if (stored == null) {
             pinnedIds.addAll(DEFAULT_PINNED_IDS);
             return;
@@ -236,37 +240,7 @@ public final class PetriObjectPalette {
     }
 
     private void save() {
-        if (directories == null) {
-            return;
-        }
-        Properties properties = readSettings();
-        properties.setProperty(PINNED_KEY, String.join(ID_SEPARATOR, pinnedIds));
-        try (OutputStream out = Files.newOutputStream(settingsPath())) {
-            properties.store(out, "PetriObjModelPaint user interface settings");
-        } catch (IOException failure) {
-            LOGGER.warn("Could not save the Petri-object toolbar selection", failure);
-        }
-    }
-
-    private Properties readSettings() {
-        Properties properties = new Properties();
-        if (directories == null) {
-            return properties;
-        }
-        Path path = settingsPath();
-        if (!Files.exists(path)) {
-            return properties;
-        }
-        try (InputStream in = Files.newInputStream(path)) {
-            properties.load(in);
-        } catch (IOException failure) {
-            LOGGER.warn("Could not read the user interface settings", failure);
-        }
-        return properties;
-    }
-
-    private Path settingsPath() {
-        return directories.getFilePath(SETTINGS_FILE, AppDirectoryType.CONFIGS);
+        settings.setString(PINNED_KEY, String.join(ID_SEPARATOR, pinnedIds));
     }
 
     /**

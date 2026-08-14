@@ -7,6 +7,8 @@ import java.awt.Rectangle;
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.RoundRectangle2D;
+import ua.stetsenkoinna.theme.CanvasColor;
+import ua.stetsenkoinna.theme.CanvasPalette;
 
 public class GraphTransition extends GraphElement {
 
@@ -30,15 +32,21 @@ public class GraphTransition extends GraphElement {
         super.setColor(Color.BLACK);
     }
 
+    /**
+     * <p>Leaves {@code g2} on the outline colour for {@link GraphPetriTransition}, which draws
+     * its labels straight after calling this and relies on that.
+     */
     @Override
     public void drawGraphElement(Graphics2D g2) {
         graphElement.setRoundRect(graphElement.getX(), graphElement.getY(), getWidth(), getHeight(), 6, 6);
+        CanvasPalette palette = CanvasPalette.current();
+        Color stroke = palette.strokeFor(getColor());
         g2.setStroke(new BasicStroke(getLineWidth()));
-        g2.setColor(getColor());
+        g2.setColor(stroke);
         g2.draw(graphElement);
-        g2.setColor(Color.WHITE);
+        g2.setColor(palette.get(CanvasColor.ELEMENT_FILL));
         g2.fill(graphElement);
-        g2.setColor(getColor());
+        g2.setColor(stroke);
     }
 
     @Override

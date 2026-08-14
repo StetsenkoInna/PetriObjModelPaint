@@ -8,6 +8,8 @@ import java.awt.Stroke;
 import java.awt.geom.Point2D;
 import java.io.Serializable;
 import java.util.Objects;
+import ua.stetsenkoinna.theme.CanvasColor;
+import ua.stetsenkoinna.theme.CanvasPalette;
 
 /**
  * Two places of different Petri-objects drawn, and simulated, as one place.
@@ -40,8 +42,9 @@ public class GraphPlaceFusion implements Serializable {
 
     /** Radius added around the place to mark it as shared. */
     private static final int RING_MARGIN = 5;
-    private static final Color RING = new Color(0x1B, 0x7F, 0x3B);
-    private static final Color RING_SELECTED = new Color(0xD9, 0x7A, 0x00);
+    // The ring's two colours come from the palette rather than from constants here, so that a
+    // fused place is still legibly green in either theme; see CanvasPalette.
+
 
     private final GraphPetriPlace master;
     private final GraphPetriPlace joined;
@@ -219,7 +222,8 @@ public class GraphPlaceFusion implements Serializable {
         Color previousColor = g2.getColor();
 
         int radius = master.getBorder() + RING_MARGIN;
-        g2.setColor(selected ? RING_SELECTED : RING);
+        CanvasPalette palette = CanvasPalette.current();
+        g2.setColor(selected ? palette.get(CanvasColor.FUSION_RING_SELECTED) : palette.get(CanvasColor.FUSION_RING));
         g2.setStroke(new BasicStroke(selected ? 2.4f : 1.6f));
         g2.drawOval((int) centre.getX() - radius, (int) centre.getY() - radius, radius * 2, radius * 2);
 
@@ -248,7 +252,8 @@ public class GraphPlaceFusion implements Serializable {
         Stroke previousStroke = g2.getStroke();
         Color previousColor = g2.getColor();
 
-        g2.setColor(selected ? RING_SELECTED : Color.BLACK);
+        CanvasPalette palette = CanvasPalette.current();
+        g2.setColor(selected ? palette.get(CanvasColor.FUSION_RING_SELECTED) : palette.get(CanvasColor.ELEMENT_STROKE));
         g2.setStroke(new BasicStroke(selected ? 2.2f : 1.4f, BasicStroke.CAP_BUTT,
                 BasicStroke.JOIN_MITER, 10f, new float[] {6f, 6f}, 0f));
         g2.drawLine(masterPoint.x, masterPoint.y, joinedPoint.x, joinedPoint.y);
