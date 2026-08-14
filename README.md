@@ -97,4 +97,12 @@ This project is licensed per module (see the `LICENSE` file in each module direc
 The simulation engine and model libraries stay free for any use, including commercial.
 The desktop editor and the simulation server may be used for noncommercial purposes only:
 personal use, research, education, and use by noncommercial organizations are all permitted.
-For commercial licensing of these modules, contact <sergey24rybak@gmail.com>.
+For commercial licensing of these modules, contact <sergey24rybak@gmail.com> or
+<inna.stetsenko-fiot@edu.kpi.ua>.
+
+## Authors
+
+- **Prof. Inna Stetsenko** — Igor Sikorsky Kyiv Polytechnic Institute; author of the
+  Petri-object simulation technique and of the original PetriObjModelPaint.
+- **Serhii Rybak (sergiorbk)** — Igor Sikorsky Kyiv Polytechnic Institute; the multi-module
+  architecture, desktop editor evolution, PNML round-trip and the simulation server.
