@@ -97,8 +97,8 @@ This project is licensed per module (see the `LICENSE` file in each module direc
 The simulation engine and model libraries stay free for any use, including commercial.
 The desktop editor and the simulation server may be used for noncommercial purposes only:
 personal use, research, education, and use by noncommercial organizations are all permitted.
-For commercial licensing of these modules, contact <sergey24rybak@gmail.com> or
-<inna.stetsenko-fiot@edu.kpi.ua>.
+For commercial licensing of these modules, contact <inna.stetsenko-fiot@edu.kpi.ua> or
+<sergey24rybak@gmail.com>.
 
 ## Authors
 
