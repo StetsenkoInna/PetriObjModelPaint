@@ -102,7 +102,7 @@ For commercial licensing of these modules, contact <inna.stetsenko-fiot@edu.kpi.
 
 ## Authors
 
-- **Prof. Inna Stetsenko** — Igor Sikorsky Kyiv Polytechnic Institute; author of the
+- **Prof. Inna Stetsenko (StetsenkoInna)** — Igor Sikorsky Kyiv Polytechnic Institute; author of the
   Petri-object simulation technique and of the original PetriObjModelPaint.
 - **Serhii Rybak (sergiorbk)** — Igor Sikorsky Kyiv Polytechnic Institute; the multi-module
   architecture, desktop editor evolution, PNML round-trip and the simulation server.
