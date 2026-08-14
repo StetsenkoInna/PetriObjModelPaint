@@ -13,6 +13,15 @@
     <artifactId>petri-swing-ui</artifactId>
     <packaging>jar</packaging>
 
+    <licenses>
+        <license>
+            <name>PolyForm Noncommercial License 1.0.0</name>
+            <url>https://polyformproject.org/licenses/noncommercial/1.0.0</url>
+            <distribution>repo</distribution>
+            <comments>For commercial licensing, contact sergey24rybak@gmail.com</comments>
+        </license>
+    </licenses>
+
     <dependencies>
         <dependency>
             <groupId>ua.stetsenkoinna</groupId>

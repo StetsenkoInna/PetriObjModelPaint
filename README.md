@@ -82,3 +82,19 @@ PetriObjModelPaint/
 ├── petri-server/      # Spring Boot server
 └── pom.xml            # Parent POM
 ```
+
+---
+
+## License
+
+This project is licensed per module (see the `LICENSE` file in each module directory):
+
+| Modules | License |
+|---------|---------|
+| `petri-math`, `petri-api`, `petri-model` | [MIT](petri-math/LICENSE) |
+| `petri-swing-ui`, `petri-server` | [PolyForm Noncommercial 1.0.0](petri-swing-ui/LICENSE) |
+
+The simulation engine and model libraries stay free for any use, including commercial.
+The desktop editor and the simulation server may be used for noncommercial purposes only:
+personal use, research, education, and use by noncommercial organizations are all permitted.
+For commercial licensing of these modules, contact <sergey24rybak@gmail.com>.
