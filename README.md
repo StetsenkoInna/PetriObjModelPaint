@@ -1,6 +1,7 @@
 # petri-net-sim
 
-Petri net graphical editor and simulator (v2.2.0). Multi-module Maven project:
+Petri net graphical editor and simulator (v2.2.0), also known as
+**PetriObjModelPaint**. Multi-module Maven project:
 
 | Module | Purpose |
 |--------|---------|
