@@ -7,9 +7,12 @@ import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
+import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import javax.swing.undo.AbstractUndoableEdit;
 
 import org.slf4j.Logger;
@@ -40,7 +43,19 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
      * Out arcs that were removed along with GraphElements
      */
     private final List<GraphArcOut> outArcs;
-    
+
+    /**
+     * Which Petri-object claimed each element when it was deleted, so undo puts it back into the
+     * same object rather than as a loose element inside that object's frame.
+     *
+     * <p>Deleting an element releases it from whatever claimed it - before, the frame went on
+     * claiming an element the canvas no longer drew, so the object's own member set and the
+     * canvas disagreed forever. Undo has to be symmetric with that release, which means the
+     * owner is recorded here at the moment of deletion and nowhere else: by the time undo runs
+     * there is nothing left on the canvas that remembers it.
+     */
+    private final Map<GraphElement, GraphObjectFrame> ownerAtDeletion = new IdentityHashMap<>();
+
     public DeleteGraphElementsEdit(PetriNetsPanel panel, List<GraphElement> elements,
             List<GraphArcIn> inArcs, List<GraphArcOut> outArcs) {
         this.panel = panel;
@@ -48,7 +63,7 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
         this.inArcs = inArcs;
         this.outArcs = outArcs;
     }
-    
+
     public DeleteGraphElementsEdit(PetriNetsPanel panel, GraphElement element,
             List<GraphArcIn> inArcs, List<GraphArcOut> outArcs) {
         this.panel = panel;
@@ -57,7 +72,40 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
         this.inArcs = inArcs;
         this.outArcs = outArcs;
     }
-    
+
+    /**
+     * Records which object claimed one of the deleted elements. Called by the canvas as it
+     * releases each element, which is the only moment the answer still exists.
+     *
+     * @param element one of the elements this edit will restore
+     * @param owner the frame that claimed it, or {@code null} if it was free
+     */
+    public void rememberOwner(GraphElement element, GraphObjectFrame owner) {
+        if (owner != null) {
+            ownerAtDeletion.put(element, owner);
+        }
+    }
+
+    /**
+     * Shared places the deletion is about to drop, recorded for the same reason as the
+     * owners: deleting a fused place removes its fusion as a side effect, and undo used to
+     * restore the place but silently forget it had been shared.
+     */
+    private final List<ua.stetsenkoinna.graphnet.GraphPlaceFusion> fusionsAtDeletion =
+            new ArrayList<>();
+
+    /**
+     * Records a fusion that will disappear with one of the deleted places, so undo can put
+     * it back.
+     *
+     * @param fusion the shared place one of the deleted elements is half of
+     */
+    public void rememberFusion(ua.stetsenkoinna.graphnet.GraphPlaceFusion fusion) {
+        if (fusion != null && !fusionsAtDeletion.contains(fusion)) {
+            fusionsAtDeletion.add(fusion);
+        }
+    }
+
     @Override
     public void undo() {
         super.undo();
@@ -91,14 +139,28 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
             } else {
                 log.warn("Unknown element while redoing delete");
             }
+
+            // Back into the same Petri-object it was deleted out of. Without this the element
+            // reappears exactly where it was drawn - inside that object's frame - while belonging
+            // to no object at all, so the object it visibly sits in would neither simulate it nor
+            // carry it when moved.
+            GraphObjectFrame owner = ownerAtDeletion.get(element);
+            if (owner != null && panel.getCanvasModel().getFrames().contains(owner)) {
+                panel.getCanvasModel().claim(owner, element);
+            }
         }
-        
+
         for (GraphArcIn arcIn : inArcs) {
             panel.getGraphNet().getGraphArcInList().add(arcIn);
         }
-        
+
         for (GraphArcOut arcOut : outArcs) {
             panel.getGraphNet().getGraphArcOutList().add(arcOut);
+        }
+
+        // The shared places the deletion dropped come back with the places they joined.
+        for (ua.stetsenkoinna.graphnet.GraphPlaceFusion fusion : fusionsAtDeletion) {
+            panel.getCanvasModel().restoreFusion(fusion);
         }
 
         // elements = new ArrayList<>(elementsToSpawn);
@@ -131,12 +193,18 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
             }
 
             panel.getChoosenElements().remove(element);
+            panel.getCanvasModel().release(element);
             try {
                panel.getGraphNet().delGraphElement(element);
             } catch (ExceptionInvalidNetStructure e) {
                 log.error("Unexpected error while redoing delete", e);
                 // theoretically this exception should never happen here
             }
+        }
+        // The same cleanup the original deletion did: a fused place going away takes its
+        // fusion with it, else the restored-then-redone delete leaves the fusion dangling.
+        for (ua.stetsenkoinna.graphnet.GraphPlaceFusion fusion : fusionsAtDeletion) {
+            panel.getCanvasModel().removeFusion(fusion);
         }
         panel.repaint();
     }

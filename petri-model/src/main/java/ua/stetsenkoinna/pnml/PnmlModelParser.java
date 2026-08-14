@@ -253,9 +253,15 @@ public class PnmlModelParser {
         PnmlParser parser = new PnmlParser();
         PetriNet net = parser.parseScope(scope, name, references);
 
+        // A page with our own petriObject metadata carries the user's exact canvas
+        // coordinates; normalizing them to the (50,50) corner is a defense that only
+        // foreign documents need, and applying it to our own made every reimported net
+        // drift and pile up.
+        boolean ownDocument = objectElement != null;
         GraphPetriObject object = new GraphPetriObject(name,
                 GraphNetBuilder.build(net, parser.getAllPlaceCoordinates(),
-                        parser.getAllTransitionCoordinates(), null));
+                        parser.getAllTransitionCoordinates(), null, !ownDocument));
+        object.setAbsoluteLayout(ownDocument);
 
         if (objectElement != null) {
             object.setPriority(XmlHelper.parseIntSafe(
@@ -268,6 +274,8 @@ public class PnmlModelParser {
                     XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_HEIGHT), 0));
             object.setCollapsed(
                     Boolean.parseBoolean(objectElement.getAttribute(PnmlConstants.ATTR_COLLAPSED)));
+            object.setParentIndex(XmlHelper.parseIntSafe(
+                    objectElement.getAttribute(PnmlConstants.ATTR_PARENT_OBJECT), -1));
         }
         object.setTemplate(readTemplate(metadataScope));
         return object;

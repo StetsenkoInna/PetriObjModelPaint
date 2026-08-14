@@ -43,7 +43,7 @@ public class CrossFrameArcTest {
         framedPlace.setNewCoordinates(new Point(100, 100));
         panel.getGraphNet().getGraphPetriPlaceList().add(framedPlace);
         GraphObjectFrame frame = new GraphObjectFrame("Source", new Rectangle(40, 40, 160, 160));
-        frame.addMember(framedPlace);
+        panel.getCanvasModel().claim(frame, framedPlace);
         panel.addObjectFrame(frame);
 
         GraphPetriTransition freeTransition = new GraphPetriTransition(new PetriT("Sink", 1.0), 2);

@@ -6,6 +6,7 @@ import java.awt.geom.Point2D;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,15 +18,36 @@ import java.util.Objects;
  *
  * <p>The drawing stays a single net, the way it always was — elements, arcs, selection, undo
  * and copy all work on it unchanged. Which Petri-object an element belongs to is what its
- * frame explicitly claims ({@link GraphObjectFrame#addMember}), not where it happens to sit —
- * so dragging a frame across the canvas can never quietly pick up something it passes over. An
- * arc that crosses between two objects' elements is therefore not an arc of any net but a link
- * between them, and {@link #toObjModel()} is where that reading happens.
+ * frame explicitly claims ({@link #claim}), not where it happens to sit - so dragging a frame
+ * across the canvas can never quietly pick up something it passes over. An arc that crosses
+ * between two objects' elements is therefore not an arc of any net but a link between them,
+ * and {@link #toObjModel()} is where that reading happens.
+ *
+ * <p>Ownership is single-valued and this class is its only writer. {@link #claim} releases
+ * whatever held an element before claiming it for a new frame, so {@link #ownerOf} can never
+ * find two claimants and has no tie to break. That used to be a convention spread over six
+ * callers of {@code GraphObjectFrame.addMember}, and the frame a user had just created could
+ * therefore hold nothing at all: {@code ownerOf} answered with whichever frame came first in
+ * canvas order, so the new one was invisible to every reader.
+ *
+ * <p>A frame can sit inside another frame - nesting one Petri-object in another. That is a
+ * frame-to-frame relation ({@link #nest}, {@link #enclosingOf}), laid on top of the flat
+ * {@link #getFrames()} list rather than replacing it, because that list's order is what indexes
+ * objects in {@link #toObjModel()}, in the PNML document and in the statistics formulas. A
+ * nested object is consequently an ordinary sibling object of the model it exports to, which is
+ * exactly what the web editor does with the same relation.
  *
  * <p>Anything drawn outside every frame still simulates: it is gathered into one last,
  * unnamed Petri-object, so a plain net drawn without any frame is a model of one object.
  */
 public class GraphCanvasModel implements Serializable {
+    /**
+     * Pinned before this class ever reached a saved file, which it does from now on.
+     * Left to the compiler it would be recomputed from the class shape, and the next
+     * field added here would make every file written before that unreadable.
+     */
+    private static final long serialVersionUID = 1L;
+
 
     /** Name given to the object that collects everything drawn outside every frame. */
     public static final String FREE_OBJECT_NAME = "Free elements";
@@ -70,6 +92,16 @@ public class GraphCanvasModel implements Serializable {
             frameMap.put(oldFrame, newFrame);
             this.frames.add(newFrame);
         }
+        // Nesting is wired in a second pass: a child can appear in the list before its parent,
+        // so the parent's copy may not exist yet while the child's is being made. Each copy is
+        // pointed at the COPY of its parent - pointing it at the original would tie the two
+        // canvases back together through exactly the relation a deep copy exists to sever.
+        for (GraphObjectFrame oldFrame : other.frames) {
+            GraphObjectFrame oldParent = oldFrame.getEnclosing();
+            if (oldParent != null) {
+                frameMap.get(oldFrame).setEnclosing(frameMap.get(oldParent));
+            }
+        }
 
         for (GraphPlaceFusion oldFusion : other.fusions) {
             GraphPetriPlace newMaster = (GraphPetriPlace) oldToNew.get(oldFusion.getMaster());
@@ -103,6 +135,13 @@ public class GraphCanvasModel implements Serializable {
         this.net = Objects.requireNonNull(net, "net");
     }
 
+    /**
+     * @return every frame on the canvas at every depth, in creation order - nesting does not
+     *         change this list or its order. That order is load-bearing: {@link #toObjModel()}
+     *         indexes objects by position in it, the PNML writer keys its pages by that index
+     *         and the statistics formulas resolve an object the same way, which is also why
+     *         nesting needs no change to any of them.
+     */
     public List<GraphObjectFrame> getFrames() {
         return frames;
     }
@@ -120,33 +159,44 @@ public class GraphCanvasModel implements Serializable {
 
     /**
      * @param point a point on the canvas
-     * @return the innermost frame whose rectangle contains the point, or {@code null} — later
-     *         frames win when two overlap. A hit test for clicks and menus; it says nothing
-     *         about which object an element belongs to, see {@link #ownerOf}.
+     * @return the innermost frame whose rectangle contains the point, or {@code null}. The
+     *         deepest nesting level wins, and among frames at the same level the later one in
+     *         canvas order does. A hit test for clicks and menus; it says nothing about which
+     *         object an element belongs to, see {@link #ownerOf}.
+     *         <p>Deepest-first matters because it is the same rule {@link #ownerOf} follows: a
+     *         nested object's own element belongs to the nested object, so a click inside the
+     *         nested object's rectangle has to resolve to it too. The two used to break an
+     *         overlap tie in opposite directions, which is what made a frame drawn inside
+     *         another frame inconsistent to reason about at all.
      */
     public GraphObjectFrame frameAt(Point2D point) {
-        for (int index = frames.size() - 1; index >= 0; index--) {
-            if (frames.get(index).contains(point)) {
-                return frames.get(index);
+        GraphObjectFrame best = null;
+        int bestLevel = -1;
+        for (GraphObjectFrame frame : frames) {
+            if (!frame.contains(point)) {
+                continue;
+            }
+            int level = levelOf(frame);
+            if (level >= bestLevel) {
+                best = frame;
+                bestLevel = level;
             }
         }
-        return null;
+        return best;
     }
 
     /**
      * @param element an element of the drawing
      * @return the frame that claims it ({@link GraphObjectFrame#hasMember}), or {@code null}
-     *         when no frame does, which makes it one of the free elements
+     *         when no frame does, which makes it one of the free elements. Always the DIRECT
+     *         owner: an element inside a nested object belongs to that nested object, never to
+     *         its parent. Ask {@link #membersOfSubtree} for the parent's outward-facing content.
+     *         <p>A shared place used to short-circuit this and answer with whichever frame owned
+     *         it when the fusion was made. That was stale twice over: the two halves are no
+     *         longer moved on top of each other, so there is nothing for the fusion to
+     *         disambiguate, and a removed frame kept answering forever.
      */
     public GraphObjectFrame ownerOf(GraphElement element) {
-        if (element instanceof GraphPetriPlace place) {
-            GraphPlaceFusion fusion = fusionOf(place);
-            if (fusion != null) {
-                // Both halves of a shared place are drawn in the same spot, so the frame
-                // they sit in cannot tell them apart — the fusion remembers which is whose.
-                return fusion.ownerOf(place);
-            }
-        }
         for (GraphObjectFrame frame : frames) {
             if (frame.hasMember(element)) {
                 return frame;
@@ -156,22 +206,212 @@ public class GraphCanvasModel implements Serializable {
     }
 
     /**
-     * Called when a frame is removed: what it claimed does not vanish along with it, it just
-     * stops being explicitly claimed — falling to whichever other frame's rectangle happens to
-     * cover it now, or to the free elements when none does. This is the one place a claim is
-     * still decided by geometry, since there is no more explicit frame left to have decided it.
+     * Claims an element for a frame, releasing whatever claimed it before - the only way an
+     * element is ever claimed, which is what makes ownership single-valued by construction
+     * rather than by every caller remembering to check.
+     *
+     * @param frame the object that should hold the element, or {@code null} to free it
+     * @param element the place or transition to claim
+     */
+    public void claim(GraphObjectFrame frame, GraphElement element) {
+        Objects.requireNonNull(element, "element");
+        release(element);
+        if (frame != null) {
+            frame.addMember(element);
+        }
+        refreshFusionOwners();
+    }
+
+    /**
+     * Frees an element from whatever claims it. Called when an element is deleted, and by
+     * {@link #claim} before it hands the element to someone else.
+     *
+     * @param element the place or transition to free
+     * @return the frame that held it, or {@code null} if it was already free
+     */
+    public GraphObjectFrame release(GraphElement element) {
+        for (GraphObjectFrame frame : frames) {
+            if (frame.hasMember(element)) {
+                frame.removeMember(element);
+                refreshFusionOwners();
+                return frame;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Re-reads which frame owns each half of every shared place. A fusion used to freeze its
+     * two owners at join time, so ungrouping the owning object, dragging a half elsewhere or
+     * removing a frame left it anchored to a frame no longer on the canvas: it kept drawing a
+     * line to a ghost and could never fall back to the coincident-ring form.
+     */
+    public void refreshFusionOwners() {
+        for (GraphPlaceFusion fusion : fusions) {
+            fusion.refreshOwners(ownerOf(fusion.getMaster()), ownerOf(fusion.getJoined()));
+        }
+    }
+
+    // ------------------------------------------------------------------ nesting
+
+    /**
+     * Puts one object inside another, or lifts it back to the top level.
+     *
+     * @param child the object being nested
+     * @param parent the object it goes inside, or {@code null} for the top level
+     * @throws IllegalArgumentException if the child would end up inside itself
+     */
+    public void nest(GraphObjectFrame child, GraphObjectFrame parent) {
+        Objects.requireNonNull(child, "child");
+        if (child == parent) {
+            throw new IllegalArgumentException("A Petri-object cannot be nested in itself");
+        }
+        for (GraphObjectFrame above = parent; above != null; above = above.getEnclosing()) {
+            if (above == child) {
+                throw new IllegalArgumentException(
+                        "'" + parent.getName() + "' is already inside '" + child.getName() + "'");
+            }
+        }
+        child.setEnclosing(parent);
+    }
+
+    /**
+     * @param frame an object on the canvas
+     * @return the object that encloses it, or {@code null} when it sits directly on the net.
+     *         Deliberately not an {@code ownerOf} overload: a frame is not a
+     *         {@link GraphElement}, and one word answering two different questions is how the
+     *         previous version of this class got hard to reason about.
+     */
+    public GraphObjectFrame enclosingOf(GraphObjectFrame frame) {
+        return frame == null ? null : frame.getEnclosing();
+    }
+
+    /**
+     * @param frame an object on the canvas
+     * @return its abstraction level: 1 for an object sitting directly on the net, 2 for one
+     *         nested in that, and so on. The net itself is level 0, which is what the canvas
+     *         strip badges the root with.
+     */
+    public int levelOf(GraphObjectFrame frame) {
+        int level = 0;
+        // Bounded by the frame count rather than by reaching null, so a cycle that somehow got
+        // in cannot hang the paint loop that asks this for every frame.
+        for (GraphObjectFrame above = frame; above != null && level <= frames.size(); above = above.getEnclosing()) {
+            level++;
+        }
+        return level;
+    }
+
+    /**
+     * @param frame an object on the canvas, or {@code null} for the top level
+     * @return the objects directly inside it, in canvas order
+     */
+    public List<GraphObjectFrame> childrenOf(GraphObjectFrame frame) {
+        List<GraphObjectFrame> children = new ArrayList<>();
+        for (GraphObjectFrame candidate : frames) {
+            if (candidate != frame && candidate.getEnclosing() == frame) {
+                children.add(candidate);
+            }
+        }
+        return children;
+    }
+
+    /**
+     * @param frame an object on the canvas
+     * @return the frame itself followed by every object nested anywhere inside it, parents
+     *         before children - what "this one object, seen from outside" covers
+     */
+    public List<GraphObjectFrame> subtreeOf(GraphObjectFrame frame) {
+        List<GraphObjectFrame> subtree = new ArrayList<>();
+        if (frame == null) {
+            return subtree;
+        }
+        subtree.add(frame);
+        for (int index = 0; index < subtree.size(); index++) {
+            subtree.addAll(childrenOf(subtree.get(index)));
+        }
+        return subtree;
+    }
+
+    /**
+     * @param frame an object on the canvas
+     * @return every place and transition claimed by it or by anything nested inside it. This is
+     *         what an object holds as far as the rest of the canvas is concerned: its ports, its
+     *         collapsed element count and the net "Save as Petri-object" writes out all read it.
+     */
+    public List<GraphElement> membersOfSubtree(GraphObjectFrame frame) {
+        List<GraphObjectFrame> subtree = subtreeOf(frame);
+        List<GraphElement> members = new ArrayList<>();
+        for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
+            if (subtree.contains(ownerOf(place))) {
+                members.add(place);
+            }
+        }
+        for (GraphPetriTransition transition : net.getGraphPetriTransitionList()) {
+            if (subtree.contains(ownerOf(transition))) {
+                members.add(transition);
+            }
+        }
+        return members;
+    }
+
+    /**
+     * @return every frame ordered so a parent always comes before its children - the order to
+     *         paint a nest in, since a child has to be drawn over the parent it sits inside. A
+     *         frame whose parent is missing from the canvas, or which is caught in a cycle,
+     *         surfaces at the top level rather than being dropped: a frame the user can see has
+     *         to be painted whatever state its parent pointer got into.
+     */
+    public List<GraphObjectFrame> framesParentFirst() {
+        List<GraphObjectFrame> ordered = new ArrayList<>(frames.size());
+        List<GraphObjectFrame> pending = new ArrayList<>(frames);
+        boolean progressed = true;
+        while (!pending.isEmpty() && progressed) {
+            progressed = false;
+            for (int index = 0; index < pending.size(); ) {
+                GraphObjectFrame frame = pending.get(index);
+                GraphObjectFrame parent = frame.getEnclosing();
+                if (parent == null || ordered.contains(parent) || !frames.contains(parent)) {
+                    ordered.add(frame);
+                    pending.remove(index);
+                    progressed = true;
+                } else {
+                    index++;
+                }
+            }
+        }
+        // Whatever is left is in a cycle; it still has to be drawn.
+        ordered.addAll(pending);
+        return ordered;
+    }
+
+    /**
+     * Called when a frame is removed: what it held does not vanish along with it, it moves one
+     * level out. Its elements go to the object that enclosed it, becoming free when nothing
+     * did, and the objects nested inside it are re-nested onto that same enclosing object.
+     *
+     * <p>This used to be decided by geometry - the released elements fell to whichever other
+     * frame's rectangle happened to cover them. With nesting that is actively wrong: removing an
+     * outer frame handed its whole net to the frame drawn inside it, which is the opposite of
+     * what removing the outer object means.
      *
      * @param removed the frame that was just taken off the canvas
      */
     public void releaseMembers(GraphObjectFrame removed) {
+        GraphObjectFrame outer = enclosingOf(removed);
         for (GraphElement element : new ArrayList<>(removed.getMembers())) {
             removed.removeMember(element);
-            Point2D centre = element.getGraphElementCenter();
-            GraphObjectFrame covering = centre == null ? null : frameAt(centre);
-            if (covering != null) {
-                covering.addMember(element);
+            if (outer != null) {
+                claim(outer, element);
             }
         }
+        for (GraphObjectFrame child : childrenOf(removed)) {
+            child.setEnclosing(outer);
+        }
+        removed.setEnclosing(null);
+        // The direct removeMember above bypasses claim/release, so the shared places that
+        // pointed at this frame refresh here.
+        refreshFusionOwners();
     }
 
     /**
@@ -204,21 +444,16 @@ public class GraphCanvasModel implements Serializable {
      * elements every time, so moving or resizing a frame, or editing its net, keeps the ports
      * in step without any bookkeeping of its own.
      *
+     * <p>One port per element of {@link #membersOfSubtree}, not just per direct member: from
+     * outside, a nest is one object, so a collapsed parent still shows where everything inside
+     * it - including everything its nested objects hold - can be connected. For an object with
+     * nothing nested in it that is exactly its own members, so nothing changes.
+     *
      * @param frame the object to compute ports for
      * @return the frame's ports, places first then transitions, both in net order
      */
     public List<FramePort> portsOf(GraphObjectFrame frame) {
-        List<GraphElement> owned = new ArrayList<>();
-        for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
-            if (ownerOf(place) == frame) {
-                owned.add(place);
-            }
-        }
-        for (GraphPetriTransition transition : net.getGraphPetriTransitionList()) {
-            if (ownerOf(transition) == frame) {
-                owned.add(transition);
-            }
-        }
+        List<GraphElement> owned = membersOfSubtree(frame);
         List<PositionedPort> positions = perimeterPositionsNear(frame.getBounds(), owned);
         List<FramePort> ports = new ArrayList<>(owned.size());
         for (int i = 0; i < owned.size(); i++) {
@@ -373,8 +608,14 @@ public class GraphCanvasModel implements Serializable {
         GraphObjectFrame masterOwner = ownerOf(master);
         GraphObjectFrame joinedOwner = ownerOf(joined);
         if (masterOwner == joinedOwner) {
-            throw new IllegalArgumentException(
-                    "Both places belong to the same Petri-object — a shared place joins two different objects");
+            // Both-null and both-the-same land here, and they are different mistakes: two
+            // free places used to get the "same Petri-object" message, which reads as
+            // nonsense when neither place is in any object at all.
+            throw new IllegalArgumentException(masterOwner == null
+                    ? "A shared place joins two different Petri-objects, but neither of these"
+                            + " places is inside one yet"
+                    : "Both places belong to the same Petri-object, a shared place joins two"
+                            + " different objects");
         }
         // Places keep whatever position they already have — the two owners are always
         // different by this point, so moving one onto the other would displace it out of its
@@ -383,6 +624,10 @@ public class GraphCanvasModel implements Serializable {
         // where either place actually sits.
         GraphPlaceFusion fusion = new GraphPlaceFusion(master, joined, masterOwner, joinedOwner);
         fusions.add(fusion);
+        // One place, one marking, from the moment the two become one: the join is dragged
+        // from the master, so the master's count is the one that wins - the same count the
+        // built simulation would keep anyway.
+        fusion.syncMarking();
         return fusion;
     }
 
@@ -399,9 +644,37 @@ public class GraphCanvasModel implements Serializable {
      * Keeps every shared place drawn as one circle after elements were moved.
      */
     public void syncFusions() {
+        refreshFusionOwners();
         for (GraphPlaceFusion fusion : fusions) {
             fusion.syncPosition();
+            // Self-healing for the one-marking rule: any path that changed a marking
+            // without going through the properties dialog converges back to the master's.
+            fusion.syncMarking();
         }
+    }
+
+    /**
+     * Takes a shared place apart, leaving the two places ordinary again. The inverse of
+     * {@link #joinPlaces}; {@link #restoreFusion} puts the same fusion back, which is what
+     * the undo of a join and the redo of a split both do.
+     *
+     * @param fusion the shared place to remove
+     */
+    public void removeFusion(GraphPlaceFusion fusion) {
+        fusions.remove(fusion);
+    }
+
+    /**
+     * Puts a previously removed fusion back, with its owners re-read from the claims as they
+     * are now.
+     *
+     * @param fusion the shared place to restore
+     */
+    public void restoreFusion(GraphPlaceFusion fusion) {
+        if (!fusions.contains(fusion)) {
+            fusions.add(fusion);
+        }
+        refreshFusionOwners();
     }
 
     // ------------------------------------------------------------------ splitting
@@ -526,9 +799,17 @@ public class GraphCanvasModel implements Serializable {
             if (!free) {
                 object.setPriority(frame.getPriority());
                 object.setTemplate(frame.getTemplate());
-                object.setPosition(new Point(frame.getBounds().x, frame.getBounds().y));
-                object.setSize(frame.getBounds().width, frame.getBounds().height);
+                // The expanded rectangle, never the collapsed summary box: a collapsed
+                // frame saved with its 170x56 box came back as an object whose whole net
+                // was piled into that box, and expanding it restored the box size.
+                Rectangle exported = frame.getExpandedBounds();
+                object.setPosition(new Point(exported.x, exported.y));
+                object.setSize(exported.width, exported.height);
                 object.setCollapsed(frame.isCollapsed());
+                // The nest travels with the object: frames map to objects 1:1 in order,
+                // so the enclosing frame's index is the enclosing object's index.
+                GraphObjectFrame enclosing = enclosingOf(frame);
+                object.setParentIndex(enclosing == null ? -1 : frames.indexOf(enclosing));
             }
             model.addObject(object);
         }
@@ -553,12 +834,18 @@ public class GraphCanvasModel implements Serializable {
      * Lays a Petri-object model out on one canvas: a frame per object, its net inside, and
      * the links restored as arcs crossing frame borders or as shared places.
      *
+     * <p>Nothing here nests anything, because the document carries no nesting to restore: a
+     * nested object is exported as an ordinary sibling {@code <page>} and comes back as one.
+     * That is the same round trip the web editor makes and it is accepted rather than treated as
+     * a defect - the alternative would be a PNML extension no other tool reads.
+     *
      * @param model the model to show
      * @return the canvas that draws it
      */
     public static GraphCanvasModel fromObjModel(GraphPetriObjModel model) {
         GraphCanvasModel canvas = new GraphCanvasModel(model.getName(), new GraphPetriNet());
 
+        Map<Integer, GraphObjectFrame> frameByObjectIndex = new HashMap<>();
         for (int index = 0; index < model.getObjectCount(); index++) {
             GraphPetriObject object = model.getObject(index);
             // An object that recorded no geometry at all is not a Petri-object: it is either
@@ -579,25 +866,43 @@ public class GraphCanvasModel implements Serializable {
                 frame.setPriority(object.getPriority());
                 frame.setTemplate(object.getTemplate());
                 canvas.frames.add(frame);
+                frameByObjectIndex.put(index, frame);
                 // The object's own places and transitions are exactly what this frame claims —
                 // known outright here, from the document, rather than left to be re-derived
                 // from wherever changeLocation below happens to put them.
                 for (GraphPetriPlace place : object.getGraphNet().getGraphPetriPlaceList()) {
-                    frame.addMember(place);
+                    canvas.claim(frame, place);
                 }
                 for (GraphPetriTransition transition : object.getGraphNet().getGraphPetriTransitionList()) {
-                    frame.addMember(transition);
+                    canvas.claim(frame, transition);
                 }
-                // Put the object's drawing in the middle of its own frame; the net keeps its
-                // shape, only where it sits on the shared canvas is decided here.
-                object.getGraphNet().changeLocation(new Point(
-                        bounds.x + bounds.width / 2,
-                        bounds.y + (bounds.height + GraphObjectFrame.HEADER_HEIGHT) / 2));
+                // An object whose net still carries the exact coordinates it was exported
+                // with stays exactly where the user drew it. Re-centring is only for
+                // documents whose layout was normalized or never described.
+                if (!object.isAbsoluteLayout()) {
+                    // Put the object's drawing in the middle of its own frame; the net keeps
+                    // its shape, only where it sits on the shared canvas is decided here.
+                    object.getGraphNet().changeLocation(new Point(
+                            bounds.x + bounds.width / 2,
+                            bounds.y + (bounds.height + GraphObjectFrame.HEADER_HEIGHT) / 2));
+                }
                 if (object.isCollapsed()) {
                     frame.setCollapsed(true);
                 }
             }
             canvas.absorb(object.getGraphNet());
+        }
+
+        // Second pass, once every frame exists: the nest the flat pages carried as an
+        // attribute. Reimporting used to lose it, so the inner object came back sitting
+        // geometrically inside the outer frame while structurally belonging to nobody -
+        // dragging the outer object left it behind.
+        for (int index = 0; index < model.getObjectCount(); index++) {
+            GraphObjectFrame frame = frameByObjectIndex.get(index);
+            GraphObjectFrame parent = frameByObjectIndex.get(model.getObject(index).getParentIndex());
+            if (frame != null && parent != null) {
+                canvas.nest(frame, parent);
+            }
         }
 
         canvas.restoreLinks(model);

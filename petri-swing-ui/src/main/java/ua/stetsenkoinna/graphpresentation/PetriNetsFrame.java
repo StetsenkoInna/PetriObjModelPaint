@@ -47,6 +47,7 @@ import ua.stetsenkoinna.graphpresentation.actions.RunNetAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunOneEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.StepBackAction;
 import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
+import ua.stetsenkoinna.graphpresentation.objmodel.CanvasTabsBar;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectManagerDialog;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectPalette;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectTemplate;
@@ -219,6 +220,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private void resetWorkspaceForNewDocument() {
         fileUse.newWorksheet(getPetriNetsPanel());
 
+        // A fresh document has no file: plain Save asks where to put it rather than
+        // silently overwriting whatever happened to be open before.
+        currentPnmlFile = null;
+
         // The recorded edits hold a reference to the panel and resolve its net lazily, so
         // edits kept across a reset would apply themselves to the new document.
         undoManager.discardAllEdits();
@@ -314,6 +319,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         petriNetsPanel = new PetriNetsPanel(netNameTextField);
         petriNetPanelScrollPane.setViewportView(petriNetsPanel);
+        buildCanvasTabsBar();
 
         // Enable drag and drop for both PNML and PNS files
         petriNetsPanel.enableDragAndDrop(this);
@@ -321,7 +327,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         installCanvasToolShortcuts();
 
         this.setLocation(50, 50);
-        this.setTitle("Discrete Event Simulation System ");
+        this.setTitle("PetriNetSim");
         this.setSize(1000, 700);
 
         // Set fullscreen mode - should be called after setSize
@@ -439,6 +445,29 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private int expandedSidebarWidth = 340;
     /** Splits the canvas from the sidebar; lets the user drag-resize the sidebar's width. */
     private javax.swing.JSplitPane mainSplitPane;
+
+    /** Height of the canvas strip: one row of pills, and never more than that. */
+    private static final int CANVAS_TABS_HEIGHT = 30;
+    /** Holds the canvas and the strip of open canvases under it. */
+    private javax.swing.JPanel canvasArea;
+    /** Scrolls the strip sideways when more canvases are open than fit across the window. */
+    private javax.swing.JScrollPane canvasTabsScrollPane;
+    /** One pill per open canvas, the active one badged and named. */
+    private CanvasTabsBar canvasTabsBar;
+
+    /**
+     * Puts the strip of open canvases into its scroll pane. Called from the constructor rather than
+     * from {@code initComponents}, because the strip reads the canvas panel's canvas stack and its
+     * document, and the panel is only created once {@code initComponents} has finished.
+     */
+    private void buildCanvasTabsBar() {
+        canvasTabsBar = new CanvasTabsBar(
+                getPetriNetsPanel().getCanvasStack(),
+                getPetriNetsPanel().getCanvasModel(),
+                frame -> getPetriNetsPanel().openObjectCanvas(frame),
+                frame -> getPetriNetsPanel().closeObjectCanvas(frame));
+        canvasTabsScrollPane.setViewportView(canvasTabsBar);
+    }
     /** True while {@link #sidebarToggleButtonActionPerformed} is itself moving the divider,
      *  so the drag listener that syncs collapsed state back from it does not re-trigger. */
     private boolean sidebarTogglingProgrammatically;
@@ -547,8 +576,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         for (PetriObjectTemplate template : petriObjectPalette.pinned()) {
             javax.swing.JToggleButton button = new javax.swing.JToggleButton(
                     CanvasToolIcons.letter(template.glyph(), TOOL_ICON_SIZE));
-            button.setToolTipText(template.displayName()
-                    + " — click the canvas to drop this Petri-object; stays active for the next one");
+            button.setToolTipText(template.displayName());
             button.addActionListener(evt ->
                     getPetriNetsPanel().setTool(CanvasTool.ADD_PETRI_OBJECT, template));
             styleToolButton(button);
@@ -796,7 +824,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         centerLocationOfGraphNet = new javax.swing.JMenuItem();
         undoMenuItem = new javax.swing.JMenuItem();
         redoMenuItem = new javax.swing.JMenuItem();
-        save = new javax.swing.JMenu();
         SaveGraphNet = new javax.swing.JMenuItem();
         jMenuItem2 = new javax.swing.JMenuItem();
         SavePetriNetAs = new javax.swing.JMenuItem();
@@ -957,7 +984,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         pinnedToolsPanel.add(javax.swing.Box.createVerticalStrut(6));
 
         selectToolButton.setIcon(CanvasToolIcons.pointer(TOOL_ICON_SIZE));
-        selectToolButton.setToolTipText("Select — click to select an element, drag to move it");
+        selectToolButton.setToolTipText("Select");
         selectToolButton.setSelected(true);
         selectToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.SELECT));
         styleToolButton(selectToolButton);
@@ -965,21 +992,21 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         pinnedToolsPanel.add(selectToolButton);
 
         javax.swing.JToggleButton marqueeToolButton = new javax.swing.JToggleButton(CanvasToolIcons.marquee(TOOL_ICON_SIZE));
-        marqueeToolButton.setToolTipText("Marquee select — drag a rectangle to select without moving anything");
+        marqueeToolButton.setToolTipText("Marquee select");
         marqueeToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.MARQUEE));
         styleToolButton(marqueeToolButton);
         canvasToolGroup.add(marqueeToolButton);
         pinnedToolsPanel.add(marqueeToolButton);
 
         javax.swing.JToggleButton panToolButton = new javax.swing.JToggleButton(scaledIcon(ResourcePathConfig.HAND_ICON));
-        panToolButton.setToolTipText("Pan — drag to move the canvas view");
+        panToolButton.setToolTipText("Pan");
         panToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.PAN));
         styleToolButton(panToolButton);
         canvasToolGroup.add(panToolButton);
         pinnedToolsPanel.add(panToolButton);
 
         javax.swing.JToggleButton deleteToolButton = new javax.swing.JToggleButton(scaledIcon(ResourcePathConfig.ERASER_ICON));
-        deleteToolButton.setToolTipText("Delete — click an element or arc to remove it");
+        deleteToolButton.setToolTipText("Delete");
         deleteToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.DELETE));
         styleToolButton(deleteToolButton);
         canvasToolGroup.add(deleteToolButton);
@@ -990,21 +1017,21 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         pinnedToolsPanel.add(javax.swing.Box.createVerticalStrut(8));
 
         newPlaceButton.setIcon(scaledIcon(ResourcePathConfig.PLACE_ICON));
-        newPlaceButton.setToolTipText("Place — click the canvas to drop a place; stays active for the next one");
+        newPlaceButton.setToolTipText("Place");
         newPlaceButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.ADD_PLACE));
         styleToolButton(newPlaceButton);
         canvasToolGroup.add(newPlaceButton);
         pinnedToolsPanel.add(newPlaceButton);
 
         newTransitionButton.setIcon(scaledIcon(ResourcePathConfig.TRANSITION_ICON));
-        newTransitionButton.setToolTipText("Transition — click the canvas to drop a transition; stays active for the next one");
+        newTransitionButton.setToolTipText("Transition");
         newTransitionButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.ADD_TRANSITION));
         styleToolButton(newTransitionButton);
         canvasToolGroup.add(newTransitionButton);
         pinnedToolsPanel.add(newTransitionButton);
 
         newArcButton.setIcon(scaledIcon(ResourcePathConfig.ARC_ICON));
-        newArcButton.setToolTipText("Arc — click a place then a transition (or the reverse) to connect them");
+        newArcButton.setToolTipText("Arc");
         newArcButton.addActionListener(this::newArcButtonActionPerformed);
         styleToolButton(newArcButton);
         canvasToolGroup.add(newArcButton);
@@ -1162,57 +1189,115 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         });
 
+        // The strip of open canvases goes at the bottom of the canvas area, directly under the
+        // canvas and its sidebar and above the modeling parameters row. SOUTH of petriNetDesign is
+        // already the parameters row, so the canvas and the strip share a panel of their own.
+        // Only the container is built here. The strip itself needs the canvas panel, which the
+        // constructor does not create until after this method has run to completion, so it is
+        // installed by buildCanvasTabsBar() at that point instead.
+        canvasTabsScrollPane = new javax.swing.JScrollPane();
+        canvasTabsScrollPane.setBorder(null);
+        canvasTabsScrollPane.setHorizontalScrollBarPolicy(
+                javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        canvasTabsScrollPane.setVerticalScrollBarPolicy(
+                javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+        // Bound so eight open canvases scroll the strip horizontally rather than growing it until
+        // the window itself has to scroll.
+        canvasTabsScrollPane.setPreferredSize(new java.awt.Dimension(0, CANVAS_TABS_HEIGHT));
+
+        canvasArea = new javax.swing.JPanel(new java.awt.BorderLayout());
+        canvasArea.add(mainSplitPane, java.awt.BorderLayout.CENTER);
+        canvasArea.add(canvasTabsScrollPane, java.awt.BorderLayout.SOUTH);
+
         petriNetDesign.setLayout(new java.awt.BorderLayout());
         petriNetDesign.add(modelingParametersPanel, java.awt.BorderLayout.SOUTH);
         petriNetDesign.add(leftIconToolBar, java.awt.BorderLayout.WEST);
-        petriNetDesign.add(mainSplitPane, java.awt.BorderLayout.CENTER);
+        petriNetDesign.add(canvasArea, java.awt.BorderLayout.CENTER);
 
 
         petriNetsFrameMenuBar.setBackground(new java.awt.Color(186, 213, 241));
         petriNetsFrameMenuBar.setForeground(new java.awt.Color(98, 147, 167));
 
+        // The conventional File / Edit / View bar. PNML is the primary document format:
+        // New, Open, Save and Save As all speak it, with the standard shortcuts. Every
+        // older format lives on under File > Legacy formats, present but out of the way,
+        // and none of them holds a keyboard shortcut hostage any more (the old bar had
+        // Ctrl+S on a legacy save, Ctrl+X on export, and Ctrl+M on two different items).
         fileMenu.setText("File");
         fileMenu.setMargin(new java.awt.Insets(0, 10, 0, 10));
-
-        openMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_O, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        openMenuItem.setText("Open");
-        openMenuItem.addActionListener(this::openMenuItemActionPerformed);
-        fileMenu.add(openMenuItem);
 
         newMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_N, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         newMenuItem.setText("New");
         newMenuItem.addActionListener(this::newMenuItemActionPerformed);
         fileMenu.add(newMenuItem);
 
-        openMethodMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        openMethodMenuItem.setText("Open a method file");
-        openMethodMenuItem.addActionListener(this::openMethodMenuItemActionPerformed);
-        fileMenu.add(openMethodMenuItem);
-
-        // Add separator
-        fileMenu.addSeparator();
-
-        // Import PNML menu item
         importPnmlMenuItem = new javax.swing.JMenuItem();
-        importPnmlMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_I, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        importPnmlMenuItem.setText("Import PNML");
+        importPnmlMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_O, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        importPnmlMenuItem.setText("Open...");
         importPnmlMenuItem.addActionListener(this::importPnmlMenuItemActionPerformed);
         fileMenu.add(importPnmlMenuItem);
+
+        fileMenu.addSeparator();
+
+        savePnmlMenuItem = new javax.swing.JMenuItem();
+        savePnmlMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        savePnmlMenuItem.setText("Save");
+        savePnmlMenuItem.addActionListener(this::savePnmlMenuItemActionPerformed);
+        fileMenu.add(savePnmlMenuItem);
+
+        exportPnmlMenuItem = new javax.swing.JMenuItem();
+        exportPnmlMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.SHIFT_DOWN_MASK | java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        exportPnmlMenuItem.setText("Save As...");
+        exportPnmlMenuItem.addActionListener(this::exportPnmlMenuItemActionPerformed);
+        fileMenu.add(exportPnmlMenuItem);
+
+        fileMenu.addSeparator();
+
+        legacyMenu = new javax.swing.JMenu("Legacy formats");
+
+        openMenuItem.setText("Open .pns worksheet");
+        openMenuItem.addActionListener(this::openMenuItemActionPerformed);
+        legacyMenu.add(openMenuItem);
+
+        openMethodMenuItem.setText("Open a method file");
+        openMethodMenuItem.addActionListener(this::openMethodMenuItemActionPerformed);
+        legacyMenu.add(openMethodMenuItem);
+
+        legacyMenu.addSeparator();
+
+        SaveGraphNet.setText("Save Graph net");
+        SaveGraphNet.addActionListener(this::SaveGraphNetActionPerformed);
+        legacyMenu.add(SaveGraphNet);
+
+        jMenuItem2.setText("Save Graph net as");
+        jMenuItem2.addActionListener(this::jMenuItem2ActionPerformed);
+        legacyMenu.add(jMenuItem2);
+
+        SavePetriNetAs.setText("Save Petri net as");
+        SavePetriNetAs.addActionListener(this::SavePetriNetAsActionPerformed);
+        legacyMenu.add(SavePetriNetAs);
+
+        SaveNetAsMethod.setText("Save net as method");
+        SaveNetAsMethod.addActionListener(this::SaveNetAsMethodActionPerformed);
+        legacyMenu.add(SaveNetAsMethod);
+
+        SaveMethodInNetLibrary.setText("Save method in NetLibrary");
+        SaveMethodInNetLibrary.addActionListener(this::SaveMethodInNetLibraryActionPerformed);
+        legacyMenu.add(SaveMethodInNetLibrary);
+
+        fileMenu.add(legacyMenu);
+
+        fileMenu.addSeparator();
+
+        exitMenuItem = new javax.swing.JMenuItem("Exit");
+        exitMenuItem.addActionListener(evt -> dispatchEvent(
+                new java.awt.event.WindowEvent(this, java.awt.event.WindowEvent.WINDOW_CLOSING)));
+        fileMenu.add(exitMenuItem);
 
         petriNetsFrameMenuBar.add(fileMenu);
 
         editMenu.setText("Edit");
         editMenu.setMargin(new java.awt.Insets(0, 10, 0, 10));
-
-        editNetParameters.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_E, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        editNetParameters.setText("Edit net parameters");
-        editNetParameters.addActionListener(this::editNetParametersActionPerformed);
-        editMenu.add(editNetParameters);
-
-        centerLocationOfGraphNet.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_L, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        centerLocationOfGraphNet.setText("Locate net in center");
-        centerLocationOfGraphNet.addActionListener(this::centerLocationOfGraphNetActionPerformed);
-        editMenu.add(centerLocationOfGraphNet);
 
         undoMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_Z, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         undoMenuItem.setText("Undo");
@@ -1226,49 +1311,26 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         redoMenuItem.addActionListener(this::redoMenuItemActionPerformed);
         editMenu.add(redoMenuItem);
 
+        editMenu.addSeparator();
+
+        editNetParameters.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_E, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        editNetParameters.setText("Edit net parameters");
+        editNetParameters.addActionListener(this::editNetParametersActionPerformed);
+        editMenu.add(editNetParameters);
+
         petriNetsFrameMenuBar.add(editMenu);
 
-        save.setText("Save");
-        save.setMargin(new java.awt.Insets(0, 10, 0, 10));
+        viewMenu = new javax.swing.JMenu("View");
+        viewMenu.setMargin(new java.awt.Insets(0, 10, 0, 10));
 
-        SaveGraphNet.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        SaveGraphNet.setText("Save Graph net");
-        SaveGraphNet.addActionListener(this::SaveGraphNetActionPerformed);
-        save.add(SaveGraphNet);
+        centerLocationOfGraphNet.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_L, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        centerLocationOfGraphNet.setText("Center on net");
+        centerLocationOfGraphNet.addActionListener(this::centerLocationOfGraphNetActionPerformed);
+        viewMenu.add(centerLocationOfGraphNet);
 
-        jMenuItem2.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.SHIFT_DOWN_MASK | java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        jMenuItem2.setText("Save Graph net as");
-        jMenuItem2.addActionListener(this::jMenuItem2ActionPerformed);
-        save.add(jMenuItem2);
+        petriNetsFrameMenuBar.add(viewMenu);
 
-        SavePetriNetAs.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_P, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        SavePetriNetAs.setText("Save  Petri net as");
-        SavePetriNetAs.addActionListener(this::SavePetriNetAsActionPerformed);
-        save.add(SavePetriNetAs);
-
-        SaveNetAsMethod.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        SaveNetAsMethod.setText("Save net as method");
-        SaveNetAsMethod.addActionListener(this::SaveNetAsMethodActionPerformed);
-        save.add(SaveNetAsMethod);
-
-        SaveMethodInNetLibrary.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.SHIFT_DOWN_MASK | java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        SaveMethodInNetLibrary.setText("Save method in NetLibrary");
-        SaveMethodInNetLibrary.addActionListener(this::SaveMethodInNetLibraryActionPerformed);
-        save.add(SaveMethodInNetLibrary);
-
-        // Add separator
-        save.addSeparator();
-
-        // Export PNML menu item
-        exportPnmlMenuItem = new javax.swing.JMenuItem();
-        exportPnmlMenuItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_X, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        exportPnmlMenuItem.setText("Export PNML");
-        exportPnmlMenuItem.addActionListener(this::exportPnmlMenuItemActionPerformed);
-        save.add(exportPnmlMenuItem);
-
-        petriNetsFrameMenuBar.add(save);
-
-        statisticMenu.setText("Statistic");
+        statisticMenu.setText("Statistics");
 
         openMonitor.setText("Open monitor");
         openMonitor.setMnemonic(KeyEvent.VK_M);
@@ -1295,7 +1357,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         netsMenuItem.setMaximumSize(netsMenuItem.getPreferredSize());
         petriNetsFrameMenuBar.add(netsMenuItem);
 
-        pObjectsMenuItem.setText("PObjects");
+        pObjectsMenuItem.setText("Petri-objects");
         pObjectsMenuItem.addActionListener(evt -> openPetriObjectManager());
         pObjectsMenuItem.setMaximumSize(pObjectsMenuItem.getPreferredSize());
         petriNetsFrameMenuBar.add(pObjectsMenuItem);
@@ -1380,9 +1442,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }// GEN-LAST:event_openMenuItemActionPerformed
 
     private void newMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_newMenuItemActionPerformed
-        fileUse.newWorksheet(getPetriNetsPanel());
-        timeStartField.setText(String.valueOf(0));
-
+        // File > New discards a whole drawing exactly like the open-as-new paths, so it asks
+        // the same question and resets the same workspace. It used to do neither: the canvas
+        // was wiped with no confirmation, and the undo history survived into the new
+        // document, where Ctrl+Z would replay stale edits against a net they never touched.
+        if (!confirmDiscardingCurrentNet()) {
+            return;
+        }
+        resetWorkspaceForNewDocument();
         netNameTextField.setText("Untitled");
     }// GEN-LAST:event_newMenuItemActionPerformed
 
@@ -1533,6 +1600,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public void runNet() {
         protocolTextArea.setText("---------Events protocol----------");
         protocolTextArea.setText("---------STATISTICS---------");
+        // A run is a run of the whole model, so it is watched where the whole model is drawn.
+        // Without this, pressing Run from inside a Petri-object's own canvas would show a fragment
+        // of what is actually running.
+        getPetriNetsPanel().activateRootCanvas();
         try {
             if(isCorrectNet()){
                 getPetriNetsPanel().getGraphNet().createPetriNet(netNameTextField.getText());
@@ -1602,6 +1673,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     public void animateNet() {
         protocolTextArea.setText("---------Events protocol----------");
         protocolTextArea.setText("---------STATISTICS---------");
+        // See runNet: an animation animates the whole model, so it belongs on the net's canvas.
+        getPetriNetsPanel().activateRootCanvas();
         try {
             if(isCorrectNet()){
                 getPetriNetsPanel().getGraphNet().createPetriNet(netNameTextField.getText());
@@ -1679,7 +1752,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         LOGGER.debug("{}  {}", pane.getLocation().x, pane.getBounds().width);
         Point center = new Point(pane.getLocation().x + pane.getBounds().width
                 / 2, pane.getLocation().y + pane.getBounds().height / 2);
-        this.getPetriNetsPanel().getGraphNet().changeLocation(center);
+        // Through the canvas rather than straight at the net: the net alone has no notion of a
+        // Petri-object frame, so moving it directly slid every object's net out from under its own
+        // frame and left every frame where it was.
+        this.getPetriNetsPanel().centreCanvasAt(center);
 
         panel.repaint();
     }// GEN-LAST:event_centerLocationOfGraphNetActionPerformed
@@ -1714,13 +1790,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             return;
         }
         try {
-            java.awt.FileDialog fdlg = new java.awt.FileDialog(this, "Import PNML File", java.awt.FileDialog.LOAD);
-            fdlg.setFile("*.pnml");
-            fdlg.setVisible(true);
-            if (fdlg.getFile() == null) {
+            javax.swing.JFileChooser chooser = newDocumentChooser("Open");
+            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                    "PNML or XML model (*.pnml, *.xml)", "pnml", "xml"));
+            if (chooser.showOpenDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) {
                 return;
             }
-            java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
+            java.io.File selectedFile = chooser.getSelectedFile();
+            lastChooserDirectory = selectedFile.getParentFile();
 
             GraphPetriObjModel objModel = new PnmlModelParser().parse(selectedFile);
             GraphCanvasModel canvas = GraphCanvasModel.fromObjModel(objModel);
@@ -1729,10 +1806,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             resetWorkspaceForNewDocument();
             getPetriNetsPanel().setCanvasModel(canvas);
             netNameTextField.setText(objModel.getName());
-
-            MessageHelper.showInfo(this,
-                    "Imported " + objModel.getObjectCount() + " Petri-object(s) and "
-                            + objModel.getLinks().size() + " link(s) from " + selectedFile.getName());
+            // The opened file is the document's file from here on: plain Save writes back
+            // to it silently, the way every editor treats the file it has open.
+            currentPnmlFile = selectedFile;
         } catch (Exception ex) {
             LOGGER.error("Failed to import PNML", ex);
             MessageHelper.showException(this, "Error importing PNML file", ex);
@@ -1751,30 +1827,89 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 return;
             }
 
-            java.awt.FileDialog fdlg = new java.awt.FileDialog(this, "Export to PNML File", java.awt.FileDialog.SAVE);
-            fdlg.setFile(netNameTextField.getText() + ".pnml");
-            fdlg.setVisible(true);
-            if (fdlg.getFile() == null) {
+            javax.swing.JFileChooser chooser = newDocumentChooser("Save As");
+            javax.swing.filechooser.FileNameExtensionFilter pnmlFilter =
+                    new javax.swing.filechooser.FileNameExtensionFilter("PNML model (*.pnml)", "pnml");
+            javax.swing.filechooser.FileNameExtensionFilter xmlFilter =
+                    new javax.swing.filechooser.FileNameExtensionFilter("XML document (*.xml)", "xml");
+            chooser.addChoosableFileFilter(pnmlFilter);
+            chooser.addChoosableFileFilter(xmlFilter);
+            chooser.setFileFilter(pnmlFilter);
+            chooser.setSelectedFile(new java.io.File(currentPnmlFile != null
+                    ? currentPnmlFile.getName()
+                    : netNameTextField.getText() + ".pnml"));
+            if (chooser.showSaveDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) {
                 return;
             }
-            java.io.File selectedFile = new java.io.File(fdlg.getDirectory() + fdlg.getFile());
-            if (!selectedFile.getName().toLowerCase().endsWith(".pnml")) {
-                selectedFile = new java.io.File(selectedFile.getAbsolutePath() + ".pnml");
+            java.io.File selectedFile = chooser.getSelectedFile();
+            lastChooserDirectory = selectedFile.getParentFile();
+            String lower = selectedFile.getName().toLowerCase();
+            if (!lower.endsWith(".pnml") && !lower.endsWith(".xml")) {
+                // The chosen type filter decides the extension a bare name gets - the same
+                // document either way, since PNML is XML; only the suffix differs.
+                String extension = chooser.getFileFilter() == xmlFilter ? ".xml" : ".pnml";
+                selectedFile = new java.io.File(selectedFile.getAbsolutePath() + extension);
+            }
+            // JFileChooser approves silently over an existing file; asking is on us.
+            if (selectedFile.exists() && !MessageHelper.showConfirmation(this,
+                    "'" + selectedFile.getName() + "' already exists. Overwrite it?")) {
+                return;
             }
 
-            GraphCanvasModel canvas = getPetriNetsPanel().getCanvasModel();
-            canvas.setName(netNameTextField.getText());
-            GraphPetriObjModel objModel = canvas.toObjModel();
-            new PnmlModelGenerator().generate(objModel, selectedFile);
-
-            MessageHelper.showInfo(this,
-                    "Exported " + objModel.getObjectCount() + " Petri-object(s) and "
-                            + objModel.getLinks().size() + " link(s) to "
-                            + selectedFile.getAbsolutePath());
+            writePnml(selectedFile);
         } catch (Exception ex) {
             LOGGER.error("Failed to export PNML", ex);
             MessageHelper.showException(this, "Error exporting PNML file", ex);
         }
+    }
+
+    /**
+     * Plain Save: writes the document back to the file it came from, silently, the way
+     * every editor does. A document that has no file yet falls through to Save As.
+     */
+    private void savePnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
+        if (getPetriNetsPanel().getGraphNet() == null) {
+            return;
+        }
+        if (currentPnmlFile == null) {
+            exportPnmlMenuItemActionPerformed(evt);
+            return;
+        }
+        try {
+            writePnml(currentPnmlFile);
+        } catch (Exception ex) {
+            LOGGER.error("Failed to save PNML", ex);
+            MessageHelper.showException(this, "Error saving PNML file", ex);
+        }
+    }
+
+    /**
+     * A file chooser for the document dialogs, replacing the native AWT FileDialog: on
+     * Windows that one cannot list file-type filters at all, so its type box misleadingly
+     * said "All Files" for a dialog that only ever meant PNML.
+     *
+     * @param title the dialog title
+     * @return a chooser starting where the previous dialog ended up, or at the document's
+     *         own directory
+     */
+    private javax.swing.JFileChooser newDocumentChooser(String title) {
+        java.io.File startAt = lastChooserDirectory != null
+                ? lastChooserDirectory
+                : currentPnmlFile != null ? currentPnmlFile.getParentFile() : null;
+        javax.swing.JFileChooser chooser = new javax.swing.JFileChooser(startAt);
+        chooser.setDialogTitle(title);
+        return chooser;
+    }
+
+    /**
+     * Writes the canvas to the given PNML file and remembers it as the document's file, so
+     * the next plain Save goes there without asking.
+     */
+    private void writePnml(java.io.File file) throws Exception {
+        GraphCanvasModel canvas = getPetriNetsPanel().getCanvasModel();
+        canvas.setName(netNameTextField.getText());
+        new PnmlModelGenerator().generate(canvas.toObjModel(), file);
+        currentPnmlFile = file;
     }
 
     public String getNameNet() {
@@ -1798,7 +1933,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
 
     public void disableInput() {
-        save.setEnabled(false);
         editMenu.setEnabled(false);
         fileMenu.setEnabled(false);
         newArcButton.setEnabled(false);
@@ -1822,7 +1956,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
 
     public void enableInput() {
-        save.setEnabled(true);
         editMenu.setEnabled(true);
         fileMenu.setEnabled(true);
         newArcButton.setEnabled(true);
@@ -1909,7 +2042,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JMenuItem redoMenuItem;
     private javax.swing.JProgressBar runProgressBar;
     private javax.swing.JButton runOneEventButton;
-    private javax.swing.JMenu save;
     private javax.swing.JButton stepBackButton;
     private javax.swing.JButton skipForwardAnimationButton;
     private javax.swing.JLabel speedLabel;
@@ -1925,6 +2057,19 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JMenuItem undoMenuItem;
     private javax.swing.JMenuItem importPnmlMenuItem;
     private javax.swing.JMenuItem exportPnmlMenuItem;
+    private javax.swing.JMenuItem savePnmlMenuItem;
+    private javax.swing.JMenu viewMenu;
+    private javax.swing.JMenu legacyMenu;
+    private javax.swing.JMenuItem exitMenuItem;
+    /**
+     * The PNML file the document was last opened from or saved to, so plain Save can write
+     * it silently the way every editor does; {@code null} until the document has a file,
+     * when Save falls back to Save As.
+     */
+    private java.io.File currentPnmlFile;
+
+    /** Where the last Open or Save As dialog ended up, so the next one starts there. */
+    private java.io.File lastChooserDirectory;
     // End of variables declaration//GEN-END:variables
     private static PetriNetsPanel petriNetsPanel;
     private FileUse fileUse = new FileUse();

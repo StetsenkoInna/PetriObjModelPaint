@@ -82,16 +82,16 @@ public class GraphCanvasModelTest {
         GraphPetriPlace p0 = place(canvas, "P0", 2, 60, 120);
         GraphPetriTransition t0 = transition(canvas, "T0", 160, 120);
         GraphPetriPlace p1 = place(canvas, "P1", 0, 250, 120);
-        source.addMember(p0);
-        source.addMember(t0);
-        source.addMember(p1);
+        canvas.claim(source, p0);
+        canvas.claim(source, t0);
+        canvas.claim(source, p1);
 
         GraphPetriPlace p2 = place(canvas, "P2", 0, 460, 120);
         GraphPetriTransition t1 = transition(canvas, "T1", 560, 120);
         GraphPetriPlace p3 = place(canvas, "P3", 0, 660, 120);
-        sink.addMember(p2);
-        sink.addMember(t1);
-        sink.addMember(p3);
+        canvas.claim(sink, p2);
+        canvas.claim(sink, t1);
+        canvas.claim(sink, p3);
 
         canvas.getNet().getGraphArcInList().add(GraphArcFactory.inArc(p0, t0, 1, false));
         canvas.getNet().getGraphArcOutList().add(GraphArcFactory.outArc(t0, p1, 1));
@@ -300,8 +300,8 @@ public class GraphCanvasModelTest {
         canvas.getFrames().add(frame);
         GraphPetriPlace nearLeft = place(canvas, "Left", 0, 20, 140); // hugs the left border
         GraphPetriTransition nearBottom = transition(canvas, "Bottom", 200, 380); // hugs the bottom
-        frame.addMember(nearLeft);
-        frame.addMember(nearBottom);
+        canvas.claim(frame, nearLeft);
+        canvas.claim(frame, nearBottom);
 
         List<FramePort> ports = canvas.portsOf(frame);
 
@@ -383,27 +383,191 @@ public class GraphCanvasModelTest {
         assertNull("a frame's rectangle covering a point does not by itself claim what is "
                 + "drawn there — this is exactly what let moving a frame silently absorb "
                 + "whatever it passed over", canvas.ownerOf(stray));
+
+        // The other half of the same guarantee: a claim is single-valued, so handing the element
+        // to a second frame takes it off the first rather than leaving both claiming it.
+        GraphObjectFrame second = new GraphObjectFrame("G", new Rectangle(0, 0, 300, 300));
+        canvas.getFrames().add(second);
+        canvas.claim(frame, stray);
+        canvas.claim(second, stray);
+
+        assertSame(second, canvas.ownerOf(stray));
+        assertFalse("the first frame let go of it", frame.hasMember(stray));
+        assertEquals(1, canvas.membersOfSubtree(second).size());
     }
 
     @Test
-    public void removingAFrameFreesItsMembersUnlessAnotherFrameStillCoversThem() {
+    public void removingAFrameLiftsItsMembersToWhateverEnclosedIt() {
+        // Geometry is no longer consulted here at all. What a removed object held moves one
+        // level out: to the object that enclosed it, or to the free elements when nothing did.
+        // The frame merely drawn inside its rectangle gets nothing, which is the whole point -
+        // the previous "falls to whatever covers it now" rule handed an outer object's entire
+        // net to whatever happened to be nested in it.
         resetCounters();
         GraphCanvasModel canvas = new GraphCanvasModel("Simple", new GraphPetriNet());
         GraphObjectFrame outer = new GraphObjectFrame("Outer", new Rectangle(0, 0, 300, 300));
         GraphObjectFrame inner = new GraphObjectFrame("Inner", new Rectangle(50, 50, 100, 100));
         canvas.getFrames().add(outer);
         canvas.getFrames().add(inner);
-        GraphPetriPlace coveredByBoth = place(canvas, "Both", 0, 80, 80);
-        GraphPetriPlace coveredByOuterOnly = place(canvas, "OuterOnly", 0, 200, 200);
-        outer.addMember(coveredByBoth);
-        outer.addMember(coveredByOuterOnly);
+        GraphPetriPlace insideBoth = place(canvas, "Both", 0, 80, 80);
+        GraphPetriPlace insideOuterOnly = place(canvas, "OuterOnly", 0, 200, 200);
+        canvas.claim(outer, insideBoth);
+        canvas.claim(outer, insideOuterOnly);
 
         canvas.getFrames().remove(outer);
         canvas.releaseMembers(outer);
 
-        assertEquals("falls to the frame that still geometrically covers it",
-                inner, canvas.ownerOf(coveredByBoth));
-        assertNull("nothing covers it anymore, so it becomes free", canvas.ownerOf(coveredByOuterOnly));
+        assertNull("the frame drawn inside it does not inherit its net", canvas.ownerOf(insideBoth));
+        assertNull(canvas.ownerOf(insideOuterOnly));
+        assertFalse(inner.hasMember(insideBoth));
+    }
+
+    @Test
+    public void removingANestedFrameHandsItsNetToItsParent() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Simple", new GraphPetriNet());
+        GraphObjectFrame parent = new GraphObjectFrame("Parent", new Rectangle(0, 0, 400, 400));
+        GraphObjectFrame child = new GraphObjectFrame("Child", new Rectangle(50, 50, 150, 150));
+        GraphObjectFrame grandchild = new GraphObjectFrame("Grandchild", new Rectangle(60, 60, 90, 90));
+        canvas.getFrames().add(parent);
+        canvas.getFrames().add(child);
+        canvas.getFrames().add(grandchild);
+        canvas.nest(child, parent);
+        canvas.nest(grandchild, child);
+        GraphPetriPlace held = place(canvas, "Held", 0, 80, 80);
+        canvas.claim(child, held);
+
+        canvas.getFrames().remove(child);
+        canvas.releaseMembers(child);
+
+        assertSame("the child's net joins the object that enclosed it", parent, canvas.ownerOf(held));
+        assertSame("and its own children are re-nested one level out",
+                parent, canvas.enclosingOf(grandchild));
+    }
+
+    @Test
+    public void aNestedFrameNamesItsParentAndKnowsItsLevel() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Simple", new GraphPetriNet());
+        GraphObjectFrame parent = new GraphObjectFrame("Parent", new Rectangle(0, 0, 400, 400));
+        GraphObjectFrame child = new GraphObjectFrame("Child", new Rectangle(50, 50, 150, 150));
+        canvas.getFrames().add(parent);
+        canvas.getFrames().add(child);
+        GraphPetriPlace ofParent = place(canvas, "OfParent", 0, 350, 350);
+        GraphPetriPlace ofChild = place(canvas, "OfChild", 0, 80, 80);
+        canvas.claim(parent, ofParent);
+        canvas.claim(child, ofChild);
+
+        canvas.nest(child, parent);
+
+        assertSame(parent, canvas.enclosingOf(child));
+        assertNull(canvas.enclosingOf(parent));
+        assertEquals("a top-level object is level 1", 1, canvas.levelOf(parent));
+        assertEquals("nested in it, level 2", 2, canvas.levelOf(child));
+        assertEquals(List.of(child), canvas.childrenOf(parent));
+        assertEquals(List.of(parent, child), canvas.subtreeOf(parent));
+        assertEquals("the parent, seen from outside, holds both",
+                2, canvas.membersOfSubtree(parent).size());
+        assertSame("while ownerOf still answers with the direct owner",
+                child, canvas.ownerOf(ofChild));
+        assertEquals("and a port per element of the whole subtree", 2, canvas.portsOf(parent).size());
+    }
+
+    @Test
+    public void nestingRefusesACycleAndFramesComeOutParentFirst() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Simple", new GraphPetriNet());
+        GraphObjectFrame child = new GraphObjectFrame("Child", new Rectangle(50, 50, 150, 150));
+        GraphObjectFrame parent = new GraphObjectFrame("Parent", new Rectangle(0, 0, 400, 400));
+        // Deliberately added child-first, so parent-first order is not merely list order.
+        canvas.getFrames().add(child);
+        canvas.getFrames().add(parent);
+        canvas.nest(child, parent);
+
+        assertThrows(IllegalArgumentException.class, () -> canvas.nest(parent, child));
+        assertThrows(IllegalArgumentException.class, () -> canvas.nest(parent, parent));
+        assertEquals(List.of(parent, child), canvas.framesParentFirst());
+    }
+
+    @Test
+    public void frameAtPicksTheInnermostFrameAndOwnerOfTheOneThatClaims() {
+        // The tie that used to be broken in opposite directions: ownerOf took the first frame in
+        // canvas order that claimed the element, frameAt the last one whose rectangle contained
+        // the point. Both now agree that deeper wins, which is what makes a nest reason about.
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Simple", new GraphPetriNet());
+        GraphObjectFrame outer = new GraphObjectFrame("Outer", new Rectangle(100, 100, 400, 300));
+        GraphObjectFrame inner = new GraphObjectFrame("Inner", new Rectangle(200, 200, 150, 120));
+        canvas.getFrames().add(outer);
+        canvas.getFrames().add(inner);
+        canvas.nest(inner, outer);
+        GraphPetriPlace inside = place(canvas, "Inside", 0, 250, 250);
+        canvas.claim(inner, inside);
+
+        assertSame("frameAt: the innermost frame containing the point",
+                inner, canvas.frameAt(inside.getGraphElementCenter()));
+        assertSame("ownerOf: the frame that claims it, which is the same one",
+                inner, canvas.ownerOf(inside));
+    }
+
+    @Test
+    public void aDeepCopyKeepsItsNestingPointingAtItsOwnFrames() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Simple", new GraphPetriNet());
+        GraphObjectFrame parent = new GraphObjectFrame("Parent", new Rectangle(0, 0, 400, 400));
+        GraphObjectFrame child = new GraphObjectFrame("Child", new Rectangle(50, 50, 150, 150));
+        canvas.getFrames().add(parent);
+        canvas.getFrames().add(child);
+        canvas.nest(child, parent);
+        canvas.claim(child, place(canvas, "Held", 0, 80, 80));
+
+        GraphCanvasModel copy = new GraphCanvasModel(canvas);
+
+        GraphObjectFrame copiedParent = copy.getFrames().get(0);
+        GraphObjectFrame copiedChild = copy.getFrames().get(1);
+        assertSame("the copy's child names the copy's own parent, not the original's",
+                copiedParent, copy.enclosingOf(copiedChild));
+        assertNull(canvas.enclosingOf(parent));
+        assertEquals(2, copy.levelOf(copiedChild));
+    }
+
+    @Test
+    public void aNestedCanvasExportsAsSiblingObjectsAndTheNestComesBack() {
+        // PNML has no notion of one page inside another, so a nested object is still written
+        // as an ordinary sibling page with its own index - a foreign reader sees flat pages,
+        // as before. The nest itself travels as a tool-specific parentObject attribute and
+        // is restored on import: it used to be dropped, so the inner object came back
+        // sitting inside the outer frame's rectangle while structurally belonging to
+        // nobody, and dragging the outer object left it behind.
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Nested", new GraphPetriNet());
+        GraphObjectFrame parent = new GraphObjectFrame("Parent", new Rectangle(0, 0, 400, 400));
+        GraphObjectFrame child = new GraphObjectFrame("Child", new Rectangle(50, 50, 150, 150));
+        canvas.getFrames().add(parent);
+        canvas.getFrames().add(child);
+        canvas.nest(child, parent);
+        GraphPetriPlace ofParent = place(canvas, "OfParent", 1, 350, 350);
+        GraphPetriTransition ofChild = transition(canvas, "OfChild", 80, 80);
+        canvas.claim(parent, ofParent);
+        canvas.claim(child, ofChild);
+        canvas.getNet().getGraphArcInList().add(GraphArcFactory.inArc(ofParent, ofChild, 1, false));
+
+        GraphPetriObjModel exported = canvas.toObjModel();
+
+        assertEquals("two siblings, indexed by the flat frame list", 2, exported.getObjectCount());
+        assertEquals("Parent", exported.getObject(0).getName());
+        assertEquals("Child", exported.getObject(1).getName());
+        assertEquals("the child records which sibling encloses it",
+                0, exported.getObject(1).getParentIndex());
+        assertEquals("the arc across the nesting boundary is a link, as between any two objects",
+                1, exported.getLinks().size());
+
+        GraphCanvasModel reimported = GraphCanvasModel.fromObjModel(exported);
+
+        assertEquals(2, reimported.getFrames().size());
+        assertSame("and the nest is restored from the attribute",
+                reimported.getFrames().get(0),
+                reimported.enclosingOf(reimported.getFrames().get(1)));
     }
 
     @Test
@@ -448,5 +612,124 @@ public class GraphCanvasModelTest {
                 fusion.isAnchoredToAFrame());
         assertEquals(canvas.getFrames().getFirst(), fusion.getMasterOwner());
         assertNull(fusion.getJoinedOwner());
+    }
+
+    @Test
+    public void movingAFramedHalfOfAFusionLeavesTheFreeHalfWhereItWas() {
+        // syncFusions() runs after every frame drag to keep a free-free fusion's ring coincident
+        // - GraphPlaceFusion#syncPosition() used to do that unconditionally, so dragging the
+        // object that owns one half pulled the other half on top of wherever it ended up, the
+        // instant the two places were joined this way rather than becoming two circles kept
+        // apart by nothing but a line.
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphPetriPlace framed = canvas.getNet().getGraphPetriPlaceList().get(1); // P1, owned by Source
+        GraphPetriPlace free = place(canvas, "Free", 0, 900, 900);
+        canvas.joinPlaces(framed, free);
+
+        Point2D freeBefore = free.getGraphElementCenter();
+
+        // What moving the "Source" object does to its own member's position before
+        // PetriNetsPanel#moveFrame calls syncFusions() at the end of the same drag.
+        Point2D framedCentre = framed.getGraphElementCenter();
+        framed.setNewCoordinates(new Point2D.Double(framedCentre.getX() + 50, framedCentre.getY() + 50));
+        canvas.syncFusions();
+
+        assertEquals("the free half must stay exactly where it was, not jump onto the framed one",
+                freeBefore, free.getGraphElementCenter());
+    }
+
+    /**
+     * The full PNML fidelity round trip through real XML: exact coordinates for every
+     * element (framed and free alike), frame rectangles, nesting, claims and the shared
+     * place all come back as saved. Reimporting used to normalize every page to the
+     * (50,50) corner and re-centre each net inside its frame, so elements drifted and
+     * piled up, free elements lost their positions entirely, and the nest between objects
+     * vanished - the inner object sat inside the outer frame's rectangle while dragging
+     * that frame left it behind.
+     */
+    @Test
+    public void aComplexCanvasRoundTripsThroughPnmlExactly() throws Exception {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Doc", new GraphPetriNet());
+
+        GraphObjectFrame outer = new GraphObjectFrame("Outer", new Rectangle(120, 100, 500, 400));
+        canvas.getFrames().add(outer);
+        GraphPetriPlace outerPlace = place(canvas, "PO", 2, 200, 320);
+        canvas.claim(outer, outerPlace);
+
+        GraphObjectFrame inner = new GraphObjectFrame("Inner", new Rectangle(300, 180, 220, 160));
+        canvas.getFrames().add(inner);
+        canvas.nest(inner, outer);
+        GraphPetriPlace innerPlace = place(canvas, "PI", 0, 380, 260);
+        GraphPetriTransition innerTransition = transition(canvas, "TI", 460, 260);
+        canvas.claim(inner, innerPlace);
+        canvas.claim(inner, innerTransition);
+        canvas.getNet().getGraphArcInList().add(
+                GraphArcFactory.inArc(innerPlace, innerTransition, 1, false));
+
+        GraphPetriPlace freePlace = place(canvas, "PF", 5, 900, 700);
+
+        GraphObjectFrame other = new GraphObjectFrame("Other", new Rectangle(700, 100, 200, 160));
+        canvas.getFrames().add(other);
+        GraphPetriPlace otherPlace = place(canvas, "PX", 0, 780, 200);
+        canvas.claim(other, otherPlace);
+        canvas.joinPlaces(outerPlace, otherPlace);
+
+        String xml = new ua.stetsenkoinna.pnml.PnmlModelGenerator().generateXml(canvas.toObjModel());
+        GraphCanvasModel restored = GraphCanvasModel.fromObjModel(
+                new ua.stetsenkoinna.pnml.PnmlModelParser().parseXml(xml));
+
+        assertEquals("three frames come back", 3, restored.getFrames().size());
+        GraphObjectFrame restoredOuter = restored.getFrames().get(0);
+        GraphObjectFrame restoredInner = restored.getFrames().get(1);
+        assertEquals(new Rectangle(120, 100, 500, 400), restoredOuter.getBounds());
+        assertEquals(new Rectangle(300, 180, 220, 160), restoredInner.getBounds());
+        assertSame("the nest survives the flat pages",
+                restoredOuter, restored.enclosingOf(restoredInner));
+
+        for (GraphPetriPlace restoredPlace : restored.getNet().getGraphPetriPlaceList()) {
+            java.awt.geom.Point2D centre = restoredPlace.getGraphElementCenter();
+            switch (restoredPlace.getName()) {
+                case "PO" -> assertEquals("PO stays put", new Point(200, 320),
+                        new Point((int) centre.getX(), (int) centre.getY()));
+                case "PI" -> assertEquals("PI stays put", new Point(380, 260),
+                        new Point((int) centre.getX(), (int) centre.getY()));
+                case "PF" -> assertEquals("the free element stays put", new Point(900, 700),
+                        new Point((int) centre.getX(), (int) centre.getY()));
+                case "PX" -> assertEquals("PX stays put", new Point(780, 200),
+                        new Point((int) centre.getX(), (int) centre.getY()));
+                default -> { }
+            }
+        }
+        assertEquals("the inner object's members are claimed by the restored inner frame",
+                2, restoredInner.getMembers().size());
+        assertEquals("the shared place survives", 1, restored.getFusions().size());
+    }
+
+    /**
+     * A collapsed object used to export its 170x56 summary box as its size: reloading piled
+     * the whole net inside that box, and expanding the object restored the box's size
+     * instead of the frame the user had drawn.
+     */
+    @Test
+    public void aCollapsedObjectRoundTripsWithItsExpandedSize() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Doc", new GraphPetriNet());
+        GraphObjectFrame frame = new GraphObjectFrame("Obj", new Rectangle(100, 80, 400, 300));
+        canvas.getFrames().add(frame);
+        GraphPetriPlace inside = place(canvas, "P1", 0, 200, 200);
+        canvas.claim(frame, inside);
+        frame.setCollapsed(true);
+
+        GraphCanvasModel restored = GraphCanvasModel.fromObjModel(canvas.toObjModel());
+
+        GraphObjectFrame restoredFrame = restored.getFrames().get(0);
+        assertTrue("the object comes back collapsed", restoredFrame.isCollapsed());
+        restoredFrame.setCollapsed(false);
+        assertEquals("expanded, it has the size the user gave it",
+                new Rectangle(100, 80, 400, 300), restoredFrame.getBounds());
+        GraphPetriPlace restoredPlace = restored.getNet().getGraphPetriPlaceList().get(0);
+        assertTrue("and its net sits inside it",
+                restoredFrame.getBounds().contains(restoredPlace.getGraphElementCenter()));
     }
 }

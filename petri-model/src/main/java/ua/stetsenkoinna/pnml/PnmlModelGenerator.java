@@ -153,6 +153,10 @@ public class PnmlModelGenerator {
         if (object.isCollapsed()) {
             objectElement.setAttribute(PnmlConstants.ATTR_COLLAPSED, "true");
         }
+        if (object.getParentIndex() >= 0) {
+            objectElement.setAttribute(PnmlConstants.ATTR_PARENT_OBJECT,
+                    String.valueOf(object.getParentIndex()));
+        }
         toolspecific.appendChild(objectElement);
 
         NetTemplateRef template = object.getTemplate();

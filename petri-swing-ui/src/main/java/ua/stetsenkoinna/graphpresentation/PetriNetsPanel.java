@@ -27,11 +27,13 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
+import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,6 +45,7 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 
 import ua.stetsenkoinna.config.ResourcePathConfig;
+import ua.stetsenkoinna.graphnet.CanvasItem;
 import ua.stetsenkoinna.graphnet.FramePort;
 import ua.stetsenkoinna.graphnet.GraphArcFactory;
 import ua.stetsenkoinna.graphnet.GraphCanvasModel;
@@ -60,8 +63,8 @@ import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphpresentation.dragndrop.PnsDropHandler;
 import ua.stetsenkoinna.graphpresentation.dragndrop.UnifiedDropHandler;
+import ua.stetsenkoinna.graphpresentation.objmodel.CanvasStack;
 import ua.stetsenkoinna.graphpresentation.objmodel.NetTemplateDialog;
-import ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectPalette;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectTemplate;
 import ua.stetsenkoinna.graphnet.GraphNetBuilder;
@@ -69,9 +72,14 @@ import ua.stetsenkoinna.libnet.NetTemplateCatalog;
 import ua.stetsenkoinna.pnml.PnmlParser;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.AddObjectFrameEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteGraphElementsEdit;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.JoinPlacesEdit;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.ObjectFrameSnapshot;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.PasteElementsEdit;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.RemoveObjectFrameEdit;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.SplitSharedPlaceEdit;
 import ua.stetsenkoinna.graphpresentation.dragndrop.PnmlDropHandler;
 import ua.stetsenkoinna.utils.MessageHelper;
 
@@ -96,6 +104,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private GraphElement choosen;
     private GraphArc currentArc;
     private GraphArc choosenArc;
+    /** The shared place the user last clicked - the fusion-shaped twin of {@link #choosenArc}. */
+    private GraphPlaceFusion choosenFusion;
+    /** The boundary stub being dragged to a new parking spot, or {@code null}. */
+    private BoundaryStub draggedBoundaryStub;
     private int savedId;
     public SetArc setArcFrame = new SetArc(this);
     public SetPosition setPositionFrame = new SetPosition(this);
@@ -105,11 +117,23 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private Point prevMouseLocation;
     private Point startDragMouseLocation = null;
     private Point currentDragMouseLocation = null;
-    private List<GraphElement> choosenElements = new ArrayList<>();
+
+    /**
+     * Everything the canvas has selected, of either kind - see {@link CanvasSelection} for why
+     * one store replaced the three the canvas used to keep.
+     */
+    private final CanvasSelection selection = new CanvasSelection();
+
     private double scale = 1.0;
     private boolean leftMouseButtonPressed = false;
 
     private List<GraphElement> copiedElements;
+
+    /**
+     * The Petri-objects Ctrl+C picked up, so Ctrl+V pastes objects rather than the loose
+     * elements they happened to hold.
+     */
+    private List<GraphObjectFrame> copiedFrames = new ArrayList<>();
 
     /** False for a panel that only displays a net, e.g. while animating a whole model. */
     private final boolean editable;
@@ -120,14 +144,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private final GraphCanvasModel canvasModel = new GraphCanvasModel();
 
-    /** Frame the user is currently moving, resizing, or has selected. */
+    /** Frame the user is currently moving or resizing. */
     private GraphObjectFrame draggedFrame;
     private GraphObjectFrame resizedFrame;
-    private GraphObjectFrame selectedFrame;
-    /** Frames selected together, e.g. by Ctrl+A — the frame-level equivalent of choosenElements. */
-    private final List<GraphObjectFrame> choosenFrames = new ArrayList<>();
     /** Offset between the pointer and the dragged frame's corner, so it does not jump. */
     private Point frameDragOffset;
+
+    /**
+     * The Petri-object whose own canvas is being edited, or {@code null} for the net's canvas.
+     *
+     * <p>This is a view, not a second document: there is still one {@link GraphCanvasModel}, one
+     * net and one undo history. What it changes is what is painted, what is hit-tested, what a
+     * selection may hold and which object a newly drawn element is claimed for. Everything else
+     * in the application - File Save, PNML export, {@code toObjModel}, statistics, animation -
+     * therefore keeps working on the whole model with no notion of focus at all, which is exactly
+     * what stashing per-canvas documents would have taken away.
+     */
+    private GraphObjectFrame focusedFrame;
+
+    /** Which canvases are open along the bottom of the window, and which is active. */
+    private final CanvasStack canvasStack = new CanvasStack(canvasModel);
 
     /** Frames a running animation is currently highlighting — see {@link #clearAnimationHighlight()}. */
     private final Set<GraphObjectFrame> activeAnimationFrames =
@@ -168,10 +204,42 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *  panning the view without actually switching tools. */
     private boolean selectToolPanning;
 
+    /**
+     * Set the moment a drag is seen, cleared on the next press and by the click that follows the
+     * drag. It stops {@code mouseClicked} from reading the tail of a drag gesture as a click on
+     * nothing and clearing the selection the drag just made - a selection that outlives its own
+     * release only because AWT happens to suppress {@code MOUSE_CLICKED} after a drag, which is a
+     * platform behaviour rather than a promise.
+     */
+    private boolean dragCompleted;
+
+    /** Set while a multi-selection is being dragged, so its release can reparent what moved. */
+    private boolean selectionDragged;
+
     private static final Cursor ERASER_CURSOR = buildEraserCursor();
 
+    /**
+     * @return the selected places and transitions, live and mutable - the undoable edits have
+     *         mutated the canvas's selection through this accessor since long before
+     *         Petri-objects existed, so it still hands out the very same list instance
+     *         {@link CanvasSelection} holds
+     */
     public List<GraphElement> getChoosenElements() {
-        return choosenElements;
+        return selection.elements();
+    }
+
+    /**
+     * @return everything the canvas has selected, of either kind
+     */
+    public CanvasSelection getSelection() {
+        return selection;
+    }
+
+    /**
+     * @return which canvases are open along the bottom of the window
+     */
+    public CanvasStack getCanvasStack() {
+        return canvasStack;
     }
 
     public PetriNetsPanel(JTextField textField) {
@@ -222,92 +290,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     return;
                 }
                 if (e.getKeyCode() == KeyEvent.VK_DELETE || e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
-                    // A selected Petri-object frame is deleted as a whole, the same way its
-                    // context-menu "Remove" does — but only when nothing more specific (an
-                    // arc, a single element, a rubber-band selection) is also selected, so
-                    // Delete keeps its existing per-element meaning everywhere else.
-                    if (selectedFrame != null && choosenArc == null && choosen == null
-                            && choosenElements.isEmpty() && choosenFrames.isEmpty()) {
-                        confirmRemoveObjectFrame(selectedFrame);
-                    }
-                    // Deliberately not also requiring choosenElements to be empty: Ctrl+A fills
-                    // both lists, so that condition meant a select-all followed by Delete wiped
-                    // every place and transition and left the objects behind as empty
-                    // rectangles. Frames go first, since removing one releases its members back
-                    // to the canvas and the element sweep below then accounts for them.
-                    if (!choosenFrames.isEmpty() && choosenArc == null && choosen == null) {
-                        confirmRemoveObjectFrames(new ArrayList<>(choosenFrames));
-                    }
-                    if (choosenArc != null) {
-                        removeArc(choosenArc);
-
-                        /* saving this edit for possible undoing */
-                        DeleteArcEdit edit = new DeleteArcEdit(PetriNetsPanel.this, choosenArc);
-                        PetriNetsFrame.getUndoSupport().postEdit(edit);
-
-                        choosenArc = null;
-                        currentArc = null;
-                    }
-                    if (choosen != null) {
-                        deleteElement(choosen);
-                        choosen = null;
-                        current = null;
-                    }
-                    if (!choosenElements.isEmpty()) {
-
-                        int result = JOptionPane.showConfirmDialog((Component) null, "Are you sure you want to delete selected elements?",
-                                "Delete", JOptionPane.OK_CANCEL_OPTION);
-                        if (result == JOptionPane.OK_OPTION) {
-                            try {
-                                List<GraphArcIn> inArcsToBeRemoved = new ArrayList<>();
-                                List<GraphArcOut> outArcsToBeRemoved = new ArrayList<>();
-
-                                for (GraphElement graphElement : choosenElements) {
-                                    /* finding arcs that will be deleted along with this element. It's mostly a copy-paste from
-                                     * PetriGraphNet.removeElement and this functionality probably should be merged,
-                                     * but copy-pasting was the least invasive method of implementing bulk delete undoing.
-                                     */
-
-                                    for (GraphArcIn arc : getGraphNet().getGraphArcInList()) {
-                                        if (arc.getBeginElement() == graphElement
-                                                || arc.getEndElement() == graphElement) {
-                                            if (!inArcsToBeRemoved.contains(arc)) {
-                                                inArcsToBeRemoved.add(arc);
-                                            }
-
-                                        }
-                                    }
-
-                                    for (GraphArcOut arc : getGraphNet().getGraphArcOutList()) {
-                                        if (arc.getBeginElement() == graphElement
-                                                || arc.getEndElement() == graphElement) {
-                                            if (!outArcsToBeRemoved.contains(arc)) {
-                                                outArcsToBeRemoved.add(arc);
-                                            }
-
-                                        }
-                                    }
-                                    /* found all arcs that will be deleted */
-
-                                    remove(graphElement);
-                                    PetriNetsPanel.this.setDefaultColorGraphElements(); //27.07.2018
-                                }
-                                /* save this action into undo manager so that it can be undone */
-                                DeleteGraphElementsEdit edit
-                                        = new DeleteGraphElementsEdit(PetriNetsPanel.this,
-                                                new ArrayList(choosenElements),
-                                                inArcsToBeRemoved, outArcsToBeRemoved);
-
-                                PetriNetsFrame.getUndoSupport().postEdit(edit);
-                            } catch (ExceptionInvalidNetStructure ex) {
-                                LOGGER.error("Unexpected error", ex);
-                            } finally {
-                                choosenElements.clear();
-                                PetriNetsPanel.this.setDefaultColorGraphElements();//27.07.2018
-
-                            }
-                        }
-                    }
+                    deleteSelection();
                 }
 
                 if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_A) {
@@ -317,7 +300,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
 
                 if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_C) {
-                    copiedElements = new ArrayList<>(choosenElements);
+                    copySelection();
                 }
 
                 if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_V) {
@@ -327,8 +310,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 // Duplicating a Petri-object is a distinct gesture from copy/paste of plain
                 // elements, since it also carries the object's name, priority and template —
                 // Ctrl+D matches what the frame's own context menu offers.
-                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_D && selectedFrame != null) {
-                    duplicateObject(selectedFrame);
+                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_D) {
+                    duplicateSelection();
                 }
             }
         });
@@ -337,26 +320,206 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     /**
      * A handler for ctrl+V. Clones elements and arcs associated with them and
-     * pastes them onto the canvas
+     * pastes them onto the canvas.
+     *
+     * <p>A Petri-object that was copied comes back as a Petri-object: a frame of its own, at the
+     * paste offset, claiming the copies of what the original held. Before, copying an object
+     * pasted its net as loose elements, because the clipboard only ever held elements and nothing
+     * recreated the frame.
      */
     public void pasteAction() {
-        if (copiedElements != null && !copiedElements.isEmpty()) {
-            GraphPetriNet.GraphNetFragment clonedFragment
-                    = graphNet.bulkCopyNoPasteElements(copiedElements);
+        pasteClipboard();
+    }
 
+    /**
+     * One of the canvas's selection operations: pastes whatever Ctrl+C picked up, of either kind.
+     *
+     * @see CanvasSelection for why the operations are written once each rather than per store
+     */
+    public void pasteClipboard() {
+        // Everything to clone in one pass, so a copied object's net and the loose elements copied
+        // alongside it come out of a single bulk copy and any arc between them survives.
+        List<GraphElement> toClone = new ArrayList<>();
+        if (copiedElements != null) {
+            toClone.addAll(copiedElements);
+        }
+        for (GraphObjectFrame frame : copiedFrames) {
+            for (GraphElement member : canvasModel.membersOfSubtree(frame)) {
+                if (!toClone.contains(member)) {
+                    toClone.add(member);
+                }
+            }
+        }
+        if (toClone.isEmpty()) {
+            return;
+        }
+
+        // One paste is one Ctrl+Z. Without the grouping a paste that carried objects posted the
+        // fragment and then one edit per object, so undoing it peeled the objects off one at a
+        // time and left their nets behind, the same shape of bug as putting one on the canvas.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        GraphPetriNet.GraphNetFragment clonedFragment;
+        try {
+            clonedFragment = graphNet.bulkCopyNoPasteElements(toClone);
+            // The paste offset is applied here, once, rather than inside addNetFragment:
+            // the redo of a paste replays addNetFragment on the same instances, so an
+            // offset in there shifted the pasted net another 15 pixels down-right on
+            // every undo/redo cycle, sliding it out of its own reinstated frame.
+            for (GraphElement element : clonedFragment.elements) {
+                element.moveBy(PASTE_OFFSET, PASTE_OFFSET);
+            }
             addNetFragment(clonedFragment);
 
-            copiedElements = new ArrayList<>(clonedFragment.elements);
+            // Posted before the frames, so a compound undo removes the frames first (each
+            // snapshotting its live membership) and deletes the clones last; the reverse
+            // order snapshotted frames whose members were already deleted, and redo then
+            // rebuilt the objects empty.
+            PasteElementsEdit pasteEdit = new PasteElementsEdit(this, clonedFragment);
+            PetriNetsFrame.getUndoSupport().postEdit(pasteEdit);
 
-            PetriNetsFrame.getUndoSupport().postEdit(
-                    new PasteElementsEdit(this, clonedFragment)
-            );
+            for (GraphObjectFrame original : copiedFrames) {
+                // A frame whose ancestor is also in the clipboard travels with that
+                // ancestor: recreating it separately as well would steal the copies of
+                // its elements from the copied nest and leave a second, empty object.
+                if (enclosedByAnyOf(original, copiedFrames)) {
+                    continue;
+                }
+                recreateCopiedObject(original, clonedFragment.oldToNew);
+            }
+
+            // Pasted on an object's canvas means pasted into that object, the same rule the
+            // placement tools follow. Loose clones used to land unowned, which this canvas
+            // does not even draw - the paste looked like it did nothing, while a ghost copy
+            // lay around on the root canvas.
+            if (focusedFrame != null) {
+                List<GraphElement> adopted = new ArrayList<>();
+                for (GraphElement clone : clonedFragment.elements) {
+                    if (canvasModel.ownerOf(clone) == null) {
+                        canvasModel.claim(focusedFrame, clone);
+                        adopted.add(clone);
+                    }
+                }
+                growToHoldMembers(focusedFrame, adopted);
+                pasteEdit.rememberAdoption(focusedFrame, adopted);
+            }
+
+            recreateFusionsAmongCopies(clonedFragment.oldToNew);
+
+            copiedElements = new ArrayList<>(clonedFragment.elements);
+            // The pasted objects, not the originals, are what another Ctrl+V should paste next -
+            // otherwise every paste after the first stacks another copy on top of the first one.
+            List<GraphObjectFrame> pasted = new ArrayList<>();
+            for (GraphObjectFrame frame : canvasModel.getFrames()) {
+                if (recentlyPasted.contains(frame)) {
+                    pasted.add(frame);
+                }
+            }
+            copiedFrames = pasted;
+            recentlyPasted.clear();
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+    }
+
+    /** How far a pasted copy lands from what it was copied from, in canvas units. */
+    private static final int PASTE_OFFSET = 15;
+
+    /** Frames created by the paste currently in progress; see {@link #pasteClipboard}. */
+    private final List<GraphObjectFrame> recentlyPasted = new ArrayList<>();
+
+    /**
+     * Rebuilds one copied Petri-object around the copies of its own elements: same name with a
+     * "copy" suffix, same priority, template and collapsed state, nested wherever the original
+     * was.
+     *
+     * @param original the frame that was copied
+     * @param oldToNew every copied element mapped to its copy
+     */
+    private void recreateCopiedObject(GraphObjectFrame original,
+            Map<GraphElement, GraphElement> oldToNew) {
+        GraphObjectFrame duplicate = recreateFrameSubtree(original, oldToNew,
+                original.getName() + " copy", PASTE_OFFSET, PASTE_OFFSET);
+        if (duplicate != null) {
+            recentlyPasted.add(duplicate);
         }
     }
 
     /**
-     * Adds a fragment of a net onto the canvas. Fragments' coordinates are
-     * updated in the process.
+     * Recreates every shared place both of whose halves were cloned by a copy, joining the
+     * clones the way the originals were joined. A duplicated or pasted nest used to come
+     * back with its internal fusions silently dropped: the copy looked identical but its
+     * places were no longer shared, so the copy simulated differently from the original.
+     * Posted as one {@code JoinPlacesEdit} each, inside the caller's compound edit, so the
+     * undo and redo of the copy carry the fusions with everything else.
+     *
+     * @param oldToNew every copied element mapped to its copy
+     */
+    private void recreateFusionsAmongCopies(Map<GraphElement, GraphElement> oldToNew) {
+        for (GraphPlaceFusion fusion : new ArrayList<>(canvasModel.getFusions())) {
+            GraphElement masterCopy = oldToNew.get(fusion.getMaster());
+            GraphElement joinedCopy = oldToNew.get(fusion.getJoined());
+            if (masterCopy instanceof GraphPetriPlace masterPlace
+                    && joinedCopy instanceof GraphPetriPlace joinedPlace) {
+                GraphPlaceFusion copy = new GraphPlaceFusion(masterPlace, joinedPlace,
+                        canvasModel.ownerOf(masterPlace), canvasModel.ownerOf(joinedPlace));
+                canvasModel.restoreFusion(copy);
+                PetriNetsFrame.getUndoSupport().postEdit(new JoinPlacesEdit(this, copy));
+            }
+        }
+    }
+
+    /**
+     * Rebuilds a copied Petri-object together with everything nested inside it. Copying used
+     * to flatten a nest: one frame was recreated and every subtree element's copy claimed for
+     * it directly, so a pasted "A copy" quietly swallowed the whole net of A's nested objects
+     * while the objects themselves vanished from the copy - and the model's own semantics
+     * (per-object priorities, statistics, links) silently changed with them.
+     *
+     * @param originalRoot the copied frame at the top of the nest
+     * @param oldToNew every copied element mapped to its copy
+     * @param rootName name for the copy of {@code originalRoot}; nested copies keep their own
+     *        names, uniquified the way every other creation path does
+     * @param dx how far right the element copies were shifted from the originals
+     * @param dy how far down the element copies were shifted from the originals
+     * @return the copy of {@code originalRoot}, or {@code null} when there was nothing to copy
+     */
+    private GraphObjectFrame recreateFrameSubtree(GraphObjectFrame originalRoot,
+            Map<GraphElement, GraphElement> oldToNew, String rootName, int dx, int dy) {
+        if (originalRoot == null || oldToNew.isEmpty()) {
+            return null;
+        }
+        // subtreeOf is parent-first, so by the time a child is nested its parent's copy exists.
+        Map<GraphObjectFrame, GraphObjectFrame> copies = new LinkedHashMap<>();
+        for (GraphObjectFrame original : canvasModel.subtreeOf(originalRoot)) {
+            GraphObjectFrame copy = new GraphObjectFrame(original, oldToNew);
+            copy.moveBy(dx, dy);
+            copy.setName(uniqueObjectName(original == originalRoot ? rootName : original.getName()));
+            copies.put(original, copy);
+        }
+        for (Map.Entry<GraphObjectFrame, GraphObjectFrame> entry : copies.entrySet()) {
+            GraphObjectFrame original = entry.getKey();
+            GraphObjectFrame copy = entry.getValue();
+            GraphObjectFrame parent = original == originalRoot
+                    ? canvasModel.enclosingOf(originalRoot)
+                    : copies.get(canvasModel.enclosingOf(original));
+            canvasModel.nest(copy, parent);
+            addObjectFrame(copy);
+            for (GraphElement member : copy.getMembers()) {
+                // Locked inside the copy, so leaving one selected would let Delete or a
+                // drag act on an object's own net from the shared canvas.
+                member.setColor(Color.BLACK);
+                selection.remove(member);
+            }
+        }
+        return copies.get(originalRoot);
+    }
+
+    /**
+     * Adds a fragment of a net onto the canvas, at the coordinates the fragment already
+     * carries. It used to add a paste offset of its own, which the redo of a paste then
+     * re-applied on every undo/redo cycle, sliding the pasted net 15 pixels down-right
+     * each time - out of the very frame reinstated around it. The offset is the paster's
+     * business, applied once.
      *
      * @param fragment fragment to add
      */
@@ -364,25 +527,25 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         List<GraphElement> elementsToSpawn = fragment.elements;
 
         // de-selecting any selected elements
-        for (GraphElement prevElement : choosenElements) {
+        for (GraphElement prevElement : selection.elements()) {
             prevElement.setColor(Color.BLACK);
         }
-        choosenElements.clear();
+        selection.clear();
 
         for (GraphElement element : elementsToSpawn) {
-            Point2D spawnPoint = element.getGraphElementCenter();
-            spawnPoint.setLocation(spawnPoint.getX() + 15, spawnPoint.getY() + 15);
-
-            element.setNewCoordinates(spawnPoint);
-
             if (element instanceof GraphPetriPlace) {
                 this.getGraphNet().getGraphPetriPlaceList().add((GraphPetriPlace) element);
             } else {
                 this.getGraphNet().getGraphPetriTransitionList().add((GraphPetriTransition) element);
             }
 
-            choosenElements.add(element);
-            element.setColor(Color.GREEN);
+            // An element already claimed by an object is locked inside it; selecting it
+            // here would let Delete or a drag act on that object's net from the shared
+            // canvas. Happens on the redo of an object paste, where the frame and its
+            // claims are reinstated before this replays.
+            if (canvasModel.ownerOf(element) == null) {
+                selection.add(element);
+            }
         }
 
         for (GraphArcIn arcIn : fragment.inArcs) {
@@ -443,21 +606,35 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             setCanvasNet(new GraphPetriNet());
         }
 
+        // The one shared marking, mirrored before anything draws: the joined half's own
+        // count is never what the model runs with, and a running animation only ever
+        // changes the master's live instance.
+        for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
+            fusion.syncMarking();
+        }
+
         // Expanded frames go under the drawing, collapsed ones over it: covering the net is
         // exactly what collapsing an object means on a shared canvas.
         paintObjectFrames(g2, false);
         graphNet.paintGraphPetriNet(g2, g, hiddenElements());
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            fusion.draw(g2, false);
+            if (isFusionDrawnOnThisCanvas(fusion)) {
+                fusion.draw(g2, fusion.isAnimationLit() || fusion == choosenFusion);
+            }
         }
         paintObjectFrames(g2, true);
         paintPorts(g2);
+        // The boundary stubs of the object being edited: each connection to the rest of
+        // the document ends in a short stub labelled with the outside element's name.
+        paintBoundaryStubLabels(g2);
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            if (fusion.isAnchoredToAFrame()) {
-                Point masterPoint = connectionEndpoint(fusion.getMasterOwner(), fusion.getMaster());
-                Point joinedPoint = connectionEndpoint(fusion.getJoinedOwner(), fusion.getJoined());
-                if (masterPoint != null && joinedPoint != null) {
-                    fusion.drawBetweenPorts(g2, masterPoint, joinedPoint, false);
+            if (fusion.isAnchoredToAFrame() && isFusionDrawnOnThisCanvas(fusion)) {
+                Line2D line = trimmedFusionLine(fusion);
+                if (line != null) {
+                    fusion.drawBetweenPorts(g2,
+                            new Point((int) line.getX1(), (int) line.getY1()),
+                            new Point((int) line.getX2(), (int) line.getY2()),
+                            fusion.isAnimationLit() || fusion == choosenFusion);
                 }
             }
         }
@@ -489,7 +666,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (choosen != null) {
             choosen.drawGraphElement(g2);
         }
-        for (GraphElement graphElement : choosenElements) {
+        for (GraphElement graphElement : selection.elements()) {
 
             graphElement.drawGraphElement(g2);
         }
@@ -548,15 +725,29 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Draws the Petri-object frames.
+     * Draws the Petri-object frames that belong on the active canvas: on the net's own canvas,
+     * every top-level object and, inside each one, whatever it has nested that nothing above
+     * hides; on an object's canvas, whatever is nested inside that object.
+     *
+     * <p>The object being edited is not drawn at all. On its own canvas it is not a box the user
+     * is inside, it is simply the net they are editing, and a border around the whole drawing
+     * would only be a wall around everything on screen. Which canvas this is comes from the
+     * canvas strip, where the object's pill is the active one, so the frame has nothing left to
+     * say. Its ports are still drawn, by paintPorts, because those stand for real connections to
+     * other objects rather than for the boundary.
+     *
+     * <p>Frames are drawn parent-first, so a nested object is painted over the parent it sits
+     * inside rather than underneath it.
      *
      * @param collapsedOnes true to draw the collapsed frames, which hide their net and are
      *        therefore painted over it, false for the expanded ones painted under it
      */
     private void paintObjectFrames(Graphics2D g2, boolean collapsedOnes) {
-        List<GraphObjectFrame> frames = canvasModel.getFrames();
-        for (int index = 0; index < frames.size(); index++) {
-            GraphObjectFrame frame = frames.get(index);
+        List<GraphObjectFrame> flat = canvasModel.getFrames();
+        for (GraphObjectFrame frame : canvasModel.framesParentFirst()) {
+            if (frame == focusedFrame || !isFrameDrawnOnThisCanvas(frame)) {
+                continue;
+            }
             if (frame.isCollapsed() != collapsedOnes) {
                 continue;
             }
@@ -565,18 +756,24 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 g2.fillRoundRect(frame.getBounds().x, frame.getBounds().y,
                         frame.getBounds().width, frame.getBounds().height, 14, 14);
             }
-            frame.draw(g2, index, frame == selectedFrame || choosenFrames.contains(frame), countElementsIn(frame));
+            frame.draw(g2, flat.indexOf(frame), selection.contains(frame), countElementsIn(frame));
         }
     }
 
     /**
-     * Draws the ports of every frame whose content is currently hidden — while an object's own
-     * net is on screen there is nothing a port needs to stand in for, so drawing its circle
-     * over the real element right next to it would only be clutter.
+     * Draws the ports of every frame the active canvas shows only as a boundary: the collapsed and
+     * the eye-hidden objects on it. While an object's own net is on screen there is nothing a port
+     * needs to stand in for, so drawing its circle over the real element right next to it would
+     * only be clutter.
+     *
+     * <p>The focused object has none drawn either. On its own canvas it is a plain net, and a
+     * circle on a border that is not painted would be the last trace of a box the user was told
+     * they are not in. A link to another object is made from the canvas that shows both, which is
+     * the level above.
      */
     private void paintPorts(Graphics2D g2) {
         for (GraphObjectFrame frame : canvasModel.getFrames()) {
-            if (!isContentHidden(frame)) {
+            if (frame == focusedFrame || !isFrameDrawnOnThisCanvas(frame) || !isContentHidden(frame)) {
                 continue;
             }
             for (FramePort port : canvasModel.portsOf(frame)) {
@@ -586,26 +783,118 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * @param frame the owner of an element whose content might currently be hidden
-     * @return true if that frame's net is not painted right now
+     * @param frame a Petri-object frame, or {@code null} for the free elements
+     * @return the outermost object at or above {@code frame} whose content the active canvas does
+     *         not paint, or {@code null} when nothing hides it. Walking the whole chain rather
+     *         than checking one frame is what makes a collapsed object hide the objects nested
+     *         inside it too, and what lets a connection out of a deeply nested object resolve to
+     *         a port on the outermost thing the user can actually see.
      */
-    private boolean isContentHidden(GraphObjectFrame frame) {
-        return frame != null && !frame.isContentShown();
+    private GraphObjectFrame outermostHidden(GraphObjectFrame frame) {
+        GraphObjectFrame hidden = null;
+        int guard = 0;
+        for (GraphObjectFrame above = frame;
+                above != null && above != focusedFrame && guard <= canvasModel.getFrames().size();
+                above = canvasModel.enclosingOf(above), guard++) {
+            if (!above.isContentShown()) {
+                hidden = above;
+            }
+        }
+        return hidden;
     }
 
     /**
-     * @return every place and transition that is not currently painted, because the frame that
-     *         claims it is collapsed or has its content hidden behind the eye icon
+     * @param frame the owner of an element whose content might currently be hidden
+     * @return true if that frame's net is not painted right now, whether because it is itself
+     *         collapsed or eye-hidden or because something enclosing it is
+     */
+    private boolean isContentHidden(GraphObjectFrame frame) {
+        return outermostHidden(frame) != null;
+    }
+
+    /**
+     * @param frame a Petri-object frame
+     * @return true if the active canvas draws this frame at all: it has to sit inside the focused
+     *         object (or at the top level when the net's own canvas is active) with nothing
+     *         between it and that focus collapsed or eye-hidden. The one predicate that decides
+     *         what a canvas shows of the nesting hierarchy.
+     */
+    private boolean isFrameDrawnOnThisCanvas(GraphObjectFrame frame) {
+        if (frame == null || frame == focusedFrame) {
+            // Neither is a box this canvas paints. The net has no frame of its own, and the
+            // object being edited is drawn as the net it holds rather than as a room around it,
+            // which is also why nothing of its chrome, its header or its eye icon, is clickable.
+            return false;
+        }
+        int guard = 0;
+        for (GraphObjectFrame above = canvasModel.enclosingOf(frame);
+                above != focusedFrame;
+                above = canvasModel.enclosingOf(above)) {
+            if (above == null || !above.isContentShown() || guard++ > canvasModel.getFrames().size()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * @param element a place or transition of the drawing
+     * @return true if the active canvas paints it: it belongs to the focused object, or to
+     *         something nested inside it that nothing above has hidden. Everything else - another
+     *         object's net, a sibling object's, the free elements while an object is being edited
+     *         - is simply not on this canvas.
+     */
+    private boolean isDrawnOnThisCanvas(GraphElement element) {
+        GraphObjectFrame owner = canvasModel.ownerOf(element);
+        if (owner == focusedFrame) {
+            return true;
+        }
+        return isFrameDrawnOnThisCanvas(owner) && owner.isContentShown();
+    }
+
+    /**
+     * @param element a place or transition of the drawing
+     * @return true if the active canvas is the one this element is edited on - it is claimed by
+     *         exactly the focused object. On the net's canvas that is the free elements, which is
+     *         the rule that has always locked a framed element; on an object's canvas it is that
+     *         object's own members, which is what makes them directly draggable, deletable and
+     *         arc-able there.
+     */
+    private boolean isOnThisCanvas(GraphElement element) {
+        return canvasModel.ownerOf(element) == focusedFrame;
+    }
+
+    /**
+     * @param frame a Petri-object frame
+     * @return true if the active canvas is the one this frame is edited on - it is nested
+     *         directly under the focused object, the frame-shaped analogue of
+     *         {@link #isOnThisCanvas}. Being drawn here is not enough: a frame nested two or
+     *         more levels deep is still drawn directly on this canvas whenever every object
+     *         between it and here is expanded ({@link #isFrameDrawnOnThisCanvas}), the same way
+     *         a doubly-framed element's own body is - but neither is "edited here" the way a
+     *         direct child's own header, resize handle, or context menu is. Structural changes
+     *         (move, resize, rename, priority, duplicate, remove) are gated on this; a plain
+     *         display toggle (the eye icon, collapse) is not, since it changes nothing the
+     *         object's own canvas would disagree about.
+     */
+    private boolean isFrameOnThisCanvas(GraphObjectFrame frame) {
+        return frame != null && canvasModel.enclosingOf(frame) == focusedFrame;
+    }
+
+    /**
+     * @return every place and transition {@code paintGraphPetriNet} must leave out: those on
+     *         another canvas entirely, and those whose own object, or an object enclosing it, is
+     *         collapsed or eye-hidden
      */
     private java.util.Set<GraphElement> hiddenElements() {
         java.util.Set<GraphElement> hidden = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
-            if (isContentHidden(canvasModel.ownerOf(place))) {
+            if (!isDrawnOnThisCanvas(place)) {
                 hidden.add(place);
             }
         }
         for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
-            if (isContentHidden(canvasModel.ownerOf(transition))) {
+            if (!isDrawnOnThisCanvas(transition)) {
                 hidden.add(transition);
             }
         }
@@ -626,15 +915,210 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *         {@code null} if a hidden half's port cannot currently be found
      */
     private GraphElement connectionAnchor(GraphObjectFrame frame, GraphElement element) {
-        if (!isContentHidden(frame)) {
+        GraphObjectFrame hiding = outermostHidden(frame);
+        // The OUTERMOST hidden object, not the element's own: a place inside an object nested in a
+        // collapsed object is drawn nowhere, and the only border on screen for a link to reach is
+        // the collapsed ancestor's. Its ports cover its whole subtree, so the element has one.
+        if (hiding != null && isFrameDrawnOnThisCanvas(hiding)) {
+            return portAnchorFor(hiding, element);
+        }
+        if (isDrawnOnThisCanvas(element)) {
             return element;
         }
+        return hiding == null ? element : portAnchorFor(hiding, element);
+    }
+
+    /**
+     * @param frame the object whose border the connection should reach
+     * @param element the place or transition the port stands in for
+     * @return an anchor on that frame's border, or {@code null} if it has no port for the element
+     */
+    private GraphElement portAnchorFor(GraphObjectFrame frame, GraphElement element) {
         for (FramePort port : canvasModel.portsOf(frame)) {
             if (port.getElement() == element) {
                 return new PortAnchor(port.getPosition(), FramePort.RADIUS);
             }
         }
         return null;
+    }
+
+    /** How far a boundary stub's free end sits past the connected element's border. */
+    private static final int BOUNDARY_STUB_LENGTH = 34;
+
+    /**
+     * Where a connection to something outside this canvas is anchored: a point a short way
+     * out of the drawn element, in the direction the outside element actually lies. The
+     * connection then paints as a short stub instead of a long line - a full left-edge port
+     * column with lines strung across the whole layout was judged to be more ink than the
+     * information is worth on the object's own canvas, while the stub keeps the two things
+     * that matter in place: that this element is attached to something outside, and roughly
+     * where that something is.
+     *
+     * @param outer the connection's end that this canvas does not draw
+     * @param inner the drawn element the connection attaches to
+     * @return the stub's free end, or {@code null} when either centre is unknown
+     */
+    private Point2D boundaryStubAnchor(GraphElement outer, GraphElement inner,
+            Point2D customOffset) {
+        Point2D from = inner.getGraphElementCenter();
+        if (from == null) {
+            return null;
+        }
+        if (customOffset != null) {
+            // Wherever the user parked it, relative to the element it belongs to.
+            return new Point2D.Double(from.getX() + customOffset.getX(),
+                    from.getY() + customOffset.getY());
+        }
+        Point2D toward = outer.getGraphElementCenter();
+        if (toward == null) {
+            return null;
+        }
+        double dx = toward.getX() - from.getX();
+        double dy = toward.getY() - from.getY();
+        double length = Math.hypot(dx, dy);
+        if (length < 1) {
+            dx = -1;
+            dy = 0;
+            length = 1;
+        }
+        double reach = Math.max(inner.getBorder(), 20) + BOUNDARY_STUB_LENGTH;
+        return new Point2D.Double(
+                from.getX() + dx / length * reach,
+                from.getY() + dy / length * reach);
+    }
+
+    /**
+     * @param outer the off-canvas end of a crossing connection
+     * @param inner the drawn end it attaches to
+     * @param customOffset where the user parked this connection's stub, or {@code null}
+     * @return the stub-end anchor for the substitute line, or {@code null} when the inner
+     *         end is not actually drawn here - nothing should be painted then
+     */
+    private GraphElement boundaryStubAnchorFor(GraphElement outer, GraphElement inner,
+            Point2D customOffset) {
+        if (inner == null || !isDrawnOnThisCanvas(inner)) {
+            return null;
+        }
+        Point2D anchor = boundaryStubAnchor(outer, inner, customOffset);
+        return anchor == null ? null : new PortAnchor(anchor, 0);
+    }
+
+    /**
+     * One boundary stub of the object being edited: the carrier is the {@link GraphArc} or
+     * {@link GraphPlaceFusion} the stub stands for, which is also where a user-dragged
+     * position is remembered.
+     */
+    private record BoundaryStub(Object carrier, GraphElement outer, GraphElement inner,
+            Point2D anchor) { }
+
+    /**
+     * Every boundary stub the active canvas draws, in a stable order. Derived on every ask,
+     * like {@link GraphCanvasModel#portsOf}: the set changes with every arc drawn and every
+     * element moved between objects.
+     */
+    private List<BoundaryStub> boundaryStubs() {
+        List<BoundaryStub> stubs = new ArrayList<>();
+        if (focusedFrame == null) {
+            return stubs;
+        }
+        for (GraphArcIn arc : graphNet.getGraphArcInList()) {
+            collectBoundaryStub(stubs, arc, arc.getBeginElement(), arc.getEndElement(),
+                    arc.getBoundaryStubOffset());
+        }
+        for (GraphArcOut arc : graphNet.getGraphArcOutList()) {
+            collectBoundaryStub(stubs, arc, arc.getBeginElement(), arc.getEndElement(),
+                    arc.getBoundaryStubOffset());
+        }
+        for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
+            collectBoundaryStub(stubs, fusion, fusion.getMaster(), fusion.getJoined(),
+                    fusion.getBoundaryStubOffset());
+        }
+        return stubs;
+    }
+
+    private void collectBoundaryStub(List<BoundaryStub> stubs, Object carrier,
+            GraphElement a, GraphElement b, Point2D customOffset) {
+        if (a == null || b == null) {
+            return;
+        }
+        boolean aDrawn = isDrawnOnThisCanvas(a);
+        boolean bDrawn = isDrawnOnThisCanvas(b);
+        if (aDrawn == bDrawn) {
+            return; // internal to this canvas, or entirely elsewhere
+        }
+        GraphElement outer = aDrawn ? b : a;
+        GraphElement inner = aDrawn ? a : b;
+        // A hidden end whose collapsed or eye-hidden object is itself drawn here anchors to
+        // that object's own port, which already carries a label of its own.
+        GraphObjectFrame hiding = outermostHidden(canvasModel.ownerOf(outer));
+        if (hiding != null && isFrameDrawnOnThisCanvas(hiding)) {
+            return;
+        }
+        Point2D anchor = boundaryStubAnchor(outer, inner, customOffset);
+        if (anchor != null) {
+            stubs.add(new BoundaryStub(carrier, outer, inner, anchor));
+        }
+    }
+
+    /**
+     * @param point a point on the canvas
+     * @return the boundary stub whose free end is under the point, or {@code null} - the
+     *         grabbable handle for parking a stub somewhere it does not interfere
+     */
+    private BoundaryStub boundaryStubAt(Point2D point) {
+        for (BoundaryStub stub : boundaryStubs()) {
+            if (stub.anchor().distance(point) <= 9) {
+                return stub;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Parks a dragged stub's free end at the given point, remembered as an offset from the
+     * element it belongs to so it travels along when the element moves. Clamped outside the
+     * element's own border - a stub tucked inside its element could never be grabbed again.
+     */
+    private void parkBoundaryStub(BoundaryStub stub, Point2D point) {
+        Point2D centre = stub.inner().getGraphElementCenter();
+        if (centre == null) {
+            return;
+        }
+        double dx = point.getX() - centre.getX();
+        double dy = point.getY() - centre.getY();
+        double length = Math.hypot(dx, dy);
+        double minimum = Math.max(stub.inner().getBorder(), 20) + 12;
+        if (length < minimum) {
+            double scale = length < 1 ? 0 : minimum / length;
+            dx = length < 1 ? -minimum : dx * scale;
+            dy = length < 1 ? 0 : dy * scale;
+        }
+        java.awt.geom.Point2D.Double offset = new java.awt.geom.Point2D.Double(dx, dy);
+        if (stub.carrier() instanceof GraphArc arc) {
+            arc.setBoundaryStubOffset(offset);
+        } else if (stub.carrier() instanceof GraphPlaceFusion fusion) {
+            fusion.setBoundaryStubOffset(offset);
+        }
+    }
+
+    /**
+     * Labels every boundary stub with the name of the outside element it stands for, just
+     * past the stub's free end - without the name, a bare stub would be the old arrow out
+     * of nowhere all over again.
+     */
+    private void paintBoundaryStubLabels(Graphics2D g2) {
+        for (BoundaryStub stub : boundaryStubs()) {
+            Point2D innerCentre = stub.inner().getGraphElementCenter();
+            Point2D anchor = stub.anchor();
+            double dx = anchor.getX() - innerCentre.getX();
+            double dy = anchor.getY() - innerCentre.getY();
+            double length = Math.max(1, Math.hypot(dx, dy));
+            String name = stub.outer().getName();
+            // Just past the free end, roughly centred on the stub's own direction.
+            float x = (float) (anchor.getX() + dx / length * 10) - name.length() * 3f;
+            float y = (float) (anchor.getY() + dy / length * 10) + 4f;
+            g2.drawString(name, x, y);
+        }
     }
 
     /**
@@ -652,6 +1136,49 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
         Point2D centre = anchor.getGraphElementCenter();
         return centre == null ? null : new Point((int) centre.getX(), (int) centre.getY());
+    }
+
+    /**
+     * The line a fusion anchored to at least one frame is drawn as, trimmed to each half's
+     * actual border the same way {@link #settleCrossingSubstitute} trims a crossing arc's line -
+     * {@link GraphPlaceFusion#drawBetweenPorts} itself just draws whatever line it is given, so
+     * without this it drew straight to {@link #connectionEndpoint}'s raw centre point instead of
+     * stopping at the place's edge (or the port's) the way every other connection on the canvas
+     * does.
+     *
+     * @return the trimmed line, or {@code null} if either half's anchor cannot currently be found
+     */
+    private Line2D trimmedFusionLine(GraphPlaceFusion fusion) {
+        GraphElement masterAnchor = fusionHalfAnchor(fusion, fusion.getMaster(), fusion.getJoined());
+        GraphElement joinedAnchor = fusionHalfAnchor(fusion, fusion.getJoined(), fusion.getMaster());
+        if (masterAnchor == null || joinedAnchor == null) {
+            return null;
+        }
+        GraphArc temp = new GraphArc();
+        temp.settingNewArc(masterAnchor);
+        temp.setEndElement(joinedAnchor);
+        temp.changeBorder();
+        return temp.getGraphElement();
+    }
+
+    /**
+     * Where one half of a shared place is drawn on the active canvas: the same resolution a
+     * crossing arc's end gets, including the short labelled stub for a half this canvas does
+     * not draw at all - with the stub position the user may have parked on the fusion.
+     */
+    private GraphElement fusionHalfAnchor(GraphPlaceFusion fusion, GraphPetriPlace half,
+            GraphPetriPlace otherHalf) {
+        GraphObjectFrame hiding = outermostHidden(canvasModel.ownerOf(half));
+        if (hiding != null && isFrameDrawnOnThisCanvas(hiding)) {
+            return portAnchorFor(hiding, half);
+        }
+        if (isDrawnOnThisCanvas(half)) {
+            return half;
+        }
+        if (focusedFrame != null) {
+            return boundaryStubAnchorFor(half, otherHalf, fusion.getBoundaryStubOffset());
+        }
+        return hiding == null ? half : portAnchorFor(hiding, half);
     }
 
     /**
@@ -675,30 +1202,79 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     private void paintCrossingArcSubstitute(Graphics2D g2, GraphArc arc, GraphArc temp) {
+        if (!settleCrossingSubstitute(arc, temp)) {
+            return;
+        }
+        temp.setQuantity(arc.getQuantity());
+        temp.setInf(arc.getIsInf());
+        temp.setColor(arc.getColor());
+        temp.drawGraphElement(g2);
+    }
+
+    /**
+     * Anchors {@code temp} to the same on-screen substitute a crossing arc is drawn as - see
+     * {@link #paintCrossingArcSubstitute} - so painting and hit-testing a crossing arc always
+     * agree on where its visible line actually is, instead of painting one line and hit-testing
+     * a different one. {@link #findArc} is the other caller: a click on a crossing arc's visible
+     * line used to never find the real arc underneath it, since only the real arc's own line -
+     * reaching to whichever end is off screen - was ever hit-tested.
+     *
+     * @return true if {@code temp} now holds the substitute line, border-trimmed and ready to
+     *         paint or hit-test; false, leaving {@code temp} untouched, when {@code arc} is not a
+     *         crossing arc at all - internal to one object, both free, or both ends on screen
+     */
+    private boolean settleCrossingSubstitute(GraphArc arc, GraphArc temp) {
         GraphElement begin = arc.getBeginElement();
         GraphElement end = arc.getEndElement();
         GraphObjectFrame beginOwner = canvasModel.ownerOf(begin);
         GraphObjectFrame endOwner = canvasModel.ownerOf(end);
         if (beginOwner == endOwner) {
-            return; // internal to one object, or both free — paintGraphPetriNet already drew it
+            return false; // internal to one object, or both free — paintGraphPetriNet already drew it
         }
-        if (!isContentHidden(beginOwner) && !isContentHidden(endOwner)) {
-            return; // both ends are on screen already, drawn directly by paintGraphPetriNet
+        if (isDrawnOnThisCanvas(begin) && isDrawnOnThisCanvas(end)) {
+            return false; // both ends are on screen already, drawn directly by paintGraphPetriNet
         }
-        GraphElement beginAnchor = connectionAnchor(beginOwner, begin);
-        GraphElement endAnchor = connectionAnchor(endOwner, end);
+        GraphElement beginAnchor = crossingAnchor(begin, end, arc.getBoundaryStubOffset());
+        GraphElement endAnchor = crossingAnchor(end, begin, arc.getBoundaryStubOffset());
         if (beginAnchor == null || endAnchor == null) {
-            return;
+            return false;
         }
         // settingNewArc is also what initializes the arc's own Line2D — setBeginElement alone
         // leaves it null, which changeBorder() (called below) unconditionally writes through.
         temp.settingNewArc(beginAnchor);
         temp.setEndElement(endAnchor);
-        temp.setQuantity(arc.getQuantity());
-        temp.setInf(arc.getIsInf());
-        temp.setColor(arc.getColor());
         temp.changeBorder();
-        temp.drawGraphElement(g2);
+        return true;
+    }
+
+    /**
+     * Where one end of a crossing connection is drawn on the active canvas.
+     *
+     * @param element the end being anchored
+     * @param otherEnd the connection's other end, needed only for the last case below
+     * @return the element itself while it is on screen; a port on the outermost collapsed or
+     *         eye-hidden object above it while that object is on screen; and, for an end that is
+     *         not on this canvas at all, a port on the focused object's own border - the boundary
+     *         the connection leaves through, so from inside an object a link out reads as "out
+     *         through here" rather than as a line to nowhere. {@code null} when none of those can
+     *         be resolved, which is when nothing should be drawn.
+     */
+    private GraphElement crossingAnchor(GraphElement element, GraphElement otherEnd,
+            Point2D stubOffset) {
+        GraphObjectFrame hiding = outermostHidden(canvasModel.ownerOf(element));
+        if (hiding != null && isFrameDrawnOnThisCanvas(hiding)) {
+            return portAnchorFor(hiding, element);
+        }
+        if (isDrawnOnThisCanvas(element)) {
+            return element;
+        }
+        if (focusedFrame != null) {
+            // A short labelled stub by the drawn end, pointing where the outside element
+            // actually lies (or wherever the user parked it) - not a bare point on the
+            // invisible focused border, and not a line strung across the whole layout.
+            return boundaryStubAnchorFor(element, otherEnd, stubOffset);
+        }
+        return null;
     }
 
     private void printPointLocation(Point point, String s) {
@@ -717,34 +1293,86 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
     }
 
+    /**
+     * @param p a point on the canvas
+     * @return the place or transition drawn there, or {@code null}. Only ever something the
+     *         active canvas actually paints: an element belonging to another object, or to the
+     *         net while an object is being edited, is not merely invisible but unreachable, which
+     *         is what keeps a click on empty canvas from picking up something off screen.
+     */
     public GraphElement find(Point2D p) {
         for (GraphPetriPlace pp : graphNet.getGraphPetriPlaceList()) {
-            if (pp.isGraphElement(p)) {
+            if (pp.isGraphElement(p) && isDrawnOnThisCanvas(pp)) {
                 return pp;
             }
         }
         for (GraphPetriTransition pt : graphNet.getGraphPetriTransitionList()) {
-            if (pt.isGraphElement(p)) {
+            if (pt.isGraphElement(p) && isDrawnOnThisCanvas(pt)) {
                 return pt;
             }
         }
         return null;
     }
 
+    /**
+     * What the Arc tool's release point resolves to as a connection target - the same two cases
+     * {@link #crossingAnchor} already draws an existing crossing arc reaching for, now used to
+     * let the tool finish a NEW one the same way: the real element itself while it is directly
+     * on screen, whether that is this canvas's own or another, fully expanded object's; or, while
+     * its owning object is collapsed or eye-hidden, the real element a port on that object's
+     * border stands in for. Connecting there still finishes onto that real place or transition,
+     * exactly as {@link #finishSettingNewArc} always has - a released arc has never cared which
+     * canvas its ends are drawn on, only what they are.
+     *
+     * @return the place or transition to finish the arc onto, or {@code null} if the point is
+     *         neither a visible element nor a port
+     */
+    private GraphElement arcToolTargetAt(Point2D point) {
+        GraphElement direct = find(point);
+        if (direct != null) {
+            return direct;
+        }
+        FramePort port = portOnCanvasAt(point);
+        return port != null ? port.getElement() : null;
+    }
+
     public GraphArc findArc(Point2D p) {
         for (GraphArcOut to : graphNet.getGraphArcOutList()) {
-            if (to.isEnoughDistance(p)) {
+            if (arcIsHitAt(to, new GraphArcOut(), p)) {
                 return to;
             }
         }
         for (GraphArcIn ti : graphNet.getGraphArcInList()) {
-            if (ti.isEnoughDistance(p)) {
+            if (arcIsHitAt(ti, new GraphArcIn(), p)) {
                 return ti;
             }
         }
         return null;
     }
 
+    /**
+     * @param arc the real arc being tested
+     * @param temp a scratch arc of the same kind, settled onto the crossing substitute (if any)
+     *        and discarded - {@code arc} itself is never mutated by a hit test
+     * @return true if {@code p} lands on {@code arc}'s own line while both ends are on screen,
+     *         or on the substitute {@link #settleCrossingSubstitute} computes while they are not
+     */
+    private boolean arcIsHitAt(GraphArc arc, GraphArc temp, Point2D p) {
+        if (isDrawnOnThisCanvas(arc.getBeginElement()) && isDrawnOnThisCanvas(arc.getEndElement())) {
+            return arc.isEnoughDistance(p);
+        }
+        return settleCrossingSubstitute(arc, temp) && temp.isEnoughDistance(p);
+    }
+
+    /**
+     * Takes one place or transition off the canvas, releasing it from whatever Petri-object
+     * claimed it and dropping any shared place that referred to it.
+     *
+     * <p>Releasing it here is what keeps a frame from claiming an element the canvas no longer
+     * draws. That used to happen on every route into this method, so an object's own member set
+     * and the canvas disagreed permanently: the object still counted the element, still exported
+     * it and still carried it when moved, while nothing was there.
+     */
     public void remove(GraphElement s) throws ExceptionInvalidNetStructure {
         if (s == null) {
             return;
@@ -753,7 +1381,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             current = null;
 
         }
+        canvasModel.release(s);
         graphNet.delGraphElement(s); //added by Inna 4.12.2012
+        canvasModel.removeDanglingFusions();
 
         repaint();
     }
@@ -762,31 +1392,355 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseWheelMoved(MouseWheelEvent e) {
-            if (e.getWheelRotation() == -1 && scale <= 0.15) {
-                return;
-            }
-            scale += (double) e.getWheelRotation() / 10;
+            // A fast spin delivers several notches in one event, so guarding a single -1
+            // step used to let the scale blow straight through the floor and turn zero or
+            // negative - at which point the whole drawing silently disappears and every
+            // hit test divides by a non-positive scale. Clamping the result holds at any
+            // spin speed, and the ceiling keeps a runaway zoom-in from doing the same in
+            // the other direction.
+            scale = Math.min(5.0, Math.max(0.1, scale + (double) e.getWheelRotation() / 10));
             repaint();
         }
 
     }
 
+    /**
+     * Ctrl+A: selects everything on the active canvas, of either kind - its own elements and the
+     * Petri-objects drawn directly on it.
+     *
+     * <p>It stops at the boundary of an object rather than sweeping in everything on the whole
+     * document. That used to be the easy route into the double-claim defect: selecting another
+     * object's members and grouping them produced an object whose net was empty, because two
+     * frames then claimed the same elements and only the first answered for them. Now the
+     * selection can never hold something belonging to another object in the first place.
+     */
     public void selectAll() { // works when key event is Ctrl+a
-        choosenElements.clear();
+        selection.clear();
         for (GraphPetriPlace p : graphNet.getGraphPetriPlaceList()) {
-            choosenElements.add(p);
-            p.setColor(Color.GREEN);
-
+            if (isOnThisCanvas(p)) {
+                selection.add(p);
+            }
         }
         for (GraphPetriTransition tr : graphNet.getGraphPetriTransitionList()) {
-            choosenElements.add(tr);
-            tr.setColor(Color.GREEN);
-
+            if (isOnThisCanvas(tr)) {
+                selection.add(tr);
+            }
         }
         // A Petri-object frame is as much a selectable thing on this canvas as a place or a
         // transition is, so Ctrl+A reaches it too.
-        choosenFrames.clear();
-        choosenFrames.addAll(canvasModel.getFrames());
+        for (GraphObjectFrame frame : canvasModel.childrenOf(focusedFrame)) {
+            selection.add(frame);
+        }
+    }
+
+    /**
+     * Rubber-band select: everything on the active canvas whose centre the band covers, of either
+     * kind.
+     *
+     * <p>A Petri-object is caught by its centre, exactly like a place or a transition. It used to
+     * be caught only when the band enclosed it whole, while its own elements were caught by centre
+     * with no owner check at all - so a band drawn across part of an object selected its contents
+     * and left the object itself unselected, which is precisely the state that let a regrouping
+     * claim elements another object still held.
+     *
+     * <p>A band is a fresh selection, so whatever was selected before it is dropped. That used not
+     * to matter, because a frame could not be dragged with a selection at all; now that it can, an
+     * object left selected by having just been created would be dragged along by the next
+     * rubber-band drag that had nothing to do with it.
+     *
+     * @param band the rubber band, in canvas coordinates
+     */
+    public void selectIn(Rectangle band) {
+        selection.clear();
+        for (GraphPetriPlace p : graphNet.getGraphPetriPlaceList()) {
+            if (isOnThisCanvas(p) && band.contains(p.getGraphElementCenter())) {
+                selection.add(p);
+            }
+        }
+        for (GraphPetriTransition tr : graphNet.getGraphPetriTransitionList()) {
+            if (isOnThisCanvas(tr) && band.contains(tr.getGraphElementCenter())) {
+                selection.add(tr);
+            }
+        }
+        for (GraphObjectFrame frame : canvasModel.getFrames()) {
+            if (frame == focusedFrame || !isFrameDrawnOnThisCanvas(frame)) {
+                continue;
+            }
+            if (band.contains(frame.getBounds().getCenterX(), frame.getBounds().getCenterY())) {
+                selection.add(frame);
+            }
+        }
+    }
+
+    /**
+     * Single-click select: whichever one thing the active canvas draws at that point, of either
+     * kind, replacing whatever was selected.
+     *
+     * <p>A frame wins over an element inside it, which is what locks a framed element on the
+     * canvas it is not edited on. On the focused object's own canvas its rectangle is skipped, so
+     * a click inside the room the user is standing in reaches the net rather than selecting the
+     * room.
+     *
+     * @param point the click point in canvas coordinates
+     * @return what got selected, {@code null} for a click on nothing
+     */
+    public Object selectAt(Point2D point) {
+        selection.clear();
+        GraphObjectFrame frame = frameAt(point);
+        if (frame != null) {
+            selection.setSelectedFrame(frame);
+            return frame;
+        }
+        GraphElement element = find(point);
+        if (element != null && isOnThisCanvas(element)) {
+            selection.add(element);
+            return element;
+        }
+        return null;
+    }
+
+    /**
+     * Moves everything selected by the same offset, of either kind: elements directly, objects
+     * with their whole subtree.
+     *
+     * @param dx horizontal offset in canvas units
+     * @param dy vertical offset in canvas units
+     */
+    public void moveSelectionBy(int dx, int dy) {
+        // An element has no subtree, so moving it is exactly CanvasItem#moveBy. A frame does -
+        // its own nested frames and members, which only GraphCanvasModel can find - so it still
+        // goes through moveFrame, which now performs that cascade with the same moveBy underneath.
+        for (GraphElement element : selection.elements()) {
+            element.moveBy(dx, dy);
+        }
+        // A frame reaches selection.allFrames() by being merely drawn here, the same as a click
+        // or a marquee selects it by (see isFrameOnThisCanvas) - an element in the same selection
+        // never does, since a click always resolves to the owning frame before it ever reaches a
+        // locked element and selectIn's own element half already checks isOnThisCanvas. Filtering
+        // here is what stops a marquee that happened to catch a deeper object's frame from moving
+        // it right along with whatever the drag was actually meant to move.
+        for (GraphObjectFrame frame : framesOnThisCanvas(selection.allFrames())) {
+            moveFrame(frame, frame.getBounds().x + dx, frame.getBounds().y + dy);
+        }
+        canvasModel.syncFusions();
+        updateArcCoordinates();
+    }
+
+    /**
+     * Ctrl+C: picks up whatever is selected, of either kind, so Ctrl+V can put a copy of it down.
+     */
+    public void copySelection() {
+        copiedElements = new ArrayList<>(selection.elements());
+        // Same scope filter as move, duplicate and delete: a marquee catches any frame merely
+        // drawn here, including one nested deep inside another object, but Ctrl+C copying it
+        // from this canvas let Ctrl+V create an object INSIDE that other object - the one
+        // structural change the edit-scope rule blocks everywhere else.
+        copiedFrames = new ArrayList<>(framesOnThisCanvas(selection.allFrames()));
+        // A selected object's own members are carried by the object, not as loose elements too:
+        // otherwise pasting would produce both a copy of the object and a second, unframed copy of
+        // its net on top of it.
+        for (GraphObjectFrame frame : copiedFrames) {
+            copiedElements.removeAll(canvasModel.membersOfSubtree(frame));
+        }
+    }
+
+    /**
+     * Ctrl+D: duplicates every selected Petri-object.
+     *
+     * <p>Every one of them, not only the last clicked. {@code Ctrl+A} then {@code Ctrl+D} used to
+     * do nothing at all, because duplicate read the single-click frame and select-all never set
+     * it - a promise the documentation already made and the mechanism never kept.
+     */
+    public void duplicateSelection() {
+        // Ctrl+D on several objects is still one gesture, so it is one Ctrl+Z. Nested updates
+        // collapse into a single edit at the outermost end, which is why duplicateObject can
+        // group on its own as well without producing two.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            for (GraphObjectFrame frame : framesOnThisCanvas(selection.allFrames())) {
+                duplicateObject(frame);
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+    }
+
+    /**
+     * @param frames a selection that may include a frame nested deeper than a direct child of
+     *        the focused object - the marquee and a single click both select whatever frame is
+     *        merely drawn here, not only what is edited here (see {@link #isFrameOnThisCanvas})
+     * @return only the ones actually eligible to be changed from this canvas
+     */
+    private List<GraphObjectFrame> framesOnThisCanvas(List<GraphObjectFrame> frames) {
+        List<GraphObjectFrame> eligible = new ArrayList<>(frames.size());
+        for (GraphObjectFrame frame : frames) {
+            if (isFrameOnThisCanvas(frame)) {
+                eligible.add(frame);
+            }
+        }
+        return eligible;
+    }
+
+    /**
+     * Delete: removes everything selected, of either kind, in one gesture, asking first.
+     *
+     * <p>Deleting a Petri-object deletes the net inside it. It used to lift that net out and drop
+     * only the frame, which is ungrouping rather than deleting: the user pressed Delete on one
+     * thing and was left with its contents scattered on the canvas. Ungrouping is still there,
+     * as the frame's own "Remove Petri-object frame", which says what it keeps.
+     */
+    public void deleteSelection() {
+        // The selected shared place goes first: it was the last thing clicked, and
+        // splitting a link asks no confirmation - both places stay where they are.
+        if (choosenFusion != null) {
+            splitSharedPlace(choosenFusion);
+            choosenFusion = null;
+            return;
+        }
+        List<GraphObjectFrame> frames = framesOnThisCanvas(selection.allFrames());
+        if (!frames.isEmpty() && choosenArc == null && choosen == null) {
+            String what = frames.size() == 1
+                    ? "the Petri-object '" + frames.getFirst().getName() + "'"
+                    : frames.size() + " Petri-objects";
+            if (MessageHelper.showConfirmation(dialogOwner(),
+                    "Delete " + what + " and the net inside? To keep the net and drop only the "
+                            + "frame, use the object's own Remove Petri-object frame.")) {
+                deleteSelectedObjects();
+            }
+        }
+        if (choosenArc != null) {
+            removeArc(choosenArc);
+
+            /* saving this edit for possible undoing */
+            DeleteArcEdit edit = new DeleteArcEdit(PetriNetsPanel.this, choosenArc);
+            PetriNetsFrame.getUndoSupport().postEdit(edit);
+
+            choosenArc = null;
+            currentArc = null;
+        }
+        if (choosen != null) {
+            deleteElement(choosen);
+            choosen = null;
+            current = null;
+        }
+        if (!selection.elements().isEmpty()) {
+            int result = JOptionPane.showConfirmDialog((Component) null,
+                    "Are you sure you want to delete selected elements?",
+                    "Delete", JOptionPane.OK_CANCEL_OPTION);
+            if (result == JOptionPane.OK_OPTION) {
+                deleteSelectedElements();
+            }
+        }
+    }
+
+    /**
+     * The bulk half of {@link #deleteSelection}: every selected place and transition, with the
+     * arcs that touch them, as one undoable step.
+     *
+     * <p>Asks nothing, so it is reachable without a dialog - {@code JOptionPane} cannot run in a
+     * test JVM, and an operation that only exists behind a modal confirmation cannot be exercised
+     * at all. The confirmation lives in {@link #deleteSelection}.
+     */
+    /**
+     * The object half of {@link #deleteSelection}: every selected Petri-object, everything nested
+     * inside it, and the whole net all of them hold, as one undoable step.
+     *
+     * <p>Works by adding the members to the element selection and letting the ordinary element
+     * delete do the work, so the arcs that touch them go too and undo restores each element into
+     * the object that held it, exactly as it does for a plain delete. The frames come off deepest
+     * first, so removing one never has to lift anything out of it.
+     *
+     * <p>Asks nothing, for the same reason {@link #deleteSelectedElements} asks nothing: an
+     * operation that exists only behind a modal dialog cannot be tested at all.
+     */
+    public void deleteSelectedObjects() {
+        List<GraphObjectFrame> roots = framesOnThisCanvas(selection.allFrames());
+        if (roots.isEmpty()) {
+            return;
+        }
+        List<GraphObjectFrame> deepestFirst = new ArrayList<>();
+        for (GraphObjectFrame root : roots) {
+            collectSubtree(root, deepestFirst);
+        }
+
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            for (GraphObjectFrame frame : deepestFirst) {
+                for (GraphElement member : canvasModel.membersOfSubtree(frame)) {
+                    selection.add(member);
+                }
+            }
+            deleteSelectedElements();
+            for (GraphObjectFrame frame : deepestFirst) {
+                removeObjectFrame(frame);
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+        selection.clear();
+        repaint();
+    }
+
+    /** Appends a frame's whole subtree to {@code into}, children before the frame itself. */
+    private void collectSubtree(GraphObjectFrame frame, List<GraphObjectFrame> into) {
+        if (into.contains(frame)) {
+            return;
+        }
+        for (GraphObjectFrame child : canvasModel.childrenOf(frame)) {
+            collectSubtree(child, into);
+        }
+        into.add(frame);
+    }
+
+    public void deleteSelectedElements() {
+        List<GraphElement> deleted = new ArrayList<>(selection.elements());
+        List<GraphArcIn> inArcsToBeRemoved = new ArrayList<>();
+        List<GraphArcOut> outArcsToBeRemoved = new ArrayList<>();
+        DeleteGraphElementsEdit edit = new DeleteGraphElementsEdit(
+                PetriNetsPanel.this, deleted, inArcsToBeRemoved, outArcsToBeRemoved);
+        try {
+            for (GraphElement graphElement : deleted) {
+                /* finding arcs that will be deleted along with this element. It's mostly a copy-paste from
+                 * PetriGraphNet.removeElement and this functionality probably should be merged,
+                 * but copy-pasting was the least invasive method of implementing bulk delete undoing.
+                 */
+                for (GraphArcIn arc : getGraphNet().getGraphArcInList()) {
+                    if (arc.getBeginElement() == graphElement
+                            || arc.getEndElement() == graphElement) {
+                        if (!inArcsToBeRemoved.contains(arc)) {
+                            inArcsToBeRemoved.add(arc);
+                        }
+                    }
+                }
+
+                for (GraphArcOut arc : getGraphNet().getGraphArcOutList()) {
+                    if (arc.getBeginElement() == graphElement
+                            || arc.getEndElement() == graphElement) {
+                        if (!outArcsToBeRemoved.contains(arc)) {
+                            outArcsToBeRemoved.add(arc);
+                        }
+                    }
+                }
+                /* found all arcs that will be deleted */
+
+                // Read before remove(): removing releases the element, so this is the last moment
+                // the answer exists, and undo needs it to put the element back into its object.
+                edit.rememberOwner(graphElement, canvasModel.ownerOf(graphElement));
+                if (graphElement instanceof GraphPetriPlace place) {
+                    // Same timing for the shared place a deleted half drags down with it.
+                    edit.rememberFusion(canvasModel.fusionOf(place));
+                }
+                remove(graphElement);
+                PetriNetsPanel.this.setDefaultColorGraphElements(); //27.07.2018
+            }
+            /* save this action into undo manager so that it can be undone */
+            PetriNetsFrame.getUndoSupport().postEdit(edit);
+        } catch (ExceptionInvalidNetStructure ex) {
+            LOGGER.error("Unexpected error", ex);
+        } finally {
+            selection.clear();
+            PetriNetsPanel.this.setDefaultColorGraphElements();//27.07.2018
+        }
     }
 
     private void setDefaultColorGraphElements() {
@@ -835,11 +1789,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * Shows the right-click menu for a popup-trigger click, if any of the Petri-object
      * actions apply at that point.
      *
-     * <p>A non-empty selection always wins: right-clicking while elements are selected means
-     * grouping that selection into a Petri-object, regardless of exactly what is under the
-     * pointer. Otherwise a specific place or transition keeps its existing right-click
-     * behaviour (opening its properties) — this menu only claims clicks that hit a
-     * Petri-object frame or empty canvas.
+     * <p>A click that lands on a Petri-object frame gets that object's own menu, selection or no
+     * selection. A non-empty element selection otherwise wins: right-clicking while elements are
+     * selected means grouping that selection into a Petri-object, regardless of exactly what is
+     * under the pointer. A specific place or transition keeps its existing right-click behaviour
+     * (opening its properties), so this menu only claims clicks that hit a frame or empty canvas.
+     *
+     * <p>The frame check used to come after the selection check, which made a frame's own menu -
+     * the only way to rename it, collapse it or remove it - unreachable while anything at all was
+     * selected.
      *
      * @param ev the triggering mouse event, used both to test and to position the menu
      * @param point the click point in canvas coordinates
@@ -849,14 +1807,33 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (!editable || !ev.isPopupTrigger()) {
             return false;
         }
-        if (!choosenElements.isEmpty()) {
-            showGroupSelectionMenu(ev, new ArrayList<>(choosenElements));
+        // A click landing exactly on a shared place's drawn line means that link: it is the
+        // most precise thing a pointer can single out, so it wins over the frame or the
+        // selection underneath it - and it is the only mouse route to removing the link.
+        GraphPlaceFusion sharedPlace = findSharedPlace(point);
+        if (sharedPlace != null && find(point) == null) {
+            showSharedPlaceMenu(ev, sharedPlace);
+            return true;
+        }
+        GraphObjectFrame frame = frameAt(point);
+        if (!isFrameOnThisCanvas(frame)) {
+            // Renaming, changing priority, duplicating or removing it is only for its own
+            // direct parent's canvas to do - see isFrameOnThisCanvas - so a frame nested deeper
+            // than that gets no menu of its own here, the same as if nothing were under the
+            // point at all.
+            frame = null;
+        }
+        if (frame != null && find(point) == null) {
+            showObjectFrameMenu(ev, frame);
+            return true;
+        }
+        if (!selection.elements().isEmpty() || !selection.allFrames().isEmpty()) {
+            showGroupSelectionMenu(ev, new ArrayList<>(selection.elements()));
             return true;
         }
         if (find(point) != null) {
             return false; // a single element keeps its own right-click behaviour
         }
-        GraphObjectFrame frame = canvasModel.frameAt(point);
         if (frame != null) {
             showObjectFrameMenu(ev, frame);
             return true;
@@ -865,10 +1842,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         return true;
     }
 
-    private void showGroupSelectionMenu(MouseEvent ev, List<GraphElement> selection) {
+    private void showSharedPlaceMenu(MouseEvent ev, GraphPlaceFusion fusion) {
         JPopupMenu menu = new JPopupMenu();
-        JMenuItem group = new JMenuItem("Group selection into Petri-object");
-        group.addActionListener(e -> groupIntoObject(selection));
+        JMenuItem split = new JMenuItem("Split the shared place");
+        split.setToolTipText("'" + fusion.getMaster().getName() + "' and '"
+                + fusion.getJoined().getName() + "' become two separate places again");
+        split.addActionListener(e -> splitSharedPlace(fusion));
+        menu.add(split);
+        menu.show(this, ev.getX(), ev.getY());
+    }
+
+    private void showGroupSelectionMenu(MouseEvent ev, List<GraphElement> chunk) {
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem group = new JMenuItem(focusedFrame == null
+                ? "Group selection into Petri-object"
+                : "Group selection into a nested Petri-object");
+        group.addActionListener(e -> askAndGroupIntoObject(chunk));
         menu.add(group);
         menu.show(this, ev.getX(), ev.getY());
     }
@@ -878,10 +1867,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         JPopupMenu menu = new JPopupMenu();
 
-        JMenuItem editNet = new JMenuItem("Edit net...");
-        editNet.setToolTipText("Open this object's own net for editing — the same as double-clicking it");
-        editNet.addActionListener(e -> openObjectEditor(frame));
+        JMenuItem editNet = new JMenuItem("Open this object's canvas");
+        editNet.setToolTipText("Edit this object's own net in place - the same as double-clicking it");
+        editNet.addActionListener(e -> openObjectCanvas(frame));
         menu.add(editNet);
+
+        JMenuItem collapse = new JMenuItem(frame.isCollapsed() ? "Expand" : "Collapse");
+        collapse.setToolTipText(frame.isCollapsed()
+                ? "Show this object's net inside its frame again"
+                : "Shrink this object to a summary box, hiding its net");
+        collapse.addActionListener(e -> toggleCollapsed(frame));
+        menu.add(collapse);
 
         menu.addSeparator();
 
@@ -931,29 +1927,236 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Draws a Petri-object frame around the given elements, which is how an existing net is
-     * split into objects.
+     * Asks for a name and groups the chunk. Split from {@link #groupIntoObject} so the grouping
+     * itself is reachable without a dialog: {@code JOptionPane} cannot run in a test JVM, and an
+     * operation that can only be exercised through a modal dialog cannot be tested at all.
      */
-    private void groupIntoObject(List<GraphElement> selection) {
+    private void askAndGroupIntoObject(List<GraphElement> chunk) {
+        List<GraphObjectFrame> objects = selection.allFrames();
         String name = JOptionPane.showInputDialog(dialogOwner(), "Name of the Petri-object",
                 "Object " + (canvasModel.getFrames().size() + 1));
         if (name == null || name.isBlank()) {
             return;
         }
-        GraphObjectFrame frame = new GraphObjectFrame(name.trim(), boundsAround(selection));
-        for (GraphElement element : selection) {
-            frame.addMember(element);
+        // The whole selection, objects included: grouping a chunk that had an object in it used
+        // to leave that object behind and take only the loose elements.
+        groupIntoObject(chunk, objects, name.trim());
+    }
+
+    /**
+     * Draws a Petri-object frame around the given elements, which is how an existing net is
+     * split into objects.
+     *
+     * <p>Grouping always groups what is on the active canvas, so doing it inside an object
+     * produces an object nested in that one - the defect where regrouping another object's
+     * elements produced an empty object becomes the feature of nesting instead. A nested object is
+     * created collapsed, since the user asked to see nested objects in collapsed form; from then
+     * on its collapsed flag is theirs to change.
+     *
+     * @param chunk the elements to group; they are claimed for the new object, which releases them
+     *        from whatever claimed them before
+     * @param name name for the new Petri-object
+     * @return the new frame, or {@code null} when there was nothing to group
+     */
+    public GraphObjectFrame groupIntoObject(List<GraphElement> chunk, String name) {
+        // Exactly what was passed, and no objects: a caller naming a list means that list. The
+        // gesture that groups what the user has selected says so, by passing the frames too.
+        return groupIntoObject(chunk, List.of(), name);
+    }
+
+    /**
+     * Groups elements and whole Petri-objects together into one new object.
+     *
+     * <p>Selecting a chunk of net that includes an object and grouping it used to produce an
+     * object holding only the loose elements: an object is not a {@code GraphElement}, so it was
+     * never in the list being grouped and was quietly left where it was. Grouping now takes what
+     * the user actually selected, and an object caught in it becomes nested in the new one.
+     *
+     * @param chunk loose elements to claim for the new object
+     * @param objects objects to nest inside it; one already inside another in the same set stays
+     *        where it is, since it is already covered by grouping its parent
+     * @param name name for the new Petri-object
+     * @return the new frame, or {@code null} when there was nothing to group
+     */
+    public GraphObjectFrame groupIntoObject(List<GraphElement> chunk,
+            List<GraphObjectFrame> objects, String name) {
+        List<GraphObjectFrame> nested = new ArrayList<>();
+        for (GraphObjectFrame candidate : objects) {
+            if (candidate == focusedFrame || enclosedByAnyOf(candidate, objects)) {
+                continue;
+            }
+            // Same scope rule as every other structural change: a marquee can catch a frame
+            // nested deep inside another object, and grouping used to yank it out of the
+            // object that owned it into the brand-new one - a re-parenting the edit-scope
+            // rule blocks for a plain drag from this same canvas.
+            if (!isFrameOnThisCanvas(candidate)) {
+                continue;
+            }
+            nested.add(candidate);
         }
+        if (chunk.isEmpty() && nested.isEmpty()) {
+            return null;
+        }
+
+        // An element of an object being nested belongs to that object, not to the new one, so
+        // claiming it here would take it out of the very object it is travelling with.
+        List<GraphElement> loose = new ArrayList<>(chunk);
+        for (GraphObjectFrame child : nested) {
+            loose.removeAll(canvasModel.membersOfSubtree(child));
+        }
+
+        Rectangle bounds = loose.isEmpty() ? null : boundsAround(loose);
+        for (GraphObjectFrame child : nested) {
+            Rectangle padded = paddedForNesting(child.getBounds());
+            bounds = bounds == null ? padded : bounds.union(padded);
+        }
+
+        GraphObjectFrame frame = new GraphObjectFrame(name, bounds);
+        canvasModel.nest(frame, focusedFrame);
         addObjectFrame(frame);
+        for (GraphElement element : loose) {
+            canvasModel.claim(frame, element);
+        }
+        for (GraphObjectFrame child : nested) {
+            canvasModel.nest(child, frame);
+        }
+        chunk = loose;
+        if (focusedFrame != null) {
+            growToContain(focusedFrame, frame.getBounds());
+            frame.setCollapsed(true);
+        }
 
         // The grouped elements are now locked inside their new frame — highlighting them as
         // "selected" afterward would be stale and, unlike before, no longer something Delete
         // or a drag could act on directly.
-        for (GraphElement element : selection) {
+        for (GraphElement element : chunk) {
             element.setColor(Color.BLACK);
         }
-        choosenElements.clear();
+        selection.clear();
+        selection.setSelectedFrame(frame);
         choosen = null;
+        repaint();
+        return frame;
+    }
+
+    /** @return true when some other frame in {@code others} already encloses this one */
+    private boolean enclosedByAnyOf(GraphObjectFrame frame, List<GraphObjectFrame> others) {
+        for (GraphObjectFrame above = canvasModel.enclosingOf(frame); above != null;
+                above = canvasModel.enclosingOf(above)) {
+            if (others.contains(above)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Gap kept between a Petri-object frame's own border and whatever else's border it is fitted
+     * around - another frame nested inside it, or an enclosing frame grown around it - so two
+     * frame borders never land flush against each other. {@link #boundsAround} already does the
+     * same for loose elements, with a wider margin there because that one also has to clear a
+     * transition's stacked name/parameter/probability labels, not just give two borders room to
+     * read as separate.
+     */
+    private static final int FRAME_MARGIN = 24;
+
+    /**
+     * Grows a frame just enough to contain a rectangle, plus {@link #FRAME_MARGIN} of breathing
+     * room so the two frames' borders do not land flush against each other. Applied once, when a
+     * nested object is created and the box fitted around its net escapes its parent - there is
+     * no auto-refit afterwards, so moving things around later never resizes anything behind the
+     * user's back.
+     */
+    private void growToContain(GraphObjectFrame frame, Rectangle inner) {
+        Rectangle grown = frame.getBounds().union(paddedForNesting(inner));
+        if (!grown.equals(frame.getBounds())) {
+            frame.setBounds(grown);
+        }
+    }
+
+    /**
+     * The rectangle an enclosing frame has to cover so a nested frame sits inside it with its
+     * margin visible on every side. The top needs {@link GraphObjectFrame#HEADER_HEIGHT} on
+     * top of the margin, because the enclosing frame's header band occupies the top of its own
+     * rectangle - a uniform margin left the nested object flush under the header, with the
+     * gap the user sees on the other three sides missing above. {@link #boundsAround} already
+     * makes the same allowance when fitting a frame around loose elements.
+     *
+     * @param inner a nested frame's bounds
+     * @return what the enclosing frame's rectangle must contain
+     */
+    private static Rectangle paddedForNesting(Rectangle inner) {
+        Rectangle padded = new Rectangle(inner);
+        padded.grow(FRAME_MARGIN, FRAME_MARGIN);
+        padded.height += GraphObjectFrame.HEADER_HEIGHT;
+        // Clamped at the canvas origin the same way boundsAround clamps its fit.
+        padded.y = Math.max(0, padded.y - GraphObjectFrame.HEADER_HEIGHT);
+        return padded;
+    }
+
+    /**
+     * Grows every enclosing frame, innermost out, until the whole chain contains the frame
+     * again with its margin. One level was never enough: a frame dragged or resized inside a
+     * deep nest can push its parent past the grandparent's border, and a single
+     * {@link #growToContain} left the overlap one level up instead.
+     *
+     * @param frame the frame whose drag or resize just ended
+     */
+    private void growAncestorsToContain(GraphObjectFrame frame) {
+        GraphObjectFrame current = frame;
+        // Bounded like every other walk over the nesting relation, in case a cycle arrives
+        // via serialization.
+        for (int guard = canvasModel.getFrames().size(); guard >= 0; guard--) {
+            GraphObjectFrame parent = canvasModel.enclosingOf(current);
+            if (parent == null) {
+                return;
+            }
+            growToContain(parent, current.getBounds());
+            current = parent;
+        }
+    }
+
+    /**
+     * The lowest right and bottom edge a frame's resize may reach without cutting into what
+     * it holds: its own elements with the same clearance {@link #boundsAround} gives them,
+     * and its nested objects with {@link #FRAME_MARGIN}. Shrinking a frame below its content
+     * used to be allowed, leaving the net drawn outside the border that claims to hold it.
+     *
+     * @param frame the frame being resized
+     * @return the smallest allowed (right, bottom) corner
+     */
+    private Point resizeFloorOf(GraphObjectFrame frame) {
+        Rectangle bounds = frame.getBounds();
+        int right = bounds.x + GraphObjectFrame.MIN_WIDTH;
+        int bottom = bounds.y + GraphObjectFrame.MIN_HEIGHT;
+        if (!frame.isContentShown()) {
+            return new Point(right, bottom);
+        }
+        for (GraphElement member : frame.getMembers()) {
+            Point2D centre = member.getGraphElementCenter();
+            if (centre == null) {
+                continue;
+            }
+            int border = Math.max(member.getBorder(), 20);
+            right = Math.max(right, (int) centre.getX() + border + BOUNDS_PADDING);
+            bottom = Math.max(bottom, (int) centre.getY() + border + BOUNDS_PADDING);
+        }
+        for (GraphObjectFrame child : canvasModel.childrenOf(frame)) {
+            Rectangle childBounds = child.getBounds();
+            right = Math.max(right, childBounds.x + childBounds.width + FRAME_MARGIN);
+            bottom = Math.max(bottom, childBounds.y + childBounds.height + FRAME_MARGIN);
+        }
+        return new Point(right, bottom);
+    }
+
+    /**
+     * Shrinks a Petri-object to its summary box, or restores the size it had - the frame's own
+     * context menu is the only way to reach this, which is why nothing but a loaded model could
+     * collapse an object before.
+     */
+    private void toggleCollapsed(GraphObjectFrame frame) {
+        frame.setCollapsed(!frame.isCollapsed());
+        repaint();
     }
 
     /**
@@ -966,7 +2169,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return;
         }
         Rectangle bounds = new Rectangle(Math.max(0, at.x - 180), Math.max(0, at.y - 120), 360, 240);
-        addObjectFrame(new GraphObjectFrame(name.trim(), bounds));
+        GraphObjectFrame frame = new GraphObjectFrame(name.trim(), bounds);
+        canvasModel.nest(frame, focusedFrame);
+        addObjectFrame(frame);
+        if (focusedFrame != null) {
+            growToContain(focusedFrame, bounds);
+        }
     }
 
     /**
@@ -1149,23 +2357,37 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * the file and must not be re-laid-out, whereas a library template has none and has to be.
      */
     private void placeGraphNet(GraphPetriNet built, String objectName, NetTemplateRef template) {
-        List<GraphElement> members = absorbNet(built);
+        // One object arriving is one thing the user did, so it is one Ctrl+Z. Without the
+        // grouping the frame and the net it brought are separate edits, and undoing took the
+        // frame off while leaving its contents behind as loose elements: the object appeared to
+        // survive its own undo, as a scattering of places and transitions nobody had drawn.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            List<GraphElement> members = absorbNet(built);
 
-        GraphObjectFrame frame = new GraphObjectFrame(objectName, boundsAround(members));
-        frame.setTemplate(template);
-        for (GraphElement element : members) {
-            frame.addMember(element);
-            // Locked inside a frame from the moment it lands, so it is never left looking
-            // selected — nothing on the canvas could act on that selection anyway.
-            element.setColor(Color.BLACK);
+            GraphObjectFrame frame = new GraphObjectFrame(objectName, boundsAround(members));
+            frame.setTemplate(template);
+            canvasModel.nest(frame, focusedFrame);
+            addObjectFrame(frame);
+            for (GraphElement element : members) {
+                canvasModel.claim(frame, element);
+                // Locked inside a frame from the moment it lands, so it is never left looking
+                // selected — nothing on the canvas could act on that selection anyway.
+                element.setColor(Color.BLACK);
+            }
+            selection.clear();
+            choosen = null;
+            if (focusedFrame != null) {
+                growToContain(focusedFrame, frame.getBounds());
+                frame.setCollapsed(true);
+            }
+            // addObjectFrame leaves what it added selected, which is right when the user created
+            // one deliberately but wrong here: stamping drops object after object, and each would
+            // sit highlighted with nothing having been selected at all.
+            selection.setSelectedFrame(null);
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
         }
-        choosenElements.clear();
-        choosen = null;
-        addObjectFrame(frame);
-        // addObjectFrame leaves what it added selected, which is right when the user created
-        // one deliberately but wrong here: stamping drops object after object, and each would
-        // sit highlighted with nothing having been selected at all.
-        selectedFrame = null;
         repaint();
     }
 
@@ -1178,12 +2400,21 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * screen — which matters to anything that needs to keep hold of them afterwards, like
      * drawing a frame around exactly this net.
      *
+     * <p>Posts the elements it took on as one undoable edit. It used to post none at all, which
+     * is what let an object's contents outlive the undo that removed its frame.
+     *
      * @return the elements now on the canvas, in the caller's own instances
      */
     private List<GraphElement> absorbNet(GraphPetriNet built) {
         List<GraphElement> members = new ArrayList<>();
         members.addAll(built.getGraphPetriPlaceList());
         members.addAll(built.getGraphPetriTransitionList());
+
+        PetriNetsFrame.getUndoSupport().postEdit(new PasteElementsEdit(this,
+                new GraphPetriNet.GraphNetFragment(
+                        new ArrayList<>(members),
+                        new ArrayList<>(built.getGraphArcInList()),
+                        new ArrayList<>(built.getGraphArcOutList()))));
 
         if (graphNet == null) {
             setCanvasNet(built);
@@ -1253,46 +2484,56 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * objects.
      */
     private void duplicateObject(GraphObjectFrame frame) {
-        List<GraphElement> inside = new ArrayList<>();
-        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
-            if (canvasModel.ownerOf(place) == frame) {
-                inside.add(place);
-            }
-        }
-        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
-            if (canvasModel.ownerOf(transition) == frame) {
-                inside.add(transition);
-            }
-        }
+        duplicateObject(frame, frame.getName() + " copy");
+    }
+
+    /**
+     * Copies a Petri-object with its net.
+     *
+     * @param frame the object to copy
+     * @param name name for the copy - taken as a parameter so the operation is reachable without
+     *        a dialog, the same reason {@link #groupIntoObject} takes one
+     * @return the copy, or {@code null} when there was nothing to copy
+     */
+    public GraphObjectFrame duplicateObject(GraphObjectFrame frame, String name) {
+        // The whole subtree, not only the direct members: duplicating an object that held a
+        // nested object used to silently produce a copy without the nested object or its
+        // net - data loss the user only noticed later - and an object holding nothing but
+        // a nested object refused to duplicate at all, claiming it had no net.
+        List<GraphElement> inside = canvasModel.membersOfSubtree(frame);
         if (inside.isEmpty()) {
             MessageHelper.showError(dialogOwner(), "The Petri-object has no net to copy yet");
-            return;
+            return null;
         }
 
-        GraphPetriNet.GraphNetFragment copy = graphNet.bulkCopyNoPasteElements(inside);
-        int dx = frame.getBounds().width + 40;
-        for (GraphElement element : copy.elements) {
-            Point2D centre = element.getGraphElementCenter();
-            element.setNewCoordinates(new Point2D.Double(centre.getX() + dx, centre.getY()));
-        }
-        addNetFragment(copy);
+        // One duplicate is one Ctrl+Z: the copied net and the frame around it are one edit, not
+        // one each, so undoing cannot take the frame off and leave the copy behind.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            GraphPetriNet.GraphNetFragment copy = graphNet.bulkCopyNoPasteElements(inside);
+            int dx = frame.getBounds().width + 40;
+            for (GraphElement element : copy.elements) {
+                element.moveBy(dx, 0);
+            }
+            addNetFragment(copy);
+            // Posted for the same reason absorbNet posts: without it the copied net has no edit
+            // of its own, so undoing a duplicate took the frame off and left the copy behind.
+            PetriNetsFrame.getUndoSupport().postEdit(new PasteElementsEdit(this, copy));
 
-        Rectangle bounds = new Rectangle(frame.getBounds().x + dx, frame.getBounds().y,
-                frame.getBounds().width, frame.getBounds().height);
-        GraphObjectFrame duplicate = new GraphObjectFrame(frame.getName() + " copy", bounds);
-        duplicate.setPriority(frame.getPriority());
-        duplicate.setTemplate(frame.getTemplate());
-        for (GraphElement element : copy.elements) {
-            duplicate.addMember(element);
+            GraphObjectFrame duplicate = recreateFrameSubtree(frame, copy.oldToNew, name, dx, 0);
+            recreateFusionsAmongCopies(copy.oldToNew);
+            repaint();
+            return duplicate;
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
         }
-        addObjectFrame(duplicate);
-        repaint();
     }
 
     private void renameObject(GraphObjectFrame frame) {
         String name = JOptionPane.showInputDialog(dialogOwner(), "Name of the Petri-object", frame.getName());
         if (name != null && !name.isBlank()) {
             frame.setName(name.trim());
+            canvasStack.notifyChanged();
             repaint();
         }
     }
@@ -1314,157 +2555,117 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Opens the dedicated editor for one Petri-object's own net.
+     * Switches the canvas to one Petri-object's own net.
      *
-     * <p>The editor operates on the very same place, transition and arc instances the main
-     * canvas already holds for this object — filtered into a net of their own, but not
-     * copied. That is what makes structural change (an element added or removed) safe to hold
-     * back until the user presses Save: the editor's net is a separate list, so nothing this
-     * method does not explicitly copy over ever reaches the main canvas's own lists. Moving an
-     * element is a different story — it changes the same instance the canvas already shows —
-     * so a position snapshot taken before the dialog opens is what a Cancel restores instead.
+     * <p>There is no second panel, no second document and no second net. The one canvas simply
+     * paints, hit-tests and edits a different level of the one document, and the viewport scrolls
+     * to where that object actually is. That last part is the whole fix for the reported "I
+     * grouped a chunk and its editor opened empty": the object's net was always intact, but the
+     * modal editor sized its panel from the frame's width and height while painting at absolute
+     * canvas coordinates, so a chunk grouped at 900,700 was drawn 900,700 out on a 500x400 view
+     * whose scroll pane had nothing to scroll to. Coordinates stay absolute here and the viewport
+     * moves instead.
      *
-     * @param frame the object to edit
+     * <p>There is nothing to save and nothing to cancel. An edit made on this canvas is an edit to
+     * the model at the moment it is made, exactly like an edit on the net's canvas, and Ctrl+Z is
+     * what undoes it.
+     *
+     * @param frame the object to edit, or {@code null} for the net's own canvas
      */
-    private void openObjectEditor(GraphObjectFrame frame) {
-        GraphPetriNet objectNet = buildObjectNet(frame);
-        List<GraphPetriPlace> placesBefore = List.copyOf(objectNet.getGraphPetriPlaceList());
-        List<GraphPetriTransition> transitionsBefore = List.copyOf(objectNet.getGraphPetriTransitionList());
-        List<GraphArcIn> arcsInBefore = List.copyOf(objectNet.getGraphArcInList());
-        List<GraphArcOut> arcsOutBefore = List.copyOf(objectNet.getGraphArcOutList());
-        Map<GraphElement, Point2D> positionsBefore = snapshotPositions(placesBefore, transitionsBefore);
-
-        PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
-        editorPanel.setCanvasNet(objectNet);
-        editorPanel.setPreferredSize(new java.awt.Dimension(
-                Math.max(500, frame.getBounds().width), Math.max(400, frame.getBounds().height)));
-
-        ObjectEditorFrame editor = new ObjectEditorFrame(dialogOwner(), frame.getName(), editorPanel);
-        editor.setVisible(true);
-        // Modal: execution resumes here only once the user closes the editor.
-
-        if (!editor.wasSaved()) {
-            restorePositions(positionsBefore);
-            canvasModel.syncFusions();
-            updateArcCoordinates();
-            repaint();
+    public void openObjectCanvas(GraphObjectFrame frame) {
+        if (frame != null && !canvasModel.getFrames().contains(frame)) {
             return;
         }
-
-        reconcile(graphNet.getGraphPetriPlaceList(), placesBefore, objectNet.getGraphPetriPlaceList());
-        reconcile(graphNet.getGraphPetriTransitionList(), transitionsBefore, objectNet.getGraphPetriTransitionList());
-        reconcile(graphNet.getGraphArcInList(), arcsInBefore, objectNet.getGraphArcInList());
-        reconcile(graphNet.getGraphArcOutList(), arcsOutBefore, objectNet.getGraphArcOutList());
-        reconcileMembership(frame, placesBefore, objectNet.getGraphPetriPlaceList());
-        reconcileMembership(frame, transitionsBefore, objectNet.getGraphPetriTransitionList());
-
-        // The object may have gained, lost or repositioned elements while its own editor had
-        // it, so the frame drawn for it on the shared canvas is refit around what it now
-        // actually holds — an empty object, having nothing to fit around, keeps its size.
-        if (!frame.getMembers().isEmpty()) {
-            frame.setBounds(boundsAround(new ArrayList<>(frame.getMembers())));
+        canvasStack.open(frame);
+        focusedFrame = frame;
+        clearSelectionState();
+        if (frame != null) {
+            // A collapsed frame is a 170x56 summary box, which is not a room anything can be
+            // edited inside: the net it holds is drawn at full size and would spill straight out
+            // of it. Entering the object expands it back to the box it was fitted with.
+            if (frame.isCollapsed()) {
+                frame.setCollapsed(false);
+            }
+            Rectangle target = new Rectangle(frame.getBounds());
+            target.grow(SCROLL_TO_MARGIN, SCROLL_TO_MARGIN);
+            scrollRectToVisible(target);
         }
-
-        canvasModel.removeDanglingFusions();
-        updateArcCoordinates();
         repaint();
     }
 
-    private static Map<GraphElement, Point2D> snapshotPositions(
-            List<? extends GraphElement> places, List<? extends GraphElement> transitions) {
-        Map<GraphElement, Point2D> snapshot = new java.util.IdentityHashMap<>();
-        for (GraphElement element : places) {
-            snapshot.put(element, element.getGraphElementCenter());
-        }
-        for (GraphElement element : transitions) {
-            snapshot.put(element, element.getGraphElementCenter());
-        }
-        return snapshot;
+    /** Slack left around an object when the viewport scrolls to it, so it is not flush to an edge. */
+    private static final int SCROLL_TO_MARGIN = 40;
+
+    /**
+     * Closes one Petri-object's canvas, and with it the canvas of everything nested inside it.
+     * Asks nothing, because nothing is pending: every edit made there is already in the model.
+     *
+     * @param frame the object whose canvas to close
+     */
+    public void closeObjectCanvas(GraphObjectFrame frame) {
+        canvasStack.close(frame);
+        openObjectCanvas(canvasStack.getActive());
     }
 
-    private static void restorePositions(Map<GraphElement, Point2D> positions) {
-        for (Map.Entry<GraphElement, Point2D> entry : positions.entrySet()) {
-            if (entry.getValue() != null) {
-                entry.getKey().setNewCoordinates(entry.getValue());
-            }
+    /**
+     * @return the Petri-object whose own canvas is active, or {@code null} for the net's canvas
+     */
+    public GraphObjectFrame getFocusedFrame() {
+        return focusedFrame;
+    }
+
+    /**
+     * Brings the net's own canvas to the front. Called when a run or an animation starts: a run is
+     * a run of the whole model, so it has to be watched where the whole model is drawn - otherwise
+     * pressing play inside an object shows a fragment of what is actually running.
+     */
+    public void activateRootCanvas() {
+        if (focusedFrame != null) {
+            openObjectCanvas(null);
         }
     }
 
     /**
      * Filters out one Petri-object's own places, transitions and internal arcs into a net of
-     * their own — the same instances the main canvas holds, not copies. An arc crossing to
-     * another object is a link, not part of this object's own net, and is left out: it stays
-     * exactly as it is, addressed through the frame's ports, whatever happens in the editor.
+     * their own - the same instances the canvas holds, not copies. An arc crossing to another
+     * object is a link, not part of this object's own net, and is left out.
+     *
+     * <p>The whole subtree counts as this object's own, so saving an object that contains a nested
+     * one as a reusable Petri-object keeps what the nested one holds. From outside, a nest is one
+     * object.
      *
      * @param frame the object to filter out
-     * @return a net ready to hand to the object's own editor panel
+     * @return a net of exactly that object's own elements and internal arcs
      */
     private GraphPetriNet buildObjectNet(GraphObjectFrame frame) {
+        List<GraphObjectFrame> subtree = canvasModel.subtreeOf(frame);
         ArrayList<GraphPetriPlace> places = new ArrayList<>();
         ArrayList<GraphPetriTransition> transitions = new ArrayList<>();
         ArrayList<GraphArcIn> arcsIn = new ArrayList<>();
         ArrayList<GraphArcOut> arcsOut = new ArrayList<>();
         for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
-            if (canvasModel.ownerOf(place) == frame) {
+            if (subtree.contains(canvasModel.ownerOf(place))) {
                 places.add(place);
             }
         }
         for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
-            if (canvasModel.ownerOf(transition) == frame) {
+            if (subtree.contains(canvasModel.ownerOf(transition))) {
                 transitions.add(transition);
             }
         }
         for (GraphArcIn arc : graphNet.getGraphArcInList()) {
-            if (canvasModel.ownerOf((GraphPetriPlace) arc.getBeginElement()) == frame
-                    && canvasModel.ownerOf((GraphPetriTransition) arc.getEndElement()) == frame) {
+            if (subtree.contains(canvasModel.ownerOf(arc.getBeginElement()))
+                    && subtree.contains(canvasModel.ownerOf(arc.getEndElement()))) {
                 arcsIn.add(arc);
             }
         }
         for (GraphArcOut arc : graphNet.getGraphArcOutList()) {
-            if (canvasModel.ownerOf((GraphPetriTransition) arc.getBeginElement()) == frame
-                    && canvasModel.ownerOf((GraphPetriPlace) arc.getEndElement()) == frame) {
+            if (subtree.contains(canvasModel.ownerOf(arc.getBeginElement()))
+                    && subtree.contains(canvasModel.ownerOf(arc.getEndElement()))) {
                 arcsOut.add(arc);
             }
         }
         return new GraphPetriNet(null, places, transitions, arcsIn, arcsOut);
-    }
-
-    /**
-     * Applies to the main canvas's list of one kind of element whatever the object editor did
-     * to its own copy of that same kind: an element the editor no longer has was deleted,
-     * anything it now has that it did not start with was added. Surviving elements need no
-     * change here — they are the same instances in both lists already.
-     *
-     * @param mainList the main canvas's list to update
-     * @param before what this object contributed to that list when the editor opened
-     * @param after what the editor's own list contains now that it has closed
-     */
-    private static <T> void reconcile(List<T> mainList, List<T> before, List<T> after) {
-        mainList.removeIf(element -> before.contains(element) && !after.contains(element));
-        for (T element : after) {
-            if (!before.contains(element)) {
-                mainList.add(element);
-            }
-        }
-    }
-
-    /**
-     * Claims for {@code frame} whatever its editor's own list gained, releases whatever it
-     * lost — the same before/after comparison as {@link #reconcile}, but updating the frame's
-     * explicit membership instead of the main canvas's element lists.
-     */
-    private static void reconcileMembership(GraphObjectFrame frame,
-            List<? extends GraphElement> before, List<? extends GraphElement> after) {
-        for (GraphElement element : before) {
-            if (!after.contains(element)) {
-                frame.removeMember(element);
-            }
-        }
-        for (GraphElement element : after) {
-            if (!before.contains(element)) {
-                frame.addMember(element);
-            }
-        }
     }
 
     private void confirmRemoveObjectFrame(GraphObjectFrame frame) {
@@ -1474,20 +2675,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
     }
 
-    /**
-     * The bulk-selection counterpart of {@link #confirmRemoveObjectFrame} — what Delete does
-     * with several frames selected together, e.g. by Ctrl+A, the same way it already bulk-
-     * removes a multi-selection of places and transitions.
-     */
-    private void confirmRemoveObjectFrames(List<GraphObjectFrame> frames) {
-        if (MessageHelper.showConfirmation(dialogOwner(),
-                "Remove " + frames.size() + " Petri-object frames? Their nets stay on the canvas.")) {
-            for (GraphObjectFrame frame : frames) {
-                removeObjectFrame(frame);
-            }
-            choosenFrames.clear();
-        }
-    }
 
     /**
      * @return a frame that encloses the given elements with room to spare
@@ -1506,7 +2693,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         return new Rectangle(x, y, width, height);
     }
 
+    /**
+     * @param elements the elements a frame has to enclose
+     * @return a rectangle around them with room to spare. An empty collection gives a degenerate
+     *         rectangle at the origin rather than the two-billion-unit box the unreplaced min/max
+     *         sentinels used to produce, complete with a width that came out of an integer
+     *         overflow - reachable from a saved Petri-object prototype whose file builds nothing.
+     */
     private static Rectangle boundsAround(List<? extends GraphElement> elements) {
+        if (elements.isEmpty()) {
+            return new Rectangle(0, 0, 0, 0);
+        }
         int minX = Integer.MAX_VALUE;
         int minY = Integer.MAX_VALUE;
         int maxX = Integer.MIN_VALUE;
@@ -1519,19 +2716,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             maxX = Math.max(maxX, (int) centre.getX() + border);
             maxY = Math.max(maxY, (int) centre.getY() + border);
         }
-        // A transition draws its name above and, below it, both its parameter and its
-        // probability on their own lines — together reaching about 65px past its own
-        // centre, well outside the 20px "border" that boundsAround otherwise uses (which
-        // only accounts for the transition's own shape, not the text stacked under it).
-        // The padding has to clear that worst case on every side, not just what a place's
-        // shorter single mark label underneath it would need.
-        int padding = 48;
         return new Rectangle(
-                Math.max(0, minX - padding),
-                Math.max(0, minY - padding - GraphObjectFrame.HEADER_HEIGHT),
-                maxX - minX + padding * 2,
-                maxY - minY + padding * 2 + GraphObjectFrame.HEADER_HEIGHT);
+                Math.max(0, minX - BOUNDS_PADDING),
+                Math.max(0, minY - BOUNDS_PADDING - GraphObjectFrame.HEADER_HEIGHT),
+                maxX - minX + BOUNDS_PADDING * 2,
+                maxY - minY + BOUNDS_PADDING * 2 + GraphObjectFrame.HEADER_HEIGHT);
     }
+
+    /**
+     * Clearance a frame keeps around an element it is fitted to. A transition draws its name
+     * above and, below it, both its parameter and its probability on their own lines,
+     * together reaching about 65px past its own centre, well outside the 20px "border" that
+     * {@link #boundsAround} otherwise uses (which only accounts for the transition's own
+     * shape, not the text stacked under it). The padding has to clear that worst case on
+     * every side, not just what a place's shorter single mark label underneath it would need.
+     */
+    private static final int BOUNDS_PADDING = 48;
 
     public class MouseHandler extends MouseAdapter {
 
@@ -1547,6 +2747,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mousePressed(MouseEvent ev) {
+            dragCompleted = false;
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
             if (maybeShowContextMenu(ev, scaledCurrentMousePoint)) {
                 contextMenuShown = true;
@@ -1599,7 +2800,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             GraphObjectFrame eyeFrame = frameEyeIconAt(scaledCurrentMousePoint);
             if (eyeFrame != null && SwingUtilities.isLeftMouseButton(ev)) {
                 eyeFrame.setContentVisible(!eyeFrame.isContentVisible());
-                selectedFrame = eyeFrame;
+                selection.setSelectedFrame(eyeFrame);
                 repaint();
                 return;
             }
@@ -1609,11 +2810,27 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // frame down small enough can put its own contents underneath either. Ports were
             // never able to overlap these before (they only ever sat on the border itself),
             // but an element's full body, now also reachable the same way while shown, can.
-            resizedFrame = frameHandleAt(scaledCurrentMousePoint);
-            draggedFrame = resizedFrame == null ? frameHeaderAt(scaledCurrentMousePoint) : null;
+            // Gated on the left button: a right-click on a header used to start a frame drag,
+            // which then had to be undone in mouseReleased once the popup trigger arrived there.
+            if (SwingUtilities.isLeftMouseButton(ev)) {
+                resizedFrame = frameHandleAt(scaledCurrentMousePoint);
+                draggedFrame = resizedFrame == null ? frameHeaderAt(scaledCurrentMousePoint) : null;
+                // A frame nested two or more levels deep can still be drawn directly on this
+                // canvas - every object between it and here expanded is all that takes - but
+                // moving or resizing it is still only for its own direct parent's canvas to do,
+                // the same boundary an element has always had. Falling through here leaves the
+                // click to whatever ordinary selection logic is below instead of a silent no-op
+                // drag that never moves anything.
+                if (!isFrameOnThisCanvas(resizedFrame)) {
+                    resizedFrame = null;
+                }
+                if (!isFrameOnThisCanvas(draggedFrame)) {
+                    draggedFrame = null;
+                }
+            }
             if (resizedFrame != null || draggedFrame != null) {
                 GraphObjectFrame grabbed = resizedFrame != null ? resizedFrame : draggedFrame;
-                selectedFrame = grabbed;
+                selection.setSelectedFrame(grabbed);
                 frameDragOffset = new Point(
                         scaledCurrentMousePoint.x - grabbed.getBounds().x,
                         scaledCurrentMousePoint.y - grabbed.getBounds().y);
@@ -1625,12 +2842,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // A port — or, while its object is shown, the real element it stands in for —
             // always starts a link next; no tool needs to be active first, since making
             // cross-object connections is the one thing a port is for.
-            FramePort port = canvasModel.portAt(scaledCurrentMousePoint);
+            FramePort port = portOnCanvasAt(scaledCurrentMousePoint);
             if (port != null && SwingUtilities.isLeftMouseButton(ev)) {
                 draggedFromPort = port;
                 draggedPortCurrentPoint = scaledCurrentMousePoint;
                 repaint();
                 return;
+            }
+
+            // A boundary stub's free end is grabbable, so a stub that appeared somewhere
+            // inconvenient can be parked out of the way.
+            if (SwingUtilities.isLeftMouseButton(ev) && focusedFrame != null) {
+                BoundaryStub stub = boundaryStubAt(scaledCurrentMousePoint);
+                if (stub != null) {
+                    draggedBoundaryStub = stub;
+                    return;
+                }
             }
 
             startTimer();
@@ -1639,18 +2866,32 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 leftMouseButtonPressed = true;
             }
 
-            // Elements inside a Petri-object are edited in that object's own window, not
-            // dragged around on the shared canvas — a click landing anywhere else in the
+            // Elements inside a Petri-object are edited on that object's own canvas, not
+            // dragged around on the canvas above it - a click landing anywhere else in the
             // frame (not its header or resize handle) selects the object itself instead of
-            // whatever net element happens to be underneath.
-            GraphObjectFrame frameAtPoint = canvasModel.frameAt(scaledCurrentMousePoint);
+            // whatever net element happens to be underneath. The object being edited is skipped
+            // by frameAt, so a click inside the room the user is standing in reaches its net.
+            GraphObjectFrame frameAtPoint = frameAt(scaledCurrentMousePoint);
             if (frameAtPoint != null) {
-                selectedFrame = frameAtPoint;
+                // Pressing an object that is not part of the current selection replaces the
+                // selection, like any fresh single click - otherwise the drag that follows
+                // would carry the leftovers of the previous gesture along with the frame.
+                // Left button only: a right press is on its way to the context menu, and
+                // the selection it would clear is exactly what "group selection into a
+                // Petri-object" is about to offer to group together with this frame.
+                if (SwingUtilities.isLeftMouseButton(ev) && !selection.contains(frameAtPoint)) {
+                    setDefaultColorGraphElements();
+                    selection.clear();
+                }
+                selection.setSelectedFrame(frameAtPoint);
+                // This press can start a body drag, so it anchors the drag origin itself -
+                // the drag handler's null-guard would otherwise swallow the first drag
+                // event's worth of movement as its baseline.
+                prevMouseLocation = scaledCurrentMousePoint;
                 if (current != null) {
                     current.setColor(Color.BLACK);
                     current = null;
                 }
-                isSettingArc = false;
                 repaint();
                 return;
             }
@@ -1675,7 +2916,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             prevMouseLocation = scaledCurrentMousePoint;
             if (tool == CanvasTool.MARQUEE) {
                 // The marquee tool always rubber-band selects, even starting on top of an
-                // element — never picks it up the way the default Select tool would.
+                // element — never picks it up the way the default Select tool would. The
+                // previous selection is dropped right away: it used to survive into the
+                // drag, whose move-selection branch then dragged it across the canvas
+                // instead of drawing the band. Only a left press starts a band, though: a
+                // right press is on its way to the context menu, and clearing here wiped
+                // the very selection the menu's "group into Petri-object" was about to
+                // offer to group.
                 if (current != null) {
                     current.setColor(Color.BLACK);
                     current = null;
@@ -1684,6 +2931,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     choosenArc.setColor(Color.BLACK);
                 }
                 choosenArc = null;
+                if (SwingUtilities.isLeftMouseButton(ev)) {
+                    choosen = null;
+                    setDefaultColorGraphElements();
+                    selection.clear();
+                }
             } else if (current != null && SwingUtilities.isLeftMouseButton(ev)) {
                 // A right-click never selects an element — it either falls through to its own
                 // context menu above, or, on a lone element maybeShowContextMenu deliberately
@@ -1694,14 +2946,32 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 repaint();
             } else if (SwingUtilities.isLeftMouseButton(ev)) {
                 current = find(scaledCurrentMousePoint);
+                if (current == null) {
+                    // The press landed on nothing: this gesture is a plain deselect or the
+                    // start of a marquee. The old selection used to survive into the drag,
+                    // and the move-selection branch then teleported it across the canvas
+                    // by the delta from wherever the previous gesture ended.
+                    choosen = null;
+                    setDefaultColorGraphElements();
+                    selection.clear();
+                }
                 if (current != null) {
+                    // An element already inside the selection drags the whole selection;
+                    // anything else replaces it, like any fresh single click.
+                    if (!selection.contains(current)) {
+                        selection.clear();
+                    }
                     setDefaultColorGraphElements();
                     current.setColor(Color.BLUE); //26.07.2018
                     choosen = current;
                     // Remember where this element started: dragging it into another frame
-                    // moves it to another Petri-object, which the user gets to confirm.
-                    draggedElement = current;
-                    ownerBeforeDrag = canvasModel.ownerOf(current);
+                    // moves it to another Petri-object, which the user gets to confirm. A
+                    // grab inside a multi-selection is the bulk gesture's business instead -
+                    // recording it here too would reparent the same element twice.
+                    if (!selection.contains(current)) {
+                        draggedElement = current;
+                        ownerBeforeDrag = canvasModel.ownerOf(current);
+                    }
                     Point2D centre = current.getGraphElementCenter();
                     positionBeforeDrag = centre == null ? null
                             : new Point2D.Double(centre.getX(), centre.getY());
@@ -1743,13 +3013,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                         graphNet.getGraphArcOutList().add((GraphArcOut) currentArc); //3.12.2012
                         currentArc.settingNewArc(current);
                     }
-                } else {    //26.01.2013
-
+                    // The armed state travels with currentArc until the release finishes or
+                    // discards the arc; the release then re-arms the tool either way. A press
+                    // on empty canvas keeps the tool armed instead of the old silent disarm,
+                    // which made the next drag move an element instead of drawing an arc.
                     isSettingArc = false;
                 }
             }
 
-            isSettingArc = false;//26.01.2013
             choosenArc = null;
             repaint();
         }
@@ -1760,8 +3031,29 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 contextMenuShown = false;
                 return;
             }
+            if (dragCompleted) {
+                // A drag just finished, so this click is the tail of that gesture rather than a
+                // click on anything. AWT normally suppresses MOUSE_CLICKED after a drag and a
+                // marquee selection survives its own release only because of that; this stops the
+                // canvas depending on a platform promise, since the clear below would wipe the
+                // selection the user just made.
+                dragCompleted = false;
+                return;
+            }
+
+            // The stamping and deleting tools handle everything on the press; without this
+            // gate the click event trailing them fell through to the selection logic below,
+            // so a double-click with Add Place armed dropped two places AND opened the new
+            // place's properties dialog on top of them.
+            if (tool != CanvasTool.SELECT && tool != CanvasTool.MARQUEE) {
+                return;
+            }
 
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+
+            // Whatever this click selects, it replaces the clicked shared place - the click
+            // below re-selects it when it lands on the drawn line again.
+            choosenFusion = null;
 
             // The toggle already happened on mousePressed; this only keeps that same click
             // from also being read as a frame click below (the icon sits inside the header's
@@ -1771,14 +3063,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
 
             // A frame — its header or its locked interior alike — selects the object on a
-            // single click; a double click opens that object's own editor, the only place its
-            // net can actually be changed.
-            GraphObjectFrame frameAtPoint = canvasModel.frameAt(scaledCurrentMousePoint);
+            // single click; a double click opens that object's own canvas, where its net can
+            // actually be changed.
+            GraphObjectFrame frameAtPoint = frameAt(scaledCurrentMousePoint);
             if (frameAtPoint != null) {
-                selectedFrame = frameAtPoint;
-                choosenFrames.clear();
+                selection.clear();
+                selection.setSelectedFrame(frameAtPoint);
                 if (ev.getClickCount() >= 2) {
-                    openObjectEditor(frameAtPoint);
+                    openObjectCanvas(frameAtPoint);
                 }
                 repaint();
                 return;
@@ -1789,17 +3081,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 //  PetriNetsPanel.this.printPointLocation(prevMouseLocation, "clear");
                 setDefaultColorGraphElements();
                 setDefaultColorGraphArcs();
-                choosenElements.clear();
-                choosenFrames.clear();
                 // Clicking nothing deselects the current Petri-object too. It used to survive
                 // here, which went unnoticed only because a selected frame was drawn almost
                 // identically to an unselected one.
-                selectedFrame = null;
+                selection.clear();
                 choosen = null;
             }
             if (current != null) {
                 current.setColor(Color.BLUE); //26.07.2018
-                choosenElements.clear(); // 27.08.2018
+                selection.elements().clear(); // 27.08.2018
             } else {
                 // A right-click never selects an element, here any more than in mousePressed —
                 // it either hits the element's own context menu above, or, since
@@ -1826,7 +3116,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
 
                 currentArc = findArc(scaledCurrentMousePoint);
-                if (currentArc != null && ev.getClickCount() >= 2) {
+                // Same edit scope as the Delete tool: a locked object's internal arc can be
+                // looked at but not edited from outside its own canvas.
+                if (currentArc != null && ev.getClickCount() >= 2 && isArcEditableHere(currentArc)) {
                     currentArc.setColor(Color.BLUE);
                     choosenArc = currentArc;
                     setArcFrame.setVisible(true);
@@ -1837,6 +3129,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     choosenArc = currentArc;
                     choosen = null;
                     currentArc = null;
+                }
+                // A click on a shared place's drawn line selects the link, so the Delete
+                // key can remove it - it used to be unselectable by any means.
+                if (choosenArc == null && SwingUtilities.isLeftMouseButton(ev)) {
+                    choosenFusion = findSharedPlace(scaledCurrentMousePoint);
                 }
             }
             setDefaultColorGraphElements();
@@ -1850,6 +3147,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         public void mouseReleased(MouseEvent ev) {
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
 
+            // Whatever this release ends, the next gesture starts from its own press: a
+            // stale drag origin surviving here made the very next body-drag teleport the
+            // selection by the vector from wherever the previous gesture happened to end.
+            prevMouseLocation = null;
+
+            // The hold timer dies with the gesture, before any early return below - the
+            // context-menu path used to leak it, leaving isMouseButtonHold stuck true, so
+            // a later plain click teleported the element under the pointer.
+            removeTimer();
+
             // On some platforms (notably Windows) the popup trigger fires on release, not
             // press — so a right-click on a frame being "dragged" by that same press still
             // has to end in the context menu, not a completed drag.
@@ -1858,6 +3165,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 draggedFrame = null;
                 resizedFrame = null;
                 frameDragOffset = null;
+                // The press that led here armed the marquee anchor like any other press;
+                // leaving it set anchored the next gesture's band at a stale corner.
+                startDragMouseLocation = null;
+                currentDragMouseLocation = null;
+                leftMouseButtonPressed = false;
                 setCursor(Cursor.getDefaultCursor());
                 return;
             }
@@ -1881,7 +3193,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
 
             if (draggedFromPort != null) {
-                FramePort targetPort = canvasModel.portAt(scaledCurrentMousePoint);
+                FramePort targetPort = portOnCanvasAt(scaledCurrentMousePoint);
                 if (targetPort != null) {
                     finishPortDrag(targetPort);
                 } else {
@@ -1891,9 +3203,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
-            removeTimer();
+            if (draggedBoundaryStub != null) {
+                draggedBoundaryStub = null;
+                repaint();
+                return;
+            }
 
             if (draggedFrame != null || resizedFrame != null) {
+                confirmFrameReparenting(draggedFrame);
+                if (resizedFrame != null) {
+                    // A child grown past its parent's border needs the same follow-up a
+                    // drop gets: the enclosing chain grows to keep the margin. Resize used
+                    // to skip it, leaving the two borders overlapping.
+                    growAncestorsToContain(resizedFrame);
+                }
                 draggedFrame = null;
                 resizedFrame = null;
                 frameDragOffset = null;
@@ -1906,31 +3229,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
 
             if (startDragMouseLocation != null && currentDragMouseLocation != null && leftMouseButtonPressed) {
-                Rectangle marquee = marqueeRectangle();
-                for (GraphPetriPlace p : graphNet.getGraphPetriPlaceList()) {
-                    if (marquee.contains(p.getGraphElementCenter())) {
-                        choosenElements.add(p);
-                        p.setColor(Color.GREEN);
-                    }
-                }
-                for (GraphPetriTransition tr : graphNet.getGraphPetriTransitionList()) {
-                    if (marquee.contains(tr.getGraphElementCenter())) {
-                        choosenElements.add(tr);
-                        tr.setColor(Color.GREEN);
-                    }
-                }
-                // A Petri-object is caught the same way its elements are — by the rubber band
-                // covering it — so a drag across the canvas selects what it visibly encloses
-                // rather than silently skipping every object drawn there.
-                for (GraphObjectFrame frame : canvasModel.getFrames()) {
-                    if (marquee.contains(frame.getBounds()) && !choosenFrames.contains(frame)) {
-                        choosenFrames.add(frame);
-                    }
-                }
+                selectIn(marqueeRectangle());
                 repaint();
             }
 
             confirmMoveBetweenObjects();
+            if (selectionDragged) {
+                selectionDragged = false;
+                confirmBulkMoveBetweenObjects();
+                // A frame dragged as part of the selection - grabbed by its body, or caught
+                // in a marquee - moved without the header-drag path, so it never got its
+                // re-nest check: it could sit visibly outside its parent while the model
+                // still said it was nested inside. Same rule as a header drag, per frame.
+                for (GraphObjectFrame moved : framesOnThisCanvas(selection.allFrames())) {
+                    confirmFrameReparenting(moved);
+                }
+            }
 
             startDragMouseLocation = null;
             currentDragMouseLocation = null;
@@ -1938,14 +3252,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             //  setDefaultColorGraphElements();// deleted 27.07.2018
 
             setCursor(Cursor.getDefaultCursor());
+            boolean arcGestureEnded = currentArc != null;
             if (currentArc != null) {
                 currentArc.setColor(Color.BLUE);
-                current = find(scaledCurrentMousePoint);
-                if (current != null && canvasModel.ownerOf(current) != null) {
-                    // A framed element only takes arcs through its ports now — the arc tool
-                    // cannot reach it directly, the same way it can no longer be dragged.
-                    current = null;
-                }
+                current = arcToolTargetAt(scaledCurrentMousePoint);
 
                 if (current != null) {
                     current.setColor(Color.BLUE);
@@ -2038,11 +3348,32 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
                         currentArc = null;
                         setDefaultColorGraphArcs();
+                    } else if (currentArc.getBeginElement() instanceof GraphPetriPlace beginPlace
+                            && current instanceof GraphPetriPlace targetPlace) {
+                        // Place to place is not a valid arc, but it is exactly what a shared
+                        // place is for - the same join port-drag already does when released on
+                        // another place. The Arc tool used to just discard this instead of
+                        // trying it, on the reasoning that a shared place was reachable through
+                        // ports alone; a second gesture is not obviously better than the tool
+                        // simply doing the one useful thing a place-to-place drag can mean.
+                        removeCurrentArc();
+                        if (beginPlace != targetPlace) {
+                            // A release on the very place the drag started from is a plain
+                            // click, not a fusion attempt - it used to fall through to
+                            // joinPlaces(p, p) and pop a bewildering error about the place
+                            // already belonging to the same Petri-object.
+                            try {
+                                GraphPlaceFusion fusion =
+                                        canvasModel.joinPlaces(beginPlace, targetPlace);
+                                PetriNetsFrame.getUndoSupport().postEdit(
+                                        new JoinPlacesEdit(PetriNetsPanel.this, fusion));
+                            } catch (IllegalArgumentException rejected) {
+                                MessageHelper.showError(dialogOwner(), rejected.getMessage());
+                            }
+                        }
                     } else {                        //1.02.2013 цей фрагмент дозволяє відслідковувати намагання
-                        // Place to place, or transition to transition, is not a valid arc —
-                        // and a shared place between two Petri-objects is now made by
-                        // dragging between their ports instead, so this attempt is simply
-                        // discarded.
+                        // Transition to transition has no operation to fall back to either -
+                        // discarded the same way place-to-place used to be unconditionally.
                         removeCurrentArc();// з"єднати позицію з позицією чи перехід з переходом
                         //та знищувати неправильно намальовану дугу
                     }
@@ -2051,6 +3382,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 } else {
                     removeCurrentArc();//1.02.2013;
                 }
+            }
+            if (arcGestureEnded) {
+                // The Arc tool stays armed whether the arc succeeded or not - it used to
+                // disarm silently on a miss (an empty release, place-to-place, transition-
+                // to-transition), so the user's next attempt moved the element instead of
+                // drawing an arc. The tool is only actually left via setTool().
+                isSettingArc = true;
             }
             currentArc = null;
             setDefaultColorGraphArcs();
@@ -2084,11 +3422,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * frame, and if so, offers to actually join it.
      *
      * <p>Landing inside a frame's rectangle is only ever a proposal — claiming the element is
-     * this method's own doing, not a side effect of where it was dropped. That is also what
-     * keeps a frame's own move ({@link #moveFrame}) from doing the same thing to whatever it
-     * happens to end up over: that method only ever moves elements it already owns
-     * ({@link GraphObjectFrame#getMembers()}), it never looks at what else the frame's new
-     * position covers.
+     * this method's own doing, not a side effect of where it was dropped. {@link #moveFrame}
+     * itself never does this to whatever a dragged frame ends up over: it only ever moves
+     * elements it already owns ({@link GraphObjectFrame#getMembers()}). {@link
+     * #confirmFrameReparenting} is the frame-shaped counterpart of this method, called
+     * separately once the drag that moved the frame itself ends.
      */
     private void confirmMoveBetweenObjects() {
         GraphElement element = draggedElement;
@@ -2102,7 +3440,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return;
         }
         Point2D centre = element.getGraphElementCenter();
-        GraphObjectFrame after = centre == null ? null : canvasModel.frameAt(centre);
+        GraphObjectFrame after = centre == null ? before : ownerForDropAt(centre);
         if (after == before) {
             return;
         }
@@ -2119,12 +3457,161 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
         }
-        if (before != null) {
-            before.removeMember(element);
+        canvasModel.claim(after, element);
+    }
+
+    /**
+     * Checks whether a frame that was just dragged now belongs under a different parent than
+     * the one it started under - lifted to the top level, moved into a sibling, or moved back
+     * over where it already was - and re-nests it if so. The frame-shaped counterpart of
+     * {@link #confirmMoveBetweenObjects}: dragging a nested object was moving its rectangle
+     * without this ever checking whether that rectangle still landed inside its parent's, so a
+     * child could end up drawn entirely outside the frame the model still said it was nested in.
+     *
+     * <p>Silent rather than asking first, unlike an element's move: nothing inside the frame's
+     * own subtree changes ownership or loses an arc by this happening - only which frame
+     * encloses the frame itself does - so there is no structural consequence for a confirmation
+     * to warn about the way there is for an element carrying arcs across a boundary.
+     *
+     * @param frame the frame that was just dragged, or {@code null} when this drag was a resize
+     *        rather than a move
+     */
+    private void confirmFrameReparenting(GraphObjectFrame frame) {
+        if (frame == null) {
+            return;
         }
-        if (after != null) {
-            after.addMember(element);
+        GraphObjectFrame before = canvasModel.enclosingOf(frame);
+        Rectangle bounds = frame.getBounds();
+        Point centre = new Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+        GraphObjectFrame after = frameAtExcluding(centre, canvasModel.subtreeOf(frame));
+        // The focused frame is skipped by every hit test, so on an object's own canvas a
+        // drop that lands on none of its children used to read as "left every frame" - and
+        // a 15px tidy-up nudge inside the object silently tore the child out of it. Landing
+        // still inside the room the user is standing in means staying in that room, the
+        // same fallback an element's drop already has (ownerForDropAt); only a drop clear
+        // of the focused frame's own rectangle is really a lift out of it.
+        if (after == null && focusedFrame != null && focusedFrame.containsPoint(centre)) {
+            after = focusedFrame;
         }
+        if (after != before) {
+            canvasModel.nest(frame, after);
+        }
+        // Whether the parent changed or not, the chain of enclosing frames grows to keep its
+        // margin around wherever the frame landed. A drag that stayed inside its parent but
+        // pushed past the border used to leave the child sticking out of the object that
+        // still held it, and a drop into a deep nest only ever grew one level.
+        growAncestorsToContain(frame);
+    }
+
+    /**
+     * The same search {@link #frameAt} does, except a frame that is itself one of the
+     * candidates - the one just dragged - is never a valid answer, together with everything
+     * nested inside it: landing back over its own rectangle must resolve to whatever encloses
+     * it, not to itself, and landing over one of its own children can only ever mean the parent
+     * dragged far enough that a child's rectangle happens to cover the point, never that the
+     * parent should become nested inside what it already contains.
+     *
+     * @param point a point on the canvas
+     * @param excluded the frames that cannot be the answer - normally a dragged frame's own
+     *        {@link GraphCanvasModel#subtreeOf}, which already includes the frame itself
+     * @return the innermost remaining frame the active canvas draws at that point, or
+     *         {@code null}
+     */
+    private GraphObjectFrame frameAtExcluding(Point2D point, java.util.Collection<GraphObjectFrame> excluded) {
+        GraphObjectFrame best = null;
+        int bestLevel = -1;
+        for (GraphObjectFrame candidate : canvasModel.getFrames()) {
+            if (candidate == focusedFrame || excluded.contains(candidate)
+                    || !isFrameDrawnOnThisCanvas(candidate) || !candidate.contains(point)) {
+                continue;
+            }
+            // A hidden interior cannot receive a drop: nesting into a collapsed or
+            // eye-hidden object made the dragged frame vanish from the canvas the moment
+            // it was released, with no confirmation and nothing visible to explain where
+            // it went - and the collapsed summary box got inflated by the margin growth.
+            if (!candidate.isContentShown()) {
+                continue;
+            }
+            int level = canvasModel.levelOf(candidate);
+            if (level >= bestLevel) {
+                best = candidate;
+                bestLevel = level;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * @param point where an element was dropped, in canvas coordinates
+     * @return the Petri-object it now belongs to: the innermost object drawn there, or the object
+     *         whose canvas is active when it landed on that canvas's own empty space. Falling back
+     *         to the focused object is what keeps dropping an element on its own object's canvas
+     *         from freeing it from that object.
+     */
+    private GraphObjectFrame ownerForDropAt(Point2D point) {
+        GraphObjectFrame frame = frameAt(point);
+        // A collapsed or eye-hidden object cannot receive a dropped element: claiming it
+        // would make it vanish from the canvas the moment the drag ends. The drop falls
+        // through to whatever encloses the hidden object instead. Bounded like every other
+        // walk over the nesting relation, in case a cycle arrives via serialization.
+        for (int guard = canvasModel.getFrames().size();
+                frame != null && !frame.isContentShown() && guard >= 0; guard--) {
+            frame = canvasModel.enclosingOf(frame);
+        }
+        return frame != null ? frame : focusedFrame;
+    }
+
+    /**
+     * Moves every element of a multi-selection into whatever Petri-object each one landed in, with
+     * one confirmation for the whole drag.
+     *
+     * <p>A bulk drag used to change no membership at all: the confirmation read a single
+     * {@code draggedElement} that only a one-element drag ever set, so a rubber-band selection
+     * dragged into an object ended up drawn inside it while still belonging to whoever held it
+     * before - usually nobody.
+     */
+    private void confirmBulkMoveBetweenObjects() {
+        Map<GraphElement, GraphObjectFrame> reparented = pendingReparenting();
+        if (reparented.isEmpty()) {
+            return;
+        }
+        String question = reparented.size() + " element(s) landed in a different Petri-object. "
+                + "Move them there?";
+        if (!MessageHelper.showConfirmation(dialogOwner(), question)) {
+            return;
+        }
+        applyReparenting(reparented);
+    }
+
+    /**
+     * @return every selected element that is now drawn in a different Petri-object from the one
+     *         claiming it, mapped to the object it landed in ({@code null} for the free elements).
+     *         Split out from the confirmation so the bulk-drag reparenting is reachable without a
+     *         dialog.
+     */
+    public Map<GraphElement, GraphObjectFrame> pendingReparenting() {
+        Map<GraphElement, GraphObjectFrame> reparented = new IdentityHashMap<>();
+        for (GraphElement element : selection.elements()) {
+            Point2D centre = element.getGraphElementCenter();
+            if (centre == null) {
+                continue;
+            }
+            GraphObjectFrame after = ownerForDropAt(centre);
+            if (after != canvasModel.ownerOf(element)) {
+                reparented.put(element, after);
+            }
+        }
+        return reparented;
+    }
+
+    /**
+     * @param reparented what {@link #pendingReparenting()} answered with
+     */
+    public void applyReparenting(Map<GraphElement, GraphObjectFrame> reparented) {
+        for (Map.Entry<GraphElement, GraphObjectFrame> entry : reparented.entrySet()) {
+            canvasModel.claim(entry.getValue(), entry.getKey());
+        }
+        repaint();
     }
 
     private static String describe(GraphObjectFrame frame) {
@@ -2214,19 +3701,28 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         boolean sourceIsPlace = source instanceof GraphPetriPlace;
         boolean targetIsPlace = target instanceof GraphPetriPlace;
         try {
+            // Every branch posts its edit: a link made through a port used to be the one
+            // creation Ctrl+Z could not see, so undo right after it reached past the link
+            // into whatever older action was next on the stack.
             if (sourceIsPlace && targetIsPlace) {
-                canvasModel.joinPlaces((GraphPetriPlace) source, (GraphPetriPlace) target);
+                GraphPlaceFusion fusion =
+                        canvasModel.joinPlaces((GraphPetriPlace) source, (GraphPetriPlace) target);
+                PetriNetsFrame.getUndoSupport().postEdit(new JoinPlacesEdit(this, fusion));
             } else if (!sourceIsPlace && !targetIsPlace) {
                 throw new IllegalArgumentException(
                         "A transition cannot connect directly to another transition");
             } else if (sourceIsPlace) {
                 // place -> transition: the place becomes an extra input of the transition
-                canvasModel.getNet().getGraphArcInList().add(GraphArcFactory.inArc(
-                        (GraphPetriPlace) source, (GraphPetriTransition) target, 1, false));
+                GraphArcIn arc = GraphArcFactory.inArc(
+                        (GraphPetriPlace) source, (GraphPetriTransition) target, 1, false);
+                canvasModel.getNet().getGraphArcInList().add(arc);
+                PetriNetsFrame.getUndoSupport().postEdit(new AddArcEdit(this, arc));
             } else {
                 // transition -> place: the transition delivers tokens into the place
-                canvasModel.getNet().getGraphArcOutList().add(GraphArcFactory.outArc(
-                        (GraphPetriTransition) source, (GraphPetriPlace) target, 1));
+                GraphArcOut arc = GraphArcFactory.outArc(
+                        (GraphPetriTransition) source, (GraphPetriPlace) target, 1);
+                canvasModel.getNet().getGraphArcOutList().add(arc);
+                PetriNetsFrame.getUndoSupport().postEdit(new AddArcEdit(this, arc));
             }
         } catch (IllegalArgumentException rejected) {
             MessageHelper.showError(dialogOwner(), rejected.getMessage());
@@ -2239,25 +3735,79 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param fusion the shared place to split
      */
     public void splitSharedPlace(GraphPlaceFusion fusion) {
-        canvasModel.getFusions().remove(fusion);
-        Point2D centre = fusion.getJoined().getGraphElementCenter();
-        fusion.getJoined().setNewCoordinates(
-                new Point2D.Double(centre.getX() + 60, centre.getY() + 40));
+        if (choosenFusion == fusion) {
+            choosenFusion = null;
+        }
+        canvasModel.removeFusion(fusion);
+        // The coincident-ring form needs its halves pulled apart to read as two places
+        // again; the port-to-port form's halves already sit apart, each inside its own
+        // object, and displacing one of them would wreck that object's layout.
+        int dx = fusion.isAnchoredToAFrame() ? 0 : 60;
+        int dy = fusion.isAnchoredToAFrame() ? 0 : 40;
+        fusion.getJoined().moveBy(dx, dy);
+        PetriNetsFrame.getUndoSupport().postEdit(new SplitSharedPlaceEdit(this, fusion, dx, dy));
         updateArcCoordinates();
         repaint();
     }
 
     /**
+     * Called after a place's properties were edited: the two halves of a shared place hold
+     * one marking between them, whichever half the user set it through. Without the
+     * write-through, an edit on the joined half showed a count the simulation would never
+     * use - the built model keeps the master's marking outright.
+     *
+     * @param place the place that was just edited
+     */
+    public void placeMarkingEdited(GraphPetriPlace place) {
+        GraphPlaceFusion fusion = canvasModel.fusionOf(place);
+        if (fusion != null) {
+            fusion.adoptMarkingFrom(place);
+        }
+    }
+
+    /**
      * @param point a point on the canvas
-     * @return the shared place whose ring is under the point, or {@code null}
+     * @return the shared place drawn under the point, or {@code null}. Both forms are
+     *         clickable where they are painted: the coincident ring by its ring, and the
+     *         port-to-port form by the same trimmed line the canvas draws for it - which
+     *         used to have no hit test at all, so a framed shared place could not be
+     *         clicked, selected or removed by any means.
      */
     public GraphPlaceFusion findSharedPlace(Point2D point) {
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
+            if (!isFusionDrawnOnThisCanvas(fusion)) {
+                continue;
+            }
             if (fusion.isOnRing(point)) {
                 return fusion;
             }
+            if (fusion.isAnchoredToAFrame()) {
+                Line2D line = trimmedFusionLine(fusion);
+                if (line != null && line.ptSegDist(point) <= 4) {
+                    return fusion;
+                }
+            }
         }
         return null;
+    }
+
+    /**
+     * Whether the active canvas draws this shared place at all: at least one half has to be
+     * on screen here, as its own drawn element or through a port on a drawn frame. Every
+     * fusion used to be painted on every canvas, so entering an object's own canvas showed
+     * ghost reference lines between the raw positions of places this canvas does not draw.
+     */
+    private boolean isFusionDrawnOnThisCanvas(GraphPlaceFusion fusion) {
+        return isFusionHalfVisibleHere(fusion.getMaster())
+                || isFusionHalfVisibleHere(fusion.getJoined());
+    }
+
+    private boolean isFusionHalfVisibleHere(GraphPetriPlace half) {
+        if (isDrawnOnThisCanvas(half)) {
+            return true;
+        }
+        GraphObjectFrame hiding = outermostHidden(canvasModel.ownerOf(half));
+        return hiding != null && isFrameDrawnOnThisCanvas(hiding);
     }
 
     private void removeCurrentArc() { //1.02.2013 цей метод дозволяє знищувати намальовану дугу
@@ -2286,17 +3836,30 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            dragCompleted = true;
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
 
             if (draggedFromPort != null) {
                 draggedPortCurrentPoint = scaledCurrentMousePoint;
-                hoveredPort = canvasModel.portAt(scaledCurrentMousePoint);
+                hoveredPort = portOnCanvasAt(scaledCurrentMousePoint);
+                repaint();
+                return;
+            }
+
+            if (draggedBoundaryStub != null) {
+                parkBoundaryStub(draggedBoundaryStub, scaledCurrentMousePoint);
                 repaint();
                 return;
             }
 
             if (resizedFrame != null) {
-                resizedFrame.resizeTo(scaledCurrentMousePoint.x, scaledCurrentMousePoint.y);
+                // Clamped to what the frame holds: shrinking it below its own net used to
+                // be allowed, leaving elements and nested objects drawn outside the border
+                // that still claimed them.
+                Point floor = resizeFloorOf(resizedFrame);
+                resizedFrame.resizeTo(
+                        Math.max(scaledCurrentMousePoint.x, floor.x),
+                        Math.max(scaledCurrentMousePoint.y, floor.y));
                 repaint();
                 return;
             }
@@ -2308,11 +3871,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
-            if (choosen == null && choosenElements.isEmpty()) {
+            if (choosen == null && selection.elements().isEmpty()) {
                 PetriNetsPanel.this.setDefaultColorGraphElements();
                 currentDragMouseLocation = scaledCurrentMousePoint;
             }
-            if (current != null && currentArc == null) {  // moving place or transition
+            // An element grabbed inside a multi-selection is moved by the selection branch
+            // below, by the same delta as everything else - snapping it to the pointer here
+            // as well made it run ahead of the rest of the selection.
+            if (current != null && currentArc == null && !selection.contains(current)) {  // moving place or transition
 
                 current.setColor(Color.BLUE);
                 PetriNetsPanel.this.setDefaultColorGraphArcs(); //26.07.2018
@@ -2332,33 +3898,33 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 currentArc.setNewCoordinates(scaledCurrentMousePoint);
             }
 
-            if (!choosenElements.isEmpty() && leftMouseButtonPressed) { //moving choosenElements
-
-                for (GraphElement e : choosenElements) {
-                    e.setColor(Color.GREEN);
+            // currentArc == null: this drag is dragging out a new arc, not the selection - the
+            // two used to be able to fire on the same gesture whenever a frame was already
+            // selected (creating one leaves it selected), and moveFrame's updateArcCoordinates
+            // walks every arc unconditionally, including the one being drawn, whose endElement
+            // is still null until the release that finishes it. changeBorder() on that arc threw
+            // a NullPointerException, aborting the drag mid-gesture - which is exactly what
+            // "drawing an arc silently doesn't work" looks like from outside.
+            if (currentArc == null && !selection.isEmpty() && leftMouseButtonPressed) { // moving the whole selection
+                if (prevMouseLocation == null) {
+                    // Selecting a frame by clicking its body (or, since isFrameOnThisCanvas, its
+                    // header while it is not eligible to be dragged) returns without arming a
+                    // drag the way the general fallthrough below does - so the very next drag
+                    // event here would read a null prevMouseLocation instead of a real delta.
+                    // Treating this first event as establishing the baseline, not a move, is
+                    // what the general fallthrough already does for every other selection.
+                    prevMouseLocation = scaledCurrentMousePoint;
+                } else {
+                    selection.paintHighlight();
+                    setCursor(new Cursor(Cursor.MOVE_CURSOR));
+                    // One operation for both kinds of selected thing: elements move directly, objects
+                    // move with their whole subtree. Frames used to be left behind entirely.
+                    moveSelectionBy(
+                            (int) scaledCurrentMousePoint.getX() - prevMouseLocation.x,
+                            (int) scaledCurrentMousePoint.getY() - prevMouseLocation.y);
+                    selectionDragged = true;
+                    prevMouseLocation = scaledCurrentMousePoint;
                 }
-
-                setCursor(new Cursor(Cursor.MOVE_CURSOR));
-                for (GraphElement graphElement : choosenElements) {
-                    Point currentLocation = new Point(
-                            (int) graphElement.getGraphElementCenter().getX(),
-                            (int) graphElement.getGraphElementCenter().getY());
-
-                    Point newLocation = new Point(
-                            currentLocation.x
-                            + (int) scaledCurrentMousePoint.getX()
-                            - prevMouseLocation.x, currentLocation.y
-                            + (int) scaledCurrentMousePoint.getY()
-                            - prevMouseLocation.y);
-                    graphElement.setNewCoordinates(newLocation);
-                }
-                for (GraphArcIn ti : graphNet.getGraphArcInList()) {
-                    ti.updateCoordinates();
-                }
-                for (GraphArcOut to : graphNet.getGraphArcOutList()) {
-                    to.updateCoordinates();
-                }
-                prevMouseLocation = scaledCurrentMousePoint;
             }
             repaint();
         }
@@ -2381,7 +3947,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
-            FramePort hovered = canvasModel.portAt(scaledCurrentMousePoint);
+            FramePort hovered = portOnCanvasAt(scaledCurrentMousePoint);
             if (hovered != hoveredPort) {
                 hoveredPort = hovered;
                 setCursor(hovered != null ? new Cursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
@@ -2479,8 +4045,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     public void setTool(CanvasTool newTool, PetriObjectTemplate template) {
         // Every template shares the one ADD_PETRI_OBJECT mode, so "same tool" is not the same
         // question as "nothing to do" any more: switching straight from one template's button
-        // to another has to re-arm even though the tool itself did not change.
-        if (tool == newTool && java.util.Objects.equals(armedTemplate, template)) {
+        // to another has to re-arm even though the tool itself did not change. The Arc mode
+        // has the same shape: it is SELECT plus the isSettingArc flag, so leaving it via the
+        // Select button is also a same-enum switch - the early return here used to swallow
+        // that click, and since the Arc tool stays armed across misses, there was no way
+        // out of arc mode at all: every element press kept starting arcs instead of moves.
+        if (tool == newTool && java.util.Objects.equals(armedTemplate, template) && !isSettingArc) {
             return;
         }
         if (currentArc != null) {
@@ -2505,12 +4075,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         current = null;
         choosen = null;
         choosenArc = null;
-        selectedFrame = null;
-        choosenElements.clear();
-        choosenFrames.clear();
+        choosenFusion = null;
+        selection.clear();
         startDragMouseLocation = null;
         currentDragMouseLocation = null;
         leftMouseButtonPressed = false;
+        selectionDragged = false;
+        dragCompleted = false;
     }
 
     private static Cursor cursorFor(CanvasTool t) {
@@ -2558,10 +4129,34 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 : new GraphPetriTransition(new PetriT(GraphPetriTransition.setSimpleName(), 0.0), getIdElement());
         element.setNewCoordinates(scaledPoint);
 
-        AddGraphElementEdit edit = new AddGraphElementEdit(this, element);
+        // Drawn on an object's canvas means drawn into that object: the edit carries the owner so
+        // redo claims it again, and its undo releases it.
+        AddGraphElementEdit edit = new AddGraphElementEdit(this, element, focusedFrame);
         edit.doFirstTime();
         PetriNetsFrame.getUndoSupport().postEdit(edit);
+        growToHoldMembers(focusedFrame, List.of(element));
         repaint();
+    }
+
+    /**
+     * Grows a frame (and its enclosing chain) so elements just claimed for it sit inside its
+     * rectangle with the standard clearance. A member drawn on an object's own canvas past the
+     * frame's border used to stay outside it on the parent canvas: visibly loose, and not even
+     * locked, since the lock is the frame's body.
+     *
+     * @param frame the frame that claims the elements, or {@code null} for the root canvas
+     * @param members the newly claimed elements
+     */
+    private void growToHoldMembers(GraphObjectFrame frame, List<? extends GraphElement> members) {
+        if (frame == null || members.isEmpty()) {
+            return;
+        }
+        Rectangle fitted = boundsAround(members);
+        Rectangle grown = frame.getBounds().union(fitted);
+        if (!grown.equals(frame.getBounds())) {
+            frame.setBounds(grown);
+        }
+        growAncestorsToContain(frame);
     }
 
     /**
@@ -2591,9 +4186,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
             }
 
-            remove(element);
             DeleteGraphElementsEdit edit = new DeleteGraphElementsEdit(this, element,
                     inArcsToBeRemoved, outArcsToBeRemoved);
+            // Read before remove(), which releases the element: this is the last moment the
+            // answer exists, and undo needs it to put the element back into its own object.
+            edit.rememberOwner(element, canvasModel.ownerOf(element));
+            if (element instanceof GraphPetriPlace place) {
+                // Same timing for the shared place a deleted half drags down with it.
+                edit.rememberFusion(canvasModel.fusionOf(place));
+            }
+            remove(element);
             PetriNetsFrame.getUndoSupport().postEdit(edit);
         } catch (ExceptionInvalidNetStructure ex) {
             LOGGER.error("Unexpected error", ex);
@@ -2604,20 +4206,51 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * Handles a click made with the Delete tool active: removes whatever single element or
      * arc is under the pointer, or does nothing on empty canvas.
      *
-     * <p>A port, or a framed element's own drawing while its object's content is shown, is left
-     * alone — same as every other direct-canvas gesture, deleting a locked object's element
-     * this way would reach past the boundary that {@code frameAt}/{@code portAt} normally
-     * enforce before {@link #find} is ever consulted; whole-object removal already has its own,
-     * confirmed path through the frame's own context menu.
+     * <p>A whole Petri-object is erasable too, with the same confirmation its own context menu
+     * asks: the eraser reaching everything on the canvas except the objects was one of the places
+     * where an operation written for elements silently skipped the other kind of thing the canvas
+     * holds. A port, or an element belonging to an object whose canvas is not the active one, is
+     * still left alone - that boundary is what {@code frameAt} enforces before {@link #find} is
+     * ever consulted.
      *
      * @param scaledPoint the click point in canvas coordinates
      */
+    /**
+     * The edit-scope rule for arcs, the third kind after elements ({@code isOnThisCanvas})
+     * and frames ({@code isFrameOnThisCanvas}). An arc inside one object belongs to that
+     * object's canvas alone; a crossing arc between two objects belongs to whichever canvas
+     * draws it, since it is a link rather than part of either object's own net. Arcs used
+     * to have no scope at all, so the Delete tool could reach into a nested, locked object
+     * from the root canvas and remove an arc its places and transitions were protected from.
+     *
+     * @param arc an arc the active canvas draws
+     * @return true when this canvas is allowed to change or remove it
+     */
+    private boolean isArcEditableHere(GraphArc arc) {
+        GraphElement begin = arc.getBeginElement();
+        GraphElement end = arc.getEndElement();
+        if (begin == null || end == null) {
+            return true;
+        }
+        GraphObjectFrame beginOwner = canvasModel.ownerOf(begin);
+        GraphObjectFrame endOwner = canvasModel.ownerOf(end);
+        if (beginOwner != endOwner) {
+            return true;
+        }
+        return beginOwner == focusedFrame;
+    }
+
     private void handleDeleteClick(Point scaledPoint) {
-        if (canvasModel.portAt(scaledPoint) != null || canvasModel.frameAt(scaledPoint) != null) {
+        if (portOnCanvasAt(scaledPoint) != null) {
+            return;
+        }
+        GraphObjectFrame frame = frameAt(scaledPoint);
+        if (frame != null && isFrameOnThisCanvas(frame)) {
+            confirmRemoveObjectFrame(frame);
             return;
         }
         GraphElement element = find(scaledPoint);
-        if (element != null) {
+        if (element != null && isOnThisCanvas(element)) {
             deleteElement(element);
             if (choosen == element) {
                 choosen = null;
@@ -2628,7 +4261,18 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             repaint();
             return;
         }
+        // A shared place's drawn line is erasable like any arc: splitting the link leaves
+        // both places where they are. A link is deletable wherever it is drawn, the same
+        // rule a crossing arc follows.
+        GraphPlaceFusion sharedPlace = findSharedPlace(scaledPoint);
+        if (sharedPlace != null) {
+            splitSharedPlace(sharedPlace);
+            return;
+        }
         GraphArc arc = findArc(scaledPoint);
+        if (arc != null && !isArcEditableHere(arc)) {
+            return;
+        }
         if (arc != null) {
             removeArc(arc);
             DeleteArcEdit edit = new DeleteArcEdit(this, arc);
@@ -2687,6 +4331,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         setCanvasNet(new GraphPetriNet());
         canvasModel.getFrames().clear();
         canvasModel.getFusions().clear();
+        selection.clear();
+        focusedFrame = null;
+        canvasStack.reset();
         repaint();
     }
 
@@ -2754,6 +4401,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         new DropTarget(this, dropHandler);
     }
 
+    /**
+     * Adds a whole Petri-object model to the canvas, the way {@link #addGraphNet} adds a plain
+     * net: the drawing is merged into whatever is already there and the frames that mark out its
+     * objects come with it, rather than replacing the canvas.
+     *
+     * <p>This is the path opening a saved file takes when that file has objects in it. A file
+     * written before objects were persisted holds a bare net and still goes to
+     * {@link #addGraphNet}, which is why both exist.
+     *
+     * @param model the canvas document to add, with its frames and shared places
+     */
+    public void addCanvasModel(GraphCanvasModel model) {
+        addGraphNet(model.getNet());
+        canvasModel.getFrames().addAll(model.getFrames());
+        canvasModel.getFusions().addAll(model.getFusions());
+        canvasModel.syncFusions();
+        updateArcCoordinates();
+        repaint();
+    }
+
     public void addGraphNet(GraphPetriNet net) {
         // If there's no existing net, just set the new one
         if (graphNet == null) {
@@ -2789,6 +4456,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         graphNet = null;
         canvasModel.getFrames().clear();
         canvasModel.getFusions().clear();
+        selection.clear();
+        focusedFrame = null;
+        canvasStack.reset();
         repaint();
     }
 
@@ -2825,11 +4495,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         canvasModel.getFrames().addAll(model.getFrames());
         canvasModel.getFusions().clear();
         canvasModel.getFusions().addAll(model.getFusions());
-        selectedFrame = null;
-        choosenFrames.clear();
         choosen = null;
         current = null;
-        choosenElements.clear();
+        selection.clear();
+        // Every open canvas was holding a frame from the document being replaced, and the frames
+        // arriving now are different instances - so the strip goes back to the net alone rather
+        // than showing pills for objects that are no longer anywhere.
+        focusedFrame = null;
+        canvasStack.reset();
+        canvasStack.notifyChanged();
         canvasModel.syncFusions();
         updateArcCoordinates();
         repaint();
@@ -2839,105 +4513,208 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @return the frame the user has selected, or {@code null}
      */
     public GraphObjectFrame getSelectedFrame() {
-        return selectedFrame;
+        return selection.getSelectedFrame();
     }
 
     public void setSelectedFrame(GraphObjectFrame frame) {
-        selectedFrame = frame;
+        selection.setSelectedFrame(frame);
         repaint();
     }
 
     /**
-     * Adds a Petri-object frame and selects it.
+     * Adds a Petri-object frame, selects it, and records the creation as one undo step.
+     *
+     * <p>Creating an object used to post no undoable edit at all, which was survivable while an
+     * object's net lived behind a modal window with its own Cancel. With editing in place there is
+     * no Cancel anywhere, so Ctrl+Z has to reach object creation too.
      *
      * @param frame the frame to add
      */
     public void addObjectFrame(GraphObjectFrame frame) {
         canvasModel.getFrames().add(frame);
-        selectedFrame = frame;
+        selection.setSelectedFrame(frame);
+        PetriNetsFrame.getUndoSupport().postEdit(new AddObjectFrameEdit(this, frame));
+        canvasStack.notifyChanged();
         repaint();
     }
 
     /**
-     * Removes a Petri-object frame. What was drawn inside stays on the canvas and becomes
-     * part of whatever frame now covers it, or of the free elements.
+     * Removes a Petri-object frame, as one undo step. What it held moves one level out: its
+     * elements to the object that enclosed it, or to the free elements, and the objects nested
+     * inside it onto that same enclosing object.
      *
      * @param frame the frame to remove
      */
     public void removeObjectFrame(GraphObjectFrame frame) {
-        canvasModel.getFrames().remove(frame);
-        canvasModel.releaseMembers(frame);
-        if (selectedFrame == frame) {
-            selectedFrame = null;
+        if (!canvasModel.getFrames().contains(frame)) {
+            return;
         }
+        ObjectFrameSnapshot snapshot = new ObjectFrameSnapshot(canvasModel, frame);
+        removeObjectFrameSilently(frame);
+        PetriNetsFrame.getUndoSupport().postEdit(new RemoveObjectFrameEdit(this, snapshot));
+    }
+
+    /**
+     * Takes a frame off the canvas without recording an undo step - what the undo of a creation
+     * and the redo of a removal both do, so replaying an edit never posts another one.
+     *
+     * @param frame the frame to remove
+     */
+    public void removeObjectFrameSilently(GraphObjectFrame frame) {
+        canvasModel.getFrames().remove(frame);
+        // Eager, where the web editor is lazy about an orphaned tab: a pill here holds the live
+        // frame, so a canvas whose frame is gone cannot be painted at all. Pruned before
+        // releaseMembers nulls the frame's enclosing pointer - the stack walks that pointer to
+        // hand the active canvas to the nearest surviving ancestor, so pruning afterwards
+        // always teleported the user to the root canvas instead of the parent they were in.
+        canvasStack.pruneRemoved(frame);
+        canvasModel.releaseMembers(frame);
+        selection.remove(frame);
+        if (focusedFrame == frame || !canvasModel.getFrames().contains(focusedFrame)) {
+            focusedFrame = canvasStack.getActive();
+        }
+        canvasStack.notifyChanged();
+        repaint();
+    }
+
+    /**
+     * Puts a frame back exactly as it was - same position in the flat frame list, same enclosing
+     * object, same membership, same nested objects - without recording an undo step.
+     *
+     * @param snapshot the frame's state, read while it was still on the canvas
+     */
+    public void reinstateObjectFrame(ObjectFrameSnapshot snapshot) {
+        GraphObjectFrame frame = snapshot.getFrame();
+        if (canvasModel.getFrames().contains(frame)) {
+            return;
+        }
+        int index = Math.min(Math.max(0, snapshot.getIndex()), canvasModel.getFrames().size());
+        canvasModel.getFrames().add(index, frame);
+        canvasModel.nest(frame, snapshot.getEnclosing());
+        for (GraphElement member : snapshot.getMembers()) {
+            canvasModel.claim(frame, member);
+            // Claimed means locked inside the object: redo used to leave a pasted net
+            // selected while claiming it, so Delete or a drag could act on the object's
+            // own members from the shared canvas.
+            member.setColor(Color.BLACK);
+            selection.remove(member);
+        }
+        for (GraphObjectFrame child : snapshot.getChildren()) {
+            if (canvasModel.getFrames().contains(child)) {
+                canvasModel.nest(child, frame);
+            }
+        }
+        canvasStack.notifyChanged();
         repaint();
     }
 
     /**
      * @param frame a Petri-object frame
-     * @return how many places and transitions are drawn inside it
+     * @return how many places and transitions it holds, counting everything nested inside it -
+     *         from outside, a nest is one object, and this is the count its collapsed summary box
+     *         reports. Identical to its own member count for an object with nothing nested in it.
      */
     public int countElementsIn(GraphObjectFrame frame) {
-        int count = 0;
-        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
-            if (canvasModel.ownerOf(place) == frame) {
-                count++;
-            }
-        }
-        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
-            if (canvasModel.ownerOf(transition) == frame) {
-                count++;
-            }
-        }
-        return count;
+        return canvasModel.membersOfSubtree(frame).size();
     }
 
     /**
      * @param point a point on the canvas
-     * @return the topmost frame whose header is under the point, or {@code null}
+     * @return the innermost Petri-object frame the active canvas draws at that point, or
+     *         {@code null}. The object being edited is excluded: its rectangle is the room the
+     *         user is standing in, so a click inside it has to reach its net rather than select
+     *         the room. Deeper nesting wins, the same tie-break {@code ownerOf} uses.
+     */
+    private GraphObjectFrame frameAt(Point2D point) {
+        return topmostFrame(point, GraphObjectFrame::contains);
+    }
+
+    /**
+     * @param point a point on the canvas
+     * @return the frame whose header is under the point, or {@code null}. The focused object's own
+     *         header is inert on its own canvas: dragging it there would move the room around the
+     *         net inside it, which is what its own canvas exists to edit.
      */
     private GraphObjectFrame frameHeaderAt(Point2D point) {
-        List<GraphObjectFrame> frames = canvasModel.getFrames();
-        for (int index = frames.size() - 1; index >= 0; index--) {
-            if (frames.get(index).isOnHeader(point)) {
-                return frames.get(index);
-            }
-        }
-        return null;
+        return topmostFrame(point, GraphObjectFrame::isOnHeader);
     }
 
     /**
      * @param point a point on the canvas
-     * @return the topmost frame whose resize handle is under the point, or {@code null}
+     * @return the frame whose resize handle is under the point, or {@code null}; inert for the
+     *         focused object, for the same reason as its header
      */
     private GraphObjectFrame frameHandleAt(Point2D point) {
-        List<GraphObjectFrame> frames = canvasModel.getFrames();
-        for (int index = frames.size() - 1; index >= 0; index--) {
-            if (frames.get(index).isOnResizeHandle(point)) {
-                return frames.get(index);
-            }
-        }
-        return null;
+        return topmostFrame(point, GraphObjectFrame::isOnResizeHandle);
     }
 
     /**
      * @param point a point on the canvas
-     * @return the topmost frame whose eye icon is under the point, or {@code null}
+     * @return the frame whose eye icon is under the point, or {@code null}
      */
     private GraphObjectFrame frameEyeIconAt(Point2D point) {
-        List<GraphObjectFrame> frames = canvasModel.getFrames();
-        for (int index = frames.size() - 1; index >= 0; index--) {
-            if (frames.get(index).isOnEyeIcon(point)) {
-                return frames.get(index);
+        return topmostFrame(point, GraphObjectFrame::isOnEyeIcon);
+    }
+
+    /**
+     * The one frame hit test every gesture goes through: among the frames the active canvas
+     * actually draws, the deepest one whose given part is under the point, later in canvas order
+     * breaking a tie at the same depth.
+     *
+     * @param point a point on the canvas
+     * @param part which part of a frame to test - its whole rectangle, its header, its handle
+     * @return the frame, or {@code null}
+     */
+    private GraphObjectFrame topmostFrame(Point2D point,
+            java.util.function.BiPredicate<GraphObjectFrame, Point2D> part) {
+        GraphObjectFrame best = null;
+        int bestLevel = -1;
+        for (GraphObjectFrame frame : canvasModel.getFrames()) {
+            if (frame == focusedFrame || !isFrameDrawnOnThisCanvas(frame) || !part.test(frame, point)) {
+                continue;
+            }
+            int level = canvasModel.levelOf(frame);
+            if (level >= bestLevel) {
+                best = frame;
+                bestLevel = level;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * @param point a point on the canvas
+     * @return the port under that point, across the frames the active canvas draws, or
+     *         {@code null}. A port whose own object is not on this canvas is unreachable, so a
+     *         press on empty screen space cannot start a link from an element that is not drawn.
+     *         The focused object has no reachable ports at all: its own canvas draws neither its
+     *         border nor the circles on it, and a hit target nobody can see is worse than one
+     *         that is not there.
+     */
+    private FramePort portOnCanvasAt(Point2D point) {
+        for (GraphObjectFrame frame : canvasModel.getFrames()) {
+            if (frame == focusedFrame || !isFrameDrawnOnThisCanvas(frame)) {
+                continue;
+            }
+            boolean contentShown = !isContentHidden(frame);
+            for (FramePort port : canvasModel.portsOf(frame)) {
+                // While the object's content is on screen, a point on the real element resolves to
+                // its port as well: the circle is not drawn there in that case, but the port is
+                // still exactly what a link from it should be.
+                if (port.isNear(point)
+                        || (contentShown && isDrawnOnThisCanvas(port.getElement())
+                                && port.getElement().isGraphElement(point))) {
+                    return port;
+                }
             }
         }
         return null;
     }
 
     /**
-     * Moves a frame together with everything it claims, so its elements always stay inside it —
-     * they are still fixed relative to the frame itself, only ever repositioned individually
-     * through the object's own editor, not draggable or connectable-away one at a time here.
+     * Moves a frame together with everything it claims and everything nested inside it, so an
+     * object's net always stays inside it - its elements are fixed relative to the frame, only
+     * repositioned individually on the object's own canvas.
      *
      * <p>The delta applied to the elements is measured from the frame's own bounds after
      * {@link GraphObjectFrame#moveTo} runs, not before it: {@code moveTo} clamps its target to
@@ -2945,6 +4722,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * to) let the elements keep moving by the full amount while the frame itself stopped dead
      * at the edge — they drifted away from it a little further with every such drag. Moving the
      * frame first and reading back where it actually ended up removes that mismatch outright.
+     *
+     * <p>Everything the delta then applies to - the nested frames and the members, two different
+     * types with nothing in common until now - moves through the one {@link CanvasItem#moveBy},
+     * which is exactly what each of these two loops did by hand before it existed. They stay two
+     * loops because {@link GraphCanvasModel#subtreeOf} and {@link GraphCanvasModel#membersOfSubtree}
+     * hand back different concrete list types, but what runs inside them is now one line each,
+     * not one hand-written formula per kind.
      */
     private void moveFrame(GraphObjectFrame frame, int x, int y) {
         int beforeX = frame.getBounds().x;
@@ -2955,15 +4739,49 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (dx == 0 && dy == 0) {
             return;
         }
-        for (GraphElement element : frame.getMembers()) {
-            Point2D centre = element.getGraphElementCenter();
-            element.setNewCoordinates(new Point2D.Double(centre.getX() + dx, centre.getY() + dy));
+        for (GraphObjectFrame nested : canvasModel.subtreeOf(frame)) {
+            if (nested != frame) {
+                nested.moveBy(dx, dy);
+            }
+        }
+        for (GraphElement element : canvasModel.membersOfSubtree(frame)) {
+            element.moveBy(dx, dy);
         }
         canvasModel.syncFusions();
         updateArcCoordinates();
     }
 
-    private void updateArcCoordinates() {
+    /**
+     * Slides the whole document so the net's centroid lands on a point, keeping every
+     * Petri-object frame around its own net.
+     *
+     * <p>"Locate net in center" used to call {@code GraphPetriNet.changeLocation} directly, which
+     * has no notion of a frame: every object's net slid out from under its own frame by the same
+     * offset, and the frames stayed where they were.
+     *
+     * @param centre where the net's centroid should end up, in canvas coordinates
+     */
+    public void centreCanvasAt(Point centre) {
+        if (graphNet == null) {
+            return;
+        }
+        Point before = graphNet.getCurrentLocation();
+        graphNet.changeLocation(centre);
+        Point after = graphNet.getCurrentLocation();
+        int dx = after.x - before.x;
+        int dy = after.y - before.y;
+        for (GraphObjectFrame frame : canvasModel.getFrames()) {
+            // moveTo only, not moveFrame: the elements have already moved with the net, so moving
+            // them again with their frame would double the offset.
+            frame.moveTo(frame.getBounds().x + dx, frame.getBounds().y + dy);
+        }
+        canvasModel.syncFusions();
+        updateArcCoordinates();
+        repaint();
+    }
+
+    /** Re-derives every arc's drawn line from its endpoints; public for the undoable edits. */
+    public void updateArcCoordinates() {
         for (GraphArcIn arc : graphNet.getGraphArcInList()) {
             arc.updateCoordinates();
         }
@@ -3067,10 +4885,36 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         List<GraphPetriPlace> searchList =
                 scope != null ? scope.getGraphPetriPlaceList() : graphNet.getGraphPetriPlaceList();
         ArrayList<GraphPetriPlace> list = new ArrayList<>();
+        List<GraphPlaceFusion> litFusions = new ArrayList<>();
         for (GraphPetriPlace p : searchList) {
             for (Integer inp : inP) {
-                if (p.getPetriPlace().getNumber() == inp) {
-                    list.add(p);
+                GraphPlaceFusion fusion = canvasModel.fusionOf(p);
+                GraphPetriPlace other = fusion == null ? null
+                        : fusion.getMaster() == p ? fusion.getJoined() : fusion.getMaster();
+                // A shared place's half answers to either half's number: the built model
+                // replaced the joined half's instance with the master's, so a firing in
+                // the joined half's own object reports the master's number - which its own
+                // scope's list never contained, and the token arriving there animated
+                // nothing at all.
+                boolean matches = p.getPetriPlace().getNumber() == inp
+                        || (other != null && other.getPetriPlace().getNumber() == inp);
+                if (!matches || list.contains(p)) {
+                    continue;
+                }
+                list.add(p);
+                if (fusion != null) {
+                    // One place, both drawings: the new count lands on both halves, both
+                    // pulse, the reference line lights, and the other half's object joins
+                    // the animation spotlight like any crossing's far end.
+                    fusion.syncMarking();
+                    if (!list.contains(other)) {
+                        list.add(other);
+                    }
+                    if (!litFusions.contains(fusion)) {
+                        litFusions.add(fusion);
+                        fusion.setAnimationLit(true);
+                    }
+                    addActiveAnimationFrame(canvasModel.ownerOf(other));
                 }
             }
         }
@@ -3080,6 +4924,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         animPlaces(list, 100, 7);
         animPlaces(list, 100, 5);
         animPlaces(list, 100, 2, Color.BLACK);
+        for (GraphPlaceFusion fusion : litFusions) {
+            fusion.setAnimationLit(false);
+        }
+        if (!litFusions.isEmpty()) {
+            repaint();
+        }
     }
 
     public void animateOut(PetriT eventMin, GraphPetriNet scope) {   //Саша 05.17

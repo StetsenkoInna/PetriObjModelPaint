@@ -83,8 +83,8 @@ public class PetriNumberingCollisionTest {
                 NetLibrary.CreateNetGenerator(2.0), new Point(100, 100));
         panel.addNet(generator);
         GraphObjectFrame frame = new GraphObjectFrame("Generator", new Rectangle(40, 40, 260, 200));
-        generator.getGraphPetriPlaceList().forEach(frame::addMember);
-        generator.getGraphPetriTransitionList().forEach(frame::addMember);
+        generator.getGraphPetriPlaceList().forEach(p -> panel.getCanvasModel().claim(frame, p));
+        generator.getGraphPetriTransitionList().forEach(t -> panel.getCanvasModel().claim(frame, t));
         panel.addObjectFrame(frame);
 
         // Free elements outside the frame, connected to each other.

@@ -10,6 +10,9 @@ import java.io.Serializable;
  */
 public class GraphPetriTransition extends GraphTransition implements Serializable {
 
+    /** Pinned for the same reason as {@link GraphPlace#serialVersionUID}. */
+    private static final long serialVersionUID = 8294794337604230394L;
+
     private static int simpleInd = 0;
 
     private final int id; // UI element ID
@@ -62,6 +65,14 @@ public class GraphPetriTransition extends GraphTransition implements Serializabl
         g2.drawString("r=" + transition.getProbability(),
                 (float) this.getGraphElement().getCenterX() - (float) (Double.toString(transition.getBuffer()).length() * font) / 2,
                 (float) this.getGraphElement().getCenterY() + (float) GraphPetriTransition.getHeight() / 2 + 40);
+
+        // The tokens the transition is holding right now - its buffer of started, not yet
+        // finished firings - inside the bar, the same way a place shows its count inside
+        // its circle: centred both ways on the white fill the bar already has.
+        String bufferString = Integer.toString(transition.getBuffer());
+        g2.drawString(bufferString,
+                (float) this.getGraphElement().getCenterX() - (float) (bufferString.length() * font) / 2,
+                (float) this.getGraphElement().getCenterY() + (float) font / 2);
     }
 
     @Override

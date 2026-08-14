@@ -123,6 +123,9 @@ public class SetPosition extends javax.swing.JFrame {
         try {
             setPName();
             setPMark();
+            // A place that is half of a shared place holds one marking with its other
+            // half, whichever of the two the user edited it through.
+            panel.placeMarkingEdited(choosenPetriP);
             choosenPetriP = null;
             panel.repaint();
             this.setVisible(false);
