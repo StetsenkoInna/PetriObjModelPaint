@@ -194,7 +194,14 @@ data: [DONE]                                       ← end of stream
   "step_number":   42,
   "markings":  { "p1": 3, "p2": 0 },
   "buffers":   { "t1": 1, "t2": 0 },
-  "progress":  0.001
+  "progress":  0.001,
+  "fired_transitions": ["t1"],
+  "firing_sequence": [
+    { "transition_id": "t1", "phase": "before_act_in",
+      "markings": { "p1": 4, "p2": 0 }, "buffers": { "t1": 0, "t2": 0 }, "time": 1.0 },
+    { "transition_id": "t1", "phase": "after_act_in",
+      "markings": { "p1": 3, "p2": 0 }, "buffers": { "t1": 1, "t2": 0 }, "time": 1.0 }
+  ]
 }
 ```
 
@@ -205,6 +212,44 @@ data: [DONE]                                       ← end of stream
 | `markings` | `Map<id, int>` | Token count per place (keyed by PNML `id`) |
 | `buffers` | `Map<id, int>` | Active channel count per transition |
 | `progress` | `double` | `current_time / simulationTime` ∈ [0, 1] |
+| `fired_transitions` | `string[]` | Ids of the transitions that fired since the previous snapshot, in the order they first fired |
+| `firing_sequence` | `FiringStep[]` | The atomic animation steps of those firings, in order |
+
+Both firing fields are always present and never `null`; an empty array means nothing fired in
+the interval. A client that ignores them sees exactly the frame it always saw.
+
+#### Firing step
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `transition_id` | `string` | Id of the transition being fired |
+| `phase` | `string` | `before_act_in`, `after_act_in`, `before_act_out` or `after_act_out` |
+| `markings` | `Map<id, int>` | Model-wide token count per place **at that instant** |
+| `buffers` | `Map<id, int>` | Model-wide active channel count per transition at that instant |
+| `time` | `double` | Simulation clock value at that instant |
+
+What each phase means, and what a player is expected to highlight:
+
+| Phase | Highlight | Markings |
+|-------|-----------|----------|
+| `before_act_in` | input places and input arcs | before the tokens are consumed |
+| `after_act_in` | the transition | tokens consumed, buffer incremented |
+| `before_act_out` | the transition and its output arcs | unchanged from `after_act_in` |
+| `after_act_out` | output places | buffer decremented, tokens produced |
+
+`markings` and `buffers` inside a step span the whole model, keyed the same way as the frame's
+own maps — replaying a frame's steps in order therefore ends on the frame's own state, which is
+why a player that animates the steps can ignore the frame-level maps entirely.
+
+Two things behave differently here than in the reference Python engine, on purpose:
+
+* `step_number` counts flushed time steps — one per event-loop iteration, including the one at
+  `t = 0` before any event — where the Python engine counts completed event iterations. The
+  numbers do not line up; neither is wrong, and no consumer of `step_number` was moved.
+* A model runs `output()` for only the single conflict-winning object per iteration, whereas the
+  Python engine sweeps every due transition in one event. What Python reports as one event may
+  therefore arrive split across two frames. The contract only promises *ordered atomic steps
+  since the previous frame*, which holds either way.
 
 ---
 
@@ -243,7 +288,8 @@ async function runSimulation(netXml, opts = {}) {
       if (line.startsWith('data: ')) {
         const payload = JSON.parse(line.slice(6));
         if (payload.sessionId) { sessionId = payload.sessionId; continue; }
-        onFrame(payload);           // { current_time, step_number, markings, buffers, progress }
+        onFrame(payload);           // { current_time, step_number, markings, buffers, progress,
+                                    //   fired_transitions, firing_sequence }
       }
     }
   }
@@ -251,7 +297,13 @@ async function runSimulation(netXml, opts = {}) {
 
 function onFrame(frame) {
   console.log(`t=${frame.current_time}  progress=${(frame.progress * 100).toFixed(1)}%`);
-  // update UI with frame.markings / frame.buffers
+  // Animate the firings, or jump straight to the end state when there is nothing to play:
+  // replaying every step lands on frame.markings / frame.buffers either way.
+  for (const step of frame.firing_sequence) {
+    highlight(step.transition_id, step.phase);
+    render(step.markings, step.buffers);
+  }
+  if (frame.firing_sequence.length === 0) render(frame.markings, frame.buffers);
 }
 ```
 
@@ -285,11 +337,15 @@ def run_simulation(net_xml: str, simulation_time: float = 3600.0, time_step: flo
                         frame = json.loads(line[6:])
                         if "sessionId" in frame:
                             continue
-                        yield frame   # {"current_time", "step_number", "markings", "buffers", "progress"}
+                        # {"current_time", "step_number", "markings", "buffers", "progress",
+                        #  "fired_transitions", "firing_sequence"}
+                        yield frame
 
 # Usage
 for frame in run_simulation(pnml_string, simulation_time=500, time_step=5):
     print(f"t={frame['current_time']:.1f}  queue={frame['markings'].get('p1', 0)}")
+    for step in frame["firing_sequence"]:
+        print(f"  {step['phase']:<15} {step['transition_id']}  t={step['time']:.1f}")
 ```
 
 ---
@@ -554,6 +610,10 @@ curl -X POST http://localhost:8080/api/v2/simulation/start \
 Snapshots have the same shape as in v1 — `markings` and `buffers` keyed by element id, which
 stays unique across the objects of a model — so a frontend that renders v1 frames renders v2
 frames unchanged. Which object an element belongs to comes from `/model/parse`.
+
+That includes `fired_transitions` and `firing_sequence`: a firing step of a composed model
+reports every place and transition of *every* object, not just the one whose transition fired,
+so a client animating a v2 run needs no extra bookkeeping to know what else moved.
 
 STOMP destinations carry the version:
 

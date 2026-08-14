@@ -47,9 +47,32 @@ public final class GraphNetBuilder {
                                       Map<Integer, Point2D.Double> placeCoordinates,
                                       Map<Integer, Point2D.Double> transitionCoordinates,
                                       Point location) {
-        CoordinateNormalizer.NormalizationResult normalized = CoordinateNormalizer.normalize(
-                placeCoordinates == null ? Collections.emptyMap() : placeCoordinates,
-                transitionCoordinates == null ? Collections.emptyMap() : transitionCoordinates);
+        return build(net, placeCoordinates, transitionCoordinates, location, true);
+    }
+
+    /**
+     * The variant that can keep coordinates exactly as given. Normalization to the (50,50)
+     * corner is a defense for foreign documents whose layouts may sit anywhere; for a
+     * document this application wrote itself, the coordinates are the user's own canvas
+     * positions, and normalizing them is precisely what made every reimported net drift
+     * and pile up.
+     *
+     * @param normalize false to trust the given coordinates as absolute canvas positions
+     */
+    public static GraphPetriNet build(PetriNet net,
+                                      Map<Integer, Point2D.Double> placeCoordinates,
+                                      Map<Integer, Point2D.Double> transitionCoordinates,
+                                      Point location,
+                                      boolean normalize) {
+        Map<Integer, Point2D.Double> safePlaces =
+                placeCoordinates == null ? Collections.emptyMap() : placeCoordinates;
+        Map<Integer, Point2D.Double> safeTransitions =
+                transitionCoordinates == null ? Collections.emptyMap() : transitionCoordinates;
+        CoordinateNormalizer.NormalizationResult normalized = normalize
+                ? CoordinateNormalizer.normalize(safePlaces, safeTransitions)
+                : new CoordinateNormalizer.NormalizationResult(
+                        new CoordinateNormalizer.BoundingBox(0, 0, 0, 0),
+                        safePlaces, safeTransitions);
 
         GraphPetriNet graphNet = new GraphPetriNet();
         graphNet.setPetriNet(net);

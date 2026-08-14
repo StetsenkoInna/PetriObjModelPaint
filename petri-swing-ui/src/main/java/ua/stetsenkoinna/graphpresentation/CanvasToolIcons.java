@@ -17,9 +17,55 @@ import javax.swing.Icon;
  * fall out of sync with the UI's color scheme, and never depend on a Unicode glyph being
  * present in whatever font the system happens to have installed.
  */
-final class CanvasToolIcons {
+public final class CanvasToolIcons {
 
     private CanvasToolIcons() {
+    }
+
+    /**
+     * Right-pointing triangle — start an animation.
+     *
+     * <p>Deliberately the same shape as {@link #arrowRight}: it is the same triangle the play
+     * button has always shown, and the two buttons sitting next to each other have always looked
+     * alike. What changes is where it comes from — it used to be {@code play.png}, a black glyph
+     * baked into an image, which on a dark toolbar was a black triangle on a dark button and the
+     * only control in the window that vanished when the theme changed.
+     *
+     * @param size the icon's side length
+     */
+    public static Icon play(int size) {
+        return arrowRight(size);
+    }
+
+    /**
+     * Two upright bars — pause, the other face of {@link #play}, and drawn for the same reason.
+     *
+     * @param size the icon's side length
+     */
+    public static Icon pause(int size) {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = prepare(g);
+                g2.setColor(c.getForeground());
+                int barWidth = Math.max(2, size * 18 / 100);
+                int top = y + size * 20 / 100;
+                int barHeight = size * 60 / 100;
+                g2.fillRect(x + size * 26 / 100, top, barWidth, barHeight);
+                g2.fillRect(x + size * 56 / 100, top, barWidth, barHeight);
+                g2.dispose();
+            }
+
+            @Override
+            public int getIconWidth() {
+                return size;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return size;
+            }
+        };
     }
 
     static Icon pointer(int size) {
@@ -180,7 +226,7 @@ final class CanvasToolIcons {
      * A single triangle pointing right — "step forward" one event. Plain, matching
      * {@link #arrowLeft}'s look now that the pair sits together in the header row.
      */
-    static Icon arrowRight(int size) {
+    public static Icon arrowRight(int size) {
         return new Icon() {
             @Override
             public void paintIcon(Component c, Graphics g, int x, int y) {

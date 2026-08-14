@@ -1,6 +1,7 @@
 package ua.stetsenkoinna.graphnet;
 
 import ua.stetsenkoinna.petriobj.ArcOut;
+import ua.stetsenkoinna.theme.CanvasPalette;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -13,6 +14,9 @@ import java.util.List;
  * @author Inna
  */
 public class GraphArcOut extends GraphArc implements Serializable {
+
+    /** Pinned for the same reason as {@link GraphArc#serialVersionUID}. */
+    private static final long serialVersionUID = 1196373091481903423L;
 
     private static ArrayList<GraphArcOut> graphArcOutList = new ArrayList<>();
 
@@ -57,7 +61,7 @@ public class GraphArcOut extends GraphArc implements Serializable {
     public void drawGraphElement(Graphics2D g) {
         Graphics2D g2 = (Graphics2D) g;
         g2.setStroke(new BasicStroke(getLineWidth()));
-        g2.setColor(getColor());
+        g2.setColor(CanvasPalette.current().strokeFor(getColor()));
         g2.draw(this.getGraphElement());
         drawArrowHead(g2);
         if (arc.getQuantity() != 1 || arc.kIsParam()) {

@@ -1,5 +1,6 @@
 package ua.stetsenkoinna.graphnet;
 
+import java.awt.Rectangle;
 import java.awt.geom.Point2D;
 import java.util.Objects;
 
@@ -15,6 +16,9 @@ import java.util.Objects;
  * {@code PortAnchor} is exactly that, nothing else.
  */
 public final class PortAnchor extends GraphElement {
+
+    /** Pinned for the same reason as {@link GraphPlace#serialVersionUID}. */
+    private static final long serialVersionUID = 6000598388561772887L;
 
     private final Point2D center;
     private final int border;
@@ -43,5 +47,17 @@ public final class PortAnchor extends GraphElement {
     @Override
     public boolean isCircular() {
         return true;
+    }
+
+    /**
+     * @return a square around the centre, {@code border} on every side - an anchor has no shape
+     *         of its own to draw, but this is the honest bounding box of what {@link #getBorder()}
+     *         already claims it occupies, for a caller that only knows it as a {@link CanvasItem}
+     */
+    @Override
+    public Rectangle getBounds() {
+        return new Rectangle(
+                (int) Math.round(center.getX() - border), (int) Math.round(center.getY() - border),
+                border * 2, border * 2);
     }
 }

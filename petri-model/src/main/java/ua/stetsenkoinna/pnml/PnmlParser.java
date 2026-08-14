@@ -1,5 +1,7 @@
 package ua.stetsenkoinna.pnml;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.*;
 import ua.stetsenkoinna.petriobj.*;
 import org.xml.sax.InputSource;
@@ -18,6 +20,8 @@ import java.util.Map;
  * @author Serhii Rybak
  */
 public class PnmlParser {
+
+    private static final Logger log = LoggerFactory.getLogger(PnmlParser.class);
 
     private final Map<String, Integer> placeIdToNumber = new HashMap<>();
     private final Map<String, Integer> transitionIdToNumber = new HashMap<>();
@@ -96,11 +100,37 @@ public class PnmlParser {
      * @throws ExceptionInvalidTimeDelay if the described net has an invalid structure
      */
     PetriNet parseScope(Element scope, String netName) throws ExceptionInvalidTimeDelay {
-        ArrayList<PetriP> places = parsePlaces(scope);
+        return parseScope(scope, netName, null);
+    }
+
+    /**
+     * Builds one Petri net from a page of a composed document, taking the page's reference
+     * nodes into account.
+     *
+     * <p>A fusion {@code <referencePlace>} is materialised as an ordinary place of this net,
+     * at exactly the position of the {@code <place>} it replaces, the object still has that
+     * slot, it simply does not own the place that fills it, and the fusion link declared for
+     * the slot is what makes the two objects share one instance at wiring time. Its marking
+     * is the one the reference node preserved, so a document that is read and written again
+     * says the same thing.
+     *
+     * <p>A representative reference node is not part of this net at all: neither it nor the
+     * arcs that touch it, which are links rather than arcs of the object.
+     *
+     * @param scope the element to read the net from
+     * @param netName name to give the resulting net
+     * @param references what the document's reference nodes mean for this page, or
+     *        {@code null} for a legacy document, which is then read exactly as before
+     * @return the parsed net
+     * @throws ExceptionInvalidTimeDelay if the described net has an invalid structure
+     */
+    PetriNet parseScope(Element scope, String netName, ReferenceNodeIndex.PageReferences references)
+            throws ExceptionInvalidTimeDelay {
+        ArrayList<PetriP> places = parsePlaces(scope, references);
         ArrayList<PetriT> transitions = parseTransitions(scope);
         ArrayList<ArcIn> arcIns = new ArrayList<>();
         ArrayList<ArcOut> arcOuts = new ArrayList<>();
-        parseArcs(scope, arcIns, arcOuts);
+        parseArcs(scope, arcIns, arcOuts, references);
 
         return new PetriNet(netName, places, transitions, arcIns, arcOuts);
     }
@@ -108,52 +138,96 @@ public class PnmlParser {
     /**
      * Parse places from net element
      */
-    private ArrayList<PetriP> parsePlaces(Element netElement) {
+    private ArrayList<PetriP> parsePlaces(Element netElement,
+                                          ReferenceNodeIndex.PageReferences references) {
         ArrayList<PetriP> places = new ArrayList<>();
-        NodeList placeNodes = netElement.getElementsByTagName(PnmlConstants.ELEMENT_PLACE);
-
-        for (int i = 0; i < placeNodes.getLength(); i++) {
-            Element placeElement = (Element) placeNodes.item(i);
-            String id = placeElement.getAttribute(PnmlConstants.ATTR_ID);
-
-            // Get place name
-            String name = XmlHelper.getTextContent(placeElement, PnmlConstants.ELEMENT_NAME);
-            if (name == null) {
-                name = id; // default to ID
+        if (references == null) {
+            NodeList placeNodes = netElement.getElementsByTagName(PnmlConstants.ELEMENT_PLACE);
+            for (int i = 0; i < placeNodes.getLength(); i++) {
+                places.add(parsePlace((Element) placeNodes.item(i)));
             }
+            return places;
+        }
+        // The slot list already interleaves the fusion references with the page's own
+        // places, in the document order that defines every link index.
+        for (Element slot : references.placeSlots()) {
+            places.add(PnmlConstants.ELEMENT_REFERENCE_PLACE.equals(slot.getTagName())
+                    ? parseFusionReferencePlace(slot)
+                    : parsePlace(slot));
+        }
+        return places;
+    }
 
-            // Get initial marking
-            String markingText = XmlHelper.getTextContent(placeElement, PnmlConstants.ELEMENT_INITIAL_MARKING);
-            int marking = XmlHelper.parseIntSafe(markingText, 0);
+    /**
+     * Reads one {@code <place>} and registers it so that arcs can find it by id.
+     */
+    private PetriP parsePlace(Element placeElement) {
+        String id = placeElement.getAttribute(PnmlConstants.ATTR_ID);
 
-            // Parse place parameters from toolspecific section
-            String markingParam = null;
-            NodeList toolspecificNodes = placeElement.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
-            for (int j = 0; j < toolspecificNodes.getLength(); j++) {
-                Element toolElement = (Element) toolspecificNodes.item(j);
-                if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
-                    NodeList markingParamNodes = toolElement.getElementsByTagName("initialMarkingParameter");
-                    if (markingParamNodes.getLength() > 0) {
-                        markingParam = markingParamNodes.item(0).getTextContent();
-                    }
-                }
-            }
-
-            PetriP place = new PetriP(id, name, marking);
-
-            // Set marking parameter if present
-            if (XmlHelper.isNotEmpty(markingParam)) {
-                place.setMarkParam(markingParam);
-            }
-
-            places.add(place);
-            placeIdToNumber.put(id, place.getNumber());
-
-            // Parse coordinates from toolspecific elements
-            parseCoordinatesForPlace(placeElement, place.getNumber());
+        // Get place name
+        String name = XmlHelper.getTextContent(placeElement, PnmlConstants.ELEMENT_NAME);
+        if (name == null) {
+            name = id; // default to ID
         }
 
-        return places;
+        // Get initial marking
+        String markingText = XmlHelper.getTextContent(placeElement, PnmlConstants.ELEMENT_INITIAL_MARKING);
+        int marking = XmlHelper.parseIntSafe(markingText, 0);
+
+        // Parse place parameters from toolspecific section
+        String markingParam = null;
+        NodeList toolspecificNodes = placeElement.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
+        for (int j = 0; j < toolspecificNodes.getLength(); j++) {
+            Element toolElement = (Element) toolspecificNodes.item(j);
+            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
+                NodeList markingParamNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_INITIAL_MARKING_PARAMETER);
+                if (markingParamNodes.getLength() > 0) {
+                    markingParam = markingParamNodes.item(0).getTextContent();
+                }
+            }
+        }
+
+        PetriP place = new PetriP(id, name, marking);
+
+        // Set marking parameter if present
+        if (XmlHelper.isNotEmpty(markingParam)) {
+            place.setMarkParam(markingParam);
+        }
+
+        placeIdToNumber.put(id, place.getNumber());
+
+        // Parse coordinates from toolspecific elements
+        parseCoordinatesForPlace(placeElement, place.getNumber());
+        return place;
+    }
+
+    /**
+     * Materialises a fusion {@code <referencePlace>} as this object's place in that slot.
+     *
+     * <p>The place carries the reference node's own id, so the page's arcs keep resolving
+     * unchanged, and the marking the reference node preserved, a reference node may not
+     * carry an {@code <initialMarking>}, since after flattening it is the same node as the
+     * one it stands for and the tokens would be counted twice.
+     */
+    private PetriP parseFusionReferencePlace(Element reference) {
+        String id = reference.getAttribute(PnmlConstants.ATTR_ID);
+        String name = XmlHelper.getTextContent(reference, PnmlConstants.ELEMENT_NAME);
+        if (name == null) {
+            name = id;
+        }
+        int marking = XmlHelper.parseIntSafe(
+                XmlHelper.getToolSpecificText(reference, PnmlConstants.ELEMENT_FUSED_INITIAL_MARKING), 0);
+
+        PetriP place = new PetriP(id, name, marking);
+        // The slot may still be driven by a model parameter; that belongs to the object, not
+        // to the place it borrows, so it travels with the reference node.
+        String markingParam = XmlHelper.getToolSpecificText(reference, PnmlConstants.ELEMENT_INITIAL_MARKING_PARAMETER);
+        if (XmlHelper.isNotEmpty(markingParam)) {
+            place.setMarkParam(markingParam);
+        }
+        placeIdToNumber.put(id, place.getNumber());
+        parseCoordinatesForPlace(reference, place.getNumber());
+        return place;
     }
 
     /**
@@ -291,7 +365,8 @@ public class PnmlParser {
     /**
      * Parse arcs from net element
      */
-    private void parseArcs(Element netElement, ArrayList<ArcIn> arcIns, ArrayList<ArcOut> arcOuts) {
+    private void parseArcs(Element netElement, ArrayList<ArcIn> arcIns, ArrayList<ArcOut> arcOuts,
+                           ReferenceNodeIndex.PageReferences references) {
         NodeList arcNodes = netElement.getElementsByTagName(PnmlConstants.ELEMENT_ARC);
 
         for (int i = 0; i < arcNodes.getLength(); i++) {
@@ -299,6 +374,12 @@ public class PnmlParser {
             String arcId = arcElement.getAttribute(PnmlConstants.ATTR_ID);
             String source = arcElement.getAttribute(PnmlConstants.ATTR_SOURCE);
             String target = arcElement.getAttribute(PnmlConstants.ATTR_TARGET);
+
+            // An arc that touches a representative reference node crosses an object boundary;
+            // it is read as a link, not as an arc of this object's net.
+            if (references != null && references.linkArcIds().contains(arcId)) {
+                continue;
+            }
 
             // Get arc weight
             String weightText = XmlHelper.getTextContent(arcElement, PnmlConstants.ELEMENT_INSCRIPTION);
@@ -314,7 +395,7 @@ public class PnmlParser {
                 Element toolElement = (Element) toolspecificNodes.item(j);
                 if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
                     // Check for informational flag
-                    NodeList infNodes = toolElement.getElementsByTagName("informational");
+                    NodeList infNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_INFORMATIONAL);
                     if (infNodes.getLength() > 0) {
                         isInformational = "true".equals(infNodes.item(0).getTextContent());
                     }
@@ -388,6 +469,12 @@ public class PnmlParser {
                 }
 
                 arcOuts.add(arcOut);
+            } else {
+                // Dropping the arc keeps the rest of the net readable, but doing it silently
+                // turns a broken document into a net that runs and quietly means something
+                // else, which is the worst outcome available here.
+                log.warn("Dropping arc {}: endpoints {} -> {} are not both on this page",
+                        arcId, source, target);
             }
         }
     }

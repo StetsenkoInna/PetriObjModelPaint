@@ -8,6 +8,7 @@ import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
 import ua.stetsenkoinna.libnet.NetLibrary;
 import ua.stetsenkoinna.petriobj.ArcIn;
 import ua.stetsenkoinna.petriobj.ArcOut;
@@ -54,10 +55,10 @@ public class CanvasObjectFrameTest {
         panel.setGraphNet(net);
         GraphObjectFrame frame = new GraphObjectFrame("Generator", new Rectangle(0, 0, 900, 600));
         for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
-            frame.addMember(place);
+            panel.getCanvasModel().claim(frame, place);
         }
         for (GraphPetriTransition transition : net.getGraphPetriTransitionList()) {
-            frame.addMember(transition);
+            panel.getCanvasModel().claim(frame, transition);
         }
         panel.addObjectFrame(frame);
         return panel;
@@ -170,6 +171,9 @@ public class CanvasObjectFrameTest {
 
     @Test
     public void removingAFrameReleasesItsMembers() throws Exception {
+        // What a removed object held moves one level out: to the object that enclosed it, or to
+        // the free elements when nothing did. Never to whatever frame happens to be drawn over it,
+        // which is what used to hand an outer object's whole net to the object nested inside it.
         PetriNetsPanel panel = panelWithFramedNet();
         GraphObjectFrame frame = panel.getCanvasModel().getFrames().getFirst();
         GraphPetriPlace place = panel.getGraphNet().getGraphPetriPlaceList().getFirst();
@@ -177,6 +181,21 @@ public class CanvasObjectFrameTest {
         panel.removeObjectFrame(frame);
 
         assertNull(panel.getCanvasModel().ownerOf(place));
+    }
+
+    @Test
+    public void removingANestedFrameHandsItsMembersToTheObjectThatEnclosedIt() throws Exception {
+        PetriNetsPanel panel = panelWithFramedNet();
+        GraphObjectFrame parent = panel.getCanvasModel().getFrames().getFirst();
+        GraphPetriPlace place = panel.getGraphNet().getGraphPetriPlaceList().getFirst();
+        GraphObjectFrame child = new GraphObjectFrame("Inner", new Rectangle(100, 100, 200, 160));
+        panel.getCanvasModel().nest(child, parent);
+        panel.addObjectFrame(child);
+        panel.getCanvasModel().claim(child, place);
+
+        panel.removeObjectFrame(child);
+
+        assertSame(parent, panel.getCanvasModel().ownerOf(place));
     }
 
     /**
@@ -197,8 +216,8 @@ public class CanvasObjectFrameTest {
         panel.getGraphNet().getGraphPetriPlaceList().add(placeA);
         panel.getGraphNet().getGraphPetriTransitionList().add(transitionA);
         GraphObjectFrame frameA = new GraphObjectFrame("A", new Rectangle(0, 0, 300, 300));
-        frameA.addMember(placeA);
-        frameA.addMember(transitionA);
+        panel.getCanvasModel().claim(frameA, placeA);
+        panel.getCanvasModel().claim(frameA, transitionA);
         panel.addObjectFrame(frameA);
 
         GraphPetriPlace placeB = new GraphPetriPlace(new PetriP("PB", 0), 2);
@@ -208,8 +227,8 @@ public class CanvasObjectFrameTest {
         panel.getGraphNet().getGraphPetriPlaceList().add(placeB);
         panel.getGraphNet().getGraphPetriTransitionList().add(transitionB);
         GraphObjectFrame frameB = new GraphObjectFrame("B", new Rectangle(400, 0, 300, 300));
-        frameB.addMember(placeB);
-        frameB.addMember(transitionB);
+        panel.getCanvasModel().claim(frameB, placeB);
+        panel.getCanvasModel().claim(frameB, transitionB);
         panel.addObjectFrame(frameB);
 
         return panel;
@@ -236,6 +255,28 @@ public class CanvasObjectFrameTest {
             }
         }
         throw new AssertionError("no element named " + name);
+    }
+
+    /**
+     * Drops an element with one of the canvas's own placement tools, the way a click does, and
+     * returns the undoable edit it posted. Goes through {@code addElementAt} rather than adding to
+     * the net directly, so the claim an object's canvas makes on what is drawn there is exercised.
+     */
+    private static AddGraphElementEdit addWithTool(PetriNetsPanel panel, CanvasTool tool, Point at)
+            throws Exception {
+        panel.setTool(tool);
+        Method add = PetriNetsPanel.class.getDeclaredMethod("addElementAt", CanvasTool.class, Point.class);
+        add.setAccessible(true);
+        java.util.List<javax.swing.undo.UndoableEdit> posted = new java.util.ArrayList<>();
+        javax.swing.event.UndoableEditListener listener = event -> posted.add(event.getEdit());
+        PetriNetsFrame.getUndoSupport().addUndoableEditListener(listener);
+        try {
+            add.invoke(panel, tool, at);
+        } finally {
+            PetriNetsFrame.getUndoSupport().removeUndoableEditListener(listener);
+        }
+        assertEquals("the placement tool posts exactly one undoable edit", 1, posted.size());
+        return (AddGraphElementEdit) posted.getFirst();
     }
 
     private static <T extends Component> T findComponent(Container root, Class<T> type, Predicate<T> matches) {
@@ -432,67 +473,60 @@ public class CanvasObjectFrameTest {
     }
 
     @Test
-    public void reconcileAddsWhatIsNewAndDropsWhatWasRemoved() throws Exception {
-        Method reconcile = PetriNetsPanel.class.getDeclaredMethod(
-                "reconcile", List.class, List.class, List.class);
-        reconcile.setAccessible(true);
+    public void addingAPlaceOnAnObjectCanvasClaimsItForThatObject() throws Exception {
+        // What the deleted modal editor's own Place/Transition buttons did, now done by the main
+        // canvas's own Add Place / Add Transition tool while an object's canvas is active. There is
+        // no second panel and no second net any more, so the new element lands in the one document
+        // already claimed for the object it was drawn into.
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphObjectFrame frameA = panel.getCanvasModel().getFrames().getFirst();
+        panel.openObjectCanvas(frameA);
+        int placesBefore = panel.getGraphNet().getGraphPetriPlaceList().size();
 
-        String survivor = "kept";
-        String removed = "gone";
-        String added = "new";
-        java.util.List<String> main = new java.util.ArrayList<>(List.of(survivor, removed));
-        List<String> before = List.of(survivor, removed);
-        List<String> after = List.of(survivor, added);
+        addWithTool(panel, CanvasTool.ADD_PLACE, new Point(120, 200));
+        addWithTool(panel, CanvasTool.ADD_TRANSITION, new Point(200, 200));
 
-        reconcile.invoke(null, main, before, after);
-
-        assertEquals(List.of(survivor, added), main);
+        assertEquals(placesBefore + 1, panel.getGraphNet().getGraphPetriPlaceList().size());
+        GraphPetriPlace added = panel.getGraphNet().getGraphPetriPlaceList().getLast();
+        GraphPetriTransition addedTransition =
+                panel.getGraphNet().getGraphPetriTransitionList().getLast();
+        assertSame("drawn on the object's canvas means drawn into the object",
+                frameA, panel.getCanvasModel().ownerOf(added));
+        assertSame(frameA, panel.getCanvasModel().ownerOf(addedTransition));
     }
 
     @Test
-    public void theEditorToolbarAddsAPlaceAndATransition() throws Exception {
-        PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
-        editorPanel.setGraphNet(new GraphPetriNet());
-        ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame editor =
-                new ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame(null, "Test", editorPanel);
+    public void theNewElementFollowsThePointerOnAnObjectCanvas() throws Exception {
+        // Same assertion the deleted editor's toolbar test made: a newly added element is set as
+        // current, which is what the canvas's own mouseMoved handling needs for it to follow the
+        // pointer until clicked into place instead of sitting wherever a fresh one starts out.
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        panel.openObjectCanvas(panel.getCanvasModel().getFrames().getFirst());
 
-        Method addPlace = editor.getClass().getDeclaredMethod("addPlace");
-        addPlace.setAccessible(true);
-        addPlace.invoke(editor);
-        Method addTransition = editor.getClass().getDeclaredMethod("addTransition");
-        addTransition.setAccessible(true);
-        addTransition.invoke(editor);
+        addWithTool(panel, CanvasTool.ADD_PLACE, new Point(120, 200));
+        assertSame(panel.getGraphNet().getGraphPetriPlaceList().getLast(), panel.getCurrent());
 
-        assertEquals(1, editorPanel.getGraphNet().getGraphPetriPlaceList().size());
-        assertEquals(1, editorPanel.getGraphNet().getGraphPetriTransitionList().size());
-        editor.dispose();
+        addWithTool(panel, CanvasTool.ADD_TRANSITION, new Point(200, 200));
+        assertSame(panel.getGraphNet().getGraphPetriTransitionList().getLast(), panel.getCurrent());
     }
 
     @Test
-    public void theEditorToolbarSetsTheNewElementAsCurrentSoItFollowsThePointer() throws Exception {
-        // Without this, the main canvas's own mouseMoved/mousePressed handling — shared by this
-        // panel, since it is the very same PetriNetsPanel class — never has anything to do:
-        // a newly added place or transition would just sit wherever a freshly constructed one
-        // starts out instead of following the pointer until clicked into place, the same
-        // "different spawn logic" gap that made every new element land right on top of the
-        // last one.
-        PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
-        editorPanel.setGraphNet(new GraphPetriNet());
-        ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame editor =
-                new ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame(null, "Test", editorPanel);
+    public void leavingAnObjectCanvasKeepsEveryEditMadeOnIt() throws Exception {
+        // There is no Save and no Cancel, so there is nothing to assert about a commit: an edit
+        // made on an object's canvas is an edit to the model at the moment it is made, and going
+        // back to the net's canvas cannot discard it.
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphObjectFrame frameA = panel.getCanvasModel().getFrames().getFirst();
+        panel.openObjectCanvas(frameA);
+        addWithTool(panel, CanvasTool.ADD_PLACE, new Point(120, 200));
+        GraphPetriPlace added = panel.getGraphNet().getGraphPetriPlaceList().getLast();
 
-        Method addPlace = editor.getClass().getDeclaredMethod("addPlace");
-        addPlace.setAccessible(true);
-        addPlace.invoke(editor);
+        panel.openObjectCanvas(null);
 
-        assertSame(editorPanel.getGraphNet().getGraphPetriPlaceList().getFirst(), editorPanel.getCurrent());
-
-        Method addTransition = editor.getClass().getDeclaredMethod("addTransition");
-        addTransition.setAccessible(true);
-        addTransition.invoke(editor);
-
-        assertSame(editorPanel.getGraphNet().getGraphPetriTransitionList().getFirst(), editorPanel.getCurrent());
-        editor.dispose();
+        assertTrue("the element is on the one shared canvas",
+                panel.getGraphNet().getGraphPetriPlaceList().contains(added));
+        assertSame("and still belongs to the object it was drawn into",
+                frameA, panel.getCanvasModel().ownerOf(added));
     }
 
     @Test
@@ -504,7 +538,7 @@ public class CanvasObjectFrameTest {
         ua.stetsenkoinna.graphnet.GraphElementIdGenerator.reset();
         int before = ua.stetsenkoinna.graphnet.GraphElementIdGenerator.next();
 
-        new PetriNetsPanel(null, true); // simulates PetriNetsPanel.openObjectEditor opening one
+        new PetriNetsPanel(null, true); // simulates a second view of the same document
 
         int after = ua.stetsenkoinna.graphnet.GraphElementIdGenerator.next();
         assertEquals("constructing another panel must not roll the id generator back",
@@ -512,10 +546,12 @@ public class CanvasObjectFrameTest {
     }
 
     @Test
-    public void propertyDialogsAreExemptFromModalBlocking() throws Exception {
-        // ObjectEditorFrame is APPLICATION_MODAL; without this exemption Swing blocks these
-        // plain, ownerless JFrames the instant it shows, which is why opening a place or
-        // transition's own properties from inside the object editor used to flash and vanish.
+    public void propertyDialogsStayUsableWhileAModalDialogIsUp() throws Exception {
+        // These are plain, ownerless JFrames, so Swing has no way to tell they belong with the
+        // canvas and blocks them the instant any application-modal dialog shows. The modal window
+        // an object's net used to be edited in is gone, but JOptionPane confirmations - the
+        // "move it to the other Petri-object?" question, the delete confirmations - are still
+        // application-modal, so the exemption is still what keeps a place's own properties usable.
         PetriNetsPanel panel = new PetriNetsPanel(null, true);
 
         java.awt.Dialog.ModalExclusionType exclude = java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE;
@@ -578,66 +614,33 @@ public class CanvasObjectFrameTest {
     }
 
     @Test
-    public void snapshotAndRestorePositionsRoundTrips() throws Exception {
-        PetriP.initNext();
-        GraphPetriPlace place = new GraphPetriPlace(new PetriP("P", 0), 500);
-        place.setNewCoordinates(new Point2D.Double(10, 20));
+    public void undoUndoesAnEditMadeOnAnObjectCanvas() throws Exception {
+        // What replaces Cancel. There is no discard, because nothing is held back to discard: the
+        // edit is in the model already, and Ctrl+Z is the way out of it - including across a
+        // canvas switch, since there is one document and one undo history.
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphObjectFrame frameA = panel.getCanvasModel().getFrames().getFirst();
+        panel.openObjectCanvas(frameA);
+        int before = panel.getGraphNet().getGraphPetriPlaceList().size();
 
-        Method snapshot = PetriNetsPanel.class.getDeclaredMethod("snapshotPositions", List.class, List.class);
-        snapshot.setAccessible(true);
-        Object positions = snapshot.invoke(null, List.of(place), List.of());
+        AddGraphElementEdit edit = addWithTool(panel, CanvasTool.ADD_PLACE, new Point(120, 200));
+        GraphPetriPlace added = panel.getGraphNet().getGraphPetriPlaceList().getLast();
+        panel.openObjectCanvas(null);
+        edit.undo();
 
-        place.setNewCoordinates(new Point2D.Double(500, 500)); // simulates an edit made in the sub-editor
+        assertEquals(before, panel.getGraphNet().getGraphPetriPlaceList().size());
+        assertNull("undo releases it from the object too", panel.getCanvasModel().ownerOf(added));
 
-        Method restore = PetriNetsPanel.class.getDeclaredMethod("restorePositions", Map.class);
-        restore.setAccessible(true);
-        restore.invoke(null, positions);
-
-        assertEquals(10.0, place.getGraphElementCenter().getX(), 0.001);
-        assertEquals(20.0, place.getGraphElementCenter().getY(), 0.001);
-    }
-
-    @Test
-    public void savingTheObjectEditorSetsWasSaved() {
-        PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
-        editorPanel.setGraphNet(new GraphPetriNet());
-        ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame editor =
-                new ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame(null, "Test", editorPanel);
-
-        assertFalse(editor.wasSaved());
-        findComponent(editor.getContentPane(), JButton.class, b -> "Save".equals(b.getText())).doClick();
-
-        assertTrue("closing via Save is what tells the caller to apply what changed", editor.wasSaved());
-    }
-
-    @Test
-    public void cancellingTheObjectEditorLeavesWasSavedFalse() {
-        PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
-        editorPanel.setGraphNet(new GraphPetriNet());
-        ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame editor =
-                new ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame(null, "Test", editorPanel);
-
-        findComponent(editor.getContentPane(), JButton.class, b -> "Cancel".equals(b.getText())).doClick();
-
-        assertFalse(editor.wasSaved());
-    }
-
-    @Test
-    public void theEditorNoLongerShowsTheDeleteHintLabel() {
-        PetriNetsPanel editorPanel = new PetriNetsPanel(null, true);
-        editorPanel.setGraphNet(new GraphPetriNet());
-        ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame editor =
-                new ua.stetsenkoinna.graphpresentation.objmodel.ObjectEditorFrame(null, "Test", editorPanel);
-
-        assertNull(findComponent(editor.getContentPane(), JLabel.class,
-                l -> l.getText() != null && l.getText().contains("Delete removes")));
-        editor.dispose();
+        edit.redo();
+        assertTrue(panel.getGraphNet().getGraphPetriPlaceList().contains(added));
+        assertSame("redo puts it back in the same object", frameA,
+                panel.getCanvasModel().ownerOf(added));
     }
 
     @Test
     public void boundsAroundFitsEveryGivenElementWithRoomToSpare() throws Exception {
-        // This is the helper openObjectEditor refits a frame with once Save is pressed, so its
-        // own elements — wherever the editor left them — are what decides the frame's outline.
+        // This is the helper every creation path fits a frame with, so an object's own elements,
+        // wherever they ended up, are what decides its outline.
         PetriP.initNext();
         GraphPetriPlace farLeft = new GraphPetriPlace(new PetriP("L", 0), 501);
         farLeft.setNewCoordinates(new Point2D.Double(20, 20));
@@ -709,17 +712,32 @@ public class CanvasObjectFrameTest {
     }
 
     @Test
-    public void selectAllAlsoSelectsEveryFrame() throws Exception {
+    public void selectAllAlsoSelectsEveryFrameOnThisCanvas() throws Exception {
+        // Both halves are asserted. Only checking the frames would have hidden the change that
+        // matters most: select-all no longer sweeps another object's members into the element
+        // selection, which is what let a regrouping claim elements a frame already held.
         PetriNetsPanel panel = twoFramedObjectsPanel();
 
         panel.selectAll();
 
-        Field field = PetriNetsPanel.class.getDeclaredField("choosenFrames");
-        field.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        List<GraphObjectFrame> choosenFrames = (List<GraphObjectFrame>) field.get(panel);
+        assertEquals("every top-level object", new HashSet<>(panel.getCanvasModel().getFrames()),
+                new HashSet<>(panel.getSelection().frames()));
+        assertTrue("and nothing inside any of them", panel.getChoosenElements().isEmpty());
+    }
 
-        assertEquals(new HashSet<>(panel.getCanvasModel().getFrames()), new HashSet<>(choosenFrames));
+    @Test
+    public void selectAllOnAnObjectCanvasTakesItsMembersAndNothingElse() throws Exception {
+        PetriNetsPanel panel = twoFramedObjectsPanel();
+        GraphObjectFrame frameA = panel.getCanvasModel().getFrames().getFirst();
+        panel.openObjectCanvas(frameA);
+
+        panel.selectAll();
+
+        assertEquals("A's own place and transition", 2, panel.getChoosenElements().size());
+        assertTrue(panel.getChoosenElements().contains(elementNamed(panel, "PA")));
+        assertFalse("B's are on another canvas entirely",
+                panel.getChoosenElements().contains(elementNamed(panel, "PB")));
+        assertTrue("A has nothing nested in it, so no frames", panel.getSelection().frames().isEmpty());
     }
 
     @Test
@@ -759,7 +777,7 @@ public class CanvasObjectFrameTest {
         GraphPetriPlace place = new GraphPetriPlace(new PetriP("P", 0), 900);
         place.setNewCoordinates(new Point2D.Double(117, 77)); // inside the resize handle's own square
         panel.getGraphNet().getGraphPetriPlaceList().add(place);
-        frame.addMember(place);
+        panel.getCanvasModel().claim(frame, place);
         panel.addObjectFrame(frame);
         assertTrue("fixture sanity check: the place really does sit on the handle",
                 frame.isOnResizeHandle(new Point2D.Double(117, 77)));

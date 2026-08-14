@@ -13,6 +13,8 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import ua.stetsenkoinna.theme.CanvasColor;
+import ua.stetsenkoinna.theme.CanvasPalette;
 
 /**
  * The frame that marks out one Petri-object on the canvas.
@@ -22,11 +24,18 @@ import java.util.Set;
  * behaviour of its objects in a single picture — a token crossing a frame border is a token
  * crossing an object border.
  *
- * <p>Which elements those are is decided once — grouped into the frame, drawn in the object's
- * own editor, dragged in and confirmed, or loaded as part of it — and stays exactly that set of
- * elements afterward, independent of the frame's own position: {@link #addMember} is the only
- * thing that puts an element in this object, so moving the frame across the canvas can never by
- * itself hand it something it was never given.
+ * <p>Which elements those are is decided once - grouped into the frame, drawn on the object's
+ * own canvas, dragged in and confirmed, or loaded as part of it - and stays exactly that set of
+ * elements afterward, independent of the frame's own position: {@link GraphCanvasModel#claim}
+ * is the only thing that puts an element in this object, so moving the frame across the canvas
+ * can never by itself hand it something it was never given. The member set is deliberately
+ * written only from {@link GraphCanvasModel}, which is what makes "exactly one frame claims an
+ * element" a structural guarantee instead of a convention every caller has to remember.
+ *
+ * <p>A frame can also sit inside another frame, which is what nesting one Petri-object in
+ * another means. That is a frame-to-frame relation ({@link #getEnclosing()}), never membership:
+ * {@link #members} only ever holds places and transitions, so an enclosing object's own member
+ * set says nothing about the objects nested in it.
  *
  * <p>Collapsing a frame shrinks it down to a small node, for when a model has grown past what
  * fits on screen — a distinct, coarser thing from the eye icon in the header, which only ever
@@ -36,7 +45,14 @@ import java.util.Set;
  * them is a drawing choice, not a structural one, which is also why a locked object still
  * reaches the rest of the model through its ports regardless of whether its content is shown.
  */
-public class GraphObjectFrame implements Serializable {
+public class GraphObjectFrame implements Serializable, CanvasItem {
+    /**
+     * Pinned before this class ever reached a saved file, which it does from now on.
+     * Left to the compiler it would be recomputed from the class shape, and the next
+     * field added here would make every file written before that unreadable.
+     */
+    private static final long serialVersionUID = 1L;
+
 
     /** Height of the header strip that carries the name, in canvas units. */
     public static final int HEADER_HEIGHT = 22;
@@ -52,18 +68,14 @@ public class GraphObjectFrame implements Serializable {
     public static final int EYE_ICON_SIZE = 14;
     private static final int EYE_ICON_MARGIN = 4;
 
-    private static final Color BORDER = new Color(0x33, 0x5A, 0x8A);
-    /** Selected frames get the same green the canvas already uses for selected elements, so
-     *  one selection reads as one selection whether it caught elements, frames or both. The
-     *  previous dark grey sat too close to {@link #BORDER}'s blue to be noticeable at all. */
-    private static final Color BORDER_SELECTED = new Color(0x1E, 0x8E, 0x3E);
-    /** Wash over a selected frame's body — the cue that survives being read at a glance,
-     *  where a border a fraction of a pixel thicker does not. */
-    private static final Color BODY_SELECTED = new Color(0x1E, 0x8E, 0x3E, 0x1F);
-    private static final Color HEADER = new Color(0xE4, 0xEC, 0xF7);
-    private static final Color HEADER_SELECTED = new Color(0xD8, 0xEF, 0xDC);
-    private static final Color BODY = new Color(0xF8, 0xFA, 0xFD, 0x80);
-    private static final Color TEXT = new Color(0x1C, 0x2B, 0x3A);
+    /**
+     * A frame's border, header, body wash and text all come from {@link CanvasPalette}. The
+     * roles are unchanged from when they were constants here — an unselected frame is bordered
+     * in the editor's blue, a selected one in the same green the canvas uses for a selected
+     * element, and the selected body carries a wash of it, because a border a fraction of a
+     * pixel thicker is not a cue anyone reads at a glance — only their values now depend on
+     * which theme is in force.
+     */
     private static final Font NAME_FONT = new Font(Font.SANS_SERIF, Font.BOLD, 12);
     private static final Font DETAIL_FONT = new Font(Font.SANS_SERIF, Font.PLAIN, 11);
 
@@ -79,6 +91,17 @@ public class GraphObjectFrame implements Serializable {
 
     /** The places and transitions this object explicitly claims — see the class doc. */
     private final Set<GraphElement> members = Collections.newSetFromMap(new IdentityHashMap<>());
+
+    /**
+     * The object that encloses this one, or {@code null} when it sits directly on the net.
+     *
+     * <p>Kept on the frame rather than in a side table on {@link GraphCanvasModel} because
+     * "what claims me" already lives here, so "what encloses me" belongs next to it, and
+     * because the web editor models the same relation the same way (an object frame naming its
+     * parent object). Written only by {@link GraphCanvasModel#nest}, which is the one place
+     * that can check for a cycle.
+     */
+    private GraphObjectFrame enclosing;
 
     /**
      * Border colour a running animation is currently painting this frame with, or
@@ -104,6 +127,11 @@ public class GraphObjectFrame implements Serializable {
      * than replayed through {@link #setCollapsed}, which computes a derived rectangle and
      * would get the wrong answer fed a bounds/collapsed pair that do not match its own
      * transition history.
+     *
+     * @param other the frame to copy
+     * <p>{@link #enclosing} is deliberately NOT translated here: the frame it would point at
+     * may not have been copied yet, so {@link GraphCanvasModel}'s own copy constructor wires
+     * every copy's parent in a second pass once all of them exist.
      *
      * @param other the frame to copy
      * @param oldToNew maps every element {@code other} might claim to its already-made copy;
@@ -166,6 +194,19 @@ public class GraphObjectFrame implements Serializable {
 
     public boolean isCollapsed() {
         return collapsed;
+    }
+
+    /**
+     * @return the rectangle this frame occupies when expanded: its bounds as they are, or,
+     *         while collapsed, the remembered expanded ones. This is what persistence has to
+     *         write: saving a collapsed frame's summary-box rectangle as its size meant the
+     *         reloaded object expanded into a box smaller than the minimum a user could ever
+     *         resize one to, with its whole net piled inside.
+     */
+    public Rectangle getExpandedBounds() {
+        return collapsed && expandedBounds != null
+                ? new Rectangle(expandedBounds)
+                : new Rectangle(bounds);
     }
 
     /**
@@ -260,6 +301,16 @@ public class GraphObjectFrame implements Serializable {
     }
 
     /**
+     * @return {@link #contains(Point2D)} under the name every {@link CanvasItem} hit-tests by -
+     *         kept as a separate method rather than a rename, since {@code contains} already had
+     *         callers of its own before this interface existed
+     */
+    @Override
+    public boolean containsPoint(Point2D point) {
+        return contains(point);
+    }
+
+    /**
      * @param element a place or transition on the canvas
      * @return true if this object claims the element
      */
@@ -270,9 +321,15 @@ public class GraphObjectFrame implements Serializable {
     /**
      * Claims an element for this object. Idempotent.
      *
+     * <p>Package-private on purpose: {@link GraphCanvasModel#claim} is the only writer, and it
+     * releases whatever claimed the element first. Two frames claiming one element used to be
+     * reachable from six different callers, and {@link GraphCanvasModel#ownerOf} then answered
+     * with whichever came first in canvas order - so a newly created object could hold nothing
+     * as far as every reader was concerned.
+     *
      * @param element the place or transition to claim
      */
-    public void addMember(GraphElement element) {
+    void addMember(GraphElement element) {
         members.add(Objects.requireNonNull(element, "element"));
     }
 
@@ -280,9 +337,26 @@ public class GraphObjectFrame implements Serializable {
      * Releases an element — it becomes free unless something else claims it.
      *
      * @param element the place or transition to release
+     * @see #addMember for why this is not public
      */
-    public void removeMember(GraphElement element) {
+    void removeMember(GraphElement element) {
         members.remove(element);
+    }
+
+    /**
+     * @return the object this one sits inside, or {@code null} when it sits directly on the net
+     */
+    public GraphObjectFrame getEnclosing() {
+        return enclosing;
+    }
+
+    /**
+     * @param enclosing the object this one sits inside, or {@code null} to lift it to the top
+     *        level. Package-private: {@link GraphCanvasModel#nest} is the writer, since only the
+     *        canvas can see whether a parent would close a cycle.
+     */
+    void setEnclosing(GraphObjectFrame enclosing) {
+        this.enclosing = enclosing;
     }
 
     /**
@@ -315,10 +389,31 @@ public class GraphObjectFrame implements Serializable {
     }
 
     /**
-     * Moves the frame, keeping its size.
+     * Moves the frame, keeping its size. The remembered expanded rectangle travels by the
+     * same delta: it used to stay behind, so dragging a collapsed object and expanding it
+     * snapped the frame back to where it was collapsed while its net, carried by the drag,
+     * stayed at the drop point - frame and net permanently separated.
      */
     public void moveTo(int x, int y) {
-        bounds = new Rectangle(Math.max(0, x), Math.max(0, y), bounds.width, bounds.height);
+        Rectangle moved = new Rectangle(Math.max(0, x), Math.max(0, y), bounds.width, bounds.height);
+        if (expandedBounds != null) {
+            expandedBounds = new Rectangle(
+                    expandedBounds.x + moved.x - bounds.x,
+                    expandedBounds.y + moved.y - bounds.y,
+                    expandedBounds.width, expandedBounds.height);
+        }
+        bounds = moved;
+    }
+
+    /**
+     * Moves this frame alone by a delta - never its nested subtree or the elements it claims, the
+     * same restriction {@link CanvasItem#moveBy} documents. A drag that must cascade to those
+     * still goes through {@code moveTo} directly the way it always did, one call per item in the
+     * subtree, since only {@link GraphCanvasModel} knows what that subtree is.
+     */
+    @Override
+    public void moveBy(int dx, int dy) {
+        moveTo(bounds.x + dx, bounds.y + dy);
     }
 
     /**
@@ -343,24 +438,27 @@ public class GraphObjectFrame implements Serializable {
         Color previousColor = g2.getColor();
         Font previousFont = g2.getFont();
 
-        g2.setColor(BODY);
+        CanvasPalette palette = CanvasPalette.current();
+        g2.setColor(palette.get(CanvasColor.FRAME_BODY));
         g2.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 14, 14);
         if (selected) {
-            g2.setColor(BODY_SELECTED);
+            g2.setColor(palette.get(CanvasColor.FRAME_BODY_SELECTED));
             g2.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 14, 14);
         }
-        g2.setColor(selected ? HEADER_SELECTED : HEADER);
+        g2.setColor(selected ? palette.get(CanvasColor.FRAME_HEADER_SELECTED) : palette.get(CanvasColor.FRAME_HEADER));
         g2.fillRoundRect(bounds.x, bounds.y, bounds.width, HEADER_HEIGHT + 8, 14, 14);
         g2.fillRect(bounds.x, bounds.y + HEADER_HEIGHT - 4, bounds.width, 8);
 
-        g2.setColor(highlightColor != null ? highlightColor : (selected ? BORDER_SELECTED : BORDER));
+        g2.setColor(highlightColor != null
+                ? highlightColor
+                : (selected ? palette.get(CanvasColor.FRAME_BORDER_SELECTED) : palette.get(CanvasColor.FRAME_BORDER)));
         g2.setStroke(new BasicStroke(highlightColor != null ? 2.6f : (selected ? 2.4f : 1.4f)));
         g2.drawRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 14, 14);
         g2.drawLine(bounds.x, bounds.y + HEADER_HEIGHT, bounds.x + bounds.width, bounds.y + HEADER_HEIGHT);
 
         drawEyeIcon(g2);
 
-        g2.setColor(TEXT);
+        g2.setColor(palette.get(CanvasColor.FRAME_TEXT));
         g2.setFont(NAME_FONT);
         String title = "O" + index + "  " + name;
         int titleX = bounds.x + EYE_ICON_MARGIN + EYE_ICON_SIZE + 6;
@@ -378,7 +476,7 @@ public class GraphObjectFrame implements Serializable {
             g2.setFont(DETAIL_FONT);
             g2.drawString(elementCount + " elements hidden", bounds.x + 8, bounds.y + HEADER_HEIGHT + 20);
         } else {
-            g2.setColor(selected ? BORDER_SELECTED : BORDER);
+            g2.setColor(selected ? palette.get(CanvasColor.FRAME_BORDER_SELECTED) : palette.get(CanvasColor.FRAME_BORDER));
             g2.fillRect(bounds.x + bounds.width - RESIZE_HANDLE, bounds.y + bounds.height - RESIZE_HANDLE,
                     RESIZE_HANDLE, RESIZE_HANDLE);
         }
@@ -398,7 +496,7 @@ public class GraphObjectFrame implements Serializable {
         Stroke previousStroke = g2.getStroke();
 
         Rectangle icon = eyeIconBounds();
-        g2.setColor(TEXT);
+        g2.setColor(CanvasPalette.current().get(CanvasColor.FRAME_TEXT));
         g2.setStroke(new BasicStroke(1.3f));
         g2.drawOval(icon.x, icon.y + icon.height / 4, icon.width, icon.height / 2);
         if (contentVisible) {

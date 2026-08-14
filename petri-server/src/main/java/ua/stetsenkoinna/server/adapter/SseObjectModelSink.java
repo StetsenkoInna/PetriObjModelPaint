@@ -5,6 +5,7 @@ import ua.stetsenkoinna.server.service.SimulationSession;
 
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Streaming sink of the Petri-object model API.
@@ -20,8 +21,9 @@ public class SseObjectModelSink extends SseSimulationSink {
                               SimulationSession session,
                               double timeStep,
                               Integer snapshotInterval,
-                              double simulationTime) {
-        super(queue, session, timeStep, snapshotInterval, simulationTime);
+                              double simulationTime,
+                              AtomicInteger inFlightPhases) {
+        super(queue, session, timeStep, snapshotInterval, simulationTime, inFlightPhases);
     }
 
     @Override

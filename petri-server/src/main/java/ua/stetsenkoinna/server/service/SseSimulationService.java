@@ -18,6 +18,7 @@ import ua.stetsenkoinna.server.adapter.SseSimulationSink;
 import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Runs a Petri net simulation and streams snapshots as Server-Sent Events.
@@ -63,8 +64,9 @@ public class SseSimulationService {
      */
     public SseEmitter stream(String netXml, StreamParams params) {
         return stream(params,
-                (queue, session) -> new SseSimulationSink(queue, session,
-                        params.timeStep(), params.snapshotInterval(), params.simulationTime()),
+                (queue, session, inFlightPhases) -> new SseSimulationSink(queue, session,
+                        params.timeStep(), params.snapshotInterval(), params.simulationTime(),
+                        inFlightPhases),
                 (sessionId, collector) -> SimulationModelFactory.build(sessionId, netXml, collector));
     }
 
@@ -79,8 +81,9 @@ public class SseSimulationService {
      */
     public SseEmitter streamObjectModel(String modelXml, StreamParams params) {
         return stream(params,
-                (queue, session) -> new SseObjectModelSink(queue, session,
-                        params.timeStep(), params.snapshotInterval(), params.simulationTime()),
+                (queue, session, inFlightPhases) -> new SseObjectModelSink(queue, session,
+                        params.timeStep(), params.snapshotInterval(), params.simulationTime(),
+                        inFlightPhases),
                 (sessionId, collector) -> PetriObjModelFactory.build(sessionId, modelXml, collector));
     }
 
@@ -90,7 +93,8 @@ public class SseSimulationService {
     @FunctionalInterface
     private interface SinkFactory {
         SseSimulationSink create(LinkedBlockingQueue<Optional<SimulationFrame>> queue,
-                                 SimulationSession session);
+                                 SimulationSession session,
+                                 AtomicInteger inFlightPhases);
     }
 
     private SseEmitter stream(StreamParams params, SinkFactory sinkFactory, ModelBuilder modelBuilder) {
@@ -98,7 +102,12 @@ public class SseSimulationService {
         SimulationSession session = registry.create();
         LinkedBlockingQueue<Optional<SimulationFrame>> queue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
 
-        SseSimulationSink sink = sinkFactory.create(queue, session);
+        // A queued frame carries its animation steps with it, so the queue's own capacity says
+        // nothing about how much memory is waiting to be written — least of all when
+        // animationDelayMs deliberately makes the writer the slower of the two threads.
+        AtomicInteger inFlightPhases = new AtomicInteger();
+
+        SseSimulationSink sink = sinkFactory.create(queue, session, inFlightPhases);
 
         Thread.ofVirtual().name("sim-sse-" + session.getId()).start(() -> {
             session.setStatus(SimulationStatus.RUNNING);
@@ -131,6 +140,7 @@ public class SseSimulationService {
                     }
                     emitter.send(SseEmitter.event()
                             .data(objectMapper.writeValueAsString(frameOpt.get())));
+                    inFlightPhases.addAndGet(-frameOpt.get().firingSequence().size());
                     if (params.animationDelayMs() > 0) {
                         Thread.sleep(params.animationDelayMs());
                     }

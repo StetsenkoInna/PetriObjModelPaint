@@ -49,6 +49,9 @@ public class PetriObjModel implements Serializable, Cloneable  {
         links = new ArrayList<>();
         this.listObj.forEach(sim -> sim.setTimeState(timeState));
         indexObjects();
+        // Clears rather than installs, there being no collector yet: a Petri-object handed to a
+        // second model must not keep reporting its firings to the first one's collector.
+        installFiringListeners();
     }
 
     @Override
@@ -125,6 +128,28 @@ public class PetriObjModel implements Serializable, Cloneable  {
         listObj = List;
         this.listObj.forEach(sim -> sim.setTimeState(timeState));
         indexObjects();
+        installFiringListeners();
+    }
+
+    /**
+     * Points every Petri-object's firing listener at the current statistic collector, or clears
+     * it when there is none.
+     *
+     * <p>A Petri-object knows only its own net, but what a collector wants out of a firing is
+     * the state of the whole model at that instant — so the model is what closes the gap. The
+     * lambda reads the {@code listObj} field when it is called rather than capturing the list
+     * it was created with, which is what makes a later {@link #setListObj(ArrayList)} safe.
+     */
+    private void installFiringListeners() {
+        if (listObj == null) {
+            return;
+        }
+        final SimulationStatisticCollector collector = statisticCollector;
+        for (PetriSim sim : listObj) {
+            sim.setFiringListener(collector == null
+                    ? null
+                    : (phase, transition, time) -> collector.onFiringPhase(time, phase, transition, listObj));
+        }
     }
 
     /**
@@ -560,12 +585,14 @@ public class PetriObjModel implements Serializable, Cloneable  {
 
     public void setStatisticCollector(SimulationStatisticCollector statisticCollector) {
         this.statisticCollector = statisticCollector;
+        installFiringListeners();
     }
 
     /** @deprecated Use {@link #setStatisticCollector(SimulationStatisticCollector)} */
     @Deprecated
     public void setStatisticMonitor(SimulationStatisticCollector statisticCollector) {
         this.statisticCollector = statisticCollector;
+        installFiringListeners();
     }
 
 }

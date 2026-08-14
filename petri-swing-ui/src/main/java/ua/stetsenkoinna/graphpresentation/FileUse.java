@@ -31,6 +31,7 @@ import javax.swing.JScrollPane;
 import ua.stetsenkoinna.config.FilePathConfig;
 import ua.stetsenkoinna.libnet.NetLibrary;
 import java.lang.reflect.Method;
+import ua.stetsenkoinna.graphnet.GraphCanvasModel;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.utils.MessageHelper;
@@ -91,9 +92,16 @@ public class FileUse {
             Object loadedObject = ois.readObject();
 
             GraphPetriNet net;
+            GraphCanvasModel loadedCanvas = null;
 
             // Check if the loaded object is GraphPetriNet or PetriNet
-            if (loadedObject instanceof GraphPetriNet) {
+            if (loadedObject instanceof GraphCanvasModel canvas) {
+                // A file saved from a canvas that had Petri-objects on it. The net travels
+                // inside the model, so this branch has to come first: a canvas model is not a
+                // GraphPetriNet and would otherwise fall through to the error below.
+                loadedCanvas = canvas;
+                net = canvas.getNet();
+            } else if (loadedObject instanceof GraphPetriNet) {
                 net = ((GraphPetriNet) loadedObject).clone();
             } else if (loadedObject instanceof PetriNet) {
                 // Convert PetriNet to GraphPetriNet
@@ -128,7 +136,11 @@ public class FileUse {
                 }
             }
 
-            panel.addGraphNet(net);
+            if (loadedCanvas != null) {
+                panel.addCanvasModel(loadedCanvas);
+            } else {
+                panel.addGraphNet(net);
+            }
             pnetName = net.getPetriNet().getName();
             panel.repaint();
 
@@ -176,7 +188,18 @@ public class FileUse {
             fos = new FileOutputStream(fdlg.getDirectory() + fdlg.getFile() + PATTERN);
             oos = new ObjectOutputStream(fos);
             panel.getGraphNet().createPetriNet(fdlg.getFile());
-            oos.writeObject(panel.getGraphNet());
+            // A canvas with objects on it is saved as the whole canvas document, because the
+            // frames, the shared places and the nesting live there and not in the net: writing
+            // the net alone is what used to drop every object silently on reopen. A canvas
+            // without objects is still written as a bare net, so a file that has nothing to say
+            // about objects stays readable by builds that know nothing about them. The model
+            // holds the net as a field, so one writeObject keeps the two sharing one object
+            // graph rather than saving the elements twice.
+            if (panel.getCanvasModel().getFrames().isEmpty()) {
+                oos.writeObject(panel.getGraphNet());
+            } else {
+                oos.writeObject(panel.getCanvasModel());
+            }
             oos.close();
         } catch (IOException ex) {
             LOGGER.error("Unexpected error", ex);

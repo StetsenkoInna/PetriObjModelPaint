@@ -3,10 +3,21 @@ package ua.stetsenkoinna.graphnet;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Point2D;
+import ua.stetsenkoinna.theme.CanvasColor;
+import ua.stetsenkoinna.theme.CanvasPalette;
 
 public class GraphPlace extends GraphElement {
+
+    /**
+     * Pinned alongside {@link GraphElement}'s own id: a concrete class's default id depends only
+     * on its own declared shape, not its superclass, so nothing here is actually changing yet -
+     * but every place on a saved canvas is one of these, so it gets the same safety net rather
+     * than staying one accidental field away from breaking every file on disk.
+     */
+    private static final long serialVersionUID = 3105490110026436094L;
 
     private static int diameter = 40;
 
@@ -20,14 +31,21 @@ public class GraphPlace extends GraphElement {
         super.setColor(Color.BLACK);
     }
 
+    /**
+     * <p>Leaves {@code g2} set to the outline colour on the way out, which is not tidiness but
+     * contract: {@link GraphPetriPlace} draws its name and marking straight afterwards and takes
+     * the colour from here rather than resolving it a second time.
+     */
     @Override
     public void drawGraphElement(Graphics2D g2) {
+        CanvasPalette palette = CanvasPalette.current();
+        Color stroke = palette.strokeFor(getColor());
         g2.setStroke(new BasicStroke(getLineWidth()));
-        g2.setColor(getColor());
+        g2.setColor(stroke);
         g2.draw(graphElement);
-        g2.setColor(Color.WHITE);
+        g2.setColor(palette.get(CanvasColor.ELEMENT_FILL));
         g2.fill(graphElement);
-        g2.setColor(getColor());
+        g2.setColor(stroke);
     }
 
     @Override
@@ -58,6 +76,9 @@ public class GraphPlace extends GraphElement {
 
     @Override
     public boolean isCircular() { return true; }
+
+    @Override
+    public Rectangle getBounds() { return graphElement.getBounds(); }
 
     public Ellipse2D getGraphElement() { return graphElement; }
     public void setGraphElement(Ellipse2D graphElement) { this.graphElement = graphElement; }

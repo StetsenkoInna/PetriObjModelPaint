@@ -188,7 +188,7 @@ public class PnmlGenerator {
 
                 // Add marking parameter if present
                 if (place.markIsParam() && place.getMarkParamName() != null) {
-                    Element markParamElement = document.createElement("initialMarkingParameter");
+                    Element markParamElement = document.createElement(PnmlConstants.ELEMENT_INITIAL_MARKING_PARAMETER);
                     markParamElement.setTextContent(place.getMarkParamName());
                     toolspecificElement.appendChild(markParamElement);
                 }

@@ -16,6 +16,7 @@ import java.awt.Rectangle;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -38,10 +39,10 @@ public class AnimationSnapshotFrameTest {
         panel.setGraphNet(net);
         GraphObjectFrame frame = new GraphObjectFrame("Generator", new Rectangle(0, 0, 900, 600));
         for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
-            frame.addMember(place);
+            panel.getCanvasModel().claim(frame, place);
         }
         for (GraphPetriTransition transition : net.getGraphPetriTransitionList()) {
-            frame.addMember(transition);
+            panel.getCanvasModel().claim(frame, transition);
         }
         panel.addObjectFrame(frame);
         return panel;
@@ -107,5 +108,34 @@ public class AnimationSnapshotFrameTest {
         liveFrame.setBounds(new Rectangle(500, 500, 200, 200));
         assertEquals("moving the live frame must not move the snapshot's copy",
                 originalSnapshotBounds, snapshotFrame.getBounds());
+    }
+
+    /**
+     * Nesting survives the copy, pointing at the copy's own parent rather than the original's.
+     * Pointing it at the original would tie the two canvases back together through exactly the
+     * relation a deep copy exists to sever, so a run would drag the snapshot's hierarchy around
+     * with it.
+     */
+    @Test
+    public void aNestedPetriObjectSurvivesTheSnapshotPointingAtItsOwnParent() throws Exception {
+        PetriNetsPanel panel = panelWithFramedNet();
+        GraphObjectFrame parent = panel.getCanvasModel().getFrames().getFirst();
+        GraphPetriPlace nested = panel.getGraphNet().getGraphPetriPlaceList().getFirst();
+        GraphObjectFrame child = new GraphObjectFrame("Inner", new Rectangle(100, 100, 200, 160));
+        panel.getCanvasModel().nest(child, parent);
+        panel.addObjectFrame(child);
+        panel.getCanvasModel().claim(child, nested);
+
+        GraphCanvasModel snapshot = new GraphCanvasModel(panel.getCanvasModel());
+
+        GraphObjectFrame copiedParent = snapshot.getFrames().get(0);
+        GraphObjectFrame copiedChild = snapshot.getFrames().get(1);
+        assertEquals("Inner", copiedChild.getName());
+        assertSame("the copy's child names the copy's own parent",
+                copiedParent, snapshot.enclosingOf(copiedChild));
+        assertNotSame(parent, copiedParent);
+        assertEquals(2, snapshot.levelOf(copiedChild));
+        assertEquals("and it still claims the copy of what it claimed",
+                1, snapshot.membersOfSubtree(copiedChild).size());
     }
 }
