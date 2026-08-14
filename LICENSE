@@ -1,21 +1,18 @@
-MIT License
+PetriObjModelPaint is licensed on a per-module basis. See the LICENSE file
+inside each module directory for the exact terms that apply to it.
 
-Copyright (c) 2018 StetsenkoInna
+MIT License — free for any use, including commercial:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+  petri-math    — Petri-object simulation engine
+  petri-api     — interfaces and DTOs (shared contract)
+  petri-model   — graph model, PNML
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+PolyForm Noncommercial License 1.0.0 — noncommercial use only
+(personal, research, educational, and noncommercial-organization use
+is permitted; commercial use is not):
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+  petri-swing-ui — desktop editor (Swing)
+  petri-server   — REST/WebSocket simulation server
+
+For commercial licensing of the noncommercial modules, contact
+inna.stetsenko-fiot@edu.kpi.ua or sergey24rybak@gmail.com.
