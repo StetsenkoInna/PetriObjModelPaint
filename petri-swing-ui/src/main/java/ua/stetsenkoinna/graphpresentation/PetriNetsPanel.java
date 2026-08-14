@@ -1860,8 +1860,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         Rectangle bounds = loose.isEmpty() ? null : boundsAround(loose);
         for (GraphObjectFrame child : nested) {
-            Rectangle padded = new Rectangle(child.getBounds());
-            padded.grow(FRAME_MARGIN, FRAME_MARGIN);
+            Rectangle padded = paddedForNesting(child.getBounds());
             bounds = bounds == null ? padded : bounds.union(padded);
         }
 
@@ -1922,12 +1921,30 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * user's back.
      */
     private void growToContain(GraphObjectFrame frame, Rectangle inner) {
-        Rectangle padded = new Rectangle(inner);
-        padded.grow(FRAME_MARGIN, FRAME_MARGIN);
-        Rectangle grown = frame.getBounds().union(padded);
+        Rectangle grown = frame.getBounds().union(paddedForNesting(inner));
         if (!grown.equals(frame.getBounds())) {
             frame.setBounds(grown);
         }
+    }
+
+    /**
+     * The rectangle an enclosing frame has to cover so a nested frame sits inside it with its
+     * margin visible on every side. The top needs {@link GraphObjectFrame#HEADER_HEIGHT} on
+     * top of the margin, because the enclosing frame's header band occupies the top of its own
+     * rectangle - a uniform margin left the nested object flush under the header, with the
+     * gap the user sees on the other three sides missing above. {@link #boundsAround} already
+     * makes the same allowance when fitting a frame around loose elements.
+     *
+     * @param inner a nested frame's bounds
+     * @return what the enclosing frame's rectangle must contain
+     */
+    private static Rectangle paddedForNesting(Rectangle inner) {
+        Rectangle padded = new Rectangle(inner);
+        padded.grow(FRAME_MARGIN, FRAME_MARGIN);
+        padded.height += GraphObjectFrame.HEADER_HEIGHT;
+        // Clamped at the canvas origin the same way boundsAround clamps its fit.
+        padded.y = Math.max(0, padded.y - GraphObjectFrame.HEADER_HEIGHT);
+        return padded;
     }
 
     /**

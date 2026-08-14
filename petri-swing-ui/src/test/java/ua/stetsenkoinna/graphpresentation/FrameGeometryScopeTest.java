@@ -161,6 +161,46 @@ public class FrameGeometryScopeTest {
                 outer.getBounds().contains(child.getBounds()));
     }
 
+    // ------------------------------------------------------------------ header-aware margins
+
+    /**
+     * The enclosing frame's header band occupies the top of its rectangle, so a uniform
+     * margin left a nested object flush under the header: the gap the user sees on the
+     * other three sides was missing above.
+     */
+    @Test
+    public void groupingKeepsTheFullMarginVisibleAboveANestedObject() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace member = placeAt(panel, "PC", 300, 250);
+        GraphObjectFrame child = frameWith(panel, "Child", new Rectangle(240, 190, 160, 120), member);
+
+        GraphObjectFrame group = panel.groupIntoObject(
+                java.util.List.of(), java.util.List.of(child), "Group");
+
+        int gapAboveChild = child.getBounds().y
+                - (group.getBounds().y + GraphObjectFrame.HEADER_HEIGHT);
+        assertTrue("the margin above the nested object survives below the header: "
+                        + gapAboveChild + "px", gapAboveChild >= 24);
+    }
+
+    @Test
+    public void aDropNearTheParentsTopKeepsTheMarginBelowTheHeader() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace pa = placeAt(panel, "PA", 200, 200);
+        GraphObjectFrame dragged = frameWith(panel, "Dragged", new Rectangle(140, 140, 160, 120), pa);
+        GraphPetriPlace pb = placeAt(panel, "PB", 700, 500);
+        GraphObjectFrame target = frameWith(panel, "Target", new Rectangle(600, 400, 300, 240), pb);
+
+        // Header-drag so the dragged frame's centre lands just inside the target's top.
+        drag(panel, 200, 150, 700, 430);
+
+        assertSame(target, panel.getCanvasModel().enclosingOf(dragged));
+        int gapAboveChild = dragged.getBounds().y
+                - (target.getBounds().y + GraphObjectFrame.HEADER_HEIGHT);
+        assertTrue("the grown parent leaves the full margin under its header: "
+                        + gapAboveChild + "px", gapAboveChild >= 24);
+    }
+
     // ------------------------------------------------------------------ hidden drop targets
 
     @Test
