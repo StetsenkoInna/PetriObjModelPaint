@@ -9,7 +9,7 @@ import ua.stetsenkoinna.utils.MessageHelper;
 import javax.swing.JFrame;
 
 /**
- * Entry point of the PetriObjModelPaint desktop editor (Swing UI).
+ * Entry point of the petri-net-sim desktop editor (Swing UI).
  * Configured as the executable JAR's {@code Main-Class} (see petri-swing-ui/pom.xml).
  */
 public class PetriObjPaintApp {
