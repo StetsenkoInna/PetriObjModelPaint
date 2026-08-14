@@ -5,21 +5,20 @@ import java.awt.event.ActionEvent;
 import javax.swing.AbstractAction;
 
 /**
- * Represents an action of simulating one event in the net
- * @author Leonid
+ * Advances the simulation by exactly one event.
  */
 public class RunOneEventAction extends AbstractAction {
-    
-    private final AnimationControls controls;
-    
-     public RunOneEventAction(AnimationControls controls) {
-        this.controls = controls;
+
+    private final AnimationControls animationControls;
+
+    public RunOneEventAction(AnimationControls animationControls) {
+        this.animationControls = animationControls;
         putValue(SHORT_DESCRIPTION, "Step forward");
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        controls.runOneEventButtonPressed();
+        animationControls.runOneEventButtonPressed();
     }
-    
+
 }

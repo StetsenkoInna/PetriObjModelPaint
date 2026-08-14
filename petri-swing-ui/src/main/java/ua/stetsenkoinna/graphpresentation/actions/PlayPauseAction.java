@@ -6,8 +6,8 @@ import java.awt.event.ActionEvent;
 import javax.swing.AbstractAction;
 
 /**
- * Start/Pause/Unpause net animation
- * @author Leonid
+ * The transport button that starts a run, and thereafter toggles it between paused and
+ * playing.
  */
 public class PlayPauseAction extends AbstractAction {
 
@@ -17,31 +17,28 @@ public class PlayPauseAction extends AbstractAction {
      */
     private static final int ICON_SIZE = 20;
 
-    private final AnimationControls controls;
+    private final AnimationControls animationControls;
 
-    public PlayPauseAction(AnimationControls controls) {
-        this.controls = controls;
+    public PlayPauseAction(AnimationControls animationControls) {
+        this.animationControls = animationControls;
         switchToPlayButton();
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        controls.playPauseButtonPressed();
+        animationControls.playPauseButtonPressed();
     }
 
     /**
-     * Changes the appearance and function of the button associated with this action to
-     * be a pause button
+     * Restyles this action's button into a pause control.
      */
     public void switchToPauseButton() {
         putValue(LARGE_ICON_KEY, CanvasToolIcons.pause(ICON_SIZE));
-        String PAUSE_DESCRIPTION = "Pause";
-        putValue(SHORT_DESCRIPTION, PAUSE_DESCRIPTION);
+        putValue(SHORT_DESCRIPTION, "Pause");
     }
 
     /**
-     * Changes the appearance and function of the button associated with this action to
-     * be a play button
+     * Restyles this action's button back into a play/start control.
      *
      * <p>The icon is drawn rather than loaded from {@code play.png}: an image carries its
      * colours with it, so on a dark toolbar the black triangle was a black triangle on a dark
@@ -51,8 +48,7 @@ public class PlayPauseAction extends AbstractAction {
      */
     public void switchToPlayButton() {
         putValue(LARGE_ICON_KEY, CanvasToolIcons.play(ICON_SIZE));
-        String PLAY_DESCRIPTION = "Start";
-        putValue(SHORT_DESCRIPTION, PLAY_DESCRIPTION);
+        putValue(SHORT_DESCRIPTION, "Start");
     }
 
 }
