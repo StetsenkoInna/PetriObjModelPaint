@@ -74,6 +74,16 @@
                     <include>**/*.pnml</include>
                 </includes>
             </resource>
+            <!-- The JavaFX chart stylesheets live next to LineChartBuilderService under src/main/java
+                 rather than under src/main/resources, so without this entry they never reach
+                 target/classes at all and ResourcePathConfig.getCssUrl silently returns null. -->
+            <resource>
+                <directory>src/main/java</directory>
+                <filtering>false</filtering>
+                <includes>
+                    <include>**/*.css</include>
+                </includes>
+            </resource>
         </resources>
         <plugins>
             <plugin>

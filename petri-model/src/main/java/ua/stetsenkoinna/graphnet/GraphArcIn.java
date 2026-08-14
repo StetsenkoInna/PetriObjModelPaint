@@ -1,6 +1,7 @@
 package ua.stetsenkoinna.graphnet;
 
 import ua.stetsenkoinna.petriobj.ArcIn;
+import ua.stetsenkoinna.theme.CanvasPalette;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -64,12 +65,16 @@ public class GraphArcIn extends GraphArc implements Serializable {
     @Override
     public void drawGraphElement(Graphics2D g) {
         Graphics2D g2 = (Graphics2D) g;
+        // Set for both kinds of arc. The dashed inhibitor branch used to leave the colour to
+        // whatever the previous element happened to leave on the graphics, which was invisible
+        // while everything on the canvas was black anyway and stops being so the moment a second
+        // palette exists.
+        g2.setColor(CanvasPalette.current().strokeFor(getColor()));
         if (arc.getIsInf()) {
             Stroke drawingStroke = new BasicStroke(1, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[]{4, 4}, 0);
             g2.setStroke(drawingStroke);
         } else {
             g2.setStroke(new BasicStroke(getLineWidth()));
-            g2.setColor(getColor());
         }
         g2.draw(this.getGraphElement());
         drawArrowHead(g2);

@@ -37,6 +37,7 @@ public class ResourcePathConfig {
 
     // Style files
     public static final String LINE_CHART_CSS = "line-chart.css";
+    public static final String LINE_CHART_DARK_CSS = "line-chart-dark.css";
 
     /**
      * Get the full resource path for an icon file

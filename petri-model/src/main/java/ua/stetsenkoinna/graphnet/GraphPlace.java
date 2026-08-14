@@ -6,6 +6,8 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Point2D;
+import ua.stetsenkoinna.theme.CanvasColor;
+import ua.stetsenkoinna.theme.CanvasPalette;
 
 public class GraphPlace extends GraphElement {
 
@@ -29,14 +31,21 @@ public class GraphPlace extends GraphElement {
         super.setColor(Color.BLACK);
     }
 
+    /**
+     * <p>Leaves {@code g2} set to the outline colour on the way out, which is not tidiness but
+     * contract: {@link GraphPetriPlace} draws its name and marking straight afterwards and takes
+     * the colour from here rather than resolving it a second time.
+     */
     @Override
     public void drawGraphElement(Graphics2D g2) {
+        CanvasPalette palette = CanvasPalette.current();
+        Color stroke = palette.strokeFor(getColor());
         g2.setStroke(new BasicStroke(getLineWidth()));
-        g2.setColor(getColor());
+        g2.setColor(stroke);
         g2.draw(graphElement);
-        g2.setColor(Color.WHITE);
+        g2.setColor(palette.get(CanvasColor.ELEMENT_FILL));
         g2.fill(graphElement);
-        g2.setColor(getColor());
+        g2.setColor(stroke);
     }
 
     @Override

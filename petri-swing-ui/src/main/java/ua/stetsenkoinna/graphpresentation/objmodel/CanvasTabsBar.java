@@ -17,6 +17,9 @@ import javax.swing.JToggleButton;
 
 import ua.stetsenkoinna.graphnet.GraphCanvasModel;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
+import ua.stetsenkoinna.graphpresentation.theme.ThemeManager;
+import ua.stetsenkoinna.graphpresentation.theme.UiPalette;
+import ua.stetsenkoinna.theme.ThemeVariant;
 
 /**
  * The strip of canvases along the bottom of the canvas area: one pill per open canvas, the
@@ -39,7 +42,14 @@ public class CanvasTabsBar extends JPanel {
     private static final String ROOT_NAME = "Net";
 
     private static final int CLOSE_BUTTON_SIZE = 12;
-    private static final Color BADGE = new Color(0x5A, 0x6B, 0x7D);
+
+    /**
+     * The close control's colour. Not one of {@link UiPalette}'s roles - it is this bar's own
+     * muted accent rather than a chrome colour shared with other components - so it is kept as a
+     * local light/dark pair instead of being pushed onto the shared palette for a single caller.
+     */
+    private static final Color BADGE_LIGHT = new Color(0x5A, 0x6B, 0x7D);
+    private static final Color BADGE_DARK = new Color(0x9D, 0xA7, 0xB1);
 
     private final CanvasStack stack;
     private final GraphCanvasModel model;
@@ -49,6 +59,8 @@ public class CanvasTabsBar extends JPanel {
 
     /** Called with the frame whose close control was clicked. */
     private final Consumer<GraphObjectFrame> onClose;
+
+    private final ThemeManager.ThemeChangeListener themeListener;
 
     /**
      * @param stack the canvases to show; this bar rebuilds itself whenever the stack changes
@@ -64,9 +76,35 @@ public class CanvasTabsBar extends JPanel {
         this.onClose = onClose;
 
         setLayout(new FlowLayout(FlowLayout.LEFT, 4, 3));
-        setBackground(new Color(0xEE, 0xEE, 0xEE));
-        setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0xC8, 0xC8, 0xC8)));
         stack.addChangeListener(this::rebuild);
+
+        // Registered last, so the pills rebuild() creates already exist to be coloured. The
+        // immediate callback this makes is what paints the bar in the current theme in the first
+        // place, so there is no separate "colour it once at startup" path to keep in step with
+        // this one.
+        themeListener = this::applyTheme;
+        ThemeManager.addListener(themeListener);
+    }
+
+    /**
+     * Undoes {@link #themeListener}'s registration once the bar leaves the component hierarchy
+     * (its enclosing frame disposed, in practice), so a bar nobody can see any more does not keep
+     * rebuilding itself on every later theme change for the rest of the JVM's life.
+     */
+    @Override
+    public void removeNotify() {
+        ThemeManager.removeListener(themeListener);
+        super.removeNotify();
+    }
+
+    /**
+     * Repaints the bar's own chrome and rebuilds its pills, which is the only way to re-colour
+     * them: their close controls read {@link #badgeColor()} at construction, not from a field
+     * that could be updated after the fact.
+     */
+    private void applyTheme(ThemeVariant variant, UiPalette palette) {
+        setBackground(palette.getChrome());
+        setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, palette.getDivider()));
         rebuild();
     }
 
@@ -117,7 +155,7 @@ public class CanvasTabsBar extends JPanel {
             close.setBorder(BorderFactory.createEmptyBorder());
             close.setContentAreaFilled(false);
             close.setPreferredSize(new Dimension(CLOSE_BUTTON_SIZE, CLOSE_BUTTON_SIZE));
-            close.setForeground(BADGE);
+            close.setForeground(badgeColor());
             close.setToolTipText("Close this canvas. Nothing is discarded: every edit is already "
                     + "in the model.");
             close.addActionListener(event -> onClose.accept(frame));
@@ -136,5 +174,14 @@ public class CanvasTabsBar extends JPanel {
             return "0  " + ROOT_NAME;
         }
         return model.levelOf(frame) + "  " + frame.getName();
+    }
+
+    /**
+     * @return the close control's colour for the theme in force right now, read fresh on every
+     *         call rather than cached, since pills are torn down and rebuilt wholesale and must
+     *         come back in whatever theme is current at that later moment
+     */
+    private static Color badgeColor() {
+        return ThemeManager.currentVariant().isDark() ? BADGE_DARK : BADGE_LIGHT;
     }
 }
