@@ -125,6 +125,39 @@ public class GraphPetriObject implements Serializable {
     }
 
     /**
+     * The index of the object this one is nested inside, or -1 for a top-level object.
+     * Carries the canvas's nesting through the model: PNML flattens objects to sibling
+     * pages, and reimporting used to lose the nest - the inner object came back sitting
+     * geometrically inside the outer frame while structurally belonging to nobody, so
+     * dragging the outer object left it behind.
+     */
+    private int parentIndex = -1;
+
+    public int getParentIndex() {
+        return parentIndex;
+    }
+
+    public void setParentIndex(int parentIndex) {
+        this.parentIndex = parentIndex;
+    }
+
+    /**
+     * True when this object's net still carries the exact canvas coordinates it was
+     * exported with, so a reader must keep them instead of normalizing and re-centring.
+     * Set by the PNML parser for documents this application wrote; foreign documents keep
+     * the defensive normalization and auto-layout.
+     */
+    private boolean absoluteLayout;
+
+    public boolean isAbsoluteLayout() {
+        return absoluteLayout;
+    }
+
+    public void setAbsoluteLayout(boolean absoluteLayout) {
+        this.absoluteLayout = absoluteLayout;
+    }
+
+    /**
      * @return the net library method this object was instantiated from, or {@code null}
      *         when its net was drawn by hand
      */

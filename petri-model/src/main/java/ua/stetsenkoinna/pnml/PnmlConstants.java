@@ -124,6 +124,13 @@ public final class PnmlConstants {
     public static final String ATTR_WIDTH = "width";
     public static final String ATTR_HEIGHT = "height";
     public static final String ATTR_COLLAPSED = "collapsed";
+    /**
+     * The index of the Petri-object this one is nested inside, absent for a top-level
+     * object. Tool-specific, like the rest of the petriObject element: standard PNML has no
+     * nesting between sibling pages, so a foreign reader simply sees flat pages, exactly
+     * what it saw before this attribute existed.
+     */
+    public static final String ATTR_PARENT_OBJECT = "parentObject";
 
     // Link type values, kept stable regardless of how the enum constants are named
     public static final String LINK_TYPE_PLACE_FUSION = "placeFusion";

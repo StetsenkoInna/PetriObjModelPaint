@@ -532,10 +532,13 @@ public class GraphCanvasModelTest {
     }
 
     @Test
-    public void aNestedCanvasExportsAsSiblingObjectsAndComesBackFlat() {
-        // Pinned so nobody "fixes" it later: PNML has no notion of one page inside another, so a
-        // nested object is written as an ordinary sibling page with its own index and imports
-        // back at the top level. That is what the web editor does with the same relation.
+    public void aNestedCanvasExportsAsSiblingObjectsAndTheNestComesBack() {
+        // PNML has no notion of one page inside another, so a nested object is still written
+        // as an ordinary sibling page with its own index - a foreign reader sees flat pages,
+        // as before. The nest itself travels as a tool-specific parentObject attribute and
+        // is restored on import: it used to be dropped, so the inner object came back
+        // sitting inside the outer frame's rectangle while structurally belonging to
+        // nobody, and dragging the outer object left it behind.
         resetCounters();
         GraphCanvasModel canvas = new GraphCanvasModel("Nested", new GraphPetriNet());
         GraphObjectFrame parent = new GraphObjectFrame("Parent", new Rectangle(0, 0, 400, 400));
@@ -554,13 +557,16 @@ public class GraphCanvasModelTest {
         assertEquals("two siblings, indexed by the flat frame list", 2, exported.getObjectCount());
         assertEquals("Parent", exported.getObject(0).getName());
         assertEquals("Child", exported.getObject(1).getName());
+        assertEquals("the child records which sibling encloses it",
+                0, exported.getObject(1).getParentIndex());
         assertEquals("the arc across the nesting boundary is a link, as between any two objects",
                 1, exported.getLinks().size());
 
         GraphCanvasModel reimported = GraphCanvasModel.fromObjModel(exported);
 
         assertEquals(2, reimported.getFrames().size());
-        assertNull("and nesting is not in the document, so it comes back flat",
+        assertSame("and the nest is restored from the attribute",
+                reimported.getFrames().get(0),
                 reimported.enclosingOf(reimported.getFrames().get(1)));
     }
 
@@ -630,6 +636,74 @@ public class GraphCanvasModelTest {
 
         assertEquals("the free half must stay exactly where it was, not jump onto the framed one",
                 freeBefore, free.getGraphElementCenter());
+    }
+
+    /**
+     * The full PNML fidelity round trip through real XML: exact coordinates for every
+     * element (framed and free alike), frame rectangles, nesting, claims and the shared
+     * place all come back as saved. Reimporting used to normalize every page to the
+     * (50,50) corner and re-centre each net inside its frame, so elements drifted and
+     * piled up, free elements lost their positions entirely, and the nest between objects
+     * vanished - the inner object sat inside the outer frame's rectangle while dragging
+     * that frame left it behind.
+     */
+    @Test
+    public void aComplexCanvasRoundTripsThroughPnmlExactly() throws Exception {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Doc", new GraphPetriNet());
+
+        GraphObjectFrame outer = new GraphObjectFrame("Outer", new Rectangle(120, 100, 500, 400));
+        canvas.getFrames().add(outer);
+        GraphPetriPlace outerPlace = place(canvas, "PO", 2, 200, 320);
+        canvas.claim(outer, outerPlace);
+
+        GraphObjectFrame inner = new GraphObjectFrame("Inner", new Rectangle(300, 180, 220, 160));
+        canvas.getFrames().add(inner);
+        canvas.nest(inner, outer);
+        GraphPetriPlace innerPlace = place(canvas, "PI", 0, 380, 260);
+        GraphPetriTransition innerTransition = transition(canvas, "TI", 460, 260);
+        canvas.claim(inner, innerPlace);
+        canvas.claim(inner, innerTransition);
+        canvas.getNet().getGraphArcInList().add(
+                GraphArcFactory.inArc(innerPlace, innerTransition, 1, false));
+
+        GraphPetriPlace freePlace = place(canvas, "PF", 5, 900, 700);
+
+        GraphObjectFrame other = new GraphObjectFrame("Other", new Rectangle(700, 100, 200, 160));
+        canvas.getFrames().add(other);
+        GraphPetriPlace otherPlace = place(canvas, "PX", 0, 780, 200);
+        canvas.claim(other, otherPlace);
+        canvas.joinPlaces(outerPlace, otherPlace);
+
+        String xml = new ua.stetsenkoinna.pnml.PnmlModelGenerator().generateXml(canvas.toObjModel());
+        GraphCanvasModel restored = GraphCanvasModel.fromObjModel(
+                new ua.stetsenkoinna.pnml.PnmlModelParser().parseXml(xml));
+
+        assertEquals("three frames come back", 3, restored.getFrames().size());
+        GraphObjectFrame restoredOuter = restored.getFrames().get(0);
+        GraphObjectFrame restoredInner = restored.getFrames().get(1);
+        assertEquals(new Rectangle(120, 100, 500, 400), restoredOuter.getBounds());
+        assertEquals(new Rectangle(300, 180, 220, 160), restoredInner.getBounds());
+        assertSame("the nest survives the flat pages",
+                restoredOuter, restored.enclosingOf(restoredInner));
+
+        for (GraphPetriPlace restoredPlace : restored.getNet().getGraphPetriPlaceList()) {
+            java.awt.geom.Point2D centre = restoredPlace.getGraphElementCenter();
+            switch (restoredPlace.getName()) {
+                case "PO" -> assertEquals("PO stays put", new Point(200, 320),
+                        new Point((int) centre.getX(), (int) centre.getY()));
+                case "PI" -> assertEquals("PI stays put", new Point(380, 260),
+                        new Point((int) centre.getX(), (int) centre.getY()));
+                case "PF" -> assertEquals("the free element stays put", new Point(900, 700),
+                        new Point((int) centre.getX(), (int) centre.getY()));
+                case "PX" -> assertEquals("PX stays put", new Point(780, 200),
+                        new Point((int) centre.getX(), (int) centre.getY()));
+                default -> { }
+            }
+        }
+        assertEquals("the inner object's members are claimed by the restored inner frame",
+                2, restoredInner.getMembers().size());
+        assertEquals("the shared place survives", 1, restored.getFusions().size());
     }
 
     /**

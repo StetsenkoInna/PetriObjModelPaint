@@ -285,10 +285,12 @@ public class NestedObjectTest {
     }
 
     @Test
-    public void aNestedCanvasExportsAsSiblingObjectsAndComesBackFlat() {
-        // PNML has no notion of one page inside another, and this is deliberately not fixed: the
-        // nested object is written as an ordinary sibling page with its own index in the flat frame
-        // list, and imports back at the top level. The web editor does the same.
+    public void aNestedCanvasExportsAsSiblingObjectsAndTheNestComesBack() {
+        // PNML has no notion of one page inside another, so the nested object is still an
+        // ordinary sibling page with its own index in the flat frame list - a foreign
+        // reader sees what it always saw. The nest itself travels as a tool-specific
+        // parentObject attribute and is restored on import; it used to be dropped, so the
+        // reimported inner object sat inside the outer frame while belonging to nobody.
         PetriNetsPanel panel = oneObjectWithFourElements();
         GraphObjectFrame parent = panel.getCanvasModel().getFrames().getFirst();
         GraphObjectFrame child = nestAChildIn(panel, parent);
@@ -303,11 +305,14 @@ public class NestedObjectTest {
         assertEquals("Parent", exported.getObject(0).getName());
         assertEquals("Child", exported.getObject(1).getName());
         assertEquals(panel.getCanvasModel().getFrames().indexOf(child), 1);
+        assertEquals("the child records which sibling encloses it",
+                0, exported.getObject(1).getParentIndex());
         assertEquals("the boundary-crossing arc is a link", 1, exported.getLinks().size());
 
         GraphCanvasModel reimported = GraphCanvasModel.fromObjModel(exported);
         assertEquals(2, reimported.getFrames().size());
-        assertNull("and it comes back flat, because the document carries no nesting",
+        assertSame("and the nest is restored from the attribute",
+                reimported.getFrames().get(0),
                 reimported.enclosingOf(reimported.getFrames().get(1)));
     }
 

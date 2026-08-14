@@ -6,6 +6,7 @@ import java.awt.geom.Point2D;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -805,6 +806,10 @@ public class GraphCanvasModel implements Serializable {
                 object.setPosition(new Point(exported.x, exported.y));
                 object.setSize(exported.width, exported.height);
                 object.setCollapsed(frame.isCollapsed());
+                // The nest travels with the object: frames map to objects 1:1 in order,
+                // so the enclosing frame's index is the enclosing object's index.
+                GraphObjectFrame enclosing = enclosingOf(frame);
+                object.setParentIndex(enclosing == null ? -1 : frames.indexOf(enclosing));
             }
             model.addObject(object);
         }
@@ -840,6 +845,7 @@ public class GraphCanvasModel implements Serializable {
     public static GraphCanvasModel fromObjModel(GraphPetriObjModel model) {
         GraphCanvasModel canvas = new GraphCanvasModel(model.getName(), new GraphPetriNet());
 
+        Map<Integer, GraphObjectFrame> frameByObjectIndex = new HashMap<>();
         for (int index = 0; index < model.getObjectCount(); index++) {
             GraphPetriObject object = model.getObject(index);
             // An object that recorded no geometry at all is not a Petri-object: it is either
@@ -860,6 +866,7 @@ public class GraphCanvasModel implements Serializable {
                 frame.setPriority(object.getPriority());
                 frame.setTemplate(object.getTemplate());
                 canvas.frames.add(frame);
+                frameByObjectIndex.put(index, frame);
                 // The object's own places and transitions are exactly what this frame claims —
                 // known outright here, from the document, rather than left to be re-derived
                 // from wherever changeLocation below happens to put them.
@@ -869,16 +876,33 @@ public class GraphCanvasModel implements Serializable {
                 for (GraphPetriTransition transition : object.getGraphNet().getGraphPetriTransitionList()) {
                     canvas.claim(frame, transition);
                 }
-                // Put the object's drawing in the middle of its own frame; the net keeps its
-                // shape, only where it sits on the shared canvas is decided here.
-                object.getGraphNet().changeLocation(new Point(
-                        bounds.x + bounds.width / 2,
-                        bounds.y + (bounds.height + GraphObjectFrame.HEADER_HEIGHT) / 2));
+                // An object whose net still carries the exact coordinates it was exported
+                // with stays exactly where the user drew it. Re-centring is only for
+                // documents whose layout was normalized or never described.
+                if (!object.isAbsoluteLayout()) {
+                    // Put the object's drawing in the middle of its own frame; the net keeps
+                    // its shape, only where it sits on the shared canvas is decided here.
+                    object.getGraphNet().changeLocation(new Point(
+                            bounds.x + bounds.width / 2,
+                            bounds.y + (bounds.height + GraphObjectFrame.HEADER_HEIGHT) / 2));
+                }
                 if (object.isCollapsed()) {
                     frame.setCollapsed(true);
                 }
             }
             canvas.absorb(object.getGraphNet());
+        }
+
+        // Second pass, once every frame exists: the nest the flat pages carried as an
+        // attribute. Reimporting used to lose it, so the inner object came back sitting
+        // geometrically inside the outer frame while structurally belonging to nobody -
+        // dragging the outer object left it behind.
+        for (int index = 0; index < model.getObjectCount(); index++) {
+            GraphObjectFrame frame = frameByObjectIndex.get(index);
+            GraphObjectFrame parent = frameByObjectIndex.get(model.getObject(index).getParentIndex());
+            if (frame != null && parent != null) {
+                canvas.nest(frame, parent);
+            }
         }
 
         canvas.restoreLinks(model);

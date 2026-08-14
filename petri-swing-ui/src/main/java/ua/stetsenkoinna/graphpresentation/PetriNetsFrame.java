@@ -1276,27 +1276,27 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         save.setMargin(new java.awt.Insets(0, 10, 0, 10));
 
         SaveGraphNet.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        SaveGraphNet.setText("Save Graph net");
+        SaveGraphNet.setText("Save Graph net (legacy)");
         SaveGraphNet.addActionListener(this::SaveGraphNetActionPerformed);
         save.add(SaveGraphNet);
 
         jMenuItem2.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.SHIFT_DOWN_MASK | java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        jMenuItem2.setText("Save Graph net as");
+        jMenuItem2.setText("Save Graph net as (legacy)");
         jMenuItem2.addActionListener(this::jMenuItem2ActionPerformed);
         save.add(jMenuItem2);
 
         SavePetriNetAs.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_P, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        SavePetriNetAs.setText("Save  Petri net as");
+        SavePetriNetAs.setText("Save Petri net as (legacy)");
         SavePetriNetAs.addActionListener(this::SavePetriNetAsActionPerformed);
         save.add(SavePetriNetAs);
 
         SaveNetAsMethod.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        SaveNetAsMethod.setText("Save net as method");
+        SaveNetAsMethod.setText("Save net as method (legacy)");
         SaveNetAsMethod.addActionListener(this::SaveNetAsMethodActionPerformed);
         save.add(SaveNetAsMethod);
 
         SaveMethodInNetLibrary.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_M, java.awt.event.InputEvent.SHIFT_DOWN_MASK | java.awt.event.InputEvent.CTRL_DOWN_MASK));
-        SaveMethodInNetLibrary.setText("Save method in NetLibrary");
+        SaveMethodInNetLibrary.setText("Save method in NetLibrary (legacy)");
         SaveMethodInNetLibrary.addActionListener(this::SaveMethodInNetLibraryActionPerformed);
         save.add(SaveMethodInNetLibrary);
 
