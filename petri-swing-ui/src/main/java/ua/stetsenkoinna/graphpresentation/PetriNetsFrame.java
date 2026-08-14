@@ -348,6 +348,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         installCanvasToolShortcuts();
         applyWindowGeometry();
         installUndoTracking();
+        petriNetsFrameMenuBar.add(new HelpMenu(this));
 
         // Last, so everything it colours exists. addListener calls back straight away, which is
         // what paints this frame in the current theme in the first place - there is no separate
