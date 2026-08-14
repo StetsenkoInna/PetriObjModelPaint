@@ -623,6 +623,10 @@ public class GraphCanvasModel implements Serializable {
         // where either place actually sits.
         GraphPlaceFusion fusion = new GraphPlaceFusion(master, joined, masterOwner, joinedOwner);
         fusions.add(fusion);
+        // One place, one marking, from the moment the two become one: the join is dragged
+        // from the master, so the master's count is the one that wins - the same count the
+        // built simulation would keep anyway.
+        fusion.syncMarking();
         return fusion;
     }
 
@@ -642,6 +646,9 @@ public class GraphCanvasModel implements Serializable {
         refreshFusionOwners();
         for (GraphPlaceFusion fusion : fusions) {
             fusion.syncPosition();
+            // Self-healing for the one-marking rule: any path that changed a marking
+            // without going through the properties dialog converges back to the master's.
+            fusion.syncMarking();
         }
     }
 

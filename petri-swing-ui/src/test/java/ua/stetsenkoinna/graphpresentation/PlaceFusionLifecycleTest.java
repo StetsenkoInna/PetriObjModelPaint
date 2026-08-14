@@ -199,6 +199,105 @@ public class PlaceFusionLifecycleTest {
                 panel.getCanvasModel().getFusions().isEmpty());
     }
 
+    // ------------------------------------------------------------------ one shared marking
+
+    /**
+     * A shared place is one place with one marking: a PNML reference place has no marking of
+     * its own, and the built simulation replaces the joined half's instance with the
+     * master's. The editor used to keep showing each half's own count, so the drawing
+     * displayed two different numbers for what the model runs as one.
+     */
+    @Test
+    public void joiningAdoptsTheMastersMarkingForBothHalves() throws Exception {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace pa = new GraphPetriPlace(new PetriP("PA", 3), idCounter++);
+        pa.setNewCoordinates(new Point2D.Double(200, 150));
+        panel.getGraphNet().getGraphPetriPlaceList().add(pa);
+        frameWith(panel, "A", new Rectangle(140, 90, 160, 140), pa);
+        GraphPetriPlace pb = new GraphPetriPlace(new PetriP("PB", 0), idCounter++);
+        pb.setNewCoordinates(new Point2D.Double(700, 150));
+        panel.getGraphNet().getGraphPetriPlaceList().add(pb);
+        frameWith(panel, "B", new Rectangle(640, 90, 160, 140), pb);
+
+        fuseThroughPanel(panel, pa, pb);
+
+        assertEquals("the joined half shows the master's count",
+                3, pb.getPetriPlace().getMark());
+    }
+
+    @Test
+    public void editingEitherHalfChangesTheOneSharedMarking() throws Exception {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace pa = placeAt(panel, "PA", 200, 150);
+        frameWith(panel, "A", new Rectangle(140, 90, 160, 140), pa);
+        GraphPetriPlace pb = placeAt(panel, "PB", 700, 150);
+        frameWith(panel, "B", new Rectangle(640, 90, 160, 140), pb);
+        fuseThroughPanel(panel, pa, pb);
+
+        // The user sets tokens through the JOINED half's properties dialog.
+        pb.getPetriPlace().setMark(5);
+        panel.placeMarkingEdited(pb);
+
+        assertEquals("the edit wrote through to the master",
+                5, pa.getPetriPlace().getMark());
+        assertEquals(5, pb.getPetriPlace().getMark());
+
+        // And through the master's dialog.
+        pa.getPetriPlace().setMark(7);
+        panel.placeMarkingEdited(pa);
+        assertEquals("the mirror also runs master to joined",
+                7, pb.getPetriPlace().getMark());
+    }
+
+    // ------------------------------------------------------------------ clicking the line
+
+    /**
+     * The port-to-port form had no hit test at all: the drawn line could not be clicked,
+     * so a framed shared place could not be removed by any means.
+     */
+    @Test
+    public void theSharedPlacesDrawnLineIsClickable() throws Exception {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace pa = placeAt(panel, "PA", 200, 150);
+        frameWith(panel, "A", new Rectangle(140, 90, 160, 140), pa);
+        GraphPetriPlace pb = placeAt(panel, "PB", 700, 150);
+        frameWith(panel, "B", new Rectangle(640, 90, 160, 140), pb);
+        GraphPlaceFusion fusion = fuseThroughPanel(panel, pa, pb);
+
+        assertSame("a point on the drawn line finds the shared place",
+                fusion, panel.findSharedPlace(new Point2D.Double(470, 150)));
+        assertNull("a point away from the line finds nothing",
+                panel.findSharedPlace(new Point2D.Double(470, 300)));
+    }
+
+    @Test
+    public void theDeleteToolSplitsASharedPlaceWithoutMovingItsHalves() throws Exception {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace pa = placeAt(panel, "PA", 200, 150);
+        frameWith(panel, "A", new Rectangle(140, 90, 160, 140), pa);
+        GraphPetriPlace pb = placeAt(panel, "PB", 700, 150);
+        frameWith(panel, "B", new Rectangle(640, 90, 160, 140), pb);
+        fuseThroughPanel(panel, pa, pb);
+        UndoManager undo = watchUndo();
+
+        panel.setTool(CanvasTool.DELETE);
+        for (java.awt.event.MouseListener listener : panel.getMouseListeners()) {
+            if (listener instanceof PetriNetsPanel.MouseHandler handler) {
+                handler.mousePressed(new java.awt.event.MouseEvent(panel,
+                        java.awt.event.MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(),
+                        0, 470, 150, 1, false, java.awt.event.MouseEvent.BUTTON1));
+            }
+        }
+
+        assertTrue("the link is gone", panel.getCanvasModel().getFusions().isEmpty());
+        assertEquals("the framed halves stay exactly where they were",
+                700.0, pb.getGraphElementCenter().getX(), 0.001);
+
+        undo.undo();
+        assertEquals("and the split is one undo step",
+                1, panel.getCanvasModel().getFusions().size());
+    }
+
     // ------------------------------------------------------------------ copied nests
 
     /**

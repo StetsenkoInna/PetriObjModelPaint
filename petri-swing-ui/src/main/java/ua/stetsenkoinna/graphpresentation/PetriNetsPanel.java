@@ -1678,6 +1678,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (!editable || !ev.isPopupTrigger()) {
             return false;
         }
+        // A click landing exactly on a shared place's drawn line means that link: it is the
+        // most precise thing a pointer can single out, so it wins over the frame or the
+        // selection underneath it - and it is the only mouse route to removing the link.
+        GraphPlaceFusion sharedPlace = findSharedPlace(point);
+        if (sharedPlace != null && find(point) == null) {
+            showSharedPlaceMenu(ev, sharedPlace);
+            return true;
+        }
         GraphObjectFrame frame = frameAt(point);
         if (!isFrameOnThisCanvas(frame)) {
             // Renaming, changing priority, duplicating or removing it is only for its own
@@ -1703,6 +1711,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
         showNewObjectMenu(ev, point);
         return true;
+    }
+
+    private void showSharedPlaceMenu(MouseEvent ev, GraphPlaceFusion fusion) {
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem split = new JMenuItem("Split the shared place");
+        split.setToolTipText("'" + fusion.getMaster().getName() + "' and '"
+                + fusion.getJoined().getName() + "' become two separate places again");
+        split.addActionListener(e -> splitSharedPlace(fusion));
+        menu.add(split);
+        menu.show(this, ev.getX(), ev.getY());
     }
 
     private void showGroupSelectionMenu(MouseEvent ev, List<GraphElement> chunk) {
@@ -3564,20 +3582,50 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     public void splitSharedPlace(GraphPlaceFusion fusion) {
         canvasModel.removeFusion(fusion);
-        fusion.getJoined().moveBy(60, 40);
-        PetriNetsFrame.getUndoSupport().postEdit(new SplitSharedPlaceEdit(this, fusion, 60, 40));
+        // The coincident-ring form needs its halves pulled apart to read as two places
+        // again; the port-to-port form's halves already sit apart, each inside its own
+        // object, and displacing one of them would wreck that object's layout.
+        int dx = fusion.isAnchoredToAFrame() ? 0 : 60;
+        int dy = fusion.isAnchoredToAFrame() ? 0 : 40;
+        fusion.getJoined().moveBy(dx, dy);
+        PetriNetsFrame.getUndoSupport().postEdit(new SplitSharedPlaceEdit(this, fusion, dx, dy));
         updateArcCoordinates();
         repaint();
     }
 
     /**
+     * Called after a place's properties were edited: the two halves of a shared place hold
+     * one marking between them, whichever half the user set it through. Without the
+     * write-through, an edit on the joined half showed a count the simulation would never
+     * use - the built model keeps the master's marking outright.
+     *
+     * @param place the place that was just edited
+     */
+    public void placeMarkingEdited(GraphPetriPlace place) {
+        GraphPlaceFusion fusion = canvasModel.fusionOf(place);
+        if (fusion != null) {
+            fusion.adoptMarkingFrom(place);
+        }
+    }
+
+    /**
      * @param point a point on the canvas
-     * @return the shared place whose ring is under the point, or {@code null}
+     * @return the shared place drawn under the point, or {@code null}. Both forms are
+     *         clickable where they are painted: the coincident ring by its ring, and the
+     *         port-to-port form by the same trimmed line the canvas draws for it - which
+     *         used to have no hit test at all, so a framed shared place could not be
+     *         clicked, selected or removed by any means.
      */
     public GraphPlaceFusion findSharedPlace(Point2D point) {
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
             if (fusion.isOnRing(point)) {
                 return fusion;
+            }
+            if (fusion.isAnchoredToAFrame()) {
+                Line2D line = trimmedFusionLine(fusion);
+                if (line != null && line.ptSegDist(point) <= 4) {
+                    return fusion;
+                }
             }
         }
         return null;
@@ -4025,6 +4073,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 current = null;
             }
             repaint();
+            return;
+        }
+        // A shared place's drawn line is erasable like any arc: splitting the link leaves
+        // both places where they are. A link is deletable wherever it is drawn, the same
+        // rule a crossing arc follows.
+        GraphPlaceFusion sharedPlace = findSharedPlace(scaledPoint);
+        if (sharedPlace != null) {
+            splitSharedPlace(sharedPlace);
             return;
         }
         GraphArc arc = findArc(scaledPoint);

@@ -71,6 +71,38 @@ public class GraphPlaceFusion implements Serializable {
     }
 
     /**
+     * Mirrors the master's marking onto the joined half. A shared place is one place with
+     * one marking - a PNML reference place carries no marking of its own, and the built
+     * simulation replaces the joined half's instance with the master's outright - but the
+     * editor used to keep showing each half's own token count, so the drawing displayed two
+     * different numbers for what the model runs as one.
+     */
+    public void syncMarking() {
+        copyMarking(master, joined);
+    }
+
+    /**
+     * Takes the given half's marking as the shared one, mirroring it onto the other half -
+     * what an edit through either half's properties dialog means.
+     *
+     * @param half the half whose marking the user just set
+     */
+    public void adoptMarkingFrom(GraphPetriPlace half) {
+        copyMarking(half, half == master ? joined : master);
+    }
+
+    private static void copyMarking(GraphPetriPlace from, GraphPetriPlace to) {
+        ua.stetsenkoinna.petriobj.PetriP source = from.getPetriPlace();
+        ua.stetsenkoinna.petriobj.PetriP target = to.getPetriPlace();
+        if (source.markIsParam()) {
+            target.setMarkParam(source.getMarkParamName());
+        } else {
+            target.setMark(source.getMark());
+            target.setMarkParam(null);
+        }
+    }
+
+    /**
      * @param master the place the shared marking lives in
      * @param joined the place that becomes the same place
      * @param masterOwner frame the master is drawn in, or null
