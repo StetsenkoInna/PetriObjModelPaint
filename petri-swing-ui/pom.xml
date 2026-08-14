@@ -83,6 +83,18 @@
                     <include>**/*.pnml</include>
                 </includes>
             </resource>
+            <!-- The module's LICENSE ships inside the JAR under a project-unique path (a bare
+                 /LICENSE or /META-INF/LICENSE would collide with dependency jars when shading),
+                 so the Help > License dialog always shows the license of the build it is part
+                 of without anyone copying the text by hand. -->
+            <resource>
+                <directory>${project.basedir}</directory>
+                <targetPath>ua/stetsenkoinna/license</targetPath>
+                <filtering>false</filtering>
+                <includes>
+                    <include>LICENSE</include>
+                </includes>
+            </resource>
             <!-- The JavaFX chart stylesheets live next to LineChartBuilderService under src/main/java
                  rather than under src/main/resources, so without this entry they never reach
                  target/classes at all and ResourcePathConfig.getCssUrl silently returns null. -->

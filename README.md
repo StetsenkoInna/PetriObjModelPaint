@@ -1,4 +1,4 @@
-# PetriObjModelPaint
+# petri-net-sim
 
 Petri net graphical editor and simulator (v2.2.0). Multi-module Maven project:
 
@@ -12,7 +12,7 @@ Petri net graphical editor and simulator (v2.2.0). Multi-module Maven project:
 
 ## Petri-object simulation technique
 
-PetriObjModelPaint is the project of Petri-object simulation technique implementation. Petri-object simulation technique, the main concept of which is to compose the code of model of complicated discrete event system in a fast and flexible way, simultaneously providing fast running the simulation, is requisite. The behaviour description of the model is based on stochastic multichannel Petri net while the model composition is grounded on object-oriented technology. The Petri-object simulation software provides a scalable simulation algorithm, graphical editor, correct transformation of graphical images into a model, and correct simulation results.
+petri-net-sim is the project of Petri-object simulation technique implementation. Petri-object simulation technique, the main concept of which is to compose the code of model of complicated discrete event system in a fast and flexible way, simultaneously providing fast running the simulation, is requisite. The behaviour description of the model is based on stochastic multichannel Petri net while the model composition is grounded on object-oriented technology. The Petri-object simulation software provides a scalable simulation algorithm, graphical editor, correct transformation of graphical images into a model, and correct simulation results.
 
 In code terms, this technique lives in the `petri-math` module (`PetriObjModel`, `PetriSim`, `PetriP`, `PetriT`, `NetLibrary`): a Petri-object is built with class `PetriSim`, and several of them are composed into a model by declaring links — a shared place, a transition feeding a place of another object, or a place guarding a transition of another object. Once the list of Petri-objects is prepared and the links between them are set, the model is assembled with `PetriObjModel`, whose `go(double time)` method runs the simulation. `petri-model` carries the same model at graph level, so a composition is drawn in the editor, stored as a single PNML document and replayed by the server.
 
@@ -74,7 +74,7 @@ the Petri-object model API, text2pnml integration.
 ## Project Structure
 
 ```
-PetriObjModelPaint/
+petri-net-sim/
 ├── petri-math/        # Simulation engine (PetriObj, LibNet, utils)
 ├── petri-api/         # Interfaces and DTOs
 ├── petri-model/       # Graph model, PNML, config
