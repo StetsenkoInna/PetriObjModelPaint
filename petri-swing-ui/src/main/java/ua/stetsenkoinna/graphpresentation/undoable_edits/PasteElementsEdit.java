@@ -10,8 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- *
- * @author Leonid
+ * Undoable/redoable paste of a previously copied {@link GraphPetriNet.GraphNetFragment} back
+ * into the net.
  */
 public class PasteElementsEdit extends AbstractUndoableEdit {
 
@@ -20,7 +20,7 @@ public class PasteElementsEdit extends AbstractUndoableEdit {
     private final PetriNetsPanel panel;
 
     /**
-     * Cloned elements and arcs that were pasted
+     * The cloned elements and arcs that this paste added to the net.
      */
     private final GraphPetriNet.GraphNetFragment fragment;
 
@@ -49,7 +49,7 @@ public class PasteElementsEdit extends AbstractUndoableEdit {
         this.adoptedOwner = owner;
         this.adopted.addAll(elements);
     }
-    
+
     @Override
     public void undo() {
         super.undo(); // checking whether it can be undone and setting hasBeenDone = false
@@ -67,12 +67,13 @@ public class PasteElementsEdit extends AbstractUndoableEdit {
                panel.getGraphNet().delGraphElement(element);
             } catch (ExceptionInvalidNetStructure e) {
                 log.error("Unexpected error while undoing paste", e);
-                // theoretically this exception should never happen here
+                // element came straight out of the net's own lists, so removing it here
+                // should never actually fail
             }
         }
         panel.repaint();
     }
-    
+
     @Override
     public void redo() {
         super.redo();
@@ -87,5 +88,5 @@ public class PasteElementsEdit extends AbstractUndoableEdit {
             }
         }
     }
-    
+
 }
