@@ -33,6 +33,22 @@ public class GraphArc implements Serializable {
     private int lineWidth;
     private Color color;
 
+    /**
+     * Where the user parked this arc's boundary stub on an object's own canvas, as an
+     * offset from the drawn end's centre - {@code null} until the user drags it, which
+     * means "derived: a short stub pointing toward the off-canvas end". Stored so a stub
+     * moved out of the way stays out of the way, across sessions too.
+     */
+    private java.awt.geom.Point2D.Double boundaryStubOffset;
+
+    public java.awt.geom.Point2D.Double getBoundaryStubOffset() {
+        return boundaryStubOffset;
+    }
+
+    public void setBoundaryStubOffset(java.awt.geom.Point2D.Double boundaryStubOffset) {
+        this.boundaryStubOffset = boundaryStubOffset;
+    }
+
     public GraphArc() {
         color = Color.BLACK;
         lineWidth = 1;

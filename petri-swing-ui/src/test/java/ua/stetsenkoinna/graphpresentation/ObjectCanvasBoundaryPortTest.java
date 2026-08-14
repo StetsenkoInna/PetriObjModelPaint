@@ -13,9 +13,9 @@ import ua.stetsenkoinna.petriobj.PetriT;
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
+import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.lang.reflect.Method;
-import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -143,73 +143,74 @@ public class ObjectCanvasBoundaryPortTest {
         assertEquals(300, (int) centre.getY());
     }
 
-    // ------------------------------------------------------------------ boundary ports
+    // ------------------------------------------------------------------ boundary stubs
 
-    @Test
-    public void aCrossingArcGetsALabelledBoundaryPortOnTheLeftEdge() throws Exception {
-        GraphPetriTransition[] member = new GraphPetriTransition[1];
-        GraphPetriPlace[] outer = new GraphPetriPlace[1];
-        PetriNetsPanel panel = focusedObjectWithIncomingArc(member, outer);
-
-        Method portsMethod = PetriNetsPanel.class.getDeclaredMethod("focusedBoundaryPorts");
-        portsMethod.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        List<FramePort> ports = (List<FramePort>) portsMethod.invoke(panel);
-
-        assertEquals("one boundary port for the one outside element", 1, ports.size());
-        FramePort port = ports.get(0);
-        assertSame("the port stands for the outside element, so it carries its name",
-                outer[0], port.getElement());
-        assertEquals("and sits on the focused frame's left edge",
-                180, port.getPosition().x);
-    }
-
-    @Test
-    public void theCrossingArcsVisibleLineStartsAtItsBoundaryPort() throws Exception {
-        GraphPetriTransition[] member = new GraphPetriTransition[1];
-        GraphPetriPlace[] outer = new GraphPetriPlace[1];
-        PetriNetsPanel panel = focusedObjectWithIncomingArc(member, outer);
-
-        Method portsMethod = PetriNetsPanel.class.getDeclaredMethod("focusedBoundaryPorts");
-        portsMethod.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        List<FramePort> ports = (List<FramePort>) portsMethod.invoke(panel);
-        FramePort port = ports.get(0);
-
-        GraphArcIn arc = panel.getGraphNet().getGraphArcInList().get(0);
+    private static Line2D settledSubstitute(PetriNetsPanel panel, GraphArcIn arc) throws Exception {
         Method settle = PetriNetsPanel.class.getDeclaredMethod(
                 "settleCrossingSubstitute",
                 ua.stetsenkoinna.graphnet.GraphArc.class, ua.stetsenkoinna.graphnet.GraphArc.class);
         settle.setAccessible(true);
         GraphArcIn temp = new GraphArcIn();
-        assertTrue("the crossing arc is drawn as a substitute on this canvas",
-                (boolean) settle.invoke(panel, arc, temp));
-
-        Point2D lineStart = new Point2D.Double(
-                temp.getGraphElement().getX1(), temp.getGraphElement().getY1());
-        assertTrue("the visible line starts at the boundary port, not out of nowhere: "
-                        + lineStart + " vs port " + port.getPosition(),
-                lineStart.distance(port.getPosition().x, port.getPosition().y)
-                        <= FramePort.RADIUS + 2);
+        return (boolean) settle.invoke(panel, arc, temp) ? temp.getGraphElement() : null;
     }
 
     /**
-     * On the root canvas nothing changes: no boundary ports exist there, and a crossing
-     * arc between a free element and an expanded object's member is drawn directly.
+     * A connection to something outside the object draws as a short stub by the connected
+     * element, pointing where the outside element actually lies - not as a line strung from
+     * the frame's border across the whole layout.
      */
     @Test
-    public void theRootCanvasHasNoBoundaryPorts() throws Exception {
+    public void theCrossingArcDrawsAsAShortStubTowardTheOutsideElement() throws Exception {
+        GraphPetriTransition[] member = new GraphPetriTransition[1];
+        GraphPetriPlace[] outer = new GraphPetriPlace[1];
+        PetriNetsPanel panel = focusedObjectWithIncomingArc(member, outer);
+
+        Line2D line = settledSubstitute(panel, panel.getGraphNet().getGraphArcInList().get(0));
+
+        assertTrue("the crossing arc is drawn as a substitute on this canvas", line != null);
+        Point2D start = new Point2D.Double(line.getX1(), line.getY1());
+        Point2D innerCentre = member[0].getGraphElementCenter();
+        Point2D outerCentre = outer[0].getGraphElementCenter();
+        assertTrue("the free end stays a short stub away from the element: "
+                        + start.distance(innerCentre) + "px", start.distance(innerCentre) <= 56);
+        assertTrue("and points toward the outside element",
+                start.distance(outerCentre) < innerCentre.distance(outerCentre));
+    }
+
+    @Test
+    public void aParkedStubStaysWhereTheUserPutIt() throws Exception {
+        GraphPetriTransition[] member = new GraphPetriTransition[1];
+        GraphPetriPlace[] outer = new GraphPetriPlace[1];
+        PetriNetsPanel panel = focusedObjectWithIncomingArc(member, outer);
+        GraphArcIn arc = panel.getGraphNet().getGraphArcInList().get(0);
+
+        // Grab the derived stub end and drag it above the element.
+        Line2D derived = settledSubstitute(panel, arc);
+        drag(panel, (int) derived.getX1(), (int) derived.getY1(), 250, 120);
+
+        assertTrue("the drag parked an offset on the arc", arc.getBoundaryStubOffset() != null);
+        Line2D parked = settledSubstitute(panel, arc);
+        assertEquals("the stub now sits where it was dropped",
+                250, (int) parked.getX1());
+        assertEquals(120, (int) parked.getY1());
+        Point2D centre = member[0].getGraphElementCenter();
+        assertEquals("and the element did not move", 250, (int) centre.getX());
+        assertEquals(200, (int) centre.getY());
+    }
+
+    /**
+     * On the root canvas nothing changes: a crossing arc between a free element and an
+     * expanded object's member has both ends on screen and is drawn directly.
+     */
+    @Test
+    public void theRootCanvasDrawsTheCrossingArcDirectly() throws Exception {
         GraphPetriTransition[] member = new GraphPetriTransition[1];
         GraphPetriPlace[] outer = new GraphPetriPlace[1];
         PetriNetsPanel panel = focusedObjectWithIncomingArc(member, outer);
         panel.activateRootCanvas();
 
-        Method portsMethod = PetriNetsPanel.class.getDeclaredMethod("focusedBoundaryPorts");
-        portsMethod.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        List<FramePort> ports = (List<FramePort>) portsMethod.invoke(panel);
-
-        assertTrue("boundary ports belong to an object's own canvas only", ports.isEmpty());
+        assertTrue("no substitute on the root canvas, the real arc is drawn",
+                settledSubstitute(panel, panel.getGraphNet().getGraphArcInList().get(0)) == null);
     }
 
     /**
@@ -236,12 +237,18 @@ public class ObjectCanvasBoundaryPortTest {
         panel.getGraphNet().getGraphArcInList().add(arc);
         panel.openObjectCanvas(frame);
 
-        Method portsMethod = PetriNetsPanel.class.getDeclaredMethod("focusedBoundaryPorts");
-        portsMethod.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        List<FramePort> ports = (List<FramePort>) portsMethod.invoke(panel);
-
-        assertFalse("the collapsed child is drawn here, so its own port serves the arc",
-                ports.stream().anyMatch(port -> port.getElement() == childPlace));
+        Line2D line = settledSubstitute(panel, arc);
+        assertTrue("the crossing arc is substituted on this canvas", line != null);
+        Point2D start = new Point2D.Double(line.getX1(), line.getY1());
+        boolean atChildsOwnPort = false;
+        for (FramePort port : panel.getCanvasModel().portsOf(child)) {
+            if (port.getElement() == childPlace
+                    && start.distance(port.getPosition().x, port.getPosition().y)
+                            <= FramePort.RADIUS + 2) {
+                atChildsOwnPort = true;
+            }
+        }
+        assertTrue("the collapsed child is drawn here, so its own port serves the arc, "
+                + "not a stub: " + start, atChildsOwnPort);
     }
 }

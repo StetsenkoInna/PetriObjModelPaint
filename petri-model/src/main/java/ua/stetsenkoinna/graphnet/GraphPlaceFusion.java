@@ -270,6 +270,21 @@ public class GraphPlaceFusion implements Serializable {
     }
 
     /**
+     * Where the user parked this shared place's boundary stub on an object's own canvas,
+     * as an offset from the drawn half's centre - {@code null} until the user drags it,
+     * which means "derived: a short stub pointing toward the off-canvas half".
+     */
+    private java.awt.geom.Point2D.Double boundaryStubOffset;
+
+    public java.awt.geom.Point2D.Double getBoundaryStubOffset() {
+        return boundaryStubOffset;
+    }
+
+    public void setBoundaryStubOffset(java.awt.geom.Point2D.Double boundaryStubOffset) {
+        this.boundaryStubOffset = boundaryStubOffset;
+    }
+
+    /**
      * Whether a running animation currently lights this shared place - a token just landed
      * in (or left) one of its halves, so the line and both halves pulse together. Transient:
      * a saved file never contains a mid-animation state.

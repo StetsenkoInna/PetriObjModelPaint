@@ -106,6 +106,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private GraphArc choosenArc;
     /** The shared place the user last clicked - the fusion-shaped twin of {@link #choosenArc}. */
     private GraphPlaceFusion choosenFusion;
+    /** The boundary stub being dragged to a new parking spot, or {@code null}. */
+    private BoundaryStub draggedBoundaryStub;
     private int savedId;
     public SetArc setArcFrame = new SetArc(this);
     public SetPosition setPositionFrame = new SetPosition(this);
@@ -622,11 +624,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
         paintObjectFrames(g2, true);
         paintPorts(g2);
-        // The boundary ports of the object being edited: where its connections to the rest
-        // of the document enter this canvas, each labelled with the outside element's name.
-        for (FramePort port : focusedBoundaryPorts()) {
-            port.draw(g2, false);
-        }
+        // The boundary stubs of the object being edited: each connection to the rest of
+        // the document ends in a short stub labelled with the outside element's name.
+        paintBoundaryStubLabels(g2);
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
             if (fusion.isAnchoredToAFrame() && isFusionDrawnOnThisCanvas(fusion)) {
                 Line2D line = trimmedFusionLine(fusion);
@@ -925,14 +925,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (isDrawnOnThisCanvas(element)) {
             return element;
         }
-        if (focusedFrame != null) {
-            // From inside an object, a shared place's outside half is reached through the
-            // focused border's labelled boundary port, same as a crossing arc's outside end.
-            GraphElement boundary = boundaryPortAnchor(element);
-            if (boundary != null) {
-                return boundary;
-            }
-        }
         return hiding == null ? element : portAnchorFor(hiding, element);
     }
 
@@ -950,52 +942,102 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         return null;
     }
 
+    /** How far a boundary stub's free end sits past the connected element's border. */
+    private static final int BOUNDARY_STUB_LENGTH = 34;
+
     /**
-     * The boundary ports of the object being edited: one labelled port per outside element
-     * this object's net is connected to, stacked down the focused frame's left edge. From
-     * inside an object, a link to something outside used to be drawn from a bare, unmarked
-     * point on the focused frame's border - a border this canvas deliberately does not paint
-     * - so the arrow appeared out of nowhere and nothing said what was on its far end. Each
-     * port carries the outside element's own name, and every connection through it anchors
-     * its line there.
+     * Where a connection to something outside this canvas is anchored: a point a short way
+     * out of the drawn element, in the direction the outside element actually lies. The
+     * connection then paints as a short stub instead of a long line - a full left-edge port
+     * column with lines strung across the whole layout was judged to be more ink than the
+     * information is worth on the object's own canvas, while the stub keeps the two things
+     * that matter in place: that this element is attached to something outside, and roughly
+     * where that something is.
      *
-     * <p>Derived on every ask, like {@link GraphCanvasModel#portsOf}: the set changes with
-     * every arc drawn or element moved between objects, and the positions with the frame.
-     *
-     * @return the ports, in a stable order; empty on the net's own canvas
+     * @param outer the connection's end that this canvas does not draw
+     * @param inner the drawn element the connection attaches to
+     * @return the stub's free end, or {@code null} when either centre is unknown
      */
-    private List<FramePort> focusedBoundaryPorts() {
-        List<FramePort> ports = new ArrayList<>();
-        if (focusedFrame == null) {
-            return ports;
+    private Point2D boundaryStubAnchor(GraphElement outer, GraphElement inner,
+            Point2D customOffset) {
+        Point2D from = inner.getGraphElementCenter();
+        if (from == null) {
+            return null;
         }
-        List<GraphElement> outsideEnds = new ArrayList<>();
-        for (GraphArcIn arc : graphNet.getGraphArcInList()) {
-            collectBoundaryCrossing(outsideEnds, arc.getBeginElement(), arc.getEndElement());
+        if (customOffset != null) {
+            // Wherever the user parked it, relative to the element it belongs to.
+            return new Point2D.Double(from.getX() + customOffset.getX(),
+                    from.getY() + customOffset.getY());
         }
-        for (GraphArcOut arc : graphNet.getGraphArcOutList()) {
-            collectBoundaryCrossing(outsideEnds, arc.getBeginElement(), arc.getEndElement());
+        Point2D toward = outer.getGraphElementCenter();
+        if (toward == null) {
+            return null;
         }
-        for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            collectBoundaryCrossing(outsideEnds, fusion.getMaster(), fusion.getJoined());
+        double dx = toward.getX() - from.getX();
+        double dy = toward.getY() - from.getY();
+        double length = Math.hypot(dx, dy);
+        if (length < 1) {
+            dx = -1;
+            dy = 0;
+            length = 1;
         }
-        Rectangle bounds = focusedFrame.getBounds();
-        int y = bounds.y + GraphObjectFrame.HEADER_HEIGHT + 30;
-        for (GraphElement outer : outsideEnds) {
-            ports.add(new FramePort(outer, new Point(bounds.x, y), FramePort.Edge.LEFT));
-            y += 44;
-        }
-        return ports;
+        double reach = Math.max(inner.getBorder(), 20) + BOUNDARY_STUB_LENGTH;
+        return new Point2D.Double(
+                from.getX() + dx / length * reach,
+                from.getY() + dy / length * reach);
     }
 
     /**
-     * Adds the outside end of a connection to {@code outsideEnds} when the connection
-     * crosses this canvas's boundary: exactly one end drawn here, the other reachable
-     * through no port already on screen. One entry per outside element, however many
-     * connections come through it - the same rule an ordinary frame port follows.
+     * @param outer the off-canvas end of a crossing connection
+     * @param inner the drawn end it attaches to
+     * @param customOffset where the user parked this connection's stub, or {@code null}
+     * @return the stub-end anchor for the substitute line, or {@code null} when the inner
+     *         end is not actually drawn here - nothing should be painted then
      */
-    private void collectBoundaryCrossing(List<GraphElement> outsideEnds,
-            GraphElement a, GraphElement b) {
+    private GraphElement boundaryStubAnchorFor(GraphElement outer, GraphElement inner,
+            Point2D customOffset) {
+        if (inner == null || !isDrawnOnThisCanvas(inner)) {
+            return null;
+        }
+        Point2D anchor = boundaryStubAnchor(outer, inner, customOffset);
+        return anchor == null ? null : new PortAnchor(anchor, 0);
+    }
+
+    /**
+     * One boundary stub of the object being edited: the carrier is the {@link GraphArc} or
+     * {@link GraphPlaceFusion} the stub stands for, which is also where a user-dragged
+     * position is remembered.
+     */
+    private record BoundaryStub(Object carrier, GraphElement outer, GraphElement inner,
+            Point2D anchor) { }
+
+    /**
+     * Every boundary stub the active canvas draws, in a stable order. Derived on every ask,
+     * like {@link GraphCanvasModel#portsOf}: the set changes with every arc drawn and every
+     * element moved between objects.
+     */
+    private List<BoundaryStub> boundaryStubs() {
+        List<BoundaryStub> stubs = new ArrayList<>();
+        if (focusedFrame == null) {
+            return stubs;
+        }
+        for (GraphArcIn arc : graphNet.getGraphArcInList()) {
+            collectBoundaryStub(stubs, arc, arc.getBeginElement(), arc.getEndElement(),
+                    arc.getBoundaryStubOffset());
+        }
+        for (GraphArcOut arc : graphNet.getGraphArcOutList()) {
+            collectBoundaryStub(stubs, arc, arc.getBeginElement(), arc.getEndElement(),
+                    arc.getBoundaryStubOffset());
+        }
+        for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
+            collectBoundaryStub(stubs, fusion, fusion.getMaster(), fusion.getJoined(),
+                    fusion.getBoundaryStubOffset());
+        }
+        return stubs;
+    }
+
+    private void collectBoundaryStub(List<BoundaryStub> stubs, Object carrier,
+            GraphElement a, GraphElement b, Point2D customOffset) {
         if (a == null || b == null) {
             return;
         }
@@ -1005,30 +1047,78 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return; // internal to this canvas, or entirely elsewhere
         }
         GraphElement outer = aDrawn ? b : a;
+        GraphElement inner = aDrawn ? a : b;
         // A hidden end whose collapsed or eye-hidden object is itself drawn here anchors to
-        // that object's own port instead of the focused border.
+        // that object's own port, which already carries a label of its own.
         GraphObjectFrame hiding = outermostHidden(canvasModel.ownerOf(outer));
         if (hiding != null && isFrameDrawnOnThisCanvas(hiding)) {
             return;
         }
-        if (!outsideEnds.contains(outer)) {
-            outsideEnds.add(outer);
+        Point2D anchor = boundaryStubAnchor(outer, inner, customOffset);
+        if (anchor != null) {
+            stubs.add(new BoundaryStub(carrier, outer, inner, anchor));
         }
     }
 
     /**
-     * @param outer an element not drawn on this canvas that something drawn here connects to
-     * @return the anchor on the focused frame's left-edge boundary port for it, or
-     *         {@code null} when there is none (never on an object's canvas, where every
-     *         such element has one)
+     * @param point a point on the canvas
+     * @return the boundary stub whose free end is under the point, or {@code null} - the
+     *         grabbable handle for parking a stub somewhere it does not interfere
      */
-    private GraphElement boundaryPortAnchor(GraphElement outer) {
-        for (FramePort port : focusedBoundaryPorts()) {
-            if (port.getElement() == outer) {
-                return new PortAnchor(port.getPosition(), FramePort.RADIUS);
+    private BoundaryStub boundaryStubAt(Point2D point) {
+        for (BoundaryStub stub : boundaryStubs()) {
+            if (stub.anchor().distance(point) <= 9) {
+                return stub;
             }
         }
         return null;
+    }
+
+    /**
+     * Parks a dragged stub's free end at the given point, remembered as an offset from the
+     * element it belongs to so it travels along when the element moves. Clamped outside the
+     * element's own border - a stub tucked inside its element could never be grabbed again.
+     */
+    private void parkBoundaryStub(BoundaryStub stub, Point2D point) {
+        Point2D centre = stub.inner().getGraphElementCenter();
+        if (centre == null) {
+            return;
+        }
+        double dx = point.getX() - centre.getX();
+        double dy = point.getY() - centre.getY();
+        double length = Math.hypot(dx, dy);
+        double minimum = Math.max(stub.inner().getBorder(), 20) + 12;
+        if (length < minimum) {
+            double scale = length < 1 ? 0 : minimum / length;
+            dx = length < 1 ? -minimum : dx * scale;
+            dy = length < 1 ? 0 : dy * scale;
+        }
+        java.awt.geom.Point2D.Double offset = new java.awt.geom.Point2D.Double(dx, dy);
+        if (stub.carrier() instanceof GraphArc arc) {
+            arc.setBoundaryStubOffset(offset);
+        } else if (stub.carrier() instanceof GraphPlaceFusion fusion) {
+            fusion.setBoundaryStubOffset(offset);
+        }
+    }
+
+    /**
+     * Labels every boundary stub with the name of the outside element it stands for, just
+     * past the stub's free end - without the name, a bare stub would be the old arrow out
+     * of nowhere all over again.
+     */
+    private void paintBoundaryStubLabels(Graphics2D g2) {
+        for (BoundaryStub stub : boundaryStubs()) {
+            Point2D innerCentre = stub.inner().getGraphElementCenter();
+            Point2D anchor = stub.anchor();
+            double dx = anchor.getX() - innerCentre.getX();
+            double dy = anchor.getY() - innerCentre.getY();
+            double length = Math.max(1, Math.hypot(dx, dy));
+            String name = stub.outer().getName();
+            // Just past the free end, roughly centred on the stub's own direction.
+            float x = (float) (anchor.getX() + dx / length * 10) - name.length() * 3f;
+            float y = (float) (anchor.getY() + dy / length * 10) + 4f;
+            g2.drawString(name, x, y);
+        }
     }
 
     /**
@@ -1059,8 +1149,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @return the trimmed line, or {@code null} if either half's anchor cannot currently be found
      */
     private Line2D trimmedFusionLine(GraphPlaceFusion fusion) {
-        GraphElement masterAnchor = connectionAnchor(canvasModel.ownerOf(fusion.getMaster()), fusion.getMaster());
-        GraphElement joinedAnchor = connectionAnchor(canvasModel.ownerOf(fusion.getJoined()), fusion.getJoined());
+        GraphElement masterAnchor = fusionHalfAnchor(fusion, fusion.getMaster(), fusion.getJoined());
+        GraphElement joinedAnchor = fusionHalfAnchor(fusion, fusion.getJoined(), fusion.getMaster());
         if (masterAnchor == null || joinedAnchor == null) {
             return null;
         }
@@ -1069,6 +1159,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         temp.setEndElement(joinedAnchor);
         temp.changeBorder();
         return temp.getGraphElement();
+    }
+
+    /**
+     * Where one half of a shared place is drawn on the active canvas: the same resolution a
+     * crossing arc's end gets, including the short labelled stub for a half this canvas does
+     * not draw at all - with the stub position the user may have parked on the fusion.
+     */
+    private GraphElement fusionHalfAnchor(GraphPlaceFusion fusion, GraphPetriPlace half,
+            GraphPetriPlace otherHalf) {
+        GraphObjectFrame hiding = outermostHidden(canvasModel.ownerOf(half));
+        if (hiding != null && isFrameDrawnOnThisCanvas(hiding)) {
+            return portAnchorFor(hiding, half);
+        }
+        if (isDrawnOnThisCanvas(half)) {
+            return half;
+        }
+        if (focusedFrame != null) {
+            return boundaryStubAnchorFor(half, otherHalf, fusion.getBoundaryStubOffset());
+        }
+        return hiding == null ? half : portAnchorFor(hiding, half);
     }
 
     /**
@@ -1124,8 +1234,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (isDrawnOnThisCanvas(begin) && isDrawnOnThisCanvas(end)) {
             return false; // both ends are on screen already, drawn directly by paintGraphPetriNet
         }
-        GraphElement beginAnchor = crossingAnchor(begin, end);
-        GraphElement endAnchor = crossingAnchor(end, begin);
+        GraphElement beginAnchor = crossingAnchor(begin, end, arc.getBoundaryStubOffset());
+        GraphElement endAnchor = crossingAnchor(end, begin, arc.getBoundaryStubOffset());
         if (beginAnchor == null || endAnchor == null) {
             return false;
         }
@@ -1149,7 +1259,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *         through here" rather than as a line to nowhere. {@code null} when none of those can
      *         be resolved, which is when nothing should be drawn.
      */
-    private GraphElement crossingAnchor(GraphElement element, GraphElement otherEnd) {
+    private GraphElement crossingAnchor(GraphElement element, GraphElement otherEnd,
+            Point2D stubOffset) {
         GraphObjectFrame hiding = outermostHidden(canvasModel.ownerOf(element));
         if (hiding != null && isFrameDrawnOnThisCanvas(hiding)) {
             return portAnchorFor(hiding, element);
@@ -1158,10 +1269,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             return element;
         }
         if (focusedFrame != null) {
-            // Out through the labelled boundary port that stands for this outside element,
-            // not a bare point on the invisible focused border: the line used to appear
-            // out of nowhere, with nothing saying what was on its far end.
-            return boundaryPortAnchor(element);
+            // A short labelled stub by the drawn end, pointing where the outside element
+            // actually lies (or wherever the user parked it) - not a bare point on the
+            // invisible focused border, and not a line strung across the whole layout.
+            return boundaryStubAnchorFor(element, otherEnd, stubOffset);
         }
         return null;
     }
@@ -2739,6 +2850,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            // A boundary stub's free end is grabbable, so a stub that appeared somewhere
+            // inconvenient can be parked out of the way.
+            if (SwingUtilities.isLeftMouseButton(ev) && focusedFrame != null) {
+                BoundaryStub stub = boundaryStubAt(scaledCurrentMousePoint);
+                if (stub != null) {
+                    draggedBoundaryStub = stub;
+                    return;
+                }
+            }
+
             startTimer();
 
             if (SwingUtilities.isLeftMouseButton(ev)) {
@@ -3078,6 +3199,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 } else {
                     finishPortDragToFreeElement(freeElementAt(scaledCurrentMousePoint));
                 }
+                repaint();
+                return;
+            }
+
+            if (draggedBoundaryStub != null) {
+                draggedBoundaryStub = null;
                 repaint();
                 return;
             }
@@ -3715,6 +3842,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (draggedFromPort != null) {
                 draggedPortCurrentPoint = scaledCurrentMousePoint;
                 hoveredPort = portOnCanvasAt(scaledCurrentMousePoint);
+                repaint();
+                return;
+            }
+
+            if (draggedBoundaryStub != null) {
+                parkBoundaryStub(draggedBoundaryStub, scaledCurrentMousePoint);
                 repaint();
                 return;
             }
