@@ -323,7 +323,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         installCanvasToolShortcuts();
 
         this.setLocation(50, 50);
-        this.setTitle("Discrete Event Simulation System ");
+        this.setTitle("PetriNetSim");
         this.setSize(1000, 700);
 
         // Set fullscreen mode - should be called after setSize
@@ -572,8 +572,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         for (PetriObjectTemplate template : petriObjectPalette.pinned()) {
             javax.swing.JToggleButton button = new javax.swing.JToggleButton(
                     CanvasToolIcons.letter(template.glyph(), TOOL_ICON_SIZE));
-            button.setToolTipText(template.displayName()
-                    + " — click the canvas to drop this Petri-object; stays active for the next one");
+            button.setToolTipText(template.displayName());
             button.addActionListener(evt ->
                     getPetriNetsPanel().setTool(CanvasTool.ADD_PETRI_OBJECT, template));
             styleToolButton(button);
@@ -982,7 +981,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         pinnedToolsPanel.add(javax.swing.Box.createVerticalStrut(6));
 
         selectToolButton.setIcon(CanvasToolIcons.pointer(TOOL_ICON_SIZE));
-        selectToolButton.setToolTipText("Select — click to select an element, drag to move it");
+        selectToolButton.setToolTipText("Select");
         selectToolButton.setSelected(true);
         selectToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.SELECT));
         styleToolButton(selectToolButton);
@@ -990,21 +989,21 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         pinnedToolsPanel.add(selectToolButton);
 
         javax.swing.JToggleButton marqueeToolButton = new javax.swing.JToggleButton(CanvasToolIcons.marquee(TOOL_ICON_SIZE));
-        marqueeToolButton.setToolTipText("Marquee select — drag a rectangle to select without moving anything");
+        marqueeToolButton.setToolTipText("Marquee select");
         marqueeToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.MARQUEE));
         styleToolButton(marqueeToolButton);
         canvasToolGroup.add(marqueeToolButton);
         pinnedToolsPanel.add(marqueeToolButton);
 
         javax.swing.JToggleButton panToolButton = new javax.swing.JToggleButton(scaledIcon(ResourcePathConfig.HAND_ICON));
-        panToolButton.setToolTipText("Pan — drag to move the canvas view");
+        panToolButton.setToolTipText("Pan");
         panToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.PAN));
         styleToolButton(panToolButton);
         canvasToolGroup.add(panToolButton);
         pinnedToolsPanel.add(panToolButton);
 
         javax.swing.JToggleButton deleteToolButton = new javax.swing.JToggleButton(scaledIcon(ResourcePathConfig.ERASER_ICON));
-        deleteToolButton.setToolTipText("Delete — click an element or arc to remove it");
+        deleteToolButton.setToolTipText("Delete");
         deleteToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.DELETE));
         styleToolButton(deleteToolButton);
         canvasToolGroup.add(deleteToolButton);
@@ -1015,21 +1014,21 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         pinnedToolsPanel.add(javax.swing.Box.createVerticalStrut(8));
 
         newPlaceButton.setIcon(scaledIcon(ResourcePathConfig.PLACE_ICON));
-        newPlaceButton.setToolTipText("Place — click the canvas to drop a place; stays active for the next one");
+        newPlaceButton.setToolTipText("Place");
         newPlaceButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.ADD_PLACE));
         styleToolButton(newPlaceButton);
         canvasToolGroup.add(newPlaceButton);
         pinnedToolsPanel.add(newPlaceButton);
 
         newTransitionButton.setIcon(scaledIcon(ResourcePathConfig.TRANSITION_ICON));
-        newTransitionButton.setToolTipText("Transition — click the canvas to drop a transition; stays active for the next one");
+        newTransitionButton.setToolTipText("Transition");
         newTransitionButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.ADD_TRANSITION));
         styleToolButton(newTransitionButton);
         canvasToolGroup.add(newTransitionButton);
         pinnedToolsPanel.add(newTransitionButton);
 
         newArcButton.setIcon(scaledIcon(ResourcePathConfig.ARC_ICON));
-        newArcButton.setToolTipText("Arc — click a place then a transition (or the reverse) to connect them");
+        newArcButton.setToolTipText("Arc");
         newArcButton.addActionListener(this::newArcButtonActionPerformed);
         styleToolButton(newArcButton);
         canvasToolGroup.add(newArcButton);

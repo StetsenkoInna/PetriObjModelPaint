@@ -327,6 +327,65 @@ public class PlaceFusionLifecycleTest {
                 1, panel.getCanvasModel().getFusions().size());
     }
 
+    /**
+     * The user's own flow: click the drawn line to select the link, press Delete to remove
+     * it. The line was hit-testable for the tools but never selectable, so the Delete key
+     * had nothing to act on.
+     */
+    @Test
+    public void clickingTheLineSelectsTheSharedPlaceAndDeleteRemovesIt() throws Exception {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace pa = placeAt(panel, "PA", 200, 150);
+        frameWith(panel, "A", new Rectangle(140, 90, 160, 140), pa);
+        GraphPetriPlace pb = placeAt(panel, "PB", 700, 150);
+        frameWith(panel, "B", new Rectangle(640, 90, 160, 140), pb);
+        fuseThroughPanel(panel, pa, pb);
+
+        // A full click on the drawn line: press, release, click.
+        for (java.awt.event.MouseListener listener : panel.getMouseListeners()) {
+            if (listener instanceof PetriNetsPanel.MouseHandler handler) {
+                handler.mousePressed(new java.awt.event.MouseEvent(panel,
+                        java.awt.event.MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(),
+                        0, 470, 150, 1, false, java.awt.event.MouseEvent.BUTTON1));
+                handler.mouseReleased(new java.awt.event.MouseEvent(panel,
+                        java.awt.event.MouseEvent.MOUSE_RELEASED, System.currentTimeMillis(),
+                        0, 470, 150, 1, false, java.awt.event.MouseEvent.BUTTON1));
+                handler.mouseClicked(new java.awt.event.MouseEvent(panel,
+                        java.awt.event.MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(),
+                        0, 470, 150, 1, false, java.awt.event.MouseEvent.BUTTON1));
+            }
+        }
+
+        panel.deleteSelection();
+
+        assertTrue("Delete removed the clicked link", panel.getCanvasModel().getFusions().isEmpty());
+    }
+
+    /**
+     * Every fusion used to be painted on every canvas: entering an unrelated object's own
+     * canvas showed ghost reference lines between the raw positions of places that canvas
+     * does not draw.
+     */
+    @Test
+    public void anUnrelatedObjectsCanvasNeitherDrawsNorHitsTheSharedPlace() throws Exception {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace pa = placeAt(panel, "PA", 200, 150);
+        frameWith(panel, "A", new Rectangle(140, 90, 160, 140), pa);
+        GraphPetriPlace pb = placeAt(panel, "PB", 700, 150);
+        frameWith(panel, "B", new Rectangle(640, 90, 160, 140), pb);
+        GraphPetriPlace pc = placeAt(panel, "PC", 400, 500);
+        GraphObjectFrame c = frameWith(panel, "C", new Rectangle(340, 440, 160, 140), pc);
+        GraphPlaceFusion fusion = fuseThroughPanel(panel, pa, pb);
+
+        assertSame("on the root canvas the line is there",
+                fusion, panel.findSharedPlace(new Point2D.Double(470, 150)));
+
+        panel.openObjectCanvas(c);
+
+        assertNull("on an unrelated object's canvas it neither draws nor answers clicks",
+                panel.findSharedPlace(new Point2D.Double(470, 150)));
+    }
+
     // ------------------------------------------------------------------ copied nests
 
     /**

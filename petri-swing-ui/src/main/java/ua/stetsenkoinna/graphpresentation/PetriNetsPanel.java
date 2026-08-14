@@ -104,6 +104,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private GraphElement choosen;
     private GraphArc currentArc;
     private GraphArc choosenArc;
+    /** The shared place the user last clicked - the fusion-shaped twin of {@link #choosenArc}. */
+    private GraphPlaceFusion choosenFusion;
     private int savedId;
     public SetArc setArcFrame = new SetArc(this);
     public SetPosition setPositionFrame = new SetPosition(this);
@@ -614,7 +616,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         paintObjectFrames(g2, false);
         graphNet.paintGraphPetriNet(g2, g, hiddenElements());
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            fusion.draw(g2, fusion.isAnimationLit());
+            if (isFusionDrawnOnThisCanvas(fusion)) {
+                fusion.draw(g2, fusion.isAnimationLit() || fusion == choosenFusion);
+            }
         }
         paintObjectFrames(g2, true);
         paintPorts(g2);
@@ -624,13 +628,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             port.draw(g2, false);
         }
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            if (fusion.isAnchoredToAFrame()) {
+            if (fusion.isAnchoredToAFrame() && isFusionDrawnOnThisCanvas(fusion)) {
                 Line2D line = trimmedFusionLine(fusion);
                 if (line != null) {
                     fusion.drawBetweenPorts(g2,
                             new Point((int) line.getX1(), (int) line.getY1()),
                             new Point((int) line.getX2(), (int) line.getY2()),
-                            fusion.isAnimationLit());
+                            fusion.isAnimationLit() || fusion == choosenFusion);
                 }
             }
         }
@@ -1475,6 +1479,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * as the frame's own "Remove Petri-object frame", which says what it keeps.
      */
     public void deleteSelection() {
+        // The selected shared place goes first: it was the last thing clicked, and
+        // splitting a link asks no confirmation - both places stay where they are.
+        if (choosenFusion != null) {
+            splitSharedPlace(choosenFusion);
+            choosenFusion = null;
+            return;
+        }
         List<GraphObjectFrame> frames = framesOnThisCanvas(selection.allFrames());
         if (!frames.isEmpty() && choosenArc == null && choosen == null) {
             String what = frames.size() == 1
@@ -2919,6 +2930,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
 
+            // Whatever this click selects, it replaces the clicked shared place - the click
+            // below re-selects it when it lands on the drawn line again.
+            choosenFusion = null;
+
             // The toggle already happened on mousePressed; this only keeps that same click
             // from also being read as a frame click below (the icon sits inside the header's
             // own rectangle, which canvasModel.frameAt would otherwise match too).
@@ -2993,6 +3008,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     choosenArc = currentArc;
                     choosen = null;
                     currentArc = null;
+                }
+                // A click on a shared place's drawn line selects the link, so the Delete
+                // key can remove it - it used to be unselectable by any means.
+                if (choosenArc == null && SwingUtilities.isLeftMouseButton(ev)) {
+                    choosenFusion = findSharedPlace(scaledCurrentMousePoint);
                 }
             }
             setDefaultColorGraphElements();
@@ -3588,6 +3608,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param fusion the shared place to split
      */
     public void splitSharedPlace(GraphPlaceFusion fusion) {
+        if (choosenFusion == fusion) {
+            choosenFusion = null;
+        }
         canvasModel.removeFusion(fusion);
         // The coincident-ring form needs its halves pulled apart to read as two places
         // again; the port-to-port form's halves already sit apart, each inside its own
@@ -3625,6 +3648,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     public GraphPlaceFusion findSharedPlace(Point2D point) {
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
+            if (!isFusionDrawnOnThisCanvas(fusion)) {
+                continue;
+            }
             if (fusion.isOnRing(point)) {
                 return fusion;
             }
@@ -3636,6 +3662,25 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
         }
         return null;
+    }
+
+    /**
+     * Whether the active canvas draws this shared place at all: at least one half has to be
+     * on screen here, as its own drawn element or through a port on a drawn frame. Every
+     * fusion used to be painted on every canvas, so entering an object's own canvas showed
+     * ghost reference lines between the raw positions of places this canvas does not draw.
+     */
+    private boolean isFusionDrawnOnThisCanvas(GraphPlaceFusion fusion) {
+        return isFusionHalfVisibleHere(fusion.getMaster())
+                || isFusionHalfVisibleHere(fusion.getJoined());
+    }
+
+    private boolean isFusionHalfVisibleHere(GraphPetriPlace half) {
+        if (isDrawnOnThisCanvas(half)) {
+            return true;
+        }
+        GraphObjectFrame hiding = outermostHidden(canvasModel.ownerOf(half));
+        return hiding != null && isFrameDrawnOnThisCanvas(hiding);
     }
 
     private void removeCurrentArc() { //1.02.2013 цей метод дозволяє знищувати намальовану дугу
@@ -3897,6 +3942,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         current = null;
         choosen = null;
         choosenArc = null;
+        choosenFusion = null;
         selection.clear();
         startDragMouseLocation = null;
         currentDragMouseLocation = null;

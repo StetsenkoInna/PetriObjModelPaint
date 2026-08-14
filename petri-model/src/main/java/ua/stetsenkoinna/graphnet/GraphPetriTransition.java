@@ -65,6 +65,14 @@ public class GraphPetriTransition extends GraphTransition implements Serializabl
         g2.drawString("r=" + transition.getProbability(),
                 (float) this.getGraphElement().getCenterX() - (float) (Double.toString(transition.getBuffer()).length() * font) / 2,
                 (float) this.getGraphElement().getCenterY() + (float) GraphPetriTransition.getHeight() / 2 + 40);
+
+        // The tokens the transition is holding right now - its buffer of started, not yet
+        // finished firings - beside the bar, the transition-shaped twin of the count a
+        // place shows inside its circle. Beside rather than under: the label stack below
+        // is already two lines tall, and this one changes with every animation step.
+        g2.drawString(Integer.toString(transition.getBuffer()),
+                (float) this.getGraphElement().getMaxX() + 5,
+                (float) this.getGraphElement().getCenterY() + (float) font / 2);
     }
 
     @Override
