@@ -249,6 +249,35 @@ public class PlaceFusionLifecycleTest {
                 7, pb.getPetriPlace().getMark());
     }
 
+    // ------------------------------------------------------------------ animation
+
+    /**
+     * The built model replaces the joined half's place instance with the master's, so a
+     * firing in the joined half's own object reports the master's number - which the
+     * joined object's own list never contained: the token arriving in the shared place
+     * animated nothing there and the joined half kept its stale initial count forever.
+     */
+    @Test
+    public void aTokenArrivingInASharedPlaceUpdatesAndAnimatesBothHalves() throws Exception {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace pa = placeAt(panel, "PA", 200, 150);
+        frameWith(panel, "A", new Rectangle(140, 90, 160, 140), pa);
+        GraphPetriPlace pb = placeAt(panel, "PB", 700, 150);
+        frameWith(panel, "B", new Rectangle(640, 90, 160, 140), pb);
+        GraphPlaceFusion fusion = fuseThroughPanel(panel, pa, pb);
+
+        // The simulation moves tokens on the master's live instance only.
+        pa.getPetriPlace().setMark(4);
+        java.util.ArrayList<Integer> fired = new java.util.ArrayList<>(
+                java.util.List.of(pa.getPetriPlace().getNumber()));
+
+        panel.animateP(fired, null);
+
+        assertEquals("the joined half shows the new count, not its stale initial one",
+                4, pb.getPetriPlace().getMark());
+        assertFalse("the pulse is over, the line is dark again", fusion.isAnimationLit());
+    }
+
     // ------------------------------------------------------------------ clicking the line
 
     /**

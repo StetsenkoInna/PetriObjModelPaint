@@ -232,22 +232,56 @@ public class GraphPlaceFusion implements Serializable {
      * positions — a framed half's port, a free half's own position — since a locked place
      * cannot be moved to sit on top of the other half the way two free places can.
      *
+     * <p>The line is the UML dependency notation: black, dashed, with an open arrowhead at
+     * the master end - the reference relation is stored directed, the joined half points at
+     * the real place it stands for, exactly the way a PNML {@code referencePlace} points at
+     * the node it references. It used to be a plain solid green line, which read as some
+     * special kind of arc rather than as a "this IS that one" reference.
+     *
      * @param g2 canvas graphics
      * @param masterPoint where the master half is drawn: its port if framed, its own position
      *        if free
      * @param joinedPoint the same for the joined half
-     * @param selected whether the fusion is the current selection
+     * @param selected whether the fusion is the current selection or lit by the animation
      */
     public void drawBetweenPorts(Graphics2D g2, Point masterPoint, Point joinedPoint, boolean selected) {
         Stroke previousStroke = g2.getStroke();
         Color previousColor = g2.getColor();
 
-        g2.setColor(selected ? RING_SELECTED : RING);
-        g2.setStroke(new BasicStroke(selected ? 2.4f : 1.6f));
+        g2.setColor(selected ? RING_SELECTED : Color.BLACK);
+        g2.setStroke(new BasicStroke(selected ? 2.2f : 1.4f, BasicStroke.CAP_BUTT,
+                BasicStroke.JOIN_MITER, 10f, new float[] {6f, 6f}, 0f));
         g2.drawLine(masterPoint.x, masterPoint.y, joinedPoint.x, joinedPoint.y);
+
+        // Open (unfilled) arrowhead at the master end, the UML dependency style.
+        double angle = Math.atan2(masterPoint.y - joinedPoint.y, masterPoint.x - joinedPoint.x);
+        int length = 11;
+        double spread = Math.toRadians(24);
+        g2.setStroke(new BasicStroke(selected ? 2.2f : 1.4f));
+        g2.drawLine(masterPoint.x, masterPoint.y,
+                (int) (masterPoint.x - length * Math.cos(angle - spread)),
+                (int) (masterPoint.y - length * Math.sin(angle - spread)));
+        g2.drawLine(masterPoint.x, masterPoint.y,
+                (int) (masterPoint.x - length * Math.cos(angle + spread)),
+                (int) (masterPoint.y - length * Math.sin(angle + spread)));
 
         g2.setStroke(previousStroke);
         g2.setColor(previousColor);
+    }
+
+    /**
+     * Whether a running animation currently lights this shared place - a token just landed
+     * in (or left) one of its halves, so the line and both halves pulse together. Transient:
+     * a saved file never contains a mid-animation state.
+     */
+    private transient boolean animationLit;
+
+    public boolean isAnimationLit() {
+        return animationLit;
+    }
+
+    public void setAnimationLit(boolean animationLit) {
+        this.animationLit = animationLit;
     }
 
     /**

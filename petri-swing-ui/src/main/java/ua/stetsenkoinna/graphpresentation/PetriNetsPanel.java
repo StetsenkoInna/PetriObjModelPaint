@@ -602,12 +602,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             setCanvasNet(new GraphPetriNet());
         }
 
+        // The one shared marking, mirrored before anything draws: the joined half's own
+        // count is never what the model runs with, and a running animation only ever
+        // changes the master's live instance.
+        for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
+            fusion.syncMarking();
+        }
+
         // Expanded frames go under the drawing, collapsed ones over it: covering the net is
         // exactly what collapsing an object means on a shared canvas.
         paintObjectFrames(g2, false);
         graphNet.paintGraphPetriNet(g2, g, hiddenElements());
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            fusion.draw(g2, false);
+            fusion.draw(g2, fusion.isAnimationLit());
         }
         paintObjectFrames(g2, true);
         paintPorts(g2);
@@ -623,7 +630,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     fusion.drawBetweenPorts(g2,
                             new Point((int) line.getX1(), (int) line.getY1()),
                             new Point((int) line.getX2(), (int) line.getY2()),
-                            false);
+                            fusion.isAnimationLit());
                 }
             }
         }
@@ -4699,10 +4706,36 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         List<GraphPetriPlace> searchList =
                 scope != null ? scope.getGraphPetriPlaceList() : graphNet.getGraphPetriPlaceList();
         ArrayList<GraphPetriPlace> list = new ArrayList<>();
+        List<GraphPlaceFusion> litFusions = new ArrayList<>();
         for (GraphPetriPlace p : searchList) {
             for (Integer inp : inP) {
-                if (p.getPetriPlace().getNumber() == inp) {
-                    list.add(p);
+                GraphPlaceFusion fusion = canvasModel.fusionOf(p);
+                GraphPetriPlace other = fusion == null ? null
+                        : fusion.getMaster() == p ? fusion.getJoined() : fusion.getMaster();
+                // A shared place's half answers to either half's number: the built model
+                // replaced the joined half's instance with the master's, so a firing in
+                // the joined half's own object reports the master's number - which its own
+                // scope's list never contained, and the token arriving there animated
+                // nothing at all.
+                boolean matches = p.getPetriPlace().getNumber() == inp
+                        || (other != null && other.getPetriPlace().getNumber() == inp);
+                if (!matches || list.contains(p)) {
+                    continue;
+                }
+                list.add(p);
+                if (fusion != null) {
+                    // One place, both drawings: the new count lands on both halves, both
+                    // pulse, the reference line lights, and the other half's object joins
+                    // the animation spotlight like any crossing's far end.
+                    fusion.syncMarking();
+                    if (!list.contains(other)) {
+                        list.add(other);
+                    }
+                    if (!litFusions.contains(fusion)) {
+                        litFusions.add(fusion);
+                        fusion.setAnimationLit(true);
+                    }
+                    addActiveAnimationFrame(canvasModel.ownerOf(other));
                 }
             }
         }
@@ -4712,6 +4745,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         animPlaces(list, 100, 7);
         animPlaces(list, 100, 5);
         animPlaces(list, 100, 2, Color.BLACK);
+        for (GraphPlaceFusion fusion : litFusions) {
+            fusion.setAnimationLit(false);
+        }
+        if (!litFusions.isEmpty()) {
+            repaint();
+        }
     }
 
     public void animateOut(PetriT eventMin, GraphPetriNet scope) {   //Саша 05.17
