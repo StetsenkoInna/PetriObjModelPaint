@@ -19,28 +19,27 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Represents an undoable action of removing a number of graph elements
- * (places and/or transitions)
- * @author Leonid
+ * Undoable removal of a batch of graph elements (places and/or transitions), together with
+ * whatever arcs were incident to them.
  */
 public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
 
     private static final Logger log = LoggerFactory.getLogger(DeleteGraphElementsEdit.class);
 
     private final PetriNetsPanel panel;
-    
+
     /**
-     * Petri net elements that were removed during delete operation
+     * The places and transitions this edit removed.
      */
     private final List<GraphElement> elements;
-    
+
     /**
-     * In arcs that were removed along with GraphElements
+     * Incoming arcs removed together with {@link #elements}.
      */
     private final List<GraphArcIn> inArcs;
-    
+
     /**
-     * Out arcs that were removed along with GraphElements
+     * Outgoing arcs removed together with {@link #elements}.
      */
     private final List<GraphArcOut> outArcs;
 
@@ -109,33 +108,20 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
     @Override
     public void undo() {
         super.undo();
-        /* the following code is based on ctrl+V implementation in PetriNetsPanel */
         if (elements == null || elements.isEmpty()) {
             return;
         }
-        
-        //List<GraphElement> elementsToSpawn =
-        //        panel.getGraphNet().bulkCopyElements(elements);
 
-        /* de-highlighting currently selected elements */
-        for (GraphElement prevElement: panel.getChoosenElements()) {
-            prevElement.setColor(Color.BLACK);
-        }
-        panel.getChoosenElements().clear();
+        clearCurrentSelection();
 
         for (GraphElement element: elements) {
-            //Point2D spawnPoint = element.getGraphElementCenter();
-            //spawnPoint.setLocation(spawnPoint.getX() + 15, spawnPoint.getY() + 15);
-
-            // element.setNewCoordinates(spawnPoint);
             panel.getChoosenElements().add(element);
             element.setColor(Color.GREEN);
-            
-            if (element instanceof GraphPetriPlace) {
-                panel.getGraphNet().getGraphPetriPlaceList().add((GraphPetriPlace)element);
-            } else if (element instanceof GraphPetriTransition) {
-                panel.getGraphNet().getGraphPetriTransitionList().add(
-                        (GraphPetriTransition)element);
+
+            if (element instanceof GraphPetriPlace place) {
+                panel.getGraphNet().getGraphPetriPlaceList().add(place);
+            } else if (element instanceof GraphPetriTransition transition) {
+                panel.getGraphNet().getGraphPetriTransitionList().add(transition);
             } else {
                 log.warn("Unknown element while redoing delete");
             }
@@ -163,27 +149,43 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
             panel.getCanvasModel().restoreFusion(fusion);
         }
 
-        // elements = new ArrayList<>(elementsToSpawn);
+        relinkRestoredArcs();
 
-        // some kind of update for arcs? idk what this code does and whether it's really
-        // needed here
+        panel.repaint();
+    }
+
+    /**
+     * Un-highlights whatever the panel currently has selected, making room for this edit's own
+     * elements to become the new selection below.
+     */
+    private void clearCurrentSelection() {
+        for (GraphElement selected : panel.getChoosenElements()) {
+            selected.setColor(Color.BLACK);
+        }
+        panel.getChoosenElements().clear();
+    }
+
+    /**
+     * Reconnects each restored in-arc with the out-arc that runs the opposite way between the
+     * same place and transition, and refreshes every arc's drawn geometry now that its
+     * endpoints are back on the canvas.
+     */
+    private void relinkRestoredArcs() {
         for (GraphArcOut arcOut : panel.getGraphNet().getGraphArcOutList()) {
             for (GraphArcIn arcIn : panel.getGraphNet().getGraphArcInList()) {
-                int inBeginId = ((GraphPetriPlace) arcIn.getBeginElement()).getId();
-                int inEndId = ((GraphPetriTransition) arcIn.getEndElement()).getId();
-                int outBeginId = ((GraphPetriTransition) arcOut.getBeginElement()).getId();
-                int outEndId = ((GraphPetriPlace) arcOut.getEndElement()).getId();
-                if (inBeginId == outEndId && inEndId == outBeginId) {
+                int placeIdOnIn = ((GraphPetriPlace) arcIn.getBeginElement()).getId();
+                int transitionIdOnIn = ((GraphPetriTransition) arcIn.getEndElement()).getId();
+                int transitionIdOnOut = ((GraphPetriTransition) arcOut.getBeginElement()).getId();
+                int placeIdOnOut = ((GraphPetriPlace) arcOut.getEndElement()).getId();
+                if (placeIdOnIn == placeIdOnOut && transitionIdOnIn == transitionIdOnOut) {
                     arcIn.twoArcs(arcOut);
                 }
                 arcIn.updateCoordinates();
                 arcOut.updateCoordinates();
             }
         }
-        
-        panel.repaint();
     }
-    
+
     @Override
     public void redo() {
         super.redo();
@@ -198,7 +200,8 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
                panel.getGraphNet().delGraphElement(element);
             } catch (ExceptionInvalidNetStructure e) {
                 log.error("Unexpected error while redoing delete", e);
-                // theoretically this exception should never happen here
+                // element is guaranteed to still belong to the net at this point, so this
+                // branch should be unreachable in practice
             }
         }
         // The same cleanup the original deletion did: a fused place going away takes its
@@ -208,5 +211,5 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
         }
         panel.repaint();
     }
-    
+
 }
