@@ -64,7 +64,7 @@ public class SettingsDialog extends JDialog {
      * @param mode which of the two jobs this dialog is doing
      */
     public SettingsDialog(Window owner, AppSettings settings, Mode mode) {
-        super(owner, mode == Mode.FIRST_RUN ? "Welcome to petri-net-sim" : "Preferences",
+        super(owner, mode == Mode.FIRST_RUN ? "Welcome to PetriObjModelPaint" : "Preferences",
                 ModalityType.APPLICATION_MODAL);
         this.settings = settings;
         this.mode = mode;
