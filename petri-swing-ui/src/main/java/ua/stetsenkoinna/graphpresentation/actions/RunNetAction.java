@@ -5,20 +5,20 @@ import java.awt.event.ActionEvent;
 import javax.swing.AbstractAction;
 
 /**
- * Represents an action of running the net (without animation)
+ * Runs the net straight through to completion, with no animation and no per-event pausing.
  */
 public class RunNetAction extends AbstractAction {
-    
-    private final AnimationControls controls;
-    
-    public RunNetAction(AnimationControls controls) {
-        this.controls = controls;
+
+    private final AnimationControls animationControls;
+
+    public RunNetAction(AnimationControls animationControls) {
+        this.animationControls = animationControls;
         putValue(SHORT_DESCRIPTION, "Run net");
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        controls.runNetButtonPressed();
+        animationControls.runNetButtonPressed();
     }
-    
+
 }

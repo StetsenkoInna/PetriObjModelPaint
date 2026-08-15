@@ -8,9 +8,8 @@ import ua.stetsenkoinna.graphnet.GraphElement;
 import javax.swing.undo.AbstractUndoableEdit;
 
 /**
- * Represents an action of adding elements to the net. Contains methods
- * to undo and redo adding element and is supposed to be used with an UndoManager.
- * @author Leonid
+ * Undoable/redoable addition of a single place or transition to the net, to be used together
+ * with an {@link javax.swing.undo.UndoManager}.
  */
 public class AddGraphElementEdit extends AbstractUndoableEdit  {
 
@@ -25,10 +24,6 @@ public class AddGraphElementEdit extends AbstractUndoableEdit  {
      */
     private final GraphObjectFrame owner;
 
-    public AddGraphElementEdit(PetriNetsPanel panel, GraphElement element) {
-        this(panel, element, null);
-    }
-
     /**
      * @param owner the Petri-object whose canvas the element was drawn on, or {@code null} for
      *        the net's own canvas
@@ -39,6 +34,10 @@ public class AddGraphElementEdit extends AbstractUndoableEdit  {
         this.owner = owner;
     }
 
+    public AddGraphElementEdit(PetriNetsPanel panel, GraphElement element) {
+        this(panel, element, null);
+    }
+
     @Override
     public void redo() {
         super.redo(); // checking whether it can be redone and setting hasBeenDone = true
@@ -46,16 +45,16 @@ public class AddGraphElementEdit extends AbstractUndoableEdit  {
         panel.setCurrent(null);
         panel.repaint();
     }
-    
+
     /**
-     * Adds the place to the net for the first time.
-     * Called when this action is first done.
+     * Puts the element into the net for the first time; also invoked directly the very first
+     * time this action is performed (before it is ever undone/redone).
      */
     public void doFirstTime() {
-        if (element instanceof GraphPetriPlace) {
-            panel.getGraphNet().getGraphPetriPlaceList().add((GraphPetriPlace)element);
-        } else if (element instanceof GraphPetriTransition) {
-            panel.getGraphNet().getGraphPetriTransitionList().add((GraphPetriTransition)element);
+        if (element instanceof GraphPetriPlace place) {
+            panel.getGraphNet().getGraphPetriPlaceList().add(place);
+        } else if (element instanceof GraphPetriTransition transition) {
+            panel.getGraphNet().getGraphPetriTransitionList().add(transition);
         } else {
             throw new RuntimeException("AddPlaceEdit.doFirstTime(): unsupported element");
         }
@@ -65,29 +64,29 @@ public class AddGraphElementEdit extends AbstractUndoableEdit  {
         }
         panel.setCurrent(element);
     }
-    
+
     @Override
     public void undo() {
         super.undo(); // checking whether it can be undone and setting hasBeenDone = false
         if (element == panel.getCurrent()) {
-                panel.setCurrent(null);
-            }
-            if (element == panel.getChoosen()) {
-               panel.setChoosen(null);
-            }
-            panel.getChoosenElements().remove(element);
-            panel.getCanvasModel().release(element);
+            panel.setCurrent(null);
+        }
+        if (element == panel.getChoosen()) {
+            panel.setChoosen(null);
+        }
+        panel.getChoosenElements().remove(element);
+        panel.getCanvasModel().release(element);
 
-            if (element instanceof GraphPetriPlace) {
-                panel.getGraphNet().getGraphPetriPlaceList().remove((GraphPetriPlace)element);
-            } else if (element instanceof GraphPetriTransition) {
-                panel.getGraphNet().getGraphPetriTransitionList().remove((GraphPetriTransition)element);
-            } else {
-                throw new RuntimeException("AddGraphElementEdit.undo(): unsupported element");
-            }
-           
-            panel.revalidate();
-            panel.repaint();
+        if (element instanceof GraphPetriPlace place) {
+            panel.getGraphNet().getGraphPetriPlaceList().remove(place);
+        } else if (element instanceof GraphPetriTransition transition) {
+            panel.getGraphNet().getGraphPetriTransitionList().remove(transition);
+        } else {
+            throw new RuntimeException("AddGraphElementEdit.undo(): unsupported element");
+        }
+
+        panel.revalidate();
+        panel.repaint();
     }
-    
+
 }

@@ -13,6 +13,15 @@
     <artifactId>petri-swing-ui</artifactId>
     <packaging>jar</packaging>
 
+    <licenses>
+        <license>
+            <name>PolyForm Noncommercial License 1.0.0</name>
+            <url>https://polyformproject.org/licenses/noncommercial/1.0.0</url>
+            <distribution>repo</distribution>
+            <comments>For commercial licensing, contact inna.stetsenko-fiot@edu.kpi.ua or sergey24rybak@gmail.com</comments>
+        </license>
+    </licenses>
+
     <dependencies>
         <dependency>
             <groupId>ua.stetsenkoinna</groupId>
@@ -72,6 +81,18 @@
                     <include>**/*.png</include>
                     <include>**/*.PNG</include>
                     <include>**/*.pnml</include>
+                </includes>
+            </resource>
+            <!-- The module's LICENSE ships inside the JAR under a project-unique path (a bare
+                 /LICENSE or /META-INF/LICENSE would collide with dependency jars when shading),
+                 so the Help > License dialog always shows the license of the build it is part
+                 of without anyone copying the text by hand. -->
+            <resource>
+                <directory>${project.basedir}</directory>
+                <targetPath>ua/stetsenkoinna/license</targetPath>
+                <filtering>false</filtering>
+                <includes>
+                    <include>LICENSE</include>
                 </includes>
             </resource>
             <!-- The JavaFX chart stylesheets live next to LineChartBuilderService under src/main/java

@@ -2,7 +2,7 @@
 #
 # petri-server — multi-stage Maven reactor build.
 #
-# Build context MUST be the repository root (PetriObjModelPaint/), not petri-server/, because
+# Build context MUST be the repository root, not petri-server/, because
 # this is a multi-module reactor build and Maven needs every module's pom.xml on disk to resolve
 # reactor topology, even though `-pl petri-server -am` only compiles petri-server and its actual
 # dependencies (petri-math, petri-api, petri-model). petri-swing-ui is copied in for that reason

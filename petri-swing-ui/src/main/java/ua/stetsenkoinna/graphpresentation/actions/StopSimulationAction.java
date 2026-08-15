@@ -5,24 +5,22 @@ import java.awt.event.ActionEvent;
 import javax.swing.AbstractAction;
 
 /**
- * Completely halts the simulation (with or without animation). After that, there will
- * be no way to rewind back to the prevoius state of the net, and all future rewinds
- * will lead to the current net state. In a way, it works like "git commit", except
- * you cannot undo it.
- * @author Leonid
+ * Completely halts the simulation, animated or not. Once this fires, there is no way back to
+ * the state the net was in before it started: every future rewind will land on the state the
+ * net is in right now. Think of it as a commit that can't be undone.
  */
 public class StopSimulationAction extends AbstractAction {
-    
-    private final AnimationControls controls;
-    
-    public StopSimulationAction(AnimationControls controls) {
-        this.controls = controls;
+
+    private final AnimationControls animationControls;
+
+    public StopSimulationAction(AnimationControls animationControls) {
+        this.animationControls = animationControls;
         putValue(SHORT_DESCRIPTION, "Stop");
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        controls.stopSimulationButtonPressed();
+        animationControls.stopSimulationButtonPressed();
     }
-    
+
 }
