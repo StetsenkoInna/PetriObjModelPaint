@@ -38,7 +38,9 @@ import java.util.Set;
  *       is what stops every link index of the document from shifting by one.</li>
  *   <li>{@link PnmlConstants#ROLE_REPRESENTATIVE}, the object draws a stand-in so that an
  *       arc to another object's element has something to attach to. It is not a slot, takes
- *       no ordinal, and neither it nor its arcs are part of the object's own net.</li>
+ *       no ordinal, and neither it nor its arcs are part of the object's own net. Only an arc
+ *       running from a transition into a place is a link this way; the other direction would
+ *       give a transition an input place it does not own and is refused.</li>
  * </ul>
  *
  * <p>A foreign document carries no role, so one is inferred: a reference node no arc on its
@@ -125,7 +127,7 @@ final class ReferenceNodeIndex {
             if (node.fusion) {
                 addFusion(node, target);
             } else {
-                addArcLinks(reference, node, target);
+                addArcLinks(node, target);
             }
         }
     }
@@ -257,8 +259,15 @@ final class ReferenceNodeIndex {
     /**
      * A representative carries the link on its arcs: every arc of the page that touches it
      * crosses an object boundary, and is a link rather than an arc of the object's net.
+     *
+     * <p>Only one direction is a link: a transition producing tokens into a place of another
+     * object. An arc the other way round would make a foreign place an input of a local
+     * transition, which is refused, since the same model is expressed by sharing the place
+     * with this page and drawing an ordinary arc from it.
+     *
+     * @throws Exception if an arc states the refused direction
      */
-    private void addArcLinks(Element reference, Node node, Node target) {
+    private void addArcLinks(Node node, Node target) throws Exception {
         Set<String> linkArcIds = pageReferences.get(node.page).linkArcIds();
         for (Element arc : XmlHelper.directChildren(scopes.get(node.page), PnmlConstants.ELEMENT_ARC)) {
             String source = arc.getAttribute(PnmlConstants.ATTR_SOURCE);
@@ -280,23 +289,21 @@ final class ReferenceNodeIndex {
                         arcId, node.page);
                 continue;
             }
-            int quantity = quantityOf(arc);
-            boolean informational = isInformational(arc);
-            if (node.placeKind) {
-                // The stand-in is a place of another object.
-                structural.add(outgoing
-                        ? PetriObjLink.placeToTransition(target.page, target.ordinal,
-                                node.page, other.ordinal, quantity, informational)
-                        : PetriObjLink.transitionToPlace(node.page, other.ordinal,
-                                target.page, target.ordinal, quantity));
-            } else {
-                // The stand-in is a transition of another object.
-                structural.add(outgoing
-                        ? PetriObjLink.transitionToPlace(target.page, target.ordinal,
-                                node.page, other.ordinal, quantity)
-                        : PetriObjLink.placeToTransition(node.page, other.ordinal,
-                                target.page, target.ordinal, quantity, informational));
+            // A stand-in place with an arc leaving it, or a stand-in transition with an arc
+            // entering it, both say the same refused thing: a place of one object drives a
+            // transition of another.
+            if (node.placeKind == outgoing) {
+                throw new Exception(String.format(
+                        PnmlConstants.ERROR_RETIRED_LINK_TYPE_DRAWN, arcId, node.id));
             }
+            int quantity = quantityOf(arc);
+            structural.add(node.placeKind
+                    // The stand-in is a place of another object, fed by a transition here.
+                    ? PetriObjLink.transitionToPlace(node.page, other.ordinal,
+                            target.page, target.ordinal, quantity)
+                    // The stand-in is a transition of another object, feeding a place here.
+                    : PetriObjLink.transitionToPlace(target.page, target.ordinal,
+                            node.page, other.ordinal, quantity));
         }
     }
 
@@ -307,15 +314,6 @@ final class ReferenceNodeIndex {
     private static int quantityOf(Element arc) {
         return Math.max(1, XmlHelper.parseIntSafe(
                 XmlHelper.getTextContent(arc, PnmlConstants.ELEMENT_INSCRIPTION), 1));
-    }
-
-    /**
-     * An arc that tests a marking without consuming it has no P/T-net form at all, so the
-     * flag can only be read back out of the arc's own tool-specific block.
-     */
-    private static boolean isInformational(Element arc) {
-        return Boolean.parseBoolean(
-                XmlHelper.getToolSpecificText(arc, PnmlConstants.ELEMENT_INFORMATIONAL));
     }
 
     /**

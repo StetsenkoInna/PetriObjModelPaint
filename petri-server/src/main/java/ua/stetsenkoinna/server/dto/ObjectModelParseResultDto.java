@@ -35,10 +35,8 @@ public record ObjectModelParseResultDto(
     ) {}
 
     /**
-     * @param type {@code placeFusion}, {@code transitionToPlace} or {@code placeToTransition}
+     * @param type {@code placeFusion} or {@code transitionToPlace}
      * @param quantity arc multiplicity; always 1 for a place fusion
-     * @param informational true for a test arc that does not consume tokens; only meaningful
-     *        for {@code placeToTransition}
      */
     public record LinkDto(
             String type,
@@ -46,7 +44,6 @@ public record ObjectModelParseResultDto(
             @JsonProperty("source_element") int sourceElement,
             @JsonProperty("target_object") int targetObject,
             @JsonProperty("target_element") int targetElement,
-            int quantity,
-            boolean informational
+            int quantity
     ) {}
 }

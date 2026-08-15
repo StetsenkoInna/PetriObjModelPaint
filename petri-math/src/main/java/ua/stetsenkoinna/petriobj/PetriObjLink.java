@@ -23,10 +23,9 @@ public final class PetriObjLink implements Serializable {
     private final int targetObject;
     private final int targetElement;
     private final int quantity;
-    private final boolean informational;
 
     private PetriObjLink(PetriObjLinkType type, int sourceObject, int sourceElement,
-                         int targetObject, int targetElement, int quantity, boolean informational) {
+                         int targetObject, int targetElement, int quantity) {
         if (sourceObject < 0 || targetObject < 0 || sourceElement < 0 || targetElement < 0) {
             throw new IllegalArgumentException("Petri-object link indices must not be negative");
         }
@@ -39,7 +38,6 @@ public final class PetriObjLink implements Serializable {
         this.targetObject = targetObject;
         this.targetElement = targetElement;
         this.quantity = quantity;
-        this.informational = informational;
     }
 
     /**
@@ -53,7 +51,7 @@ public final class PetriObjLink implements Serializable {
     public static PetriObjLink placeFusion(int sourceObject, int sourcePlace,
                                            int targetObject, int targetPlace) {
         return new PetriObjLink(PetriObjLinkType.PLACE_FUSION,
-                sourceObject, sourcePlace, targetObject, targetPlace, 1, false);
+                sourceObject, sourcePlace, targetObject, targetPlace, 1);
     }
 
     /**
@@ -69,26 +67,7 @@ public final class PetriObjLink implements Serializable {
     public static PetriObjLink transitionToPlace(int sourceObject, int sourceTransition,
                                                  int targetObject, int targetPlace, int quantity) {
         return new PetriObjLink(PetriObjLinkType.TRANSITION_TO_PLACE,
-                sourceObject, sourceTransition, targetObject, targetPlace, quantity, false);
-    }
-
-    /**
-     * Declares that a place of the source object is an extra input of a transition of the
-     * target object.
-     *
-     * @param sourceObject index of the object that owns the place
-     * @param sourcePlace index of that place inside the source object's net
-     * @param targetObject index of the object that owns the transition
-     * @param targetTransition index of that transition inside the target object's net
-     * @param quantity how many tokens the arc tests and, unless informational, consumes
-     * @param informational {@code true} for a test arc that checks the marking without
-     *        consuming it
-     */
-    public static PetriObjLink placeToTransition(int sourceObject, int sourcePlace,
-                                                 int targetObject, int targetTransition,
-                                                 int quantity, boolean informational) {
-        return new PetriObjLink(PetriObjLinkType.PLACE_TO_TRANSITION,
-                sourceObject, sourcePlace, targetObject, targetTransition, quantity, informational);
+                sourceObject, sourceTransition, targetObject, targetPlace, quantity);
     }
 
     public PetriObjLinkType getType() {
@@ -104,8 +83,7 @@ public final class PetriObjLink implements Serializable {
 
     /**
      * @return index of the source element inside the source object's net — a place for
-     *         {@link PetriObjLinkType#PLACE_FUSION} and
-     *         {@link PetriObjLinkType#PLACE_TO_TRANSITION}, a transition for
+     *         {@link PetriObjLinkType#PLACE_FUSION}, a transition for
      *         {@link PetriObjLinkType#TRANSITION_TO_PLACE}
      */
     public int getSourceElement() {
@@ -120,8 +98,8 @@ public final class PetriObjLink implements Serializable {
     }
 
     /**
-     * @return index of the target element inside the target object's net — a transition for
-     *         {@link PetriObjLinkType#PLACE_TO_TRANSITION}, a place otherwise
+     * @return index of the target element inside the target object's net, always a place,
+     *         whichever link type this is
      */
     public int getTargetElement() {
         return targetElement;
@@ -132,14 +110,6 @@ public final class PetriObjLink implements Serializable {
      */
     public int getQuantity() {
         return quantity;
-    }
-
-    /**
-     * @return {@code true} if this is an informational (test) arc; only meaningful for
-     *         {@link PetriObjLinkType#PLACE_TO_TRANSITION}
-     */
-    public boolean isInformational() {
-        return informational;
     }
 
     @Override
@@ -155,14 +125,13 @@ public final class PetriObjLink implements Serializable {
                 && sourceElement == other.sourceElement
                 && targetObject == other.targetObject
                 && targetElement == other.targetElement
-                && quantity == other.quantity
-                && informational == other.informational;
+                && quantity == other.quantity;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(type, sourceObject, sourceElement, targetObject, targetElement,
-                quantity, informational);
+                quantity);
     }
 
     @Override
@@ -172,9 +141,6 @@ public final class PetriObjLink implements Serializable {
                     + targetObject + ".p[" + targetElement + "]";
             case TRANSITION_TO_PLACE -> "O" + sourceObject + ".t[" + sourceElement + "] -> O"
                     + targetObject + ".p[" + targetElement + "] x" + quantity;
-            case PLACE_TO_TRANSITION -> "O" + sourceObject + ".p[" + sourceElement + "] -"
-                    + (informational ? "?" : "") + "-> O" + targetObject + ".t[" + targetElement
-                    + "] x" + quantity;
         };
     }
 }

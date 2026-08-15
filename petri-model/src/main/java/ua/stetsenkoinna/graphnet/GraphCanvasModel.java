@@ -683,11 +683,18 @@ public class GraphCanvasModel implements Serializable {
      * Reads the canvas as a Petri-object model.
      *
      * <p>Objects come out in frame order, with everything drawn outside every frame gathered
-     * into a last unnamed object. An arc whose ends sit in different objects becomes a link
-     * between them, and a shared place becomes a place fusion.
+     * into a last unnamed object. An output arc whose ends sit in different objects becomes a
+     * transition-to-place link, and a shared place becomes a place fusion.
+     *
+     * <p>An input arc may not cross an object boundary: a transition takes its input places
+     * from its own Petri-object only, so such an arc is refused rather than turned into a
+     * link. The canonical drawing is a shared place plus an ordinary arc inside the object
+     * that owns the transition, which means exactly the same thing.
      *
      * @return the model the canvas describes
      * @throws IllegalStateException if the canvas has nothing on it
+     * @throws IllegalArgumentException if an input arc runs from a place of one object to a
+     *         transition of another
      */
     public GraphPetriObjModel toObjModel() {
         List<GraphElement> elements = new ArrayList<>();
@@ -750,10 +757,8 @@ public class GraphCanvasModel implements Serializable {
             if (placeOwner == transitionOwner) {
                 arcsIn.get(placeOwner).add(arc);
             } else {
-                links.add(ua.stetsenkoinna.petriobj.PetriObjLink.placeToTransition(
-                        placeOwner, places.get(placeOwner).indexOf(place),
-                        transitionOwner, transitions.get(transitionOwner).indexOf(transition),
-                        Math.max(1, arc.getArcIn().getQuantity()), arc.getArcIn().getIsInf()));
+                throw new IllegalArgumentException(crossObjectInputArcMessage(
+                        place, placeOwner, transition, transitionOwner, freeIndex));
             }
         }
 
@@ -818,6 +823,40 @@ public class GraphCanvasModel implements Serializable {
             model.addLink(link);
         }
         return model;
+    }
+
+    /**
+     * Explains why an input arc that leaves its Petri-object cannot be exported, and what to
+     * draw instead.
+     *
+     * @param place the place the arc starts at
+     * @param placeOwner index of the object that owns the place
+     * @param transition the transition the arc ends at
+     * @param transitionOwner index of the object that owns the transition
+     * @param freeIndex index given to the elements drawn outside every frame, or -1
+     */
+    private String crossObjectInputArcMessage(GraphPetriPlace place, int placeOwner,
+                                              GraphPetriTransition transition, int transitionOwner,
+                                              int freeIndex) {
+        String placeObject = objectNameAt(placeOwner, freeIndex);
+        String transitionObject = objectNameAt(transitionOwner, freeIndex);
+        return "Place '" + place.getName() + "' of Petri-object '" + placeObject
+                + "' feeds transition '" + transition.getName() + "' of Petri-object '"
+                + transitionObject + "'. A transition takes its input places from its own "
+                + "Petri-object only, so this arc is not a link between the two objects. "
+                + "Share place '" + place.getName() + "' between '" + placeObject + "' and '"
+                + transitionObject + "', then draw an ordinary arc from the shared place to '"
+                + transition.getName() + "' inside '" + transitionObject + "'.";
+    }
+
+    /**
+     * @param index index of an object being built by {@link #toObjModel()}
+     * @param freeIndex index given to the elements drawn outside every frame, or -1
+     * @return the name that object will carry
+     */
+    private String objectNameAt(int index, int freeIndex) {
+        return index == freeIndex || index < 0 || index >= frames.size()
+                ? FREE_OBJECT_NAME : frames.get(index).getName();
     }
 
     private static GraphPetriPlace placeOf(GraphElement element) {
@@ -930,8 +969,8 @@ public class GraphCanvasModel implements Serializable {
     }
 
     /**
-     * Turns the model's link declarations back into things drawn on the canvas: an arc
-     * between elements of two objects, or a shared place.
+     * Turns the model's link declarations back into things drawn on the canvas: an output arc
+     * from a transition of one object into a place of another, or a shared place.
      */
     private void restoreLinks(GraphPetriObjModel model) {
         for (ua.stetsenkoinna.petriobj.PetriObjLink link : model.getLinks()) {
@@ -953,14 +992,6 @@ public class GraphCanvasModel implements Serializable {
                     if (transition != null && place != null) {
                         net.getGraphArcOutList().add(
                                 GraphArcFactory.outArc(transition, place, link.getQuantity()));
-                    }
-                }
-                case PLACE_TO_TRANSITION -> {
-                    GraphPetriPlace place = placeAt(source, link.getSourceElement());
-                    GraphPetriTransition transition = transitionAt(target, link.getTargetElement());
-                    if (place != null && transition != null) {
-                        net.getGraphArcInList().add(GraphArcFactory.inArc(
-                                place, transition, link.getQuantity(), link.isInformational()));
                     }
                 }
             }

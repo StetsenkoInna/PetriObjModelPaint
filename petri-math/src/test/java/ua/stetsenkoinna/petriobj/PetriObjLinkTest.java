@@ -51,7 +51,7 @@ public class PetriObjLinkTest {
     /**
      * Builds a net whose own transition can never fire (its input place is empty) and that
      * owns an isolated place {@code P2} holding {@code guardTokens}. Used as the far end of
-     * a place-to-transition link, where the marking must stay under the test's control.
+     * a place fusion, where the marking must stay under the test's control.
      */
     private static PetriNet guardNet(String name, int guardTokens) throws ExceptionInvalidTimeDelay {
         resetElementCounters();
@@ -63,6 +63,39 @@ public class PetriObjLinkTest {
         transitions.add(new PetriT("T0", DELAY));
         ArrayList<ArcIn> arcsIn = new ArrayList<>();
         arcsIn.add(new ArcIn(places.get(0), transitions.get(0), 1));
+        ArrayList<ArcOut> arcsOut = new ArrayList<>();
+        arcsOut.add(new ArcOut(transitions.get(0), places.get(1), 1));
+        PetriNet net = new PetriNet(name, places, transitions, arcsIn, arcsOut);
+        resetElementCounters();
+        return net;
+    }
+
+    /**
+     * Builds {@code P0 -> T0 -> P1} with a second input place {@code P2} feeding {@code T0}
+     * through an ordinary arc of the net's own, the slot a shared place is fused into.
+     *
+     * <p>This is the canonical way for one Petri-object to make its firing depend on another
+     * object's marking: the foreign place becomes this net's own {@code P2}, and {@code T0}
+     * reaches it through a plain input arc like any other. There is no second, separate set
+     * of input places anywhere: {@code T0} has exactly one input list, {@code (P0, P2)}.
+     *
+     * @param name net name
+     * @param startTokens initial marking of {@code P0}
+     * @param sharedIsTested {@code true} to read {@code P2} through an informational arc that
+     *        tests the marking without consuming it, {@code false} to consume from it
+     */
+    private static PetriNet sharingNet(String name, int startTokens, boolean sharedIsTested)
+            throws ExceptionInvalidTimeDelay {
+        resetElementCounters();
+        ArrayList<PetriP> places = new ArrayList<>();
+        places.add(new PetriP("P0", startTokens));
+        places.add(new PetriP("P1", 0));
+        places.add(new PetriP("P2", 0));
+        ArrayList<PetriT> transitions = new ArrayList<>();
+        transitions.add(new PetriT("T0", DELAY));
+        ArrayList<ArcIn> arcsIn = new ArrayList<>();
+        arcsIn.add(new ArcIn(places.get(0), transitions.get(0), 1));
+        arcsIn.add(new ArcIn(places.get(2), transitions.get(0), 1, sharedIsTested));
         ArrayList<ArcOut> arcsOut = new ArrayList<>();
         arcsOut.add(new ArcOut(transitions.get(0), places.get(1), 1));
         PetriNet net = new PetriNet(name, places, transitions, arcsIn, arcsOut);
@@ -131,9 +164,9 @@ public class PetriObjLinkTest {
     }
 
     @Test
-    public void informationalLinkBlocksFiringWhileForeignPlaceIsEmpty() throws Exception {
-        PetriObjModel model = model(guardNet("guard", 0), chainNet("worker", 1));
-        model.linkPlaceToTransition(0, 2, 1, 0, 1, true);
+    public void fusedPlaceBlocksFiringWhileTheOtherObjectLeavesItEmpty() throws Exception {
+        PetriObjModel model = model(guardNet("guard", 0), sharingNet("worker", 1, true));
+        model.linkObjectsCombiningPlaces(1, 2, 0, 2);
 
         model.go(SIMULATION_TIME);
 
@@ -142,37 +175,72 @@ public class PetriObjLinkTest {
     }
 
     @Test
-    public void informationalLinkPermitsFiringWithoutConsumingTheForeignPlace() throws Exception {
-        PetriObjModel model = model(guardNet("guard", 1), chainNet("worker", 2));
-        model.linkPlaceToTransition(0, 2, 1, 0, 1, true);
+    public void informationalArcOnAFusedPlaceLeavesItsMarkingUntouched() throws Exception {
+        PetriObjModel model = model(guardNet("guard", 1), sharingNet("worker", 2, true));
+        model.linkObjectsCombiningPlaces(1, 2, 0, 2);
 
         model.go(SIMULATION_TIME);
 
-        assertEquals("a test arc must leave the foreign marking untouched", 1, mark(model, 0, 2));
+        assertEquals("a test arc must leave the shared marking untouched", 1, mark(model, 0, 2));
         assertEquals(2, mark(model, 1, 1));
     }
 
+    /**
+     * The canonical form of "a place of one object is an extra input of another object's
+     * transition": fuse the place into the consuming object, then reach it with an ordinary
+     * input arc. Tokens leave the shared place exactly as they did before.
+     */
     @Test
-    public void consumingLinkTakesTokensFromTheForeignPlace() throws Exception {
-        PetriObjModel model = model(guardNet("resource", 2), chainNet("worker", 2));
-        model.linkPlaceToTransition(0, 2, 1, 0, 1, false);
+    public void fusedPlaceIsConsumedByTheOtherObjectsTransition() throws Exception {
+        PetriObjModel model = model(guardNet("resource", 2), sharingNet("worker", 2, false));
+        model.linkObjectsCombiningPlaces(1, 2, 0, 2);
+
+        assertSame("the resource place and the worker's input place must be one place",
+                model.getListObj().get(0).getNet().getListP()[2],
+                model.getListObj().get(1).getNet().getListP()[2]);
 
         model.go(SIMULATION_TIME);
 
-        assertEquals("each firing must consume one foreign token", 0, mark(model, 0, 2));
+        assertEquals("each firing must consume one token of the shared place", 0, mark(model, 0, 2));
         assertEquals(2, mark(model, 1, 1));
     }
 
+    /**
+     * The other half of the same equivalence: once the shared place is empty the consuming
+     * transition is blocked, and the queue behind it stops draining.
+     */
     @Test
-    public void consumingLinkStopsTheObjectWhenTheForeignPlaceRunsOut() throws Exception {
-        PetriObjModel model = model(guardNet("resource", 1), chainNet("worker", 3));
-        model.linkPlaceToTransition(0, 2, 1, 0, 1, false);
+    public void fusedPlaceStopsTheObjectWhenItRunsOut() throws Exception {
+        PetriObjModel model = model(guardNet("resource", 1), sharingNet("worker", 3, false));
+        model.linkObjectsCombiningPlaces(1, 2, 0, 2);
 
         model.go(SIMULATION_TIME);
 
         assertEquals(0, mark(model, 0, 2));
         assertEquals("only one token could be served", 1, mark(model, 1, 1));
         assertEquals("the rest must stay in the queue", 2, mark(model, 1, 0));
+    }
+
+    /**
+     * A fused place is reached through the consuming transition's one and only input list,
+     * there is no second, separate set of input places anywhere in the transition.
+     */
+    @Test
+    public void aFusedPlaceIsAnOrdinaryInputOfTheConsumingTransition() throws Exception {
+        PetriObjModel model = model(guardNet("resource", 1), sharingNet("worker", 1, false));
+        model.linkObjectsCombiningPlaces(1, 2, 0, 2);
+
+        PetriT worker = model.getListObj().get(1).getNet().getListT()[0];
+        assertEquals("the queue place and the shared place are both plain inputs",
+                List.of(0, 2), worker.getInP());
+        assertTrue("no inter-object arc is needed to reach the shared place",
+                worker.getExternalOutputs().isEmpty());
+
+        model.go(SIMULATION_TIME);
+
+        assertEquals("the shared place is drained by the worker's own input arc",
+                0, mark(model, 0, 2));
+        assertEquals(1, mark(model, 1, 1));
     }
 
     @Test
@@ -204,13 +272,13 @@ public class PetriObjLinkTest {
     public void modelKeepsTheDeclarationsItWasGiven() throws Exception {
         PetriObjModel model = model(chainNet("producer", 1), chainNet("consumer", 0));
         model.linkObjectsCombiningPlaces(0, 1, 1, 0);
-        model.linkPlaceToTransition(1, 1, 0, 0, 2, true);
+        model.linkTransitionToPlace(1, 0, 0, 0, 2);
 
         assertEquals(2, model.getLinks().size());
         assertEquals(PetriObjLinkType.PLACE_FUSION, model.getLinks().get(0).getType());
-        assertEquals(PetriObjLinkType.PLACE_TO_TRANSITION, model.getLinks().get(1).getType());
+        assertEquals(1, model.getLinks().get(0).getQuantity());
+        assertEquals(PetriObjLinkType.TRANSITION_TO_PLACE, model.getLinks().get(1).getType());
         assertEquals(2, model.getLinks().get(1).getQuantity());
-        assertTrue(model.getLinks().get(1).isInformational());
     }
 
     @Test

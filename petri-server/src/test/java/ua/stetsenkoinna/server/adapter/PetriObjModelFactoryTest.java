@@ -163,19 +163,63 @@ class PetriObjModelFactoryTest {
         assertEquals(List.of("t_gen"), generator.transitions().stream()
                 .map(transition -> transition.id()).toList());
         assertEquals(1, generator.priority());
-        assertEquals(3, generator.arcs().size(), "the arc realising a link is not an arc of the object");
+        assertEquals(3, generator.arcs().size());
 
         ObjectModelParseResultDto.ObjectDto server = parsed.objects().get(1);
-        assertEquals(List.of("p_in", "p_busy", "p_done"), server.places().stream()
+        // "p_watch" is the object's own half of the place it shares with the generator, and the
+        // arc from it into "t_end" is an ordinary arc of this object - which is what feeding a
+        // transition across an object boundary looks like when it is drawn canonically.
+        assertEquals(List.of("p_in", "p_busy", "p_done", "p_watch"), server.places().stream()
                 .map(place -> place.id()).toList());
         assertEquals(List.of("t_start", "t_end"), server.transitions().stream()
                 .map(transition -> transition.id()).toList());
-        assertEquals(4, server.arcs().size());
+        assertEquals(5, server.arcs().size(), "the arc realising a link is not an arc of the object");
+        String sharedHalf = server.places().get(3).name();
+        String fedTransition = server.transitions().get(1).name();
+        assertTrue(server.arcs().stream().anyMatch(arc ->
+                        arc.source().equals(sharedHalf) && arc.target().equals(fedTransition)),
+                "the transition takes its input from a place of its own object");
 
+        assertEquals(List.of("placeFusion", "transitionToPlace"),
+                parsed.links().stream().map(ObjectModelParseResultDto.LinkDto::type)
+                        .distinct().sorted().toList(),
+                "a shared place and a transition feeding a place are the whole link set");
         assertEquals(3, parsed.links().size());
-        assertLink(parsed, "placeFusion", 0, 1, 1, 0, 1, false);
-        assertLink(parsed, "transitionToPlace", 1, 0, 0, 2, 2, false);
-        assertLink(parsed, "placeToTransition", 0, 2, 1, 1, 1, true);
+        assertLink(parsed, "placeFusion", 0, 1, 1, 0, 1);
+        assertLink(parsed, "transitionToPlace", 1, 0, 0, 2, 2);
+        assertLink(parsed, "placeFusion", 1, 3, 0, 2, 1);
+    }
+
+    /**
+     * The canonical way one object feeds another object's transition: the two objects share a
+     * place, and the arc into the transition is an ordinary arc of the object that owns the
+     * transition. A transition never carries inputs from outside its own object, so no link
+     * describes a place of one object reaching into a transition of another.
+     */
+    @Test
+    void aTransitionIsFedFromAnotherObjectThroughASharedPlace() throws Exception {
+        ObjectModelParseResultDto parsed = ObjectModelDtos.of(
+                PetriObjModelFactory.parse(twoObjectModelXml()));
+
+        assertEquals(List.of("placeFusion"),
+                parsed.links().stream().map(ObjectModelParseResultDto.LinkDto::type).toList(),
+                "sharing the place is the only link the two objects need");
+
+        ObjectModelParseResultDto.ObjectDto sink = parsed.objects().get(1);
+        String sharedPlace = sink.places().getFirst().name();
+        String fedTransition = sink.transitions().getFirst().name();
+        assertTrue(sink.arcs().stream().anyMatch(arc ->
+                        arc.source().equals(sharedPlace) && arc.target().equals(fedTransition)),
+                "the arc into the transition belongs to the object that owns the transition");
+
+        PetriObjModel model = PetriObjModelFactory.build("session", twoObjectModelXml(), noStatistics());
+        assertSame(model.getListObj().get(1).getNet().getListP()[0],
+                model.getListObj().getFirst().getNet().getListP()[1],
+                "the shared place is one instance, which is what carries the tokens across");
+
+        model.go(10.0);
+        assertEquals(2, model.getListObj().get(1).getNet().getListP()[1].getMark(),
+                "the fed transition really fired on tokens produced by the other object");
     }
 
     @Test
@@ -198,10 +242,9 @@ class PetriObjModelFactoryTest {
     private static void assertLink(ObjectModelParseResultDto parsed, String type,
                                    int sourceObject, int sourceElement,
                                    int targetObject, int targetElement,
-                                   int quantity, boolean informational) {
+                                   int quantity) {
         ObjectModelParseResultDto.LinkDto expected = new ObjectModelParseResultDto.LinkDto(
-                type, sourceObject, sourceElement, targetObject, targetElement,
-                quantity, informational);
+                type, sourceObject, sourceElement, targetObject, targetElement, quantity);
         assertTrue(parsed.links().contains(expected),
                 "expected " + expected + " among " + parsed.links());
     }

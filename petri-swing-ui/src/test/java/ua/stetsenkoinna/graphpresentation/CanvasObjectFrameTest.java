@@ -202,13 +202,13 @@ public class CanvasObjectFrameTest {
      * Two frames, each holding one place and one transition of their own, with no links
      * between them yet.
      */
-    private static PetriNetsPanel twoFramedObjectsPanel() throws Exception {
+    private static RefusalCapturingPanel twoFramedObjectsPanel() throws Exception {
         PetriP.initNext();
         PetriT.initNext();
         ArcIn.initNext();
         ArcOut.initNext();
 
-        PetriNetsPanel panel = new PetriNetsPanel(null, false);
+        RefusalCapturingPanel panel = new RefusalCapturingPanel();
         GraphPetriPlace placeA = new GraphPetriPlace(new PetriP("PA", 1), 0);
         placeA.setNewCoordinates(new Point2D.Double(80, 80));
         GraphPetriTransition transitionA = new GraphPetriTransition(new PetriT("TA", 1.0), 1);
@@ -232,6 +232,21 @@ public class CanvasObjectFrameTest {
         panel.addObjectFrame(frameB);
 
         return panel;
+    }
+
+    /** Captures what the canvas refuses instead of putting a modal dialog on the screen. */
+    private static class RefusalCapturingPanel extends PetriNetsPanel {
+
+        private String refusal;
+
+        RefusalCapturingPanel() {
+            super(null, false);
+        }
+
+        @Override
+        void reportRefusal(String message) {
+            refusal = message;
+        }
     }
 
     private static FramePort portOf(PetriNetsPanel panel, GraphObjectFrame frame, String elementName) {
@@ -333,18 +348,27 @@ public class CanvasObjectFrameTest {
         assertTrue(panel.getCanvasModel().getFusions().getFirst().involves((GraphPetriPlace) pa.getElement()));
     }
 
+    /**
+     * A port reaches the rest of the drawing, but it cannot reach past what a transition may be
+     * fed by: its input places are its own object's. The drag is refused and explained rather
+     * than silently dropped, since landing on that particular port was clearly deliberate.
+     */
     @Test
-    public void draggingFromAPlacePortToATransitionPortAddsAnInputArc() throws Exception {
-        PetriNetsPanel panel = twoFramedObjectsPanel();
+    public void draggingFromAPlacePortToATransitionPortIsRefused() throws Exception {
+        RefusalCapturingPanel panel = twoFramedObjectsPanel();
         List<GraphObjectFrame> frames = panel.getCanvasModel().getFrames();
         FramePort pa = portOf(panel, frames.get(0), "PA");
         FramePort tb = portOf(panel, frames.get(1), "TB");
 
         dragPort(panel, pa, tb);
 
-        assertEquals(1, panel.getGraphNet().getGraphArcInList().size());
-        assertEquals(pa.getElement(), panel.getGraphNet().getGraphArcInList().getFirst().getBeginElement());
-        assertEquals(tb.getElement(), panel.getGraphNet().getGraphArcInList().getFirst().getEndElement());
+        assertTrue("no input arc may run from one Petri-object into another",
+                panel.getGraphNet().getGraphArcInList().isEmpty());
+        assertNotNull("the user must be told why nothing happened", panel.refusal);
+        assertTrue("the refusal must name both ends: " + panel.refusal,
+                panel.refusal.contains("PA") && panel.refusal.contains("TB"));
+        assertTrue("the refusal must point at the shared place instead: " + panel.refusal,
+                panel.refusal.contains("share"));
     }
 
     @Test
@@ -389,9 +413,10 @@ public class CanvasObjectFrameTest {
                 panel.getCanvasModel().ownerOf(free));
     }
 
+    /** The free elements are an object of their own, so the same refusal applies to them. */
     @Test
-    public void draggingFromAPlacePortToAFreeTransitionAddsAnInputArc() throws Exception {
-        PetriNetsPanel panel = twoFramedObjectsPanel();
+    public void draggingFromAPlacePortToAFreeTransitionIsRefused() throws Exception {
+        RefusalCapturingPanel panel = twoFramedObjectsPanel();
         FramePort pa = portOf(panel, panel.getCanvasModel().getFrames().getFirst(), "PA");
         GraphPetriTransition free = new GraphPetriTransition(new PetriT("FreeT", 1.0), 99);
         free.setNewCoordinates(new Point2D.Double(900, 900));
@@ -399,9 +424,11 @@ public class CanvasObjectFrameTest {
 
         dragPortToFreeElement(panel, pa, free);
 
-        assertEquals(1, panel.getGraphNet().getGraphArcInList().size());
-        assertEquals(pa.getElement(), panel.getGraphNet().getGraphArcInList().getFirst().getBeginElement());
-        assertEquals(free, panel.getGraphNet().getGraphArcInList().getFirst().getEndElement());
+        assertTrue("a framed place may not feed a transition outside its object",
+                panel.getGraphNet().getGraphArcInList().isEmpty());
+        assertNotNull("the user must be told why nothing happened", panel.refusal);
+        assertTrue("the refusal must name both ends: " + panel.refusal,
+                panel.refusal.contains("PA") && panel.refusal.contains("FreeT"));
     }
 
     @Test
