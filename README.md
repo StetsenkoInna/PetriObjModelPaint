@@ -1,7 +1,6 @@
-# petri-net-sim
+# PetriObjModelPaint
 
-Petri net graphical editor and simulator, also known as
-**PetriObjModelPaint**. Multi-module Maven project:
+Petri net graphical editor and simulator (**POMP** for short). Multi-module Maven project:
 
 | Module | Purpose |
 |--------|---------|
@@ -13,20 +12,11 @@ Petri net graphical editor and simulator, also known as
 
 ## Petri-object simulation technique
 
-petri-net-sim is the project of Petri-object simulation technique implementation. Petri-object simulation technique, the main concept of which is to compose the code of model of complicated discrete event system in a fast and flexible way, simultaneously providing fast running the simulation, is requisite. The behaviour description of the model is based on stochastic multichannel Petri net while the model composition is grounded on object-oriented technology. The Petri-object simulation software provides a scalable simulation algorithm, graphical editor, correct transformation of graphical images into a model, and correct simulation results.
+PetriObjModelPaint is the project of Petri-object simulation technique implementation. Petri-object simulation technique, the main concept of which is to compose the code of model of complicated discrete event system in a fast and flexible way, simultaneously providing fast running the simulation, is requisite. The behaviour description of the model is based on stochastic multichannel Petri net while the model composition is grounded on object-oriented technology. The Petri-object simulation software provides a scalable simulation algorithm, graphical editor, correct transformation of graphical images into a model, and correct simulation results.
 
-In code terms, this technique lives in the `petri-math` module (`PetriObjModel`, `PetriSim`, `PetriP`, `PetriT`, `NetLibrary`): a Petri-object is built with class `PetriSim`, and several of them are composed into a model by declaring links — a shared place, a transition feeding a place of another object, or a place guarding a transition of another object. Once the list of Petri-objects is prepared and the links between them are set, the model is assembled with `PetriObjModel`, whose `go(double time)` method runs the simulation. `petri-model` carries the same model at graph level, so a composition is drawn in the editor, stored as a single PNML document and replayed by the server.
+In code terms, this technique lives in the `petri-math` module (`PetriObjModel`, `PetriSim`, `PetriP`, `PetriT`, `NetLibrary`): a Petri-object is built with class `PetriSim`, and several of them are composed into a model by declaring links: a shared place, a transition feeding a place of another object, or a place guarding a transition of another object. Once the list of Petri-objects is prepared and the links between them are set, the model is assembled with `PetriObjModel`, whose `go(double time)` method runs the simulation. `petri-model` carries the same model at graph level, so a composition is drawn in the editor, stored as a single PNML document and replayed by the server.
 
-**[docs/petri-object-models.md](docs/petri-object-models.md)** — full guide: objects and links, composing a model in the editor, the PNML form, running one from code or over HTTP.
-
-## Web app
-
-**[petri-net-sim web app](https://github.com/sergiorbk/petri-net-sim)** — an
-agent-powered super-app for building, generating and simulating Petri nets in the
-browser, with AI features at its core: describe a production or queueing system in
-plain language and an AI agent composes it into a net from a catalog of reusable
-patterns; then edit it in the live graph editor, run stochastic simulations and
-exchange models with this project over PNML.
+**[docs/petri-object-models.md](docs/petri-object-models.md)**, full guide: objects and links, composing a model in the editor, the PNML form, running one from code or over HTTP.
 
 ## Requirements
 
@@ -58,7 +48,7 @@ live animation, watch statistics charts, save nets to the net library and import
 Frame parts of a drawing as Petri-objects, link them across frame borders, and animate the
 whole composition on one canvas.
 
-**[docs/desktop-ui.md](docs/desktop-ui.md)** — full guide: editor, animation controls,
+**[docs/desktop-ui.md](docs/desktop-ui.md)**, full guide: editor, animation controls,
 statistics module, Petri-objects on the canvas, net library, PNML import/export.
 
 ---
@@ -75,7 +65,7 @@ Python backends, microservices). Starts at `http://localhost:8080`, interactive 
 `http://localhost:8080/docs`. `/api/v1` runs a single net; `/api/v2` runs a Petri-object
 model and reports statistics per object.
 
-**[docs/petri-server-integration.md](docs/petri-server-integration.md)** — full guide:
+**[docs/petri-server-integration.md](docs/petri-server-integration.md)**, full guide:
 REST API reference, SSE streaming, WebSocket/STOMP, session control, PNML requirements,
 the Petri-object model API.
 
@@ -84,7 +74,7 @@ the Petri-object model API.
 ## Project Structure
 
 ```
-petri-net-sim/
+PetriObjModelPaint/
 ├── petri-math/        # Simulation engine (PetriObj, LibNet, utils)
 ├── petri-api/         # Interfaces and DTOs
 ├── petri-model/       # Graph model, PNML, config
@@ -92,6 +82,17 @@ petri-net-sim/
 ├── petri-server/      # Spring Boot server
 └── pom.xml            # Parent POM
 ```
+
+---
+
+## Web app
+
+**[petri-net-sim web app](https://github.com/sergiorbk/petri-net-sim)**: an
+agent-powered super-app for building, generating and simulating Petri nets in the
+browser, with AI features at its core. Describe a production or queueing system in
+plain language and an AI agent composes it into a net from a catalog of reusable
+patterns; then edit it in the live graph editor, run stochastic simulations and
+exchange models with this project over PNML.
 
 ---
 

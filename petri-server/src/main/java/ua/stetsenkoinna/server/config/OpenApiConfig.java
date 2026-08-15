@@ -12,7 +12,7 @@ public class OpenApiConfig {
     public OpenAPI petriOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("petri-net-sim API")
+                        .title("PetriObjModelPaint API")
                         .version("2.0.0")
                         .description("""
                                 REST API for Petri net simulation. \
