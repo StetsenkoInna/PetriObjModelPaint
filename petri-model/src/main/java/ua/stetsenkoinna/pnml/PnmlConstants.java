@@ -112,6 +112,13 @@ public final class PnmlConstants {
     public static final String ATTR_TARGET_OBJECT = "targetObject";
     public static final String ATTR_TARGET_ELEMENT = "targetElement";
     public static final String ATTR_QUANTITY = "quantity";
+
+    /**
+     * Retired with {@link #LINK_TYPE_PLACE_TO_TRANSITION}, the only link type that ever
+     * carried it. No link is written with it and none is read from it; a test arc is a
+     * property of an arc inside one object's own net, where it is written as
+     * {@link #ELEMENT_INFORMATIONAL}.
+     */
     public static final String ATTR_INFORMATIONAL = "informational";
 
     /**
@@ -135,6 +142,15 @@ public final class PnmlConstants {
     // Link type values, kept stable regardless of how the enum constants are named
     public static final String LINK_TYPE_PLACE_FUSION = "placeFusion";
     public static final String LINK_TYPE_TRANSITION_TO_PLACE = "transitionToPlace";
+
+    /**
+     * A retired link type, kept only so that a reader recognises it and can say why the
+     * document is refused. It made a place of one Petri-object an extra input of a transition
+     * of another, which gave that transition a second set of input places and so contradicted
+     * the definition of a Petri net transition. Nothing writes it any more, and a document
+     * that declares it is rejected rather than converted, because a silent conversion would
+     * change what the stored model says.
+     */
     public static final String LINK_TYPE_PLACE_TO_TRANSITION = "placeToTransition";
 
     // Default values
@@ -183,4 +199,29 @@ public final class PnmlConstants {
             "Reference node '%s' points at '%s', which is not an element of this net";
     public static final String ERROR_NO_OBJECTS =
             "A Petri-object model document needs at least one object";
+
+    /**
+     * Refuses a {@code <link type="placeToTransition">} declaration. The document is not
+     * converted, because a conversion would change what the file states, so the message has
+     * to spell out the canonical form instead.
+     */
+    public static final String ERROR_RETIRED_LINK_TYPE_DECLARED =
+            "This document declares a link of type '%s' from place %d of Petri-object %d to "
+                    + "transition %d of Petri-object %d. That link type is no longer supported: "
+                    + "a transition takes its input places from its own Petri-object only. "
+                    + "Express it as a place fusion that shares the place with the Petri-object "
+                    + "owning the transition, plus an ordinary arc from the shared place to that "
+                    + "transition inside that Petri-object.";
+
+    /**
+     * Refuses the same link stated in the standard's own terms: a reference node standing for
+     * a foreign element, with an arc that makes it an input of a local transition.
+     */
+    public static final String ERROR_RETIRED_LINK_TYPE_DRAWN =
+            "Arc '%s' makes a place of one Petri-object an input of a transition of another, "
+                    + "through reference node '%s'. That is no longer supported: a transition "
+                    + "takes its input places from its own Petri-object only. Draw the place as "
+                    + "a shared place of the page that owns the transition, a <referencePlace> "
+                    + "standing in the page's own place slot, and run an ordinary arc from it to "
+                    + "the transition on that same page.";
 }

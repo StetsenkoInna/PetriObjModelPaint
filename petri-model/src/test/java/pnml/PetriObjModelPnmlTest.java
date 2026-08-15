@@ -54,9 +54,34 @@ public class PetriObjModelPnmlTest {
         return GraphNetBuilder.build(net, Collections.emptyMap(), Collections.emptyMap(), null);
     }
 
+    /**
+     * Builds {@code P0 -> T0 -> P1} with a third place {@code P2} that only tests {@code T0}
+     * through an informational arc, never consuming from it. Sharing that slot with another
+     * Petri-object is how a transition is driven by a place the object does not own.
+     */
+    private static GraphPetriNet watcherNet(String name, int startTokens) throws Exception {
+        PetriP.initNext();
+        PetriT.initNext();
+        ArcIn.initNext();
+        ArcOut.initNext();
+        ArrayList<PetriP> places = new ArrayList<>();
+        places.add(new PetriP("P0", startTokens));
+        places.add(new PetriP("P1", 0));
+        places.add(new PetriP("P2", 0));
+        ArrayList<PetriT> transitions = new ArrayList<>();
+        transitions.add(new PetriT("T0", 1.0));
+        ArrayList<ArcIn> arcsIn = new ArrayList<>();
+        arcsIn.add(new ArcIn(places.get(0), transitions.get(0), 1));
+        arcsIn.add(new ArcIn(places.get(2), transitions.get(0), 1, true));
+        ArrayList<ArcOut> arcsOut = new ArrayList<>();
+        arcsOut.add(new ArcOut(transitions.get(0), places.get(1), 1));
+        PetriNet net = new PetriNet(name, places, transitions, arcsIn, arcsOut);
+        return GraphNetBuilder.build(net, Collections.emptyMap(), Collections.emptyMap(), null);
+    }
+
     private static GraphPetriObjModel twoObjectModel() throws Exception {
         GraphPetriObjModel model = new GraphPetriObjModel("QueueingSystem");
-        GraphPetriObject producer = new GraphPetriObject("Generator", chainNet("Generator", 1));
+        GraphPetriObject producer = new GraphPetriObject("Generator", watcherNet("Generator", 1));
         producer.setPosition(new Point(40, 60));
         producer.setTemplate(new NetTemplateRef("CreateNetGenerator", List.of("2.0")));
         model.addObject(producer);
@@ -67,8 +92,10 @@ public class PetriObjModelPnmlTest {
         model.addObject(consumer);
 
         model.addLink(PetriObjLink.placeFusion(0, 1, 1, 0));
+        // The canonical way Server's output place drives Generator's transition: the watcher
+        // slot of Generator is Server's place, and the arc from it is Generator's own.
+        model.addLink(PetriObjLink.placeFusion(0, 2, 1, 1));
         model.addLink(PetriObjLink.transitionToPlace(1, 0, 0, 0, 2));
-        model.addLink(PetriObjLink.placeToTransition(1, 1, 0, 0, 1, true));
         return model;
     }
 
@@ -82,7 +109,7 @@ public class PetriObjModelPnmlTest {
 
         GraphPetriObject producer = restored.getObject(0);
         assertEquals("Generator", producer.getName());
-        assertEquals(2, producer.getPlaceCount());
+        assertEquals(3, producer.getPlaceCount());
         assertEquals(1, producer.getTransitionCount());
         assertEquals(new Point(40, 60), producer.getPosition());
         assertNotNull(producer.getTemplate());
@@ -94,13 +121,25 @@ public class PetriObjModelPnmlTest {
         assertEquals(3, consumer.getPriority());
 
         assertEquals(3, restored.getLinks().size());
-        assertEquals(PetriObjLinkType.PLACE_FUSION, restored.getLinks().get(0).getType());
-        PetriObjLink delivery = restored.getLinks().get(1);
+        int fusions = 0;
+        PetriObjLink delivery = null;
+        for (PetriObjLink link : restored.getLinks()) {
+            if (link.getType() == PetriObjLinkType.PLACE_FUSION) {
+                fusions++;
+            } else {
+                delivery = link;
+            }
+        }
+        assertEquals("both shared places come back as fusions", 2, fusions);
+        assertNotNull(delivery);
         assertEquals(PetriObjLinkType.TRANSITION_TO_PLACE, delivery.getType());
         assertEquals(2, delivery.getQuantity());
-        PetriObjLink test = restored.getLinks().get(2);
-        assertEquals(PetriObjLinkType.PLACE_TO_TRANSITION, test.getType());
-        assertTrue(test.isInformational());
+
+        boolean informational = false;
+        for (var arc : producer.getGraphNet().getGraphArcInList()) {
+            informational |= arc.getArcIn().getIsInf();
+        }
+        assertTrue("the informational arc inside the object survives the round trip", informational);
     }
 
     @Test
@@ -115,6 +154,9 @@ public class PetriObjModelPnmlTest {
         assertSame("the fused place must be one instance in both objects",
                 model.getListObj().get(1).getNet().getListP()[0],
                 model.getListObj().get(0).getNet().getListP()[1]);
+        assertSame("and so must the slot the informational arc tests",
+                model.getListObj().get(1).getNet().getListP()[1],
+                model.getListObj().get(0).getNet().getListP()[2]);
 
         model.setIsProtokol(false);
         model.go(10.0);

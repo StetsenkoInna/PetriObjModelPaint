@@ -143,13 +143,16 @@ public class PnmlModelParser {
      *       declaration over an already fused model chains it further rather than
      *       reproducing it, so it gets exactly one source of truth.</li>
      *   <li><b>Arc-like links</b>: the union, keyed on endpoints. A declaration the structure
-     *       also states adds nothing, and where they differ on multiplicity or on the
-     *       informational flag the structure wins, because that is what every other reader
-     *       of the document sees. A declaration the structure does not state is applied: that
-     *       is how a legacy-style declaration inside a conformant document survives.</li>
+     *       also states adds nothing, and where they differ on multiplicity the structure
+     *       wins, because that is what every other reader of the document sees. A declaration
+     *       the structure does not state is applied: that is how a legacy-style declaration
+     *       inside a conformant document survives.</li>
      * </ul>
+     *
+     * @throws Exception if the document declares a link of a retired type
      */
-    private static List<PetriObjLink> readModelLinks(Element netElement, ReferenceNodeIndex references) {
+    private static List<PetriObjLink> readModelLinks(Element netElement, ReferenceNodeIndex references)
+            throws Exception {
         List<PetriObjLink> declared = readLinks(netElement, references);
         if (references == null) {
             return declared;
@@ -176,8 +179,7 @@ public class PnmlModelParser {
             if (structured == null) {
                 links.add(link);
                 byEndpoints.put(endpointKey(link), link);
-            } else if (structured.getQuantity() != link.getQuantity()
-                    || structured.isInformational() != link.isInformational()) {
+            } else if (structured.getQuantity() != link.getQuantity()) {
                 log.warn("Link {} disagrees with the declaration {}; the document's structure wins",
                         structured, link);
             }
@@ -331,8 +333,10 @@ public class PnmlModelParser {
      * @param netElement the document's net
      * @param references the document's reference nodes, or {@code null} for a legacy
      *        document; when present, an endpoint given by id is resolved through it
+     * @throws Exception if the block declares a link of a retired type
      */
-    private static List<PetriObjLink> readLinks(Element netElement, ReferenceNodeIndex references) {
+    private static List<PetriObjLink> readLinks(Element netElement, ReferenceNodeIndex references)
+            throws Exception {
         List<PetriObjLink> links = new ArrayList<>();
         for (Element toolspecific : XmlHelper.toolSpecificBlocks(netElement)) {
             Element linksElement =
@@ -350,7 +354,16 @@ public class PnmlModelParser {
         return links;
     }
 
-    private static PetriObjLink readLink(Element element, ReferenceNodeIndex references) {
+    /**
+     * Reads one link declaration.
+     *
+     * @return the link, or {@code null} when the declaration is of an unknown type or is
+     *         malformed, both of which the reader steps over
+     * @throws Exception if the declaration is of a retired type, which is a statement about
+     *         the model the reader must not quietly drop or quietly rewrite
+     */
+    private static PetriObjLink readLink(Element element, ReferenceNodeIndex references)
+            throws Exception {
         int sourceObject = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_SOURCE_OBJECT), -1);
         int sourceElement = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_SOURCE_ELEMENT), -1);
         int targetObject = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_TARGET_OBJECT), -1);
@@ -370,8 +383,15 @@ public class PnmlModelParser {
         }
 
         int quantity = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_QUANTITY), 1);
-        boolean informational = Boolean.parseBoolean(element.getAttribute(PnmlConstants.ATTR_INFORMATIONAL));
         String type = element.getAttribute(PnmlConstants.ATTR_LINK_TYPE);
+
+        // Refused before anything else is done with it: this declaration says the model has a
+        // shape the technique no longer has, and there is no reading of it that is both silent
+        // and honest.
+        if (PnmlConstants.LINK_TYPE_PLACE_TO_TRANSITION.equals(type)) {
+            throw new Exception(String.format(PnmlConstants.ERROR_RETIRED_LINK_TYPE_DECLARED,
+                    type, sourceElement, sourceObject, targetElement, targetObject));
+        }
 
         try {
             return switch (type) {
@@ -380,9 +400,6 @@ public class PnmlModelParser {
                 case PnmlConstants.LINK_TYPE_TRANSITION_TO_PLACE ->
                         PetriObjLink.transitionToPlace(sourceObject, sourceElement, targetObject,
                                 targetElement, quantity);
-                case PnmlConstants.LINK_TYPE_PLACE_TO_TRANSITION ->
-                        PetriObjLink.placeToTransition(sourceObject, sourceElement, targetObject,
-                                targetElement, quantity, informational);
                 default -> {
                     log.warn("Ignoring link of unknown type '{}'", type);
                     yield null;

@@ -412,24 +412,6 @@ public class PetriObjModel implements Serializable, Cloneable  {
     }
 
     /**
-     * Adds a place of one Petri-object to the firing condition of a transition of another
-     * one — consuming its tokens, or only testing them when the arc is informational.
-     *
-     * @param sourceObject index of the object that owns the place
-     * @param sourcePlace index of that place inside the source object's net
-     * @param targetObject index of the object that owns the transition
-     * @param targetTransition index of that transition inside the target object's net
-     * @param quantity arc multiplicity
-     * @param informational {@code true} to test the marking without consuming it
-     */
-    public void linkPlaceToTransition(int sourceObject, int sourcePlace,
-                                      int targetObject, int targetTransition,
-                                      int quantity, boolean informational) {
-        addLink(PetriObjLink.placeToTransition(sourceObject, sourcePlace,
-                targetObject, targetTransition, quantity, informational));
-    }
-
-    /**
      * Records a link declaration and wires it into the object graph.
      *
      * @param link the link to add
@@ -442,9 +424,9 @@ public class PetriObjModel implements Serializable, Cloneable  {
     }
 
     /**
-     * Checks every object's net now that every declared link has been wired in — the point at
-     * which a transition fed only by another Petri-object's place can finally be told apart
-     * from one with no input at all. See {@link PetriNet#validateStructure()}.
+     * Checks the net of every Petri-object of this model once the model is assembled: a
+     * transition with no input place to consume from would fire without ever being
+     * constrained. See {@link PetriNet#validateStructure()}.
      *
      * @throws ExceptionInvalidTimeDelay naming the first transition with no consuming input
      */
@@ -493,9 +475,6 @@ public class PetriObjModel implements Serializable, Cloneable  {
             }
             case TRANSITION_TO_PLACE -> transitionAt(source, link.getSourceElement(), link)
                     .addExternalOutput(placeAt(target, link.getTargetElement(), link), link.getQuantity());
-            case PLACE_TO_TRANSITION -> transitionAt(target, link.getTargetElement(), link)
-                    .addExternalInput(placeAt(source, link.getSourceElement(), link),
-                            link.getQuantity(), link.isInformational());
         }
     }
 

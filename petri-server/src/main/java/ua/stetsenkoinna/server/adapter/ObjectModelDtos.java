@@ -43,7 +43,7 @@ public final class ObjectModelDtos {
                     linkTypeName(link),
                     link.getSourceObject(), link.getSourceElement(),
                     link.getTargetObject(), link.getTargetElement(),
-                    link.getQuantity(), link.isInformational()
+                    link.getQuantity()
             ));
         }
 
@@ -105,7 +105,6 @@ public final class ObjectModelDtos {
         return switch (link.getType()) {
             case PLACE_FUSION -> "placeFusion";
             case TRANSITION_TO_PLACE -> "transitionToPlace";
-            case PLACE_TO_TRANSITION -> "placeToTransition";
         };
     }
 }

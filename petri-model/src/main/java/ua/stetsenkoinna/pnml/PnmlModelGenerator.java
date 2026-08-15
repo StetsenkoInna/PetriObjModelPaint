@@ -47,21 +47,23 @@ import java.util.Set;
  *       touched the place keeps pointing at the same id.</li>
  *   <li><b>Transition to place</b> {@code A.t -> B.p}, page A gains a stand-in
  *       {@code <referencePlace>} for {@code B.p} and an ordinary arc into it.</li>
- *   <li><b>Place to transition</b> {@code A.p -> B.t}, page A gains a stand-in
- *       {@code <referenceTransition>} for {@code B.t} and an ordinary arc into it.</li>
  * </ul>
+ *
+ * <p>There is no third kind. A place of one object feeding a transition of another is written
+ * as a shared place plus an ordinary arc inside the object that owns the transition, which
+ * says the same thing without giving a transition a second set of input places.
  *
  * <h2>What still has to be tool-specific</h2>
  *
- * <p>Only what a P/T net cannot say: an informational (test) arc, which has no P/T form at
- * all; the object's priority, position and template; whether a reference node is the
- * object's own slot or a stand-in, a difference flattening deliberately erases; and the
- * marking of a place that ceases to exist on flattening.
+ * <p>Only what a P/T net cannot say: an informational (test) arc inside an object's own net,
+ * which has no P/T form at all; the object's priority, position and template; whether a
+ * reference node is the object's own slot or a stand-in, a difference flattening deliberately
+ * erases; and the marking of a place that ceases to exist on flattening.
  *
  * <p>The {@code <petriObjectLinks>} block is still written and is now <em>redundant</em>
  * with the structure. It earns its place as compatibility, a reader that predates reference
- * nodes recovers the two arc-like link types from it in full, and as a record of what the
- * user declared, addressed by element id rather than by position alone. It is not a second
+ * nodes recovers the arc-like links from it in full, and as a record of what the user
+ * declared, addressed by element id rather than by position alone. It is not a second
  * source of truth, and readers here treat it as subordinate.
  *
  * @see PnmlModelParser
@@ -207,8 +209,7 @@ public class PnmlModelGenerator {
             }
             String sourceId = ids.elementId(link.getSourceObject(), link.getSourceElement(),
                     link.getType() != PetriObjLinkType.TRANSITION_TO_PLACE);
-            String targetId = ids.elementId(link.getTargetObject(), link.getTargetElement(),
-                    link.getType() != PetriObjLinkType.PLACE_TO_TRANSITION);
+            String targetId = ids.elementId(link.getTargetObject(), link.getTargetElement(), true);
             if (sourceId == null || targetId == null) {
                 log.warn("Not drawing link {}: it addresses an element the objects do not have", link);
                 continue;
@@ -230,15 +231,7 @@ public class PnmlModelGenerator {
                             PnmlConstants.ELEMENT_REFERENCE_PLACE);
                     appendLinkArc(document, pages.get(link.getSourceObject()), index,
                             sourceId, reference.getAttribute(PnmlConstants.ATTR_ID),
-                            link.getQuantity(), false);
-                }
-                case PLACE_TO_TRANSITION -> {
-                    Element reference = representative(document, pages, representatives,
-                            link.getSourceObject(), link.getTargetObject(), targetId,
-                            PnmlConstants.ELEMENT_REFERENCE_TRANSITION);
-                    appendLinkArc(document, pages.get(link.getSourceObject()), index,
-                            sourceId, reference.getAttribute(PnmlConstants.ATTR_ID),
-                            link.getQuantity(), link.isInformational());
+                            link.getQuantity());
                 }
             }
         }
@@ -375,11 +368,12 @@ public class PnmlModelGenerator {
     }
 
     /**
-     * Appends the arc that realises one link. It is an ordinary arc in every respect a P/T
-     * net has; only the informational flag, which has no P/T form, stays tool-specific.
+     * Appends the arc that realises one link. Every link an arc can realise now runs from a
+     * transition into a place, so the arc is an ordinary P/T arc in every respect and needs
+     * nothing tool-specific at all.
      */
     private void appendLinkArc(Document document, Element page, int linkIndex,
-                               String sourceId, String targetId, int quantity, boolean informational) {
+                               String sourceId, String targetId, int quantity) {
         Element arc = document.createElement(PnmlConstants.ELEMENT_ARC);
         arc.setAttribute(PnmlConstants.ATTR_ID, PnmlConstants.LINK_ARC_ID_PREFIX + linkIndex);
         arc.setAttribute(PnmlConstants.ATTR_SOURCE, sourceId);
@@ -389,12 +383,6 @@ public class PnmlModelGenerator {
         inscription.appendChild(textElement(document, PnmlConstants.ELEMENT_TEXT,
                 String.valueOf(Math.max(1, quantity))));
         arc.appendChild(inscription);
-
-        if (informational) {
-            Element toolspecific = createToolspecific(document, PnmlConstants.TOOL_VERSION);
-            toolspecific.appendChild(textElement(document, PnmlConstants.ELEMENT_INFORMATIONAL, "true"));
-            arc.appendChild(toolspecific);
-        }
         page.appendChild(arc);
     }
 
@@ -421,16 +409,11 @@ public class PnmlModelGenerator {
             linkElement.setAttribute(PnmlConstants.ATTR_TARGET_OBJECT, String.valueOf(link.getTargetObject()));
             linkElement.setAttribute(PnmlConstants.ATTR_TARGET_ELEMENT, String.valueOf(link.getTargetElement()));
             setElementId(linkElement, PnmlConstants.ATTR_TARGET_ELEMENT_ID,
-                    ids.elementId(link.getTargetObject(), link.getTargetElement(),
-                            link.getType() != PetriObjLinkType.PLACE_TO_TRANSITION));
+                    ids.elementId(link.getTargetObject(), link.getTargetElement(), true));
             switch (link.getType()) {
-                case PLACE_FUSION -> { /* a fusion has neither multiplicity nor a test flag */ }
+                case PLACE_FUSION -> { /* a fusion has no multiplicity */ }
                 case TRANSITION_TO_PLACE ->
                         linkElement.setAttribute(PnmlConstants.ATTR_QUANTITY, String.valueOf(link.getQuantity()));
-                case PLACE_TO_TRANSITION -> {
-                    linkElement.setAttribute(PnmlConstants.ATTR_QUANTITY, String.valueOf(link.getQuantity()));
-                    linkElement.setAttribute(PnmlConstants.ATTR_INFORMATIONAL, String.valueOf(link.isInformational()));
-                }
             }
             linksElement.appendChild(linkElement);
         }
@@ -451,7 +434,6 @@ public class PnmlModelGenerator {
         return switch (link.getType()) {
             case PLACE_FUSION -> PnmlConstants.LINK_TYPE_PLACE_FUSION;
             case TRANSITION_TO_PLACE -> PnmlConstants.LINK_TYPE_TRANSITION_TO_PLACE;
-            case PLACE_TO_TRANSITION -> PnmlConstants.LINK_TYPE_PLACE_TO_TRANSITION;
         };
     }
 

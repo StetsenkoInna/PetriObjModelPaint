@@ -138,13 +138,11 @@ public class PetriNet implements Cloneable, Serializable {
     }
 
     /**
-     * Checks that every transition has at least one input it actually consumes from.
+     * Checks that every transition has at least one input place it actually consumes from.
      *
-     * <p>{@link PetriT#createInP} used to reject a transition with no LOCAL input arc outright,
-     * which also rejected a transition fed only by another Petri-object's place — a legitimate
-     * topology that {@link PetriT#condition} already resolves correctly by reference. That link
-     * does not exist yet when a net is constructed, so the check has to run afterwards, once
-     * {@link PetriObjModel#addLink} has had a chance to wire it in.
+     * <p>The check deliberately does not live in {@link PetriT#createInP}, which runs while a
+     * net is still being assembled: an editor adds places, transitions and arcs one at a time,
+     * so an incomplete net has to be allowed to exist and is validated only once it is whole.
      *
      * @throws ExceptionInvalidTimeDelay naming the first transition with no consuming input at all
      */

@@ -2,7 +2,7 @@ package ua.stetsenkoinna.graphpresentation;
 
 import org.junit.Test;
 import ua.stetsenkoinna.graphnet.FramePort;
-import ua.stetsenkoinna.graphnet.GraphArcIn;
+import ua.stetsenkoinna.graphnet.GraphArcOut;
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
@@ -81,20 +81,24 @@ public class ObjectCanvasBoundaryPortTest {
         return transition;
     }
 
-    /** Object A holding transition T, with a crossing arc from free place P into T. */
+    /**
+     * Object A holding place P1, with a crossing arc from a free transition into it. That is
+     * the direction a connection between two objects runs: a transition delivers into another
+     * object's place, while its own input places are always its own object's.
+     */
     private static PetriNetsPanel focusedObjectWithIncomingArc(
-            GraphPetriTransition[] memberOut, GraphPetriPlace[] outerOut) {
+            GraphPetriPlace[] memberOut, GraphPetriTransition[] outerOut) {
         PetriNetsPanel panel = freshPanel();
-        GraphPetriTransition member = transitionAt(panel, "T1", 250, 200);
+        GraphPetriPlace member = placeAt(panel, "P1", 250, 200);
         GraphObjectFrame frame = new GraphObjectFrame("A", new Rectangle(180, 110, 270, 160));
         panel.addObjectFrame(frame);
         panel.getCanvasModel().claim(frame, member);
-        GraphPetriPlace outer = placeAt(panel, "POut", 800, 500);
-        GraphArcIn arc = new GraphArcIn();
+        GraphPetriTransition outer = transitionAt(panel, "TOut", 800, 500);
+        GraphArcOut arc = new GraphArcOut();
         arc.settingNewArc(outer);
         arc.finishSettingNewArc(member);
         arc.updateCoordinates();
-        panel.getGraphNet().getGraphArcInList().add(arc);
+        panel.getGraphNet().getGraphArcOutList().add(arc);
         panel.openObjectCanvas(frame);
         memberOut[0] = member;
         outerOut[0] = outer;
@@ -132,8 +136,8 @@ public class ObjectCanvasBoundaryPortTest {
      */
     @Test
     public void aMemberWithACrossingArcStillDragsOnItsOwnCanvas() {
-        GraphPetriTransition[] member = new GraphPetriTransition[1];
-        GraphPetriPlace[] outer = new GraphPetriPlace[1];
+        GraphPetriPlace[] member = new GraphPetriPlace[1];
+        GraphPetriTransition[] outer = new GraphPetriTransition[1];
         PetriNetsPanel panel = focusedObjectWithIncomingArc(member, outer);
 
         drag(panel, 250, 200, 340, 300);
@@ -145,12 +149,12 @@ public class ObjectCanvasBoundaryPortTest {
 
     // ------------------------------------------------------------------ boundary stubs
 
-    private static Line2D settledSubstitute(PetriNetsPanel panel, GraphArcIn arc) throws Exception {
+    private static Line2D settledSubstitute(PetriNetsPanel panel, GraphArcOut arc) throws Exception {
         Method settle = PetriNetsPanel.class.getDeclaredMethod(
                 "settleCrossingSubstitute",
                 ua.stetsenkoinna.graphnet.GraphArc.class, ua.stetsenkoinna.graphnet.GraphArc.class);
         settle.setAccessible(true);
-        GraphArcIn temp = new GraphArcIn();
+        GraphArcOut temp = new GraphArcOut();
         return (boolean) settle.invoke(panel, arc, temp) ? temp.getGraphElement() : null;
     }
 
@@ -161,11 +165,11 @@ public class ObjectCanvasBoundaryPortTest {
      */
     @Test
     public void theCrossingArcDrawsAsAShortStubTowardTheOutsideElement() throws Exception {
-        GraphPetriTransition[] member = new GraphPetriTransition[1];
-        GraphPetriPlace[] outer = new GraphPetriPlace[1];
+        GraphPetriPlace[] member = new GraphPetriPlace[1];
+        GraphPetriTransition[] outer = new GraphPetriTransition[1];
         PetriNetsPanel panel = focusedObjectWithIncomingArc(member, outer);
 
-        Line2D line = settledSubstitute(panel, panel.getGraphNet().getGraphArcInList().get(0));
+        Line2D line = settledSubstitute(panel, panel.getGraphNet().getGraphArcOutList().get(0));
 
         assertTrue("the crossing arc is drawn as a substitute on this canvas", line != null);
         Point2D start = new Point2D.Double(line.getX1(), line.getY1());
@@ -179,10 +183,10 @@ public class ObjectCanvasBoundaryPortTest {
 
     @Test
     public void aParkedStubStaysWhereTheUserPutIt() throws Exception {
-        GraphPetriTransition[] member = new GraphPetriTransition[1];
-        GraphPetriPlace[] outer = new GraphPetriPlace[1];
+        GraphPetriPlace[] member = new GraphPetriPlace[1];
+        GraphPetriTransition[] outer = new GraphPetriTransition[1];
         PetriNetsPanel panel = focusedObjectWithIncomingArc(member, outer);
-        GraphArcIn arc = panel.getGraphNet().getGraphArcInList().get(0);
+        GraphArcOut arc = panel.getGraphNet().getGraphArcOutList().get(0);
 
         // Grab the derived stub end and drag it above the element.
         Line2D derived = settledSubstitute(panel, arc);
@@ -204,13 +208,13 @@ public class ObjectCanvasBoundaryPortTest {
      */
     @Test
     public void theRootCanvasDrawsTheCrossingArcDirectly() throws Exception {
-        GraphPetriTransition[] member = new GraphPetriTransition[1];
-        GraphPetriPlace[] outer = new GraphPetriPlace[1];
+        GraphPetriPlace[] member = new GraphPetriPlace[1];
+        GraphPetriTransition[] outer = new GraphPetriTransition[1];
         PetriNetsPanel panel = focusedObjectWithIncomingArc(member, outer);
         panel.activateRootCanvas();
 
         assertTrue("no substitute on the root canvas, the real arc is drawn",
-                settledSubstitute(panel, panel.getGraphNet().getGraphArcInList().get(0)) == null);
+                settledSubstitute(panel, panel.getGraphNet().getGraphArcOutList().get(0)) == null);
     }
 
     /**
@@ -220,21 +224,21 @@ public class ObjectCanvasBoundaryPortTest {
     @Test
     public void aCollapsedChildsElementDoesNotGetABoundaryPort() throws Exception {
         PetriNetsPanel panel = freshPanel();
-        GraphPetriTransition member = transitionAt(panel, "T1", 250, 200);
+        GraphPetriPlace member = placeAt(panel, "P1", 250, 200);
         GraphObjectFrame frame = new GraphObjectFrame("A", new Rectangle(180, 110, 400, 300));
         panel.addObjectFrame(frame);
         panel.getCanvasModel().claim(frame, member);
-        GraphPetriPlace childPlace = placeAt(panel, "PC", 350, 300);
+        GraphPetriTransition childTransition = transitionAt(panel, "TC", 350, 300);
         GraphObjectFrame child = new GraphObjectFrame("C", new Rectangle(300, 250, 160, 120));
         panel.addObjectFrame(child);
-        panel.getCanvasModel().claim(child, childPlace);
+        panel.getCanvasModel().claim(child, childTransition);
         panel.getCanvasModel().nest(child, frame);
         child.setCollapsed(true);
-        GraphArcIn arc = new GraphArcIn();
-        arc.settingNewArc(childPlace);
+        GraphArcOut arc = new GraphArcOut();
+        arc.settingNewArc(childTransition);
         arc.finishSettingNewArc(member);
         arc.updateCoordinates();
-        panel.getGraphNet().getGraphArcInList().add(arc);
+        panel.getGraphNet().getGraphArcOutList().add(arc);
         panel.openObjectCanvas(frame);
 
         Line2D line = settledSubstitute(panel, arc);
@@ -242,7 +246,7 @@ public class ObjectCanvasBoundaryPortTest {
         Point2D start = new Point2D.Double(line.getX1(), line.getY1());
         boolean atChildsOwnPort = false;
         for (FramePort port : panel.getCanvasModel().portsOf(child)) {
-            if (port.getElement() == childPlace
+            if (port.getElement() == childTransition
                     && start.distance(port.getPosition().x, port.getPosition().y)
                             <= FramePort.RADIUS + 2) {
                 atChildsOwnPort = true;

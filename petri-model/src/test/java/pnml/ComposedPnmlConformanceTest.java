@@ -41,8 +41,7 @@ import static org.junit.Assert.fail;
 
 /**
  * The inter-object structure of a composed document, expressed the way ISO/IEC 15909-2 says
- * it must be: with {@code <referencePlace>} and {@code <referenceTransition>} nodes rather
- * than only inside a tool-specific block.
+ * it must be: with reference nodes rather than only inside a tool-specific block.
  *
  * <p>The point of the exercise is that a reader which is not this tool sees the same model
  * this tool sees. The point of <em>these</em> tests is that the change costs nothing: a
@@ -57,6 +56,7 @@ public class ComposedPnmlConformanceTest {
     private static final String CONFORMANT = "/pnml/composed_conformant_v21.pnml";
     private static final String LEGACY = "/pnml/composed_legacy_v20.pnml";
     private static final String FOREIGN = "/pnml/composed_foreign_references.pnml";
+    private static final String RETIRED = "/pnml/composed_retired_place_to_transition.pnml";
 
     private static String fixture(String resource) throws Exception {
         return Files.readString(
@@ -102,16 +102,48 @@ public class ComposedPnmlConformanceTest {
         return GraphNetBuilder.build(net, Collections.emptyMap(), Collections.emptyMap(), null);
     }
 
-    /** A model carrying one link of each of the three kinds. */
+    /**
+     * Builds {@code P0 -> T0 -> P1} with a third place {@code P2} that only tests {@code T0}
+     * through an informational arc of the net's own, never consuming from it.
+     *
+     * <p>That watcher slot is how a transition reaches a place of another Petri-object: the
+     * slot is shared with that object, and the arc from it is an ordinary arc of this net.
+     */
+    private static GraphPetriNet watcherNet(String name, int startTokens, int endTokens)
+            throws Exception {
+        PetriP.initNext();
+        PetriT.initNext();
+        ArcIn.initNext();
+        ArcOut.initNext();
+        ArrayList<PetriP> places = new ArrayList<>();
+        places.add(new PetriP("P0", startTokens));
+        places.add(new PetriP("P1", endTokens));
+        places.add(new PetriP("P2", 0));
+        ArrayList<PetriT> transitions = new ArrayList<>();
+        transitions.add(new PetriT("T0", 1.0));
+        ArrayList<ArcIn> arcsIn = new ArrayList<>();
+        arcsIn.add(new ArcIn(places.get(0), transitions.get(0), 1));
+        arcsIn.add(new ArcIn(places.get(2), transitions.get(0), 1, true));
+        ArrayList<ArcOut> arcsOut = new ArrayList<>();
+        arcsOut.add(new ArcOut(transitions.get(0), places.get(1), 1));
+        PetriNet net = new PetriNet(name, places, transitions, arcsIn, arcsOut);
+        return GraphNetBuilder.build(net, Collections.emptyMap(), Collections.emptyMap(), null);
+    }
+
+    /**
+     * A model carrying one link of each kind there is, plus the canonical way a transition of
+     * one object is driven by a place of another: the third link is a second fusion, and the
+     * arc that consumes the shared slot lives inside the object that owns the transition.
+     */
     private static GraphPetriObjModel threeLinkModel() throws Exception {
         GraphPetriObjModel model = new GraphPetriObjModel("QueueingSystem");
-        model.addObject(new GraphPetriObject("Generator", chainNet("Generator", 1, 4)));
+        model.addObject(new GraphPetriObject("Generator", watcherNet("Generator", 1, 4)));
         GraphPetriObject server = new GraphPetriObject("Server", chainNet("Server", 0, 0));
         server.setPriority(3);
         model.addObject(server);
         model.addLink(PetriObjLink.placeFusion(0, 1, 1, 0));
+        model.addLink(PetriObjLink.placeFusion(0, 2, 1, 1));
         model.addLink(PetriObjLink.transitionToPlace(1, 0, 0, 0, 2));
-        model.addLink(PetriObjLink.placeToTransition(1, 1, 0, 0, 1, true));
         return model;
     }
 
@@ -135,17 +167,27 @@ public class ComposedPnmlConformanceTest {
 
         GraphPetriObject server = model.getObject(1);
         assertEquals("Server", server.getName());
-        assertEquals(List.of("In", "Busy", "Done"), placeNames(server));
+        assertEquals("the shared slot is a slot of Server like any other",
+                List.of("In", "Busy", "Done", "Watch"), placeNames(server));
         assertEquals(List.of("Start", "End"), transitionNames(server));
-        assertEquals(4, arcCount(server));
+        assertEquals("the arc out of the shared slot is Server's own, only the link arc is not",
+                5, arcCount(server));
+        assertEquals("and the shared slot only tests End, it never consumes from it",
+                List.of("p3->t1"), informationalArcs(server));
 
         assertEquals(3, model.getLinks().size());
-        PetriObjLink fusion = only(model, PetriObjLinkType.PLACE_FUSION);
+        assertEquals(2, countOfType(model, PetriObjLinkType.PLACE_FUSION));
+
+        PetriObjLink readyIsIn = fusionFrom(model, 0, 1);
         assertEquals("the fusion is on the middle slot, where an off-by-one would show",
-                1, fusion.getSourceElement());
-        assertEquals(0, fusion.getSourceObject());
-        assertEquals(1, fusion.getTargetObject());
-        assertEquals(0, fusion.getTargetElement());
+                1, readyIsIn.getSourceElement());
+        assertEquals(1, readyIsIn.getTargetObject());
+        assertEquals(0, readyIsIn.getTargetElement());
+
+        PetriObjLink watchIsLog = fusionFrom(model, 1, 3);
+        assertEquals("Server's watcher slot is Generator's Log place",
+                0, watchIsLog.getTargetObject());
+        assertEquals(2, watchIsLog.getTargetElement());
 
         PetriObjLink delivery = only(model, PetriObjLinkType.TRANSITION_TO_PLACE);
         assertEquals(1, delivery.getSourceObject());
@@ -153,14 +195,50 @@ public class ComposedPnmlConformanceTest {
         assertEquals(0, delivery.getTargetObject());
         assertEquals(2, delivery.getTargetElement());
         assertEquals(2, delivery.getQuantity());
+    }
 
-        PetriObjLink test = only(model, PetriObjLinkType.PLACE_TO_TRANSITION);
-        assertEquals(0, test.getSourceObject());
-        assertEquals(2, test.getSourceElement());
-        assertEquals(1, test.getTargetObject());
-        assertEquals(1, test.getTargetElement());
-        assertEquals(1, test.getQuantity());
-        assertTrue(test.isInformational());
+    /**
+     * The document that still declares the retired link type is refused, and the refusal has
+     * to say what to draw instead: converting it silently would change the saved model.
+     */
+    @Test
+    public void aDocumentDeclaringTheRetiredLinkTypeIsRejected() throws Exception {
+        try {
+            parseFixture(RETIRED);
+            fail("a placeToTransition declaration is not a link this technique has");
+        } catch (Exception expected) {
+            String message = expected.getMessage();
+            assertTrue("the message should name the retired type, was: " + message,
+                    message.contains("placeToTransition"));
+            assertTrue("the message should say the type is gone, was: " + message,
+                    message.contains("no longer supported"));
+            assertTrue("the message should name the canonical alternative, was: " + message,
+                    message.contains("place fusion") && message.contains("ordinary arc"));
+            assertTrue("the message should name the offending endpoints, was: " + message,
+                    message.contains("place 1 of Petri-object 0")
+                            && message.contains("transition 1 of Petri-object 1"));
+        }
+    }
+
+    /**
+     * The same link stated in the standard's own terms, a stand-in for a foreign place with an
+     * arc out of it into a local transition, is refused for the same reason.
+     */
+    @Test
+    public void aStandInDrivingALocalTransitionIsRejected() throws Exception {
+        try {
+            new PnmlModelParser().parseXml(twoPageDocument(
+                    "<referencePlace id=\"stand_in\" ref=\"beta_p\"/><transition id=\"alpha_t\"/>"
+                            + "<arc id=\"alpha_a\" source=\"stand_in\" target=\"alpha_t\"/>",
+                    "<place id=\"beta_p\"/>"));
+            fail("a foreign place may not be an input of a local transition");
+        } catch (Exception expected) {
+            String message = expected.getMessage();
+            assertTrue("the message should name the arc and the reference node, was: " + message,
+                    message.contains("alpha_a") && message.contains("stand_in"));
+            assertTrue("the message should say the shape is gone, was: " + message,
+                    message.contains("no longer supported"));
+        }
     }
 
     /**
@@ -186,6 +264,7 @@ public class ComposedPnmlConformanceTest {
             assertEquals(placeIds(expected), placeIds(actual));
             assertEquals(transitionNames(expected), transitionNames(actual));
             assertEquals(arcCount(expected), arcCount(actual));
+            assertEquals(informationalArcs(expected), informationalArcs(actual));
         }
         assertEquals(sortedLinks(conformant), sortedLinks(legacy));
     }
@@ -200,6 +279,9 @@ public class ComposedPnmlConformanceTest {
             assertSame("the fused place must be one instance in both objects",
                     model.getListObj().get(1).getNet().getListP()[0],
                     model.getListObj().get(0).getNet().getListP()[1]);
+            assertSame("and so must the slot Server watches through an informational arc",
+                    model.getListObj().get(0).getNet().getListP()[2],
+                    model.getListObj().get(1).getNet().getListP()[3]);
         }
         legacy.setIsProtokol(false);
         legacy.go(10.0);
@@ -249,8 +331,8 @@ public class ComposedPnmlConformanceTest {
                         + " targetObject=\"1\" targetElement=\"2\"/>\n      </petriObjectLinks>");
 
         GraphPetriObjModel model = new PnmlModelParser().parseXml(contradictory);
-        assertEquals("only the fusion the structure states survives",
-                1, countOfType(model, PetriObjLinkType.PLACE_FUSION));
+        assertEquals("only the fusions the structure states survive",
+                2, countOfType(model, PetriObjLinkType.PLACE_FUSION));
 
         PetriObjModel runnable = model.createPetriObjModel("contradictory");
         PetriP[] generator = runnable.getListObj().get(0).getNet().getListP();
@@ -318,15 +400,19 @@ public class ComposedPnmlConformanceTest {
         Element generator = page(document, 0);
         Element server = page(document, 1);
 
-        assertEquals("the fused slot is a reference node instead of a place, not as well as one",
+        assertEquals("a fused slot is a reference node instead of a place, not as well as one",
                 1, children(generator, "place").size());
-        assertEquals(1, children(generator, "referencePlace").size());
-        assertEquals("a fusion is drawn on the page that gives its place up",
-                "fusion", roleOf(children(generator, "referencePlace").getFirst()));
+        assertEquals(2, children(generator, "referencePlace").size());
+        for (Element fused : children(generator, "referencePlace")) {
+            assertEquals("a fusion is drawn on the page that gives its place up",
+                    "fusion", roleOf(fused));
+        }
 
         List<Element> stands = new ArrayList<>(children(server, "referencePlace"));
         stands.addAll(children(server, "referenceTransition"));
-        assertEquals("both arc-like links are drawn on the source object's page", 2, stands.size());
+        assertEquals("the one arc-like link is drawn on the source object's page", 1, stands.size());
+        assertEquals("and it stands for a place: no link ever stands for a transition now",
+                "referencePlace", stands.getFirst().getNodeName());
         for (Element stand : stands) {
             assertEquals("representative", roleOf(stand));
         }
@@ -337,6 +423,22 @@ public class ComposedPnmlConformanceTest {
                     0, reference.getElementsByTagName("initialMarking").getLength());
         }
         assertIdsUniqueAndArcsIntraPage(document);
+    }
+
+    /**
+     * Nothing written carries the retired shape any more: no link of that type, no
+     * {@code informational} attribute on a link, and no {@code <referenceTransition>}, which
+     * only ever stood in for the transition such a link pointed at.
+     */
+    @Test
+    public void theWriterNeverEmitsTheRetiredLinkType() throws Exception {
+        String xml = new PnmlModelGenerator().generateXml(threeLinkModel());
+
+        assertFalse(xml.contains("placeToTransition"));
+        assertFalse(xml.contains("informational="));
+        assertFalse(xml.contains("referenceTransition"));
+        assertTrue("the links it does write are still there",
+                xml.contains("placeFusion") && xml.contains("transitionToPlace"));
     }
 
     /**
@@ -354,7 +456,7 @@ public class ComposedPnmlConformanceTest {
         GraphPetriObjModel restored =
                 new PnmlModelParser().parseXml(new PnmlModelGenerator().generateXml(threeLinkModel()));
         assertEquals("and it comes back on the slot, so a re-export says the same thing",
-                List.of(1, 4), placeMarkings(restored.getObject(0)));
+                List.of(1, 4, 0), placeMarkings(restored.getObject(0)));
     }
 
     @Test
@@ -363,22 +465,25 @@ public class ComposedPnmlConformanceTest {
         GraphPetriObjModel restored = new PnmlModelParser().parseXml(xml);
 
         assertEquals(2, restored.getObjectCount());
-        assertEquals(2, restored.getObject(0).getPlaceCount());
+        assertEquals(3, restored.getObject(0).getPlaceCount());
         assertEquals(1, restored.getObject(0).getTransitionCount());
         assertEquals(3, restored.getObject(1).getPriority());
         assertEquals(3, restored.getLinks().size());
 
         PetriObjLink delivery = only(restored, PetriObjLinkType.TRANSITION_TO_PLACE);
         assertEquals(2, delivery.getQuantity());
-        PetriObjLink test = only(restored, PetriObjLinkType.PLACE_TO_TRANSITION);
-        assertTrue("an informational arc has no P/T form, so the flag has to survive in "
-                + "the arc's own tool-specific block", test.isInformational());
-        assertEquals(1, test.getQuantity());
+        assertEquals(2, countOfType(restored, PetriObjLinkType.PLACE_FUSION));
+        assertEquals("an informational arc has no P/T form, so the flag has to survive in "
+                        + "the arc's own tool-specific block",
+                1, informationalArcs(restored.getObject(0)).size());
 
         PetriObjModel runnable = restored.createPetriObjModel("round-trip");
         assertSame("the fused place must be one instance in both objects",
                 runnable.getListObj().get(1).getNet().getListP()[0],
                 runnable.getListObj().get(0).getNet().getListP()[1]);
+        assertSame("and so must the slot the informational arc tests",
+                runnable.getListObj().get(1).getNet().getListP()[1],
+                runnable.getListObj().get(0).getNet().getListP()[2]);
         runnable.setIsProtokol(false);
         runnable.go(10.0);
     }
@@ -548,8 +653,7 @@ public class ComposedPnmlConformanceTest {
             described.add("link " + link.getAttribute("type")
                     + " " + link.getAttribute("sourceElementId")
                     + " -> " + link.getAttribute("targetElementId")
-                    + " x" + link.getAttribute("quantity")
-                    + " informational=" + link.getAttribute("informational"));
+                    + " x" + link.getAttribute("quantity"));
         }
         return described;
     }
@@ -617,6 +721,33 @@ public class ComposedPnmlConformanceTest {
         return names;
     }
 
+    /**
+     * @return every informational arc of the object's own net as
+     *         {@code "p<placeSlot>->t<transitionSlot>"}, the slots being the indices links
+     *         address elements by
+     */
+    private static List<String> informationalArcs(GraphPetriObject object) {
+        List<String> described = new ArrayList<>();
+        object.getGraphNet().getGraphArcInList().forEach(arc -> {
+            if (arc.getArcIn().getIsInf()) {
+                described.add("p" + arc.getArcIn().getNumP() + "->t" + arc.getArcIn().getNumT());
+            }
+        });
+        return described;
+    }
+
+    /** @return the one fusion that gives up the given slot of the given object */
+    private static PetriObjLink fusionFrom(GraphPetriObjModel model, int object, int element) {
+        for (PetriObjLink link : model.getLinks()) {
+            if (link.getType() == PetriObjLinkType.PLACE_FUSION
+                    && link.getSourceObject() == object && link.getSourceElement() == element) {
+                return link;
+            }
+        }
+        fail("expected a fusion giving up place " + element + " of Petri-object " + object);
+        return null;
+    }
+
     private static int arcCount(GraphPetriObject object) {
         return object.getGraphNet().getGraphArcInList().size()
                 + object.getGraphNet().getGraphArcOutList().size();
@@ -626,7 +757,7 @@ public class ComposedPnmlConformanceTest {
     private static List<String> sortedLinks(GraphPetriObjModel model) {
         List<String> described = new ArrayList<>();
         for (PetriObjLink link : model.getLinks()) {
-            described.add(link.getType() + " " + link + " informational=" + link.isInformational());
+            described.add(link.getType() + " " + link);
         }
         Collections.sort(described);
         return described;

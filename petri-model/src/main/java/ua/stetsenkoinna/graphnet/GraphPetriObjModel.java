@@ -150,9 +150,6 @@ public class GraphPetriObjModel implements Serializable {
             case TRANSITION_TO_PLACE -> PetriObjLink.transitionToPlace(
                     sourceObject, link.getSourceElement(), targetObject, link.getTargetElement(),
                     link.getQuantity());
-            case PLACE_TO_TRANSITION -> PetriObjLink.placeToTransition(
-                    sourceObject, link.getSourceElement(), targetObject, link.getTargetElement(),
-                    link.getQuantity(), link.isInformational());
         };
     }
 
@@ -197,10 +194,6 @@ public class GraphPetriObjModel implements Serializable {
             case TRANSITION_TO_PLACE -> {
                 checkTransition(source, link.getSourceElement(), link);
                 checkPlace(target, link.getTargetElement(), link);
-            }
-            case PLACE_TO_TRANSITION -> {
-                checkPlace(source, link.getSourceElement(), link);
-                checkTransition(target, link.getTargetElement(), link);
             }
         }
         if (link.getType() == PetriObjLinkType.PLACE_FUSION

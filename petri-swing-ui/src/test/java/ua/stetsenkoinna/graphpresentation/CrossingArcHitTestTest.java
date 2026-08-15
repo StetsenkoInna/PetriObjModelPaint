@@ -5,6 +5,8 @@ import org.junit.Test;
 import ua.stetsenkoinna.graphnet.FramePort;
 import ua.stetsenkoinna.graphnet.GraphArcFactory;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
+import ua.stetsenkoinna.graphnet.GraphArcOut;
+import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
@@ -33,12 +35,12 @@ import static org.junit.Assert.assertSame;
  */
 public class CrossingArcHitTestTest {
 
-    private static GraphObjectFrame frameHidingOnePlace(PetriNetsPanel panel, GraphPetriPlace place) {
+    private static GraphObjectFrame frameHidingOneElement(PetriNetsPanel panel, GraphElement element) {
         GraphObjectFrame frame = new GraphObjectFrame("Source", new Rectangle(40, 40, 160, 160));
-        panel.getCanvasModel().claim(frame, place);
+        panel.getCanvasModel().claim(frame, element);
         panel.addObjectFrame(frame);
-        // Without this the place's content is shown, so it is drawn (and hit-tested) directly,
-        // the same as a free element - no substitute involved at all.
+        // Without this the object's content is shown, so the element is drawn (and hit-tested)
+        // directly, the same as a free one - no substitute involved at all.
         frame.setCollapsed(true);
         return frame;
     }
@@ -49,9 +51,9 @@ public class CrossingArcHitTestTest {
      * itself, which the trim can pull the line back from.
      */
     private static Point2D midpointOfVisibleLine(
-            PetriNetsPanel panel, GraphObjectFrame frame, GraphPetriPlace framedPlace, GraphPetriTransition free) {
+            PetriNetsPanel panel, GraphObjectFrame frame, GraphElement framed, GraphElement free) {
         FramePort port = panel.getCanvasModel().portsOf(frame).stream()
-                .filter(p -> p.getElement() == framedPlace)
+                .filter(p -> p.getElement() == framed)
                 .findFirst()
                 .orElseThrow();
         Point portPosition = port.getPosition();
@@ -65,19 +67,19 @@ public class CrossingArcHitTestTest {
     public void clickingTheVisibleCrossingLineFindsTheRealArc() {
         PetriNetsPanel panel = new PetriNetsPanel(null, false);
 
-        GraphPetriPlace framedPlace = new GraphPetriPlace(new PetriP("Pin", 1), 1);
-        framedPlace.setNewCoordinates(new Point2D.Double(120, 140));
-        panel.getGraphNet().getGraphPetriPlaceList().add(framedPlace);
-        GraphObjectFrame frame = frameHidingOnePlace(panel, framedPlace);
+        GraphPetriTransition framedTransition = new GraphPetriTransition(new PetriT("Tin", 1.0), 1);
+        framedTransition.setNewCoordinates(new Point2D.Double(120, 140));
+        panel.getGraphNet().getGraphPetriTransitionList().add(framedTransition);
+        GraphObjectFrame frame = frameHidingOneElement(panel, framedTransition);
 
-        GraphPetriTransition freeTransition = new GraphPetriTransition(new PetriT("Sink", 1.0), 2);
-        freeTransition.setNewCoordinates(new Point2D.Double(500, 120));
-        panel.getGraphNet().getGraphPetriTransitionList().add(freeTransition);
+        GraphPetriPlace freePlace = new GraphPetriPlace(new PetriP("Sink", 0), 2);
+        freePlace.setNewCoordinates(new Point2D.Double(500, 120));
+        panel.getGraphNet().getGraphPetriPlaceList().add(freePlace);
 
-        GraphArcIn arc = GraphArcFactory.inArc(framedPlace, freeTransition, 1, false);
-        panel.getGraphNet().getGraphArcInList().add(arc);
+        GraphArcOut arc = GraphArcFactory.outArc(framedTransition, freePlace, 1);
+        panel.getGraphNet().getGraphArcOutList().add(arc);
 
-        Point2D onTheVisibleLine = midpointOfVisibleLine(panel, frame, framedPlace, freeTransition);
+        Point2D onTheVisibleLine = midpointOfVisibleLine(panel, frame, framedTransition, freePlace);
 
         assertSame("a click on the line actually drawn must find the real arc",
                 arc, panel.findArc(onTheVisibleLine));
@@ -114,19 +116,19 @@ public class CrossingArcHitTestTest {
     public void theFoundArcCanActuallyBeRemoved() {
         PetriNetsPanel panel = new PetriNetsPanel(null, false);
 
-        GraphPetriPlace framedPlace = new GraphPetriPlace(new PetriP("Pin", 1), 1);
-        framedPlace.setNewCoordinates(new Point2D.Double(120, 140));
-        panel.getGraphNet().getGraphPetriPlaceList().add(framedPlace);
-        GraphObjectFrame frame = frameHidingOnePlace(panel, framedPlace);
+        GraphPetriTransition framedTransition = new GraphPetriTransition(new PetriT("Tin", 1.0), 1);
+        framedTransition.setNewCoordinates(new Point2D.Double(120, 140));
+        panel.getGraphNet().getGraphPetriTransitionList().add(framedTransition);
+        GraphObjectFrame frame = frameHidingOneElement(panel, framedTransition);
 
-        GraphPetriTransition freeTransition = new GraphPetriTransition(new PetriT("Sink", 1.0), 2);
-        freeTransition.setNewCoordinates(new Point2D.Double(500, 120));
-        panel.getGraphNet().getGraphPetriTransitionList().add(freeTransition);
+        GraphPetriPlace freePlace = new GraphPetriPlace(new PetriP("Sink", 0), 2);
+        freePlace.setNewCoordinates(new Point2D.Double(500, 120));
+        panel.getGraphNet().getGraphPetriPlaceList().add(freePlace);
 
-        GraphArcIn arc = GraphArcFactory.inArc(framedPlace, freeTransition, 1, false);
-        panel.getGraphNet().getGraphArcInList().add(arc);
+        GraphArcOut arc = GraphArcFactory.outArc(framedTransition, freePlace, 1);
+        panel.getGraphNet().getGraphArcOutList().add(arc);
 
-        Point2D onTheVisibleLine = midpointOfVisibleLine(panel, frame, framedPlace, freeTransition);
+        Point2D onTheVisibleLine = midpointOfVisibleLine(panel, frame, framedTransition, freePlace);
         assertNotNull(panel.findArc(onTheVisibleLine));
 
         panel.removeArc(arc);
