@@ -574,7 +574,7 @@ Content-Type: application/json
     { "type": "placeFusion",
       "source_object": 0, "source_element": 1,
       "target_object": 1, "target_element": 0,
-      "quantity": 1, "informational": false }
+      "quantity": 1 }
   ]
 }
 ```
@@ -585,10 +585,12 @@ Content-Type: application/json
 | `objects[].x/y` | where the object's frame sits on the canvas |
 | `places[]` / `transitions[]` | in the order that indexes them — a link's `source_element` is a position in one of these lists |
 | element `x/y` | coordinates of the object's own drawing |
-| `links[].type` | `placeFusion`, `transitionToPlace` or `placeToTransition` |
-| `links[].informational` | test arc that does not consume tokens; `placeToTransition` only |
+| `links[].type` | `placeFusion` or `transitionToPlace` |
 
-Returns `400 Bad Request` with `{"error": "..."}` on a document that cannot be read.
+Returns `400 Bad Request` with `{"error": "..."}` on a document that cannot be read, including a
+document whose links still declare the retired `placeToTransition` kind — a place of one object
+directly extending a foreign transition's firing condition, rather than being fused into a place
+that object's net already consumes from.
 
 ### Run a model
 

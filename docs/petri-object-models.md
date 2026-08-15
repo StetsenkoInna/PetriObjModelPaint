@@ -24,17 +24,27 @@ A Petri-object carries three things beyond its net:
 | priority | who acts first when several objects want to act at the same simulation moment; higher wins, ties are broken at random |
 | index | position in the model, written `O0`, `O1`, … — what links and statistic formulas address |
 
-Three kinds of link connect them:
+Two kinds of link connect them:
 
 | Link | Written | What happens |
 |------|---------|--------------|
 | **Shared place** | `O0.P2 = O1.P1` | The two places become one instance. Both objects read and change the same marking — the classic composition of the technique. |
 | **Transition → place** | `O1.T1 → O2.P1 ×k` | Whenever the transition fires, it delivers `k` tokens into a place of the other object, without owning an output place of its own. |
-| **Place → transition** | `O2.P3 → O1.T1 ×k` | A place of one object becomes an extra input of a transition of another: the transition needs `k` tokens there to fire, and consumes them. |
-| **Place → transition, informational** | `O2.P3 ⇢ O1.T1 ×k` | The same, but the marking is only tested, never consumed — a guard on the foreign object's state. |
 
-A transition still needs at least one input place in its own net; links extend a firing
-condition, they do not replace it.
+A transition's firing condition is always made of input places drawn in its own net; there is
+no link that adds a foreign place as an extra input of a transition. To make a place of one
+object feed a transition of another, fuse that place with a place already sitting in the
+consuming object's net, one that is wired to the target transition by an ordinary input arc
+drawn inside that object's own editor: the fused identity plus the ordinary arc is what
+carries tokens across the object boundary. This is the same shared-place composition above,
+just aimed at a transition instead of left as a bare shared place.
+
+An earlier version of the technique had a third kind of link, "place → transition" (with an
+"informational" variant that tested a place without consuming it), that let a transition carry
+a second, foreign set of input places directly — exactly what the paragraph above replaces with
+plain fusion. A document whose links still declare that `placeToTransition` kind is rejected on
+import: the parser reports an error rather than reinterpreting it, since there is no longer a
+link type for it to become.
 
 Links are declarations, not wiring: a model stores what is connected to what by index, and
 applies it when the objects are built. That is what lets a model be cloned, saved to a file,
@@ -97,17 +107,21 @@ another object's own element while that one is shown too:
 | Drag from a place (or its port) to | What you get |
 |-------------------------------------|---------------|
 | another place (or its port) | the two places become one shared place |
-| a transition (or its port) | the place becomes an extra input of that transition |
 
 | Drag from a transition (or its port) to | What you get |
 |-------------------------------------------|---------------|
 | a place (or its port) | the transition delivers tokens into that place |
 
+There is no drag gesture from a place onto a foreign transition. To feed a transition of
+another object from a place, drag that place onto the place already feeding the target
+transition inside the consuming object's own net, fusing the two — the ordinary arc from the
+fused place into the transition is what was drawn there when that object's net was made.
+
 The line drawn for a link is an ordinary arc's — the same border-trimmed line and arrowhead a
 free element's arc gets, not a raw line pointing at bare centres — anchored to whichever of the
 two ends actually has something on screen to trim against: the real element while it is shown,
-its port while it is hidden. A weight and the informational flag for a place-to-transition link
-are set the same way an ordinary arc's are, by double-clicking it. Free elements — anything outside
+its port while it is hidden. A weight for a transition-to-place link is set the same way an
+ordinary arc's is, by double-clicking it. Free elements — anything outside
 every frame — stay directly draggable and connectable exactly as before Petri-object composition
 existed, on top of being reachable from a port; a transition still cannot connect directly to
 another transition, framed or free.
@@ -192,9 +206,6 @@ blocks: the object's own properties on its page, and the list of links at net le
         <link type="transitionToPlace"
               sourceObject="1" sourceElement="0" targetObject="0" targetElement="0"
               quantity="2"/>
-        <link type="placeToTransition"
-              sourceObject="1" sourceElement="1" targetObject="0" targetElement="0"
-              quantity="1" informational="true"/>
       </petriObjectLinks>
     </toolspecific>
   </net>
@@ -229,9 +240,15 @@ objects.add(new PetriSim(NetLibrary.CreateNetSMOwithoutQueue(1, 0.6, "First")));
 
 PetriObjModel model = new PetriObjModel(objects);
 model.linkObjectsCombiningPlaces(0, 1, 1, 0);          // generator's output = server's queue
-model.linkPlaceToTransition(1, 2, 0, 0, 1, true);      // server's state guards the generator
 model.go(1_000_000);
 ```
+
+`linkObjectsCombiningPlaces` is also how a place of one object is made to feed a transition of
+another: the server's queue place (`otherPlace`, index 0) is already wired by an ordinary arc
+to the server's own service transition inside `CreateNetSMOwithoutQueue`'s net, so fusing the
+generator's output place into it is what carries the generator's tokens into that transition.
+There is no separate link for "place feeds a foreign transition" — it is this same fusion,
+aimed at a place an object's net already consumes from.
 
 The engine classes involved:
 
@@ -269,8 +286,9 @@ curl -X POST http://localhost:8080/api/v2/model/parse \
   repositions either one, and the connection is drawn as a line — to a port for a half whose
   object has its content hidden, to the place itself otherwise — rather than a ring around a
   shared point.
-- **A transition needs a local input place.** External arcs extend the firing condition, so a
-  transition fed only by another object is not a valid net.
+- **A transition's inputs are always local.** A transition-to-place link only ever adds an
+  output; the only way a foreign place reaches a transition's firing condition is by being
+  fused into a place already drawn as that transition's input inside its own object's net.
 - **An object's membership is exactly what put something in it.** Grouping, drawing it inside
   the object's own editor, instantiating it from the net library, duplicating an object, loading
   it from a file, or a confirmed drag onto a frame — nothing else changes it, so moving a frame

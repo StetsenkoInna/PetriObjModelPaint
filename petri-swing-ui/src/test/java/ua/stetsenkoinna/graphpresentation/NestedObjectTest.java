@@ -294,10 +294,11 @@ public class NestedObjectTest {
         PetriNetsPanel panel = oneObjectWithFourElements();
         GraphObjectFrame parent = panel.getCanvasModel().getFrames().getFirst();
         GraphObjectFrame child = nestAChildIn(panel, parent);
-        // An arc across the nesting boundary, which is a link between two objects like any other.
-        panel.getGraphNet().getGraphArcInList().add(GraphArcFactory.inArc(
-                (GraphPetriPlace) named(panel, "PB"), (GraphPetriTransition) named(panel, "TA"),
-                1, false));
+        // An arc across the nesting boundary, which is a link between two objects like any
+        // other. It runs from a transition into a place: that is the direction a link takes,
+        // since a transition's own input places never come from another object.
+        panel.getGraphNet().getGraphArcOutList().add(GraphArcFactory.outArc(
+                (GraphPetriTransition) named(panel, "TB"), (GraphPetriPlace) named(panel, "PA"), 1));
 
         GraphPetriObjModel exported = panel.getCanvasModel().toObjModel();
 

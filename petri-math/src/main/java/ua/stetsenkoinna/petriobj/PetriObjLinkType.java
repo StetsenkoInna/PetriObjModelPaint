@@ -19,11 +19,5 @@ public enum PetriObjLinkType {
      * A transition of the source object produces tokens directly into a place of the
      * target object, without the source object owning an output place of its own.
      */
-    TRANSITION_TO_PLACE,
-
-    /**
-     * A transition of the target object takes a place of the source object as an extra
-     * input: consuming (a regular arc) or only testing its marking (an informational arc).
-     */
-    PLACE_TO_TRANSITION
+    TRANSITION_TO_PLACE
 }

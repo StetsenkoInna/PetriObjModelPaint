@@ -66,6 +66,21 @@ public class ObjectFrameDefectSweepTest {
         return transition;
     }
 
+    /** Captures what the canvas refuses instead of putting a modal dialog on the screen. */
+    private static class RefusalCapturingPanel extends PetriNetsPanel {
+
+        private String refusal;
+
+        RefusalCapturingPanel() {
+            super(null, true);
+        }
+
+        @Override
+        void reportRefusal(String message) {
+            refusal = message;
+        }
+    }
+
     private static int idCounter = 900;
 
     private static int nextId() {
@@ -564,6 +579,44 @@ public class ObjectFrameDefectSweepTest {
         assertTrue("and it is still inside it",
                 frame.getBounds().contains(place.getGraphElementCenter().getX(),
                         place.getGraphElementCenter().getY()));
+    }
+
+    // ------------------------------------------- 7. moves that would break an input arc
+
+    /**
+     * The same rule the Arc tool enforces, reached without drawing anything: dragging a place
+     * into a Petri-object would leave the arc from it to a transition outside that object
+     * crossing the boundary, and a transition takes its inputs only from places of its own
+     * object. The drop is refused and the place goes back where it came from, rather than
+     * offering the ordinary "move it to the other Petri-object?" question.
+     */
+    @Test
+    public void droppingAPlaceIntoAnObjectItsTransitionIsNotInIsRefused() {
+        PetriP.initNext();
+        PetriT.initNext();
+        RefusalCapturingPanel panel = new RefusalCapturingPanel();
+
+        GraphPetriPlace place = placeAt("P1", 150, 150);
+        GraphPetriTransition transition = transitionAt("T1", 250, 150);
+        panel.getGraphNet().getGraphPetriPlaceList().add(place);
+        panel.getGraphNet().getGraphPetriTransitionList().add(transition);
+        panel.getGraphNet().getGraphArcInList().add(
+                ua.stetsenkoinna.graphnet.GraphArcFactory.inArc(place, transition, 1, false));
+
+        GraphObjectFrame target = new GraphObjectFrame("Target", new Rectangle(400, 100, 200, 200));
+        panel.addObjectFrame(target);
+        GraphPetriPlace member = placeAt("P0", 450, 150);
+        panel.getGraphNet().getGraphPetriPlaceList().add(member);
+        panel.getCanvasModel().claim(target, member);
+
+        marquee(panel, 150, 150, 520, 200);
+
+        assertNull("the place stays outside the object", panel.getCanvasModel().ownerOf(place));
+        assertEquals("and goes back where the drag started", 150,
+                (int) place.getGraphElementCenter().getX());
+        assertEquals(150, (int) place.getGraphElementCenter().getY());
+        assertTrue("the user must be told why the drop was refused",
+                panel.refusal != null && panel.refusal.contains("P1") && panel.refusal.contains("T1"));
     }
 
 }

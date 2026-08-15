@@ -28,8 +28,7 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
     private final ArrayList<Integer> outP = new ArrayList<>();
     private final ArrayList<Integer> quantOut = new ArrayList<>();
 
-    /** Arcs to places owned by other Petri-objects; wired by {@link PetriObjModel#applyLinks()}. */
-    private final ArrayList<ExternalArc> externalIn = new ArrayList<>();
+    /** Arcs into places owned by other Petri-objects; wired by {@link PetriObjModel#applyLinks()}. */
     private final ArrayList<ExternalArc> externalOut = new ArrayList<>();
 
     private int buffer;
@@ -511,10 +510,9 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
                 }
             }
         }
-        // Not validated here: this runs once per Petri-object, before PetriObjModel wires any
-        // inter-object link, so a transition fed only by another object's place legitimately
-        // has nothing local at this point. See PetriNet#validateStructure(), which runs once
-        // links exist.
+        // Not validated here: a net may still be under construction, so a transition whose
+        // input arcs have not been drawn yet legitimately has nothing at this point. See
+        // PetriNet#validateStructure(), which runs once the net is complete.
     }
 
     /**
@@ -541,22 +539,6 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
     }
 
     /**
-     * Adds a place of another Petri-object to this transition's firing condition.
-     *
-     * <p>A regular external input is consumed on firing exactly like a local input place;
-     * an informational one is only tested. An external consuming input may be a transition's
-     * only input — it does not require a local input place as well — but a transition with no
-     * consuming input at all, local or external, is invalid; see {@link #hasConsumingInput()}.
-     *
-     * @param place the place owned by the other Petri-object
-     * @param quantity arc multiplicity
-     * @param informational {@code true} to test the marking without consuming it
-     */
-    public void addExternalInput(PetriP place, int quantity, boolean informational) {
-        externalIn.add(new ExternalArc(place, quantity, informational));
-    }
-
-    /**
      * Makes this transition deliver tokens into a place of another Petri-object whenever it
      * fires, in addition to its own output places.
      *
@@ -564,7 +546,7 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
      * @param quantity how many tokens each firing delivers
      */
     public void addExternalOutput(PetriP place, int quantity) {
-        externalOut.add(new ExternalArc(place, quantity, false));
+        externalOut.add(new ExternalArc(place, quantity));
     }
 
     /**
@@ -572,15 +554,7 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
      * link declarations so that wiring is never duplicated.
      */
     public void clearExternalArcs() {
-        externalIn.clear();
         externalOut.clear();
-    }
-
-    /**
-     * @return arcs from places of other Petri-objects into this transition
-     */
-    public List<ExternalArc> getExternalInputs() {
-        return Collections.unmodifiableList(externalIn);
     }
 
     /**
@@ -630,12 +604,6 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
                 break;
             }
         }
-        // Places of other Petri-objects are reached by reference, not by index into pp.
-        for (ExternalArc arc : externalIn) {
-            if (arc.getPlace().getMark() < arc.getQuantity()) {
-                return false;
-            }
-        }
         return a && b;
     }
 
@@ -651,11 +619,6 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
         if (this.condition(pp)) {
             for (int i = 0; i < inP.size(); i++) {
                 pp[inP.get(i)].decreaseMark(quantIn.get(i));
-            }
-            for (ExternalArc arc : externalIn) {
-                if (!arc.isInformational()) {
-                    arc.getPlace().decreaseMark(arc.getQuantity());
-                }
             }
             if (buffer == 0) {
                 timeOut.set(0, currentTime + this.getTimeServ());
@@ -759,12 +722,12 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
     }
 
     /**
-     * @return true if this transition has at least one input it actually consumes from —
-     *         a local place, or an external one that is not purely informational. A transition
-     *         with none is structurally invalid: it would fire without ever being constrained.
+     * @return true if this transition has at least one input place it actually consumes from.
+     *         A transition with none is structurally invalid: it would fire without ever being
+     *         constrained.
      */
     public boolean hasConsumingInput() {
-        return !inP.isEmpty() || externalIn.stream().anyMatch(arc -> !arc.isInformational());
+        return !inP.isEmpty();
     }
 
     /**

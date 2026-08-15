@@ -131,6 +131,51 @@ public class GraphCanvasModelTest {
         assertEquals(2, model.getLinks().getFirst().getQuantity());
     }
 
+    /**
+     * The other direction is not a link at all. A transition takes its input places from its
+     * own Petri-object only, so a place of another object reaches it by being shared, and the
+     * refusal has to say so rather than quietly build something else.
+     */
+    @Test
+    public void anInputArcCrossingAFrameBorderIsRefused() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphPetriPlace outputOfSource = canvas.getNet().getGraphPetriPlaceList().get(1);
+        GraphPetriTransition transitionOfSink = canvas.getNet().getGraphPetriTransitionList().get(1);
+        canvas.getNet().getGraphArcInList().add(
+                GraphArcFactory.inArc(outputOfSource, transitionOfSink, 1, true));
+
+        IllegalArgumentException refused =
+                assertThrows(IllegalArgumentException.class, canvas::toObjModel);
+
+        String message = refused.getMessage();
+        assertTrue("the message should name both elements, was: " + message,
+                message.contains("'P1'") && message.contains("'T1'"));
+        assertTrue("and both objects, was: " + message,
+                message.contains("'Source'") && message.contains("'Sink'"));
+        assertTrue("and the canonical alternative, was: " + message,
+                message.contains("Share place") && message.contains("ordinary arc"));
+    }
+
+    /** And once the place is shared instead, the same model exports without complaint. */
+    @Test
+    public void theSharedPlaceFormOfThatArcExportsFine() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphPetriPlace outputOfSource = canvas.getNet().getGraphPetriPlaceList().get(1);
+        GraphPetriPlace inputOfSink = canvas.getNet().getGraphPetriPlaceList().get(2);
+        GraphPetriTransition transitionOfSink = canvas.getNet().getGraphPetriTransitionList().get(1);
+        canvas.joinPlaces(inputOfSink, outputOfSource);
+        canvas.getNet().getGraphArcInList().add(
+                GraphArcFactory.inArc(inputOfSink, transitionOfSink, 1, true));
+
+        GraphPetriObjModel model = canvas.toObjModel();
+
+        assertTrue(model.getLinks().stream()
+                .anyMatch(link -> link.getType() == PetriObjLinkType.PLACE_FUSION));
+        assertTrue("the arc stays an ordinary arc of the object that owns the transition",
+                model.getObject(1).getGraphNet().getGraphArcInList().stream()
+                        .anyMatch(arc -> arc.getArcIn().getIsInf()));
+    }
+
     @Test
     public void aSharedPlaceBecomesAFusionLink() {
         GraphCanvasModel canvas = twoFramedObjects();
@@ -546,11 +591,11 @@ public class GraphCanvasModelTest {
         canvas.getFrames().add(parent);
         canvas.getFrames().add(child);
         canvas.nest(child, parent);
-        GraphPetriPlace ofParent = place(canvas, "OfParent", 1, 350, 350);
-        GraphPetriTransition ofChild = transition(canvas, "OfChild", 80, 80);
+        GraphPetriTransition ofParent = transition(canvas, "OfParent", 350, 350);
+        GraphPetriPlace ofChild = place(canvas, "OfChild", 0, 80, 80);
         canvas.claim(parent, ofParent);
         canvas.claim(child, ofChild);
-        canvas.getNet().getGraphArcInList().add(GraphArcFactory.inArc(ofParent, ofChild, 1, false));
+        canvas.getNet().getGraphArcOutList().add(GraphArcFactory.outArc(ofParent, ofChild, 1));
 
         GraphPetriObjModel exported = canvas.toObjModel();
 

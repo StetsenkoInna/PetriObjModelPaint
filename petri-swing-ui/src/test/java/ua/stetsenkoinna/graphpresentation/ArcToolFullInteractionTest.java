@@ -90,8 +90,46 @@ public class ArcToolFullInteractionTest {
     }
 
     @Test
-    public void theArcToolConnectsAFreePlaceToATransitionInsideACollapsedObject() {
+    public void theArcToolConnectsAFreeTransitionToAPlaceInsideACollapsedObject() {
         PetriNetsPanel panel = freshPanel();
+
+        GraphPetriTransition freeTransition = new GraphPetriTransition(new PetriT("Free", 1.0), idCounter++);
+        freeTransition.setNewCoordinates(new Point2D.Double(400, 140));
+        panel.getGraphNet().getGraphPetriTransitionList().add(freeTransition);
+
+        GraphPetriPlace framedPlace = new GraphPetriPlace(new PetriP("Pin", 1), idCounter++);
+        framedPlace.setNewCoordinates(new Point2D.Double(120, 140));
+        panel.getGraphNet().getGraphPetriPlaceList().add(framedPlace);
+        GraphObjectFrame frame = new GraphObjectFrame("Hidden", new Rectangle(40, 40, 160, 160));
+        panel.getCanvasModel().claim(frame, framedPlace);
+        panel.addObjectFrame(frame);
+        frame.setCollapsed(true);
+
+        var port = panel.getCanvasModel().portsOf(frame).stream()
+                .filter(p -> p.getElement() == framedPlace)
+                .findFirst()
+                .orElseThrow();
+
+        drawArcWithTool(panel, 400, 140, port.getPosition().x, port.getPosition().y);
+
+        assertEquals("the arc tool must reach the place through its port",
+                1, panel.getGraphNet().getGraphArcOutList().size());
+        GraphArc created = panel.getGraphNet().getGraphArcOutList().get(0);
+        assertEquals(freeTransition, created.getBeginElement());
+        assertEquals(framedPlace, created.getEndElement());
+    }
+
+    /**
+     * The other direction across the same boundary is not an arc at all: a transition takes its
+     * inputs only from places of its own Petri-object, so the gesture is refused, nothing is
+     * left half-drawn, and the tool stays armed for the next attempt.
+     */
+    @Test
+    public void theArcToolRefusesAPlaceOfAnotherObjectAsATransitionsInput() {
+        PetriP.initNext();
+        PetriT.initNext();
+        idCounter = 1;
+        RefusalCapturingPanel panel = new RefusalCapturingPanel();
 
         GraphPetriPlace freePlace = new GraphPetriPlace(new PetriP("Free", 1), idCounter++);
         freePlace.setNewCoordinates(new Point2D.Double(400, 140));
@@ -100,23 +138,36 @@ public class ArcToolFullInteractionTest {
         GraphPetriTransition framedTransition = new GraphPetriTransition(new PetriT("Tin", 1.0), idCounter++);
         framedTransition.setNewCoordinates(new Point2D.Double(120, 140));
         panel.getGraphNet().getGraphPetriTransitionList().add(framedTransition);
-        GraphObjectFrame frame = new GraphObjectFrame("Hidden", new Rectangle(40, 40, 160, 160));
+        GraphObjectFrame frame = new GraphObjectFrame("Other", new Rectangle(40, 40, 160, 160));
         panel.getCanvasModel().claim(frame, framedTransition);
         panel.addObjectFrame(frame);
-        frame.setCollapsed(true);
 
-        var port = panel.getCanvasModel().portsOf(frame).stream()
-                .filter(p -> p.getElement() == framedTransition)
-                .findFirst()
-                .orElseThrow();
+        drawArcWithTool(panel, 400, 140, 120, 140);
 
-        drawArcWithTool(panel, 400, 140, port.getPosition().x, port.getPosition().y);
+        assertTrue("no input arc may cross a Petri-object boundary",
+                panel.getGraphNet().getGraphArcInList().isEmpty());
+        assertTrue("the user must be told why nothing happened", panel.refusal != null);
+        assertTrue("the refusal must name both ends: " + panel.refusal,
+                panel.refusal.contains("Free") && panel.refusal.contains("Tin"));
+        assertTrue("the refusal must point at the shared place instead: " + panel.refusal,
+                panel.refusal.contains("share"));
+        assertTrue("the Arc tool stays armed after a refusal, like every other rejection",
+                panel.isArcToolArmed());
+    }
 
-        assertEquals("the arc tool must reach the transition through its port",
-                1, panel.getGraphNet().getGraphArcInList().size());
-        GraphArc created = panel.getGraphNet().getGraphArcInList().get(0);
-        assertEquals(freePlace, created.getBeginElement());
-        assertEquals(framedTransition, created.getEndElement());
+    /** Captures what the canvas refuses instead of putting a modal dialog on the screen. */
+    private static class RefusalCapturingPanel extends PetriNetsPanel {
+
+        private String refusal;
+
+        RefusalCapturingPanel() {
+            super(null, true);
+        }
+
+        @Override
+        void reportRefusal(String message) {
+            refusal = message;
+        }
     }
 
     @Test

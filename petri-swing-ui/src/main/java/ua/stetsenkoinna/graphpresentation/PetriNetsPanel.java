@@ -3288,7 +3288,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
                 if (current != null) {
                     current.setColor(Color.BLUE);
-                    if (currentArc.finishSettingNewArc(current)) {
+                    if (currentArc instanceof GraphArcIn
+                            && currentArc.getBeginElement() instanceof GraphPetriPlace inputPlace
+                            && current instanceof GraphPetriTransition fedTransition
+                            && isCrossObjectInput(inputPlace, fedTransition)) {
+                        // Refused before the arc is finished at all, the same way an invalid
+                        // pairing is: a transition's input places are its own object's, so
+                        // this gesture has no valid result to fall back to. The tool stays
+                        // armed afterwards, like every other rejection here.
+                        removeCurrentArc();
+                        reportRefusal(crossObjectInputMessage(inputPlace, fedTransition));
+                    } else if (currentArc.finishSettingNewArc(current)) {
                         currentArc.setPetriElements();
                         currentArc.changeBorder();
                         currentArc.updateCoordinates();
@@ -3397,7 +3407,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                                 PetriNetsFrame.getUndoSupport().postEdit(
                                         new JoinPlacesEdit(PetriNetsPanel.this, fusion));
                             } catch (IllegalArgumentException rejected) {
-                                MessageHelper.showError(dialogOwner(), rejected.getMessage());
+                                reportRefusal(rejected.getMessage());
                             }
                         }
                     } else {                        //1.02.2013 цей фрагмент дозволяє відслідковувати намагання
@@ -3471,6 +3481,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         Point2D centre = element.getGraphElementCenter();
         GraphObjectFrame after = centre == null ? before : ownerForDropAt(centre);
         if (after == before) {
+            return;
+        }
+
+        Map<GraphElement, GraphObjectFrame> proposed = new IdentityHashMap<>();
+        proposed.put(element, after);
+        GraphArcIn crossing = crossingInputArcAfter(proposed);
+        if (crossing != null) {
+            // Not even offered: the drop would build the one structure the Arc tool refuses to
+            // draw, so the element goes back where it came from and the objects stay as they were.
+            element.setNewCoordinates(new Point2D.Double(origin.getX(), origin.getY()));
+            canvasModel.syncFusions();
+            updateArcCoordinates();
+            reportRefusal(crossingInputArcMoveMessage(crossing));
+            repaint();
             return;
         }
 
@@ -3604,6 +3628,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (reparented.isEmpty()) {
             return;
         }
+        GraphArcIn crossing = crossingInputArcAfter(reparented);
+        if (crossing != null) {
+            // Same refusal a single element's drop gets, for the whole drag at once.
+            reportRefusal(crossingInputArcMoveMessage(crossing));
+            return;
+        }
         String question = reparented.size() + " element(s) landed in a different Petri-object. "
                 + "Move them there?";
         if (!MessageHelper.showConfirmation(dialogOwner(), question)) {
@@ -3645,6 +3675,96 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     private static String describe(GraphObjectFrame frame) {
         return frame == null ? "the free elements" : "'" + frame.getName() + "'";
+    }
+
+    /**
+     * The one connection the canvas refuses to make: a place of one Petri-object feeding a
+     * transition of another. A transition draws its inputs from the places of its own object,
+     * which is what the definition of a transition says; the same intent is expressed by
+     * sharing the place between the two objects and drawing an ordinary arc inside the object
+     * that owns the transition, so nothing is lost by refusing it.
+     *
+     * @param place the arc's place end
+     * @param transition the arc's transition end
+     * @return true when the two belong to different Petri-objects, with the free elements
+     *         counting as an object of their own
+     */
+    private boolean isCrossObjectInput(GraphElement place, GraphElement transition) {
+        return canvasModel.ownerOf(place) != canvasModel.ownerOf(transition);
+    }
+
+    /**
+     * Where a refused gesture is reported. One method rather than a {@code MessageHelper} call
+     * at each site, so what the canvas refuses can be observed without a modal dialog standing
+     * in the way of it.
+     *
+     * @param message what the user is told, and why the gesture had no effect
+     */
+    void reportRefusal(String message) {
+        MessageHelper.showError(dialogOwner(), message);
+    }
+
+    /**
+     * @return what the user is told when such an arc is refused, naming both ends so it is
+     *         clear which pair of elements the boundary runs between
+     */
+    private static String crossObjectInputMessage(GraphElement place, GraphElement transition) {
+        return "A transition takes its inputs only from places of its own Petri-object, so the"
+                + " arc from '" + place.getName() + "' to '" + transition.getName()
+                + "' cannot be drawn. To express the same intent, share '" + place.getName()
+                + "' between the two Petri-objects and then draw the arc inside the one that"
+                + " owns '" + transition.getName() + "'.";
+    }
+
+    /**
+     * The same rule applied to a move rather than to a drawing gesture: an element carried into
+     * or out of a Petri-object takes its arcs with it, and one of those arcs can end up with
+     * its place in one object and its transition in another without any arc ever being drawn.
+     *
+     * @param proposed the owner each listed element would get, {@code null} standing for the
+     *        free elements; anything not listed keeps the object it has now
+     * @return the input arc the move would leave crossing a boundary, or {@code null} when it
+     *         leaves every input arc inside a single object. An arc that already crosses one
+     *         today, which an older document can contain, is not this move's doing and does
+     *         not block it.
+     */
+    private GraphArcIn crossingInputArcAfter(Map<GraphElement, GraphObjectFrame> proposed) {
+        for (GraphArcIn arc : graphNet.getGraphArcInList()) {
+            GraphElement place = arc.getBeginElement();
+            GraphElement transition = arc.getEndElement();
+            if (place == null || transition == null) {
+                continue;
+            }
+            if (!proposed.containsKey(place) && !proposed.containsKey(transition)) {
+                continue;
+            }
+            if (isCrossObjectInput(place, transition)) {
+                continue;
+            }
+            if (ownerAfter(proposed, place) != ownerAfter(proposed, transition)) {
+                return arc;
+            }
+        }
+        return null;
+    }
+
+    private GraphObjectFrame ownerAfter(Map<GraphElement, GraphObjectFrame> proposed,
+            GraphElement element) {
+        return proposed.containsKey(element) ? proposed.get(element) : canvasModel.ownerOf(element);
+    }
+
+    /**
+     * @return what the user is told when a move is refused for the same reason a cross-object
+     *         input arc is
+     */
+    private static String crossingInputArcMoveMessage(GraphArcIn arc) {
+        String place = arc.getBeginElement().getName();
+        String transition = arc.getEndElement().getName();
+        return "This move would leave the arc from '" + place + "' to '" + transition
+                + "' crossing a Petri-object boundary, and a transition takes its inputs only"
+                + " from places of its own Petri-object. To keep '" + place + "' feeding '"
+                + transition + "', share '" + place + "' between the two Petri-objects and draw"
+                + " the arc inside the one that owns '" + transition + "'.";
     }
 
     /**
@@ -3741,9 +3861,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 throw new IllegalArgumentException(
                         "A transition cannot connect directly to another transition");
             } else if (sourceIsPlace) {
-                // place -> transition: the place becomes an extra input of the transition
-                GraphArcIn arc = GraphArcFactory.inArc(
-                        (GraphPetriPlace) source, (GraphPetriTransition) target, 1, false);
+                // place -> transition: an ordinary input arc, and only ever inside one object.
+                // Reaching a transition of another object through its port is the same refused
+                // gesture the Arc tool refuses, drawn from the border instead of the element.
+                GraphPetriPlace place = (GraphPetriPlace) source;
+                GraphPetriTransition transition = (GraphPetriTransition) target;
+                if (isCrossObjectInput(place, transition)) {
+                    throw new IllegalArgumentException(crossObjectInputMessage(place, transition));
+                }
+                GraphArcIn arc = GraphArcFactory.inArc(place, transition, 1, false);
                 canvasModel.getNet().getGraphArcInList().add(arc);
                 PetriNetsFrame.getUndoSupport().postEdit(new AddArcEdit(this, arc));
             } else {
@@ -3754,7 +3880,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 PetriNetsFrame.getUndoSupport().postEdit(new AddArcEdit(this, arc));
             }
         } catch (IllegalArgumentException rejected) {
-            MessageHelper.showError(dialogOwner(), rejected.getMessage());
+            reportRefusal(rejected.getMessage());
         }
     }
 
@@ -4038,6 +4164,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     public static String getPetriPName() {
         return "P" + id;
+    }
+
+    /**
+     * @return true while the Arc tool is armed, waiting for the press that starts the next arc.
+     *         It stays armed across a finished arc and across a refused one alike; the tool is
+     *         only actually left through {@link #setTool}.
+     */
+    public boolean isArcToolArmed() {
+        return isSettingArc;
     }
 
     public void setIsSettingArc(boolean b) { //26.01.2013
