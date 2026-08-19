@@ -1,5 +1,10 @@
 # PetriObjModelPaint
 
+**Просто хочете скористатися застосунком?** Завантажте готовий редактор з
+[останнього релізу](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/latest):
+візьміть jar для своєї ОС (`petri-swing-ui-windows.jar` / `-linux.jar` / `-macos.jar`) і
+запустіть `java -jar <файл>` (потрібна Java 23+).
+
 Графічний редактор та симулятор мереж Петрі (скорочено **POMP**). Багатомодульний Maven-проєкт:
 
 | Модуль | Призначення |
