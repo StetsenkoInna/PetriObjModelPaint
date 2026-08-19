@@ -1,0 +1,63 @@
+name: Release build
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  swing-ui:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset-suffix: windows
+          - os: ubuntu-latest
+            asset-suffix: linux
+          - os: macos-latest
+            asset-suffix: macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '23'
+          cache: maven
+
+      - name: Build petri-swing-ui
+        run: mvn --batch-mode --no-transfer-progress package -DskipTests -pl petri-swing-ui -am
+
+      - name: Rename jar
+        shell: bash
+        run: |
+          mv petri-swing-ui/target/petri-swing-ui.jar \
+             petri-swing-ui/target/petri-swing-ui-${{ matrix.asset-suffix }}.jar
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: petri-swing-ui/target/petri-swing-ui-${{ matrix.asset-suffix }}.jar
+
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '23'
+          cache: maven
+
+      - name: Build petri-server
+        run: mvn --batch-mode --no-transfer-progress package -DskipTests -pl petri-server -am
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: petri-server/target/petri-server.jar
