@@ -43,6 +43,9 @@ public class AppSettings {
      */
     private static final String KEY_SETUP_COMPLETED = "setup.completed";
 
+    /** Stores whether the last active project should be reopened automatically on startup. */
+    private static final String KEY_REOPEN_LAST_PROJECT = "reopen.lastProject";
+
     private static volatile AppSettings shared;
 
     /** Where the settings live, or null when there is nowhere to keep them - see {@link #shared()}. */
@@ -133,6 +136,24 @@ public class AppSettings {
      */
     public void markInitialSetupCompleted() {
         properties.setProperty(KEY_SETUP_COMPLETED, Boolean.TRUE.toString());
+        save();
+    }
+
+    /**
+     * @return true unless the user has explicitly turned this off; a user who has never touched
+     *         the setting gets their last project reopened automatically
+     */
+    public boolean isReopenLastProjectOnStartup() {
+        String value = properties.getProperty(KEY_REOPEN_LAST_PROJECT);
+        return value == null || Boolean.parseBoolean(value);
+    }
+
+    /**
+     * Records whether the last active project should be reopened on startup and writes it out
+     * immediately.
+     */
+    public void setReopenLastProjectOnStartup(boolean value) {
+        properties.setProperty(KEY_REOPEN_LAST_PROJECT, Boolean.toString(value));
         save();
     }
 
