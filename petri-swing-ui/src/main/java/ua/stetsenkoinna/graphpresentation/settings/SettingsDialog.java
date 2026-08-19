@@ -13,6 +13,7 @@ import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -58,6 +59,10 @@ public class SettingsDialog extends JDialog {
 
     private final Map<ThemeMode, JRadioButton> themeButtons = new EnumMap<>(ThemeMode.class);
 
+    /** "Reopen the last project on startup" - takes effect only on confirm, no live preview. */
+    private final JCheckBox reopenLastProjectCheckbox =
+            new JCheckBox("Reopen the last project on startup");
+
     /**
      * @param owner the window to centre on, or null on a first start, when there is not one yet
      * @param settings the settings to read and write
@@ -88,6 +93,7 @@ public class SettingsDialog extends JDialog {
         add(buildButtons(), BorderLayout.SOUTH);
 
         selectButtonFor(ThemeManager.currentMode());
+        reopenLastProjectCheckbox.setSelected(settings.isReopenLastProjectOnStartup());
         pack();
         setLocationRelativeTo(owner);
     }
@@ -161,6 +167,7 @@ public class SettingsDialog extends JDialog {
         sections.setLayout(new BoxLayout(sections, BoxLayout.Y_AXIS));
         sections.setBorder(BorderFactory.createEmptyBorder(0, 16, 8, 16));
         sections.add(buildThemeSection());
+        sections.add(buildStartupSection());
         return sections;
     }
 
@@ -182,6 +189,20 @@ public class SettingsDialog extends JDialog {
             section.add(fullWidthRow(button));
             section.add(fullWidthRow(describe(hintFor(themeMode))));
         }
+        return section;
+    }
+
+    private JComponent buildStartupSection() {
+        JPanel section = new JPanel();
+        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+        section.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder("Startup"),
+                BorderFactory.createEmptyBorder(4, 8, 8, 8)));
+        section.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        section.add(fullWidthRow(reopenLastProjectCheckbox));
+        section.add(fullWidthRow(
+                describe("When off, the Welcome screen opens instead so you can pick a project.")));
         return section;
     }
 
@@ -250,6 +271,7 @@ public class SettingsDialog extends JDialog {
     private void close(boolean keepSelection) {
         if (keepSelection) {
             settings.setThemeMode(selectedThemeMode());
+            settings.setReopenLastProjectOnStartup(reopenLastProjectCheckbox.isSelected());
         } else {
             ThemeManager.applyMode(modeOnEntry);
         }
