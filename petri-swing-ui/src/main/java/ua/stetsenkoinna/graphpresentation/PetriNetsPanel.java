@@ -78,6 +78,7 @@ import ua.stetsenkoinna.graphpresentation.undoable_edits.AddObjectFrameEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteGraphElementsEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.JoinPlacesEdit;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.NeighborNudge;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.ObjectFrameSnapshot;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.PasteElementsEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.RemoveObjectFrameEdit;
@@ -529,7 +530,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     ? canvasModel.enclosingOf(originalRoot)
                     : copies.get(canvasModel.enclosingOf(original));
             canvasModel.nest(copy, parent);
-            addObjectFrame(copy);
+            // The copy already carries its own membership, translated by the constructor above,
+            // so unlike a frame built by grouping there is nothing left to claim afterward: the
+            // push can run right away.
+            addObjectFrame(copy).pushNeighborsClear();
             for (GraphElement member : copy.getMembers()) {
                 // Locked inside the copy, so leaving one selected would let Delete or a
                 // drag act on an object's own net from the shared canvas.
@@ -2042,7 +2046,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         GraphObjectFrame frame = new GraphObjectFrame(name, bounds);
         canvasModel.nest(frame, focusedFrame);
-        addObjectFrame(frame);
+        AddObjectFrameEdit creation = addObjectFrame(frame);
         for (GraphElement element : loose) {
             canvasModel.claim(frame, element);
         }
@@ -2054,6 +2058,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             growToContain(focusedFrame, frame.getBounds());
             frame.setCollapsed(true);
         }
+        // Membership is settled now, so whatever is left standing too close to the frame is
+        // genuinely a stranger to it, not one of the members just claimed above.
+        creation.pushNeighborsClear();
 
         // The grouped elements are now locked inside their new frame — highlighting them as
         // "selected" afterward would be stale and, unlike before, no longer something Delete
@@ -2200,7 +2207,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         Rectangle bounds = new Rectangle(Math.max(0, at.x - 180), Math.max(0, at.y - 120), 360, 240);
         GraphObjectFrame frame = new GraphObjectFrame(name.trim(), bounds);
         canvasModel.nest(frame, focusedFrame);
-        addObjectFrame(frame);
+        // Nothing claims this frame yet - it is put down empty, to be drawn into - so whatever
+        // stands too close to it right now is settled, not a member still to be claimed.
+        addObjectFrame(frame).pushNeighborsClear();
         if (focusedFrame != null) {
             growToContain(focusedFrame, bounds);
         }
@@ -2397,7 +2406,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             GraphObjectFrame frame = new GraphObjectFrame(objectName, boundsAround(members));
             frame.setTemplate(template);
             canvasModel.nest(frame, focusedFrame);
-            addObjectFrame(frame);
+            AddObjectFrameEdit creation = addObjectFrame(frame);
             for (GraphElement element : members) {
                 canvasModel.claim(frame, element);
                 // Locked inside a frame from the moment it lands, so it is never left looking
@@ -2410,6 +2419,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 growToContain(focusedFrame, frame.getBounds());
                 frame.setCollapsed(true);
             }
+            // Membership is settled now, so whatever is left standing too close to the frame is
+            // genuinely a stranger to it, not one of the members just claimed above.
+            creation.pushNeighborsClear();
             // addObjectFrame leaves what it added selected, which is right when the user created
             // one deliberately but wrong here: stamping drops object after object, and each would
             // sit highlighted with nothing having been selected at all.
@@ -2761,6 +2773,90 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * every side, not just what a place's shorter single mark label underneath it would need.
      */
     private static final int BOUNDS_PADDING = 48;
+
+    /**
+     * Pushes every place and transition on the same canvas level as a just-created frame out of
+     * its way, when their drawn extent - {@link #boundsAround}'s own notion of one, an element's
+     * centre plus its border - comes closer to the frame's border than {@link #BOUNDS_PADDING}.
+     * The frame itself is never moved or resized here: the user drew it where they wanted it.
+     *
+     * <p>An element the frame is about to claim is not yet its member at the point this runs
+     * (grouping and template placement both add the frame before claiming what it holds), but
+     * {@link #boundsAround} already fitted the frame's bounds around such elements with this
+     * same padding, so none of them is normally closer to the border than the padding allows and
+     * none of them moves. An element already claimed by a different frame is that frame's
+     * business and is never a candidate, regardless of how close it sits.
+     *
+     * @param frame the frame that was just added to the canvas
+     * @return every element this pushed, paired with the offset it moved by - what undoing or
+     *         redoing the creation has to replay in reverse or forward
+     */
+    public List<NeighborNudge> nudgeNeighborsAway(GraphObjectFrame frame) {
+        GraphObjectFrame level = canvasModel.enclosingOf(frame);
+        List<NeighborNudge> nudges = new ArrayList<>();
+        List<GraphElement> candidates = new ArrayList<>();
+        candidates.addAll(graphNet.getGraphPetriPlaceList());
+        candidates.addAll(graphNet.getGraphPetriTransitionList());
+        for (GraphElement element : candidates) {
+            if (canvasModel.ownerOf(element) != level) {
+                continue;
+            }
+            Point2D centre = element.getGraphElementCenter();
+            if (centre == null) {
+                continue;
+            }
+            int border = Math.max(element.getBorder(), 20);
+            int cx = (int) centre.getX();
+            int cy = (int) centre.getY();
+            Rectangle extent = new Rectangle(cx - border, cy - border, border * 2, border * 2);
+            Point push = shiftToClearMargin(extent, frame.getBounds(), BOUNDS_PADDING);
+            int dx = Math.max(0, cx + push.x) - cx;
+            int dy = Math.max(0, cy + push.y) - cy;
+            if (dx == 0 && dy == 0) {
+                continue;
+            }
+            element.moveBy(dx, dy);
+            nudges.add(new NeighborNudge(element, dx, dy));
+        }
+        if (!nudges.isEmpty()) {
+            updateArcCoordinates();
+        }
+        return nudges;
+    }
+
+    /**
+     * @param extent the drawn extent of an element - its centre plus its border
+     * @param frameBounds a Petri-object frame's rectangle
+     * @param margin the clearance the frame's border needs on every side
+     * @return the smallest straight push, along one axis only, that puts {@code extent}
+     *         entirely outside {@code frameBounds} grown by {@code margin} on every side - or
+     *         {@code (0, 0)} when it already is, be it because it was never close or because it
+     *         sat inside {@code frameBounds} itself
+     */
+    private static Point shiftToClearMargin(Rectangle extent, Rectangle frameBounds, int margin) {
+        Rectangle padded = new Rectangle(frameBounds);
+        padded.grow(margin, margin);
+        if (!padded.intersects(extent)) {
+            return new Point(0, 0);
+        }
+        int pushRight = padded.x + padded.width - extent.x;
+        int pushLeft = padded.x - (extent.x + extent.width);
+        int pushDown = padded.y + padded.height - extent.y;
+        int pushUp = padded.y - (extent.y + extent.height);
+
+        int best = Math.min(Math.min(Math.abs(pushRight), Math.abs(pushLeft)),
+                Math.min(Math.abs(pushDown), Math.abs(pushUp)));
+        if (best == Math.abs(pushRight)) {
+            return new Point(pushRight, 0);
+        }
+        if (best == Math.abs(pushLeft)) {
+            return new Point(pushLeft, 0);
+        }
+        if (best == Math.abs(pushDown)) {
+            return new Point(0, pushDown);
+        }
+        return new Point(0, pushUp);
+    }
 
     public class MouseHandler extends MouseAdapter {
 
@@ -4746,14 +4842,24 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * object's net lived behind a modal window with its own Cancel. With editing in place there is
      * no Cancel anywhere, so Ctrl+Z has to reach object creation too.
      *
+     * <p>Returns the edit rather than posting it and forgetting about it, because a caller that
+     * still has to claim members for the frame - grouping, template placement - claims them
+     * after this returns and only then knows what actually stands next to the frame rather than
+     * inside it; such a caller finishes by calling {@link AddObjectFrameEdit#pushNeighborsClear()}
+     * on what comes back. A caller with nothing left to claim, or whose frame already carries its
+     * members, may call it immediately.
+     *
      * @param frame the frame to add
+     * @return the edit this posted
      */
-    public void addObjectFrame(GraphObjectFrame frame) {
+    public AddObjectFrameEdit addObjectFrame(GraphObjectFrame frame) {
         canvasModel.getFrames().add(frame);
         selection.setSelectedFrame(frame);
-        PetriNetsFrame.getUndoSupport().postEdit(new AddObjectFrameEdit(this, frame));
+        AddObjectFrameEdit edit = new AddObjectFrameEdit(this, frame);
+        PetriNetsFrame.getUndoSupport().postEdit(edit);
         canvasStack.notifyChanged();
         repaint();
+        return edit;
     }
 
     /**
