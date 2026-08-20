@@ -1141,6 +1141,16 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         pinnedToolsPanel.add(toolSectionSeparator());
         pinnedToolsPanel.add(javax.swing.Box.createVerticalStrut(8));
 
+        javax.swing.JToggleButton objectBandToolButton =
+                new javax.swing.JToggleButton(CanvasToolIcons.objectBand(TOOL_ICON_SIZE));
+        objectBandToolButton.setToolTipText(
+                "Draw Petri-object: drag a rectangle, and whatever it fully encloses becomes a"
+                        + " new Petri-object");
+        objectBandToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.OBJECT_BAND));
+        styleToolButton(objectBandToolButton);
+        canvasToolGroup.add(objectBandToolButton);
+        pinnedToolsPanel.add(objectBandToolButton);
+
         leftIconToolBar.add(pinnedToolsPanel, java.awt.BorderLayout.NORTH);
 
         petriObjectSectionPanel = new javax.swing.JPanel();
