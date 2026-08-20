@@ -253,10 +253,12 @@ page belong to the nested object alone, and an arc never crosses from one page i
 Objects are still addressed by the `index` its `petriObject` element states, links included,
 so nesting changes where a page is written and nothing about what it means.
 
-Documents written before this carry the hierarchy in a tool-specific `parentObject` attribute
-instead, with every page a flat sibling. The reader still accepts that attribute, so those
-files keep opening unchanged; where a document states both, the nesting wins, because it is
-the statement every reader of the standard can see. Nothing writes the attribute any more.
+The page structure is the only statement of the hierarchy this code knows: the reader takes
+every object's parent from the page that encloses it and from nothing else. Documents written
+before the pages were nested carry the hierarchy in a tool-specific `parentObject` attribute
+instead, with every page a flat sibling. That attribute is neither written nor read any more,
+so such a document still opens, with its objects, their nets and their links intact, but with
+the nest lost: nothing encloses any of its pages, so every object arrives at the top level.
 
 ---
 

@@ -176,18 +176,6 @@ public final class PnmlConstants {
     public static final String ATTR_WIDTH = "width";
     public static final String ATTR_HEIGHT = "height";
     public static final String ATTR_COLLAPSED = "collapsed";
-    /**
-     * The index of the Petri-object this one is nested inside, absent for a top-level object.
-     *
-     * <p>Nothing writes it any more. The hierarchy is now real page nesting, a child object's
-     * {@code <page>} inside its parent's, which is how ISO/IEC 15909-2 states a page
-     * hierarchy and which every reader of the standard sees; an exported file carries nothing
-     * non-standard where pages are concerned. This attribute is the tool-specific shape that
-     * said the same thing while the pages were flat siblings, and every file saved before that
-     * change carries it, so it stays a value readers must accept. Where a document states
-     * both, the nesting wins: it is the standard's own statement.
-     */
-    public static final String ATTR_PARENT_OBJECT = "parentObject";
 
     // Link type values, kept stable regardless of how the enum constants are named
     public static final String LINK_TYPE_PLACE_FUSION = "placeFusion";

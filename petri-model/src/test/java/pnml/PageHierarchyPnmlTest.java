@@ -51,8 +51,9 @@ import static org.junit.Assert.assertTrue;
  * <p>Before this, every page was a flat sibling under {@code <net>} and the nesting lived in
  * a tool-specific {@code parentObject} attribute, which meant a reader that is neither of
  * the two tools sharing this dialect saw a pile of unrelated pages and lost the hierarchy
- * outright. The writer now states it in the standard's own terms and states it nowhere else;
- * the reader accepts both shapes, because every file saved before this change is the old one.
+ * outright. The writer now states it in the standard's own terms and states it nowhere else,
+ * and the reader takes it from there and nowhere else: the attribute is neither written nor
+ * read, so a document that carries it opens with its objects flattened to the top level.
  */
 public class PageHierarchyPnmlTest {
 
@@ -206,15 +207,25 @@ public class PageHierarchyPnmlTest {
     }
 
     /**
-     * The backward-compatibility contract, pinned against a literal document in the shape
-     * this tool wrote while the pages were flat siblings. Both files describe the same model
-     * and both must produce it.
+     * The decision, pinned against a literal document in the shape this tool wrote while the
+     * pages were flat siblings. The page structure is the only statement of a hierarchy this
+     * reader knows, so a document whose pages are flat siblings is a set of top-level objects
+     * however its tool-specific block reads. Everything else the document carries survives:
+     * only the nest is lost, and losing it is what was decided.
      */
     @Test
-    public void aFlatDocumentWithParentObjectParsesIntoExactlyTheModelTheNestedOneDescribes()
+    public void aFlatDocumentReadsAsTopLevelObjectsWhateverParentObjectClaims()
             throws Exception {
+        assertTrue("the fixture has to carry the attribute for this to prove anything",
+                fixture(FLAT).contains("parentObject"));
+
         GraphPetriObjModel flat = parseFixture(FLAT);
         GraphPetriObjModel nested = parseFixture(NESTED);
+
+        assertEquals("what the attribute claims gives no object a parent",
+                List.of(-1, -1, -1), parentIndices(flat));
+        assertEquals("and the nested document is the one that still has the hierarchy",
+                List.of(-1, 0, 1), parentIndices(nested));
 
         assertEquals(nested.getName(), flat.getName());
         assertEquals(nested.getObjectCount(), flat.getObjectCount());
@@ -224,21 +235,20 @@ public class PageHierarchyPnmlTest {
             assertEquals(expected.getName(), actual.getName());
             assertEquals(expected.getPriority(), actual.getPriority());
             assertEquals(expected.getPosition(), actual.getPosition());
-            assertEquals(expected.getParentIndex(), actual.getParentIndex());
             assertEquals(placeNames(expected), placeNames(actual));
             assertEquals(placeMarkings(expected), placeMarkings(actual));
             assertEquals(expected.getTransitionCount(), actual.getTransitionCount());
         }
-        assertEquals(describeLinks(nested), describeLinks(flat));
+        assertEquals("the links still address the objects the document names",
+                describeLinks(nested), describeLinks(flat));
     }
 
     /**
-     * A document that states the hierarchy twice and disagrees with itself is read by its
-     * nesting: that is the standard's own statement, and it is the one every other reader of
-     * the document sees.
+     * The attribute is not a source of anything, not even where a document still carries one
+     * and contradicts its own nesting. The pages say where every object belongs.
      */
     @Test
-    public void nestingWinsOverParentObjectWhereADocumentStatesBoth() throws Exception {
+    public void aParentObjectAttributeIsIgnoredWhereADocumentStillCarriesOne() throws Exception {
         String contradictory = fixture(NESTED).replace(
                 "<petriObject index=\"2\"", "<petriObject parentObject=\"0\" index=\"2\"");
         assertTrue("the fixture has to carry the attribute for this to prove anything",
@@ -266,12 +276,6 @@ public class PageHierarchyPnmlTest {
         }
     }
 
-    // ---------------------------------------------------------------- fixtures
-
-    /**
-     * Six objects: a chain three deep, a second child of the outermost one, a sibling that
-     * belongs to nobody, and an object with no geometry standing for the free elements.
-     */
     /**
      * What the writer's containment invariant is really protecting, checked on the shape that
      * made it worth restating: a node on a nested page is not a node of the page enclosing it,
@@ -322,6 +326,12 @@ public class PageHierarchyPnmlTest {
         return found;
     }
 
+    // ---------------------------------------------------------------- fixtures
+
+    /**
+     * Six objects: a chain three deep, a second child of the outermost one, a sibling that
+     * belongs to nobody, and an object with no geometry standing for the free elements.
+     */
     private static GraphPetriObjModel nestedModel() throws Exception {
         GraphPetriObjModel model = new GraphPetriObjModel("Nested");
         addObject(model, "Outer", -1, true);

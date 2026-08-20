@@ -39,14 +39,15 @@ import java.util.Set;
  * page at all, and no link block, reads back as a model of one object, so every net saved so
  * far keeps opening.
  *
- * <h2>Two shapes of hierarchy, one reader</h2>
+ * <h2>The page structure is the hierarchy</h2>
  *
- * <p>Which object encloses which is read from the document's own structure first: a page
- * written inside another page is the child of that page's object, the way ISO/IEC 15909-2
- * states a page hierarchy. A document whose pages are flat siblings states it instead with
- * {@link PnmlConstants#ATTR_PARENT_OBJECT}, which is the shape everything saved before the
- * pages were nested has, and that attribute is still read. Where a document says both, the
- * nesting wins: it is the standard's own statement, and it is what every other reader sees.
+ * <p>Which object encloses which is read from the document's own structure and from nowhere
+ * else: a page written inside another page is the child of that page's object, the way
+ * ISO/IEC 15909-2 states a page hierarchy, and a page directly under the net belongs to
+ * nobody. A document whose pages are flat siblings therefore reads as a set of top-level
+ * objects. That is also what a document written before the pages were nested reads as: it
+ * carries its hierarchy in a tool-specific attribute that is no longer written and no longer
+ * read, so its objects open flattened.
  *
  * <h2>Two dialects, one reader</h2>
  *
@@ -121,16 +122,14 @@ public class PnmlModelParser {
 
         if (pages.isEmpty()) {
             // A document whose elements sit directly under <net>: one Petri-object.
-            model.addObject(readObject(netElement, netElement, modelName, 0, -1, false,
+            model.addObject(readObject(netElement, netElement, modelName, 0, -1,
                     references == null ? null : references.pageReferences(0)));
         } else {
             int[] enclosing = enclosingObjects(pages);
-            boolean documentNests = isNested(pages);
             for (int index = 0; index < pages.size(); index++) {
                 Element page = pages.get(index);
                 model.addObject(readObject(page, page,
                         defaultObjectName(modelName, pages.size(), index), index, enclosing[index],
-                        documentNests,
                         references == null ? null : references.pageReferences(index)));
             }
         }
@@ -157,8 +156,16 @@ public class PnmlModelParser {
      * written before a second top-level object, whatever index it carries. So the index each
      * page states is what orders them, and it is used only when the document states one for
      * every page and the indices are exactly the object indices of the model, {@code 0} to
-     * {@code n - 1}. Anything else falls back to document order, which is all a foreign
-     * document, and any document written before object metadata existed, can offer.
+     * {@code n - 1}.
+     *
+     * <p>A document that states anything else is answered by what its own shape allows. One
+     * with no nesting is read in document order, which is all a foreign document, and any
+     * document written before object metadata existed, can offer, and where nothing nests
+     * that order is the object order. A nested one is refused instead: there the two have
+     * parted, and the links address objects by the index, so reading on would bind every one
+     * of them to a different object than the document names.
+     *
+     * @throws Exception when a nested document does not state a usable index on every page
      */
     private static List<Element> orderedPages(Element netElement) throws Exception {
         List<Element> pages = XmlHelper.descendantPages(netElement);
@@ -328,7 +335,6 @@ public class PnmlModelParser {
      */
     private GraphPetriObject readObject(Element scope, Element metadataScope,
                                         String fallbackName, int index, int enclosing,
-                                        boolean documentNests,
                                         ReferenceNodeIndex.PageReferences references) throws Exception {
         Element objectElement = findObjectElement(metadataScope);
 
@@ -367,14 +373,9 @@ public class PnmlModelParser {
             object.setCollapsed(
                     Boolean.parseBoolean(objectElement.getAttribute(PnmlConstants.ATTR_COLLAPSED)));
         }
-        // One document, one answer. A document that nests any page states the whole hierarchy
-        // that way, and the attribute is not consulted there at all: reading it per page would
-        // let a stale value on a top-level page contradict the structure, and the two sources
-        // together can describe a cycle that neither describes alone. A document with no
-        // nesting is one written before the pages were nested, and the attribute is all it has.
-        int declaredParent = objectElement == null ? -1 : XmlHelper.parseIntSafe(
-                objectElement.getAttribute(PnmlConstants.ATTR_PARENT_OBJECT), -1);
-        object.setParentIndex(documentNests ? enclosing : declaredParent);
+        // Where the page sits is the whole answer. Nothing a page says about itself can add
+        // to it or contradict it, so no page can be given a parent that its position denies.
+        object.setParentIndex(enclosing);
         object.setTemplate(readTemplate(metadataScope));
         return object;
     }
