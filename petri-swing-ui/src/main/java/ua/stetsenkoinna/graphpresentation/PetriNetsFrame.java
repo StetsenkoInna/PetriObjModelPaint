@@ -1331,6 +1331,23 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         importPnmlMenuItem.addActionListener(this::importPnmlMenuItemActionPerformed);
         fileMenu.add(importPnmlMenuItem);
 
+        openRecentMenu = new javax.swing.JMenu("Open Recent");
+        openRecentMenu.addMenuListener(new javax.swing.event.MenuListener() {
+            @Override
+            public void menuSelected(javax.swing.event.MenuEvent e) {
+                rebuildOpenRecentMenu();
+            }
+
+            @Override
+            public void menuDeselected(javax.swing.event.MenuEvent e) {
+            }
+
+            @Override
+            public void menuCanceled(javax.swing.event.MenuEvent e) {
+            }
+        });
+        fileMenu.add(openRecentMenu);
+
         fileMenu.addSeparator();
 
         savePnmlMenuItem = new javax.swing.JMenuItem();
@@ -1380,6 +1397,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         legacyMenu.add(saveMethodInLibraryMenuItem);
 
         fileMenu.add(legacyMenu);
+
+        fileMenu.addSeparator();
+
+        welcomeScreenMenuItem = new javax.swing.JMenuItem("Welcome Screen...");
+        welcomeScreenMenuItem.addActionListener(evt -> showWelcomeScreenFromMenu());
+        fileMenu.add(welcomeScreenMenuItem);
 
         fileMenu.addSeparator();
 
@@ -1535,7 +1558,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             // Opening a file closes what is open and opens that instead — it is not a way to
             // merge one net into another.
             resetWorkspaceForNewDocument();
-            netNameTextField.setText("Untitled");
+            netNameTextField.setText(RandomNetNameGenerator.generate());
             String pnetName = fileUse.openFile(getPetriNetsPanel(), this);
             if (pnetName != null) {
                 netNameTextField.setText(pnetName);
@@ -1554,7 +1577,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             return;
         }
         resetWorkspaceForNewDocument();
-        netNameTextField.setText("Untitled");
+        netNameTextField.setText(RandomNetNameGenerator.generate());
     }// GEN-LAST:event_newMenuItemActionPerformed
 
     private void saveNetAsMethodMenuItemActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_saveNetAsMethodMenuItemActionPerformed
@@ -1932,22 +1955,211 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 return;
             }
             java.io.File selectedFile = chooser.getSelectedFile();
-            lastChooserDirectory = selectedFile.getParentFile();
+            lastOpenDirectory = selectedFile.getParentFile();
 
-            GraphPetriObjModel objModel = new PnmlModelParser().parse(selectedFile);
-            GraphCanvasModel canvas = GraphCanvasModel.fromObjModel(objModel);
             // Opening a document, so everything the old one left behind goes with it — the
             // undo stack in particular, whose edits would otherwise apply to this new net.
             resetWorkspaceForNewDocument();
-            getPetriNetsPanel().setCanvasModel(canvas);
-            netNameTextField.setText(objModel.getName());
-            // The opened file is the document's file from here on: plain Save writes back
-            // to it silently, the way every editor treats the file it has open.
-            currentPnmlFile = selectedFile;
+            loadPnmlFile(selectedFile);
         } catch (Exception ex) {
             LOGGER.error("Failed to import PNML", ex);
             MessageHelper.showException(this, "Error importing PNML file", ex);
         }
+    }
+
+    /**
+     * Parses {@code file} as a PNML document, applies it to the canvas, and remembers it as
+     * the document's file — the part of opening a PNML file that every caller needs, whether
+     * it came from the Open dialog, an "Open Recent" entry, the Welcome screen, or startup
+     * auto-reopen. Callers are responsible for confirming discard and calling {@link
+     * #resetWorkspaceForNewDocument()} first, since not every caller wants those at the same
+     * point — a blank canvas at startup has nothing to discard or reset.
+     */
+    private void loadPnmlFile(java.io.File file) throws Exception {
+        GraphPetriObjModel objModel = new PnmlModelParser().parse(file);
+        GraphCanvasModel canvas = GraphCanvasModel.fromObjModel(objModel);
+        getPetriNetsPanel().setCanvasModel(canvas);
+        netNameTextField.setText(objModel.getName());
+        // The opened file is the document's file from here on: plain Save writes back
+        // to it silently, the way every editor treats the file it has open.
+        currentPnmlFile = file;
+
+        ua.stetsenkoinna.recentprojects.RecentProjectEntry entry =
+                ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared()
+                        .recordOpened(file.toPath(), objModel.getName());
+        ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared().setActiveProjectId(entry.getId());
+    }
+
+    /**
+     * Opens {@code file} onto this already-blank frame — used only by the app launcher for
+     * startup auto-reopen, where the canvas is already empty so there is nothing to discard
+     * or reset first. Any failure is logged and shown, and the canvas is left blank rather
+     * than the exception propagating and taking startup down with it.
+     */
+    public void openProjectFile(java.io.File file) {
+        try {
+            loadPnmlFile(file);
+        } catch (Exception ex) {
+            LOGGER.error("Failed to auto-reopen project", ex);
+            MessageHelper.showException(this, "Could not reopen the last project", ex);
+        }
+    }
+
+    /**
+     * Opens an entry chosen from the "Open Recent" menu: confirms discarding the current net,
+     * checks the file still exists, then loads it exactly as the Open dialog would.
+     */
+    private void openRecentProject(ua.stetsenkoinna.recentprojects.RecentProjectEntry entry) {
+        if (!confirmDiscardingCurrentNet()) {
+            return;
+        }
+        java.io.File file = new java.io.File(entry.getPath());
+        if (!file.isFile()) {
+            MessageHelper.showError(this,
+                    "'" + entry.getName() + "' could not be found at:\n" + entry.getPath());
+            return;
+        }
+        resetWorkspaceForNewDocument();
+        try {
+            loadPnmlFile(file);
+        } catch (Exception ex) {
+            LOGGER.error("Failed to open recent project", ex);
+            MessageHelper.showException(this, "Error opening PNML file", ex);
+        }
+    }
+
+    /**
+     * Rebuilds the "Open Recent" submenu from scratch — called right before it is shown, so it
+     * always reflects the registry as of that moment rather than as of when the frame was
+     * built.
+     */
+    private void rebuildOpenRecentMenu() {
+        openRecentMenu.removeAll();
+
+        java.util.List<ua.stetsenkoinna.recentprojects.RecentProjectEntry> recents =
+                new java.util.ArrayList<>(
+                        ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared().all());
+        recents.sort(java.util.Comparator.comparingLong(
+                ua.stetsenkoinna.recentprojects.RecentProjectEntry::getLastOpenedAt).reversed());
+
+        if (recents.isEmpty()) {
+            javax.swing.JMenuItem empty = new javax.swing.JMenuItem("(no recent projects)");
+            empty.setEnabled(false);
+            openRecentMenu.add(empty);
+        } else {
+            int limit = Math.min(recents.size(), 10);
+            for (int i = 0; i < limit; i++) {
+                ua.stetsenkoinna.recentprojects.RecentProjectEntry entry = recents.get(i);
+                javax.swing.JMenuItem item = new javax.swing.JMenuItem(entry.getName());
+                item.setToolTipText(entry.getPath());
+                item.addActionListener(evt -> openRecentProject(entry));
+                openRecentMenu.add(item);
+            }
+        }
+
+        openRecentMenu.addSeparator();
+        javax.swing.JMenuItem manage = new javax.swing.JMenuItem("Manage Recent Projects...");
+        manage.addActionListener(evt -> manageRecentProjects());
+        openRecentMenu.add(manage);
+    }
+
+    /**
+     * Hides this frame and shows the Welcome screen, reusing this same instance rather than
+     * constructing a second {@code PetriNetsFrame} — the undo manager and undo support behind
+     * this frame are static, shared across every instance ever built, and a second instance
+     * would corrupt that shared state. {@code setVisible(false)} does not fire {@code
+     * WINDOW_CLOSING}, so {@code EXIT_ON_CLOSE} does not trigger and the JVM does not exit.
+     */
+    private void showWelcomeScreenFromMenu() {
+        if (!confirmDiscardingCurrentNet()) {
+            return;
+        }
+        setVisible(false);
+        ua.stetsenkoinna.graphpresentation.welcome.WelcomeFrame.show(
+                ua.stetsenkoinna.config.AppSettings.shared(),
+                ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared(),
+                file -> {
+                    resetWorkspaceForNewDocument();
+                    // Shown before loading, not after: a parse failure below puts up an error
+                    // dialog, which needs this frame visible and the default parent again to
+                    // attach to rather than the WelcomeFrame that is about to be disposed.
+                    reshowAfterWelcome();
+                    try {
+                        loadPnmlFile(file);
+                    } catch (Exception ex) {
+                        LOGGER.error("Failed to open project from welcome screen", ex);
+                        MessageHelper.showException(this, "Error opening PNML file", ex);
+                    }
+                    return true; // discard was already confirmed above, before this frame was hidden
+                },
+                () -> {
+                    resetWorkspaceForNewDocument();
+                    netNameTextField.setText(RandomNetNameGenerator.generate());
+                    reshowAfterWelcome();
+                    return true;
+                },
+                this::reshowAfterWelcome, // onDismiss - closed with nothing picked: just come back as-is
+                false // exitAppIfDismissed - this frame already exists and was only hidden, never exit here
+        );
+    }
+
+    /**
+     * Opens the Welcome screen next to this frame, for browsing or tidying up the recent-
+     * projects list (sorting, removing entries, editing description/authors) without touching
+     * whatever is currently open. Unlike {@link #showWelcomeScreenFromMenu()}, this frame is
+     * never hidden and discarding is never asked about up front — only if the user actually
+     * picks something to open or starts a new document from inside the Welcome screen does
+     * discarding the current net become relevant at all, so it is asked about at that point,
+     * and only then.
+     */
+    private void manageRecentProjects() {
+        ua.stetsenkoinna.graphpresentation.welcome.WelcomeFrame.show(
+                ua.stetsenkoinna.config.AppSettings.shared(),
+                ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared(),
+                file -> {
+                    if (!confirmDiscardingCurrentNet()) {
+                        return false; // stays open exactly as it was - this frame was never touched
+                    }
+                    resetWorkspaceForNewDocument();
+                    try {
+                        loadPnmlFile(file);
+                    } catch (Exception ex) {
+                        LOGGER.error("Failed to open project from recent-projects manager", ex);
+                        MessageHelper.showException(this, "Error opening PNML file", ex);
+                    }
+                    focusMainFrame();
+                    return true;
+                },
+                () -> {
+                    if (!confirmDiscardingCurrentNet()) {
+                        return false;
+                    }
+                    resetWorkspaceForNewDocument();
+                    netNameTextField.setText(RandomNetNameGenerator.generate());
+                    focusMainFrame();
+                    return true;
+                },
+                () -> { }, // onDismiss - this frame was never hidden, so there is nothing to restore
+                false // exitAppIfDismissed - never exit from here
+        );
+    }
+
+    private void reshowAfterWelcome() {
+        MessageHelper.setDefaultParent(this);
+        setVisible(true);
+        toFront();
+    }
+
+    /**
+     * Restores this frame as {@link MessageHelper}'s default parent and raises it, after the
+     * Welcome screen shown by {@link #manageRecentProjects()} disposes itself — that window,
+     * not this one, held the default parent and the foreground while it was open, even though
+     * this frame stayed visible underneath the whole time.
+     */
+    private void focusMainFrame() {
+        MessageHelper.setDefaultParent(this);
+        toFront();
+        requestFocus();
     }
 
     /**
@@ -1962,29 +2174,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 return;
             }
 
-            javax.swing.JFileChooser chooser = newDocumentChooser("Save As");
-            javax.swing.filechooser.FileNameExtensionFilter pnmlFilter =
-                    new javax.swing.filechooser.FileNameExtensionFilter("PNML model (*.pnml)", "pnml");
-            javax.swing.filechooser.FileNameExtensionFilter xmlFilter =
-                    new javax.swing.filechooser.FileNameExtensionFilter("XML document (*.xml)", "xml");
-            chooser.addChoosableFileFilter(pnmlFilter);
-            chooser.addChoosableFileFilter(xmlFilter);
-            chooser.setFileFilter(pnmlFilter);
-            chooser.setSelectedFile(new java.io.File(currentPnmlFile != null
-                    ? currentPnmlFile.getName()
-                    : netNameTextField.getText() + ".pnml"));
-            if (chooser.showSaveDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) {
-                return;
+            java.io.File selectedFile = chooseSaveAsFile();
+            if (selectedFile == null) {
+                return; // dialog cancelled
             }
-            java.io.File selectedFile = chooser.getSelectedFile();
-            lastChooserDirectory = selectedFile.getParentFile();
-            String lower = selectedFile.getName().toLowerCase();
-            if (!lower.endsWith(".pnml") && !lower.endsWith(".xml")) {
-                // The chosen type filter decides the extension a bare name gets - the same
-                // document either way, since PNML is XML; only the suffix differs.
-                String extension = chooser.getFileFilter() == xmlFilter ? ".xml" : ".pnml";
-                selectedFile = new java.io.File(selectedFile.getAbsolutePath() + extension);
-            }
+            lastSaveAsDirectory = selectedFile.getParentFile();
+
             // JFileChooser approves silently over an existing file; asking is on us.
             if (selectedFile.exists() && !MessageHelper.showConfirmation(this,
                     "'" + selectedFile.getName() + "' already exists. Overwrite it?")) {
@@ -1996,6 +2191,167 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             LOGGER.error("Failed to export PNML", ex);
             MessageHelper.showException(this, "Error exporting PNML file", ex);
         }
+    }
+
+    /** One file type {@link #chooseSaveAsFile()} can offer: its extension and its label in the dialog's filter dropdown. */
+    private record SaveFormat(String extension, String description) {
+    }
+
+    /**
+     * File types the Save As dialog offers, in order - the first is the default filter and
+     * what a typed name with none of these extensions gets appended. PNML and plain XML
+     * (the same PNML content, just a different suffix) today; adding another format later is
+     * exactly one more entry here, since both the dialog's filters and its fallback extension
+     * in {@link #chooseSaveAsFile()} are driven from this list rather than any extension being
+     * hardcoded elsewhere.
+     */
+    private static final SaveFormat[] SAVE_AS_FORMATS = {
+        new SaveFormat("pnml", "PNML model (*.pnml)"),
+        new SaveFormat("xml", "XML document (*.xml)"),
+    };
+
+    /**
+     * The OS's own native Save dialog ({@link java.awt.FileDialog}) rather than
+     * {@code JFileChooser}, preceded by a small format pick of its own: {@code FileDialog}'s
+     * Windows peer has no way to label more than one file-type filter in its own type box, so
+     * asking here first - and baking the chosen extension into the suggested filename before
+     * the native dialog ever opens - gets a real PNML/XML choice without needing the native
+     * dialog to express it itself.
+     *
+     * <p>Defaults to {@link #petriNetsFolder()} when the document has never been saved
+     * anywhere and no earlier Save As in this session has landed anywhere else either.
+     *
+     * @return the chosen file, with the picked format's extension appended if the typed name
+     *         ended up with none of {@link #SAVE_AS_FORMATS}; {@code null} if either step was
+     *         cancelled
+     */
+    private java.io.File chooseSaveAsFile() {
+        SaveFormat format = pickSaveFormat();
+        if (format == null) {
+            return null;
+        }
+
+        java.awt.FileDialog dialog = new java.awt.FileDialog(this, "Save As", java.awt.FileDialog.SAVE);
+        java.io.File startDir = lastSaveAsDirectory != null
+                ? lastSaveAsDirectory
+                : currentPnmlFile != null ? currentPnmlFile.getParentFile() : petriNetsFolder();
+        dialog.setDirectory(startDir.getAbsolutePath());
+        String baseName = currentPnmlFile != null
+                ? stripSaveAsExtension(currentPnmlFile.getName())
+                : netNameTextField.getText();
+        dialog.setFile(baseName + "." + format.extension());
+        // Best-effort: restricts which existing files are browsable, even though the native
+        // type box itself will not necessarily reflect it - that is exactly what the pick
+        // above is for.
+        dialog.setFilenameFilter((dir, name) -> hasSaveAsExtension(name));
+        dialog.setVisible(true); // modal - blocks until the user picks a file or cancels
+
+        String fileName = dialog.getFile();
+        if (fileName == null) {
+            return null;
+        }
+        java.io.File selected = new java.io.File(dialog.getDirectory(), fileName);
+        if (!hasSaveAsExtension(selected.getName())) {
+            selected = new java.io.File(selected.getAbsolutePath() + "." + format.extension());
+        }
+        return selected;
+    }
+
+    /**
+     * A plain-button vertical list rather than {@code JOptionPane.showOptionDialog}'s default
+     * side-by-side row: one format per row reads better than a horizontal strip of buttons
+     * once their labels are full descriptions like "PNML model (*.pnml)" rather than "Yes"/
+     * "No".
+     *
+     * @return the format the user picked from {@link #SAVE_AS_FORMATS}, or {@code null} if
+     *         they closed the picker (Cancel, Escape, or the window's own close button)
+     *         without choosing one
+     */
+    private SaveFormat pickSaveFormat() {
+        javax.swing.JDialog dialog = new javax.swing.JDialog(this, "Save As", true);
+        dialog.setDefaultCloseOperation(javax.swing.JDialog.DISPOSE_ON_CLOSE);
+
+        javax.swing.JPanel panel = new javax.swing.JPanel();
+        panel.setLayout(new javax.swing.BoxLayout(panel, javax.swing.BoxLayout.Y_AXIS));
+        panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(14, 18, 14, 18));
+
+        javax.swing.JLabel prompt = new javax.swing.JLabel("Save as which format?");
+        prompt.setAlignmentX(java.awt.Component.CENTER_ALIGNMENT);
+        panel.add(prompt);
+        panel.add(javax.swing.Box.createVerticalStrut(10));
+
+        SaveFormat[] chosen = new SaveFormat[1];
+        for (SaveFormat format : SAVE_AS_FORMATS) {
+            javax.swing.JButton button = new javax.swing.JButton(format.description());
+            button.setAlignmentX(java.awt.Component.CENTER_ALIGNMENT);
+            button.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, button.getPreferredSize().height));
+            button.addActionListener(evt -> {
+                chosen[0] = format;
+                dialog.dispose();
+            });
+            panel.add(button);
+            panel.add(javax.swing.Box.createVerticalStrut(6));
+        }
+
+        javax.swing.JButton cancel = new javax.swing.JButton("Cancel");
+        cancel.setAlignmentX(java.awt.Component.CENTER_ALIGNMENT);
+        cancel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, cancel.getPreferredSize().height));
+        cancel.addActionListener(evt -> dialog.dispose());
+        panel.add(cancel);
+
+        dialog.getRootPane().registerKeyboardAction(evt -> dialog.dispose(),
+                javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
+                javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
+
+        dialog.setLayout(new java.awt.BorderLayout());
+        dialog.add(panel, java.awt.BorderLayout.CENTER);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true); // modal - blocks until a button disposes it
+
+        return chosen[0];
+    }
+
+    private static boolean hasSaveAsExtension(String fileName) {
+        String lower = fileName.toLowerCase();
+        for (SaveFormat format : SAVE_AS_FORMATS) {
+            if (lower.endsWith("." + format.extension())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return {@code fileName} with a known {@link #SAVE_AS_FORMATS} extension removed, so
+     *         switching format on an already-saved document does not stack extensions (e.g.
+     *         {@code "Net.pnml"} chosen as XML becomes {@code "Net.xml"}, not
+     *         {@code "Net.pnml.xml"})
+     */
+    private static String stripSaveAsExtension(String fileName) {
+        String lower = fileName.toLowerCase();
+        for (SaveFormat format : SAVE_AS_FORMATS) {
+            String suffix = "." + format.extension();
+            if (lower.endsWith(suffix)) {
+                return fileName.substring(0, fileName.length() - suffix.length());
+            }
+        }
+        return fileName;
+    }
+
+    /**
+     * @return the user's "PetriNets" folder under their Documents folder, created if it does
+     *         not exist yet - offered as the default save location the first time a document
+     *         is saved, so a brand-new net has somewhere sensible to land without the user
+     *         having to navigate there themselves.
+     */
+    private static java.io.File petriNetsFolder() {
+        java.io.File folder = new java.io.File(
+                new java.io.File(System.getProperty("user.home"), "Documents"), "PetriNets");
+        if (!folder.exists()) {
+            folder.mkdirs();
+        }
+        return folder;
     }
 
     /**
@@ -2028,8 +2384,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      *         own directory
      */
     private javax.swing.JFileChooser newDocumentChooser(String title) {
-        java.io.File startAt = lastChooserDirectory != null
-                ? lastChooserDirectory
+        java.io.File startAt = lastOpenDirectory != null
+                ? lastOpenDirectory
                 : currentPnmlFile != null ? currentPnmlFile.getParentFile() : null;
         javax.swing.JFileChooser chooser = new javax.swing.JFileChooser(startAt);
         chooser.setDialogTitle(title);
@@ -2045,6 +2401,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         canvas.setName(netNameTextField.getText());
         new PnmlModelGenerator().generate(canvas.toObjModel(), file);
         currentPnmlFile = file;
+
+        ua.stetsenkoinna.recentprojects.RecentProjectEntry entry =
+                ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared()
+                        .recordSaved(file.toPath(), canvas.getName());
+        ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared().setActiveProjectId(entry.getId());
     }
 
     public String getNameNet() {
@@ -2107,26 +2468,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }
     }
 
-    /**
-     * @param args command line arguments, which this window makes no use of
-     *
-     * Calling this directly is discouraged; go through the dedicated launcher class instead.
-     */
-    public static void sample_main(String[] args) {
-        try {
-            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException
-                | UnsupportedLookAndFeelException ex) {
-            LOGGER.error("Failed to apply look and feel", ex);
-        }
-        EventQueue.invokeLater(() -> new PetriNetsFrame().setVisible(true));
-    }
-
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem saveGraphNetMenuItem;
     private javax.swing.JMenuItem saveMethodInLibraryMenuItem;
@@ -2183,6 +2524,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JMenuItem savePnmlMenuItem;
     private javax.swing.JMenu viewMenu;
     private javax.swing.JMenu legacyMenu;
+    private javax.swing.JMenu openRecentMenu;
+    private javax.swing.JMenuItem welcomeScreenMenuItem;
     private javax.swing.JMenuItem exitMenuItem;
     /**
      * The PNML file the document was last opened from or saved to, so plain Save can write
@@ -2191,8 +2534,19 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      */
     private java.io.File currentPnmlFile;
 
-    /** Where the last Open or Save As dialog ended up, so the next one starts there. */
-    private java.io.File lastChooserDirectory;
+    /**
+     * Where the last Open dialog ended up, so the next one starts there. Deliberately not
+     * shared with {@link #lastSaveAsDirectory} - opening a file from one folder should not
+     * change where Save As defaults to for an unrelated new document.
+     */
+    private java.io.File lastOpenDirectory;
+
+    /**
+     * Where the last Save As dialog ended up, so the next one starts there instead of back at
+     * {@link #petriNetsFolder()} every time - but only once the user has actually saved
+     * somewhere with it; until then, a document with no file of its own defaults there.
+     */
+    private java.io.File lastSaveAsDirectory;
     // End of variables declaration//GEN-END:variables
     private static PetriNetsPanel petriNetsPanel;
     private final FileUse fileUse = new FileUse();

@@ -1,0 +1,96 @@
+name: Release build
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  swing-ui:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset-suffix: windows
+            launcher: petri-swing-ui.bat
+          - os: ubuntu-latest
+            asset-suffix: linux
+            launcher: petri-swing-ui.sh
+          - os: macos-latest
+            asset-suffix: macos
+            launcher: petri-swing-ui.command
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '23'
+          cache: maven
+
+      - name: Build petri-swing-ui
+        run: mvn --batch-mode --no-transfer-progress package -DskipTests -pl petri-swing-ui -am
+
+      - name: Rename jar
+        shell: bash
+        run: |
+          mv petri-swing-ui/target/petri-swing-ui.jar \
+             petri-swing-ui/target/petri-swing-ui-${{ matrix.asset-suffix }}.jar
+
+      - name: Package release zip (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $stage = "petri-swing-ui-${{ steps.version.outputs.version }}-${{ matrix.asset-suffix }}"
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          Copy-Item "petri-swing-ui/target/petri-swing-ui-${{ matrix.asset-suffix }}.jar" $stage
+          Copy-Item "petri-swing-ui/packaging/${{ matrix.launcher }}" $stage
+          Copy-Item "petri-swing-ui/packaging/README.md" $stage
+          Copy-Item "petri-swing-ui/LICENSE" $stage
+          Compress-Archive -Path "$stage/*" -DestinationPath "$stage.zip"
+
+      - name: Package release zip (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          stage="petri-swing-ui-${{ steps.version.outputs.version }}-${{ matrix.asset-suffix }}"
+          mkdir "$stage"
+          cp "petri-swing-ui/target/petri-swing-ui-${{ matrix.asset-suffix }}.jar" "$stage/"
+          cp "petri-swing-ui/packaging/${{ matrix.launcher }}" "$stage/"
+          cp "petri-swing-ui/packaging/README.md" "$stage/"
+          cp "petri-swing-ui/LICENSE" "$stage/"
+          chmod +x "$stage/${{ matrix.launcher }}"
+          zip -r "$stage.zip" "$stage"
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: petri-swing-ui-${{ steps.version.outputs.version }}-${{ matrix.asset-suffix }}.zip
+
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '23'
+          cache: maven
+
+      - name: Build petri-server
+        run: mvn --batch-mode --no-transfer-progress package -DskipTests -pl petri-server -am
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: petri-server/target/petri-server.jar

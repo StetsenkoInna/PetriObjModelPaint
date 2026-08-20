@@ -1,5 +1,11 @@
 # PetriObjModelPaint
 
+**Just want to use the app?** Download the ready-made editor from the
+[latest release](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/latest): grab the
+zip for your OS (`petri-swing-ui-<version>-windows.zip` / `-linux.zip` / `-macos.zip`), unzip it and run
+the launcher inside (`.bat` / `.sh` / `.command`): it checks for Java 23+ and points you to the
+official download if it's missing.
+
 Petri net graphical editor and simulator (**POMP** for short). Multi-module Maven project:
 
 | Module | Purpose |

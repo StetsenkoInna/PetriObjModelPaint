@@ -116,4 +116,20 @@ public class AppSettingsTest {
         assertEquals(ThemeMode.DARK, sessionOnly.getThemeMode());
         assertTrue(sessionOnly.isInitialSetupCompleted());
     }
+
+    /**
+     * A user who has never touched this setting gets their last project reopened automatically -
+     * the same "on by default" stance as the rest of the first-run experience.
+     */
+    @Test
+    public void reopeningTheLastProjectIsOnByDefault() {
+        AppSettings settings = new AppSettings(settingsFile());
+        assertTrue(settings.isReopenLastProjectOnStartup());
+    }
+
+    @Test
+    public void turningOffReopenLastProjectSurvivesARestart() {
+        new AppSettings(settingsFile()).setReopenLastProjectOnStartup(false);
+        assertFalse(new AppSettings(settingsFile()).isReopenLastProjectOnStartup());
+    }
 }
