@@ -84,7 +84,7 @@ public final class PnmlConstants {
      * The release of the web application that the {@link #TOOL_PETRI_NET_SIM} vocabulary
      * belongs to, taken from that project's {@code package.json}.
      */
-    public static final String TOOL_VERSION_PETRI_NET_SIM = "0.1.0";
+    public static final String TOOL_VERSION_PETRI_NET_SIM = "1.0.0";
 
     /**
      * The element-level version of the first format, stamped on the block of a place, a
