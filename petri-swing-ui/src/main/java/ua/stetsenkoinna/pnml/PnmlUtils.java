@@ -62,9 +62,11 @@ public class PnmlUtils {
                             "Transitions: " + petriNet.getListT().length + "\n" +
                             "Input Arcs: " + petriNet.getArcIn().length + "\n" +
                             "Output Arcs: " + petriNet.getArcOut().length);
-            return new ImportResult(petriNet, parser);
+            ImportResult result = new ImportResult(petriNet, parser);
+            MessageHelper.showImportWarnings(parent, result.getWarnings());
+            return result;
         } catch (Exception e) {
-            MessageHelper.showException(parent, "Error importing PNML file", e);
+            MessageHelper.showException(parent, "Error importing PNML file: " + file.getName(), e);
             return null;
         }
     }

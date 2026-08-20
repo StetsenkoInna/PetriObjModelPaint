@@ -62,11 +62,10 @@ public final class PnmlConstants {
     /**
      * The identity of the web application that shares this PNML dialect.
      *
-     * <p>Every document written here carries the same payload twice, once under each tool
-     * name, so that a file written by either tool opens in both. Each tool finds its own
-     * block, ignores the other, and nothing has to be converted on the way across.
-     * {@link #TOOL_PETRI_OBJ_MODEL} is written first, so a reader that stops at the first
-     * block it recognises reads exactly what it read before the second one existed.
+     * <p>This project never writes a block under this name; only the web application does.
+     * It is kept here as the name a reader falls back to when an element carries none of
+     * {@link #TOOL_PETRI_OBJ_MODEL}'s own blocks, which is what lets a document the web
+     * application wrote open here without anything having to be converted on the way across.
      */
     public static final String TOOL_PETRI_NET_SIM = "PetriNetSim";
 
@@ -79,12 +78,6 @@ public final class PnmlConstants {
      * the value to move with the project.
      */
     public static final String TOOL_VERSION_PETRI_OBJ_MODEL = "2.2.2";
-
-    /**
-     * The release of the web application that the {@link #TOOL_PETRI_NET_SIM} vocabulary
-     * belongs to, taken from that project's {@code package.json}.
-     */
-    public static final String TOOL_VERSION_PETRI_NET_SIM = "1.0.0";
 
     /**
      * The element-level version of the first format, stamped on the block of a place, a
@@ -272,4 +265,41 @@ public final class PnmlConstants {
                     + "a shared place of the page that owns the transition, a <referencePlace> "
                     + "standing in the page's own place slot, and run an ordinary arc from it to "
                     + "the transition on that same page.";
+
+    // Warning messages: soft validation. Parsing continues; these are collected rather than
+    // thrown, so the caller decides whether and how to show them to a user.
+    /** One id replaced by {@link PnmlIds}; %s = the id read, %s = the id imported instead. */
+    public static final String WARNING_INVALID_ID =
+            "Element id \"%s\" is not a valid XML id; imported as \"%s\".";
+    /** Text that named a number but did not parse as one; %s = where, %s = what, %s = text, %s = default used. */
+    public static final String WARNING_MALFORMED_NUMBER = "%s: %s \"%s\" is not a number; using %s.";
+    /**
+     * A standard {@code <graphics><position>} attribute that did not parse as a number; %s =
+     * where, %s = which coordinate, %s = the text read. Unlike {@link #WARNING_MALFORMED_NUMBER}
+     * this never says a default was used: the whole {@code <position>} is dropped instead, so a
+     * valid tool-specific {@code <coordinates>} is not shadowed by defaulting the corrupt half
+     * of a corrupt standard position to zero.
+     */
+    public static final String WARNING_MALFORMED_POSITION =
+            "%s: standard %s \"%s\" is not a number; ignoring the standard position.";
+    /** A plain-dialect arc whose endpoints are not both on the one page the reader can see. */
+    public static final String WARNING_CROSS_PAGE_ARC_DROPPED =
+            "Arc '%s' was dropped: its endpoints '%s' -> '%s' are not both on this page.";
+    /** An id reused across pages of a legacy composed document; not fatal there, but flagged. */
+    public static final String WARNING_DUPLICATE_LEGACY_ID =
+            "Element id '%s' is used on more than one page; a document that also carried "
+                    + "reference nodes would be rejected.";
+    /** A declared link whose multiplicity disagrees with what the document's structure states. */
+    public static final String WARNING_LINK_DISAGREES_WITH_STRUCTURE =
+            "Declared link %s disagrees with the document's structure %s; the structure wins.";
+    /** A declared link named an element id the document does not contain. */
+    public static final String WARNING_LINK_UNKNOWN_ELEMENT_ID =
+            "Link declaration names element '%s', which the document does not contain.";
+    /** A declared link named an object or element the parsed model does not have. */
+    public static final String WARNING_LINK_UNBOUND =
+            "Ignoring a declared link that does not fit the parsed model: %s";
+    /** A declared link whose type this reader does not recognise. */
+    public static final String WARNING_LINK_UNKNOWN_TYPE = "Ignoring a declared link of unknown type '%s'.";
+    /** A declared link whose attributes could not be turned into a link at all. */
+    public static final String WARNING_LINK_MALFORMED = "Ignoring a malformed declared link: %s";
 }

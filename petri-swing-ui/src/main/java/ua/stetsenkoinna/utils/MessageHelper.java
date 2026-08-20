@@ -2,6 +2,7 @@ package ua.stetsenkoinna.utils;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -179,6 +180,53 @@ public class MessageHelper {
         panel.add(scrollPane, BorderLayout.EAST);
 
         JOptionPane.showMessageDialog(parentComponent, panel, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
+    /**
+     * Displays a document's soft-validation warnings: a scrollable, read-only list, one
+     * warning per line. Reuses the layout {@link #showDetailedException} uses for a stack
+     * trace, minus the show/hide toggle, since there is no exception to hide behind one here -
+     * every warning is meant to be seen.
+     *
+     * @param parent   the parent component (or null to use defaultParent)
+     * @param title    the dialog title
+     * @param warnings the warnings to display, one per line, in the order given
+     */
+    public static void showWarnings(Component parent, String title, List<String> warnings) {
+        LOGGER.warn("{}: {}", title, warnings);
+        Component parentComponent = parent != null ? parent : defaultParent;
+
+        JTextArea textArea = new JTextArea(String.join("\n", warnings));
+        textArea.setEditable(false);
+        textArea.setLineWrap(true);
+        textArea.setWrapStyleWord(true);
+        textArea.setCaretPosition(0);
+        JScrollPane scrollPane = new JScrollPane(textArea);
+        scrollPane.setPreferredSize(new Dimension(480, 240));
+
+        JOptionPane.showMessageDialog(parentComponent, scrollPane, title, JOptionPane.WARNING_MESSAGE);
+    }
+
+    /**
+     * Shows a completed import's soft-validation warnings, titled with how many there were, or
+     * does nothing when there were none - the common case, which needs no dialog at all.
+     *
+     * @param parent   the parent component (or null to use defaultParent)
+     * @param warnings the parser's warnings; a null or empty list shows nothing
+     */
+    public static void showImportWarnings(Component parent, List<String> warnings) {
+        if (warnings == null || warnings.isEmpty()) {
+            return;
+        }
+        showWarnings(parent, importWarningsTitle(warnings.size()), warnings);
+    }
+
+    /**
+     * The title {@link #showImportWarnings} uses, split out so the exact wording is checkable
+     * without opening a dialog.
+     */
+    static String importWarningsTitle(int count) {
+        return "Imported with " + count + " warnings";
     }
 
     /**

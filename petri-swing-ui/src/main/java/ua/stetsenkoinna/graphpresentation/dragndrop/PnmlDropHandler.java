@@ -1,9 +1,13 @@
 package ua.stetsenkoinna.graphpresentation.dragndrop;
 
 import ua.stetsenkoinna.petriobj.PetriNet;
+import ua.stetsenkoinna.graphnet.GraphCanvasModel;
 import ua.stetsenkoinna.graphnet.GraphNetBuilder;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
+import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
+import ua.stetsenkoinna.pnml.PnmlConstants;
+import ua.stetsenkoinna.pnml.PnmlModelParser;
 import ua.stetsenkoinna.pnml.PnmlParser;
 import ua.stetsenkoinna.utils.MessageHelper;
 
@@ -108,6 +112,12 @@ public class PnmlDropHandler implements DropTargetListener {
     /**
      * Import PNML file preserving original coordinates from PNML.
      * The network shape remains unchanged, only the overall position is adjusted to drop location.
+     *
+     * <p>{@link PnmlParser} only reads a single-page document; a document that holds a whole
+     * Petri-object model (a page per object) makes it fail with {@link
+     * PnmlConstants#ERROR_OBJECT_MODEL_NOT_SUPPORTED}. Rather than reporting that failure to
+     * the user, it is recognised here and the drop falls back to {@link #importComposedPnmlFile},
+     * the composed reader File &gt; Open uses for the same documents.
      */
     private boolean importPnmlFile(File file, Point dropLocation) {
         try {
@@ -131,12 +141,71 @@ public class PnmlDropHandler implements DropTargetListener {
                 ", Transitions: " + petriNet.getListT().length +
                 "\nInput arcs: " + petriNet.getArcIn().length +
                 ", Output arcs: " + petriNet.getArcOut().length);
+            MessageHelper.showImportWarnings(parentFrame, parser.getWarnings());
 
             return true;
 
         } catch (Exception ex) {
+            if (isComposedDocumentFailure(ex)) {
+                return importComposedPnmlFile(file);
+            }
             MessageHelper.showException(parentFrame, "Error importing PNML file: " + file.getName(), ex);
             return false;
         }
+    }
+
+    /**
+     * Reads {@code file} as a whole Petri-object model and merges it into the panel: a page
+     * per object, each becoming a frame, plus the links between them, and reports the outcome
+     * the same way {@link #importPnmlFile} reports a single net.
+     *
+     * <p>The drop location is not used here: a composed document already carries a position for
+     * every one of its objects, and {@link PetriNetsPanel#addCanvasModel} is the same merge a
+     * loaded canvas document goes through elsewhere, which does not shift it either.
+     */
+    private boolean importComposedPnmlFile(File file) {
+        try {
+            ComposedImportResult result = mergeComposedDocument(file);
+            MessageHelper.showInfo(parentFrame,
+                    "PNML file imported successfully!\n" +
+                    "Objects: " + result.model().getObjects().size());
+            MessageHelper.showImportWarnings(parentFrame, result.warnings());
+            return true;
+        } catch (Exception ex) {
+            MessageHelper.showException(parentFrame, "Error importing PNML file: " + file.getName(), ex);
+            return false;
+        }
+    }
+
+    /**
+     * Reads {@code file} as a composed {@link GraphPetriObjModel} and merges it into the panel -
+     * the dialog-free core of {@link #importComposedPnmlFile}, package-visible so a test can
+     * drive it directly without any of the notification dialogs blocking the test JVM.
+     */
+    ComposedImportResult mergeComposedDocument(File file) throws Exception {
+        PnmlModelParser parser = new PnmlModelParser();
+        GraphPetriObjModel objModel = parser.parse(file);
+        panel.addCanvasModel(GraphCanvasModel.fromObjModel(objModel));
+        panel.repaint();
+        return new ComposedImportResult(objModel, parser.getWarnings());
+    }
+
+    /** What {@link #mergeComposedDocument} produced, for a caller to report or inspect. */
+    record ComposedImportResult(GraphPetriObjModel model, List<String> warnings) {
+    }
+
+    /**
+     * @return true when {@code ex} is the failure {@link PnmlParser} raises for a document that
+     *         holds more than one page - the signal that this drop should be retried through
+     *         the composed reader instead of being reported as an error.
+     */
+    static boolean isComposedDocumentFailure(Exception ex) {
+        String message = ex.getMessage();
+        if (message == null) {
+            return false;
+        }
+        String template = PnmlConstants.ERROR_OBJECT_MODEL_NOT_SUPPORTED;
+        String prefix = template.substring(0, template.indexOf("%d"));
+        return message.startsWith(prefix);
     }
 }

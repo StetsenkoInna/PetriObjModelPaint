@@ -6,7 +6,11 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Helper class for XML operations in PNML parsing/generation
@@ -144,11 +148,10 @@ final class XmlHelper {
      *
      * <p>This project's own identity wins: the blocks of {@link
      * PnmlConstants#TOOL_PETRI_OBJ_MODEL} are returned whenever the element carries any, and
-     * the blocks of {@link PnmlConstants#TOOL_PETRI_NET_SIM} only when it carries none. A
-     * document written by either tool carries both, holding the same payload, so the choice
-     * changes nothing there; it is what lets a document written by a tool that emits only
-     * one of the two be read whichever one that is. The two are never mixed in one result,
-     * so a caller that takes the first match it finds cannot read half of each.
+     * the blocks of {@link PnmlConstants#TOOL_PETRI_NET_SIM} only when it carries none. Each
+     * tool of this family writes only its own identity now, so this fallback is what lets a
+     * document written by the web application open here at all. The two are never mixed in
+     * one result, so a caller that takes the first match it finds cannot read half of each.
      *
      * <p>Selection is on {@code tool} alone, never on {@code version}: a document written by
      * a newer build carries a higher version on the very blocks that hold the object
@@ -167,68 +170,6 @@ final class XmlHelper {
             }
         }
         return own.isEmpty() ? sibling : own;
-    }
-
-    /**
-     * Gives every tool-specific block of a finished document its twin, so that the document
-     * says the same thing to both tools that share this PNML dialect.
-     *
-     * <p>Each {@link PnmlConstants#TOOL_PETRI_OBJ_MODEL} block is stamped with this
-     * project's release and followed by a deep clone of itself carrying {@link
-     * PnmlConstants#TOOL_PETRI_NET_SIM} and that project's release. The children are
-     * identical and the order is fixed: this project's block first, so a reader that stops at
-     * the first block it recognises reads exactly what it read before the twin existed.
-     *
-     * <p>Running this over a document that already carries both blocks changes nothing, which
-     * is what lets it sit on the serialisation path rather than at each of the write sites.
-     *
-     * @param document the finished document, modified in place
-     */
-    static void mirrorToolSpecificBlocks(Document document) {
-        NodeList blocks = document.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
-        List<Element> own = new ArrayList<>();
-        for (int i = 0; i < blocks.getLength(); i++) {
-            Element block = (Element) blocks.item(i);
-            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(block.getAttribute(PnmlConstants.ATTR_TOOL))) {
-                own.add(block);
-            }
-        }
-        // Collected first: inserting into a live node list while walking it would visit the
-        // clones as well.
-        for (Element block : own) {
-            block.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
-            if (isMirrored(block)) {
-                continue;
-            }
-            Element mirror = (Element) block.cloneNode(true);
-            mirror.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_NET_SIM);
-            mirror.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_NET_SIM);
-            block.getParentNode().insertBefore(mirror, block.getNextSibling());
-        }
-    }
-
-    /**
-     * Whether the block's element already carries the other identity.
-     *
-     * <p>Asked of the whole element rather than of the block's immediate neighbour: the twin
-     * is written straight after its own block here, but a document that arrived with the two
-     * in the other order, or with something between them, still has both, and adding a third
-     * would be wrong.
-     *
-     * @return whether the element this block belongs to already states the other identity
-     */
-    private static boolean isMirrored(Element block) {
-        Node parent = block.getParentNode();
-        if (!(parent instanceof Element)) {
-            return false;
-        }
-        for (Element sibling : directChildren((Element) parent, PnmlConstants.ELEMENT_TOOLSPECIFIC)) {
-            if (PnmlConstants.TOOL_PETRI_NET_SIM.equals(
-                    sibling.getAttribute(PnmlConstants.ATTR_TOOL))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -286,6 +227,142 @@ final class XmlHelper {
             return Double.parseDouble(text.trim());
         } catch (NumberFormatException e) {
             return defaultValue;
+        }
+    }
+
+    /**
+     * The sink-aware counterpart of {@link #parseIntSafe(String, int)}: text that is present
+     * but does not parse is reported, not only defaulted. Text that is simply absent is not
+     * malformed and is never reported.
+     *
+     * @param warnings sink to append a message to, or {@code null} to behave exactly like the
+     *        two-argument overload
+     * @param elementDescription what the value belongs to, e.g. {@code "place 'p1'"}
+     * @param field the attribute or tag the value came from, e.g. {@code "initialMarking"}
+     */
+    static int parseIntSafe(String text, int defaultValue, List<String> warnings,
+                            String elementDescription, String field) {
+        if (text == null || text.trim().isEmpty()) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(text.trim());
+        } catch (NumberFormatException e) {
+            addMalformedNumberWarning(warnings, elementDescription, field, text, String.valueOf(defaultValue));
+            return defaultValue;
+        }
+    }
+
+    /** The double-valued counterpart of {@link #parseIntSafe(String, int, List, String, String)}. */
+    static double parseDoubleSafe(String text, double defaultValue, List<String> warnings,
+                                  String elementDescription, String field) {
+        if (text == null || text.trim().isEmpty()) {
+            return defaultValue;
+        }
+        try {
+            return Double.parseDouble(text.trim());
+        } catch (NumberFormatException e) {
+            addMalformedNumberWarning(warnings, elementDescription, field, text, String.valueOf(defaultValue));
+            return defaultValue;
+        }
+    }
+
+    private static void addMalformedNumberWarning(List<String> warnings, String elementDescription,
+                                                   String field, String text, String defaultValue) {
+        if (warnings != null) {
+            warnings.add(String.format(PnmlConstants.WARNING_MALFORMED_NUMBER,
+                    elementDescription, field, text.trim(), defaultValue));
+        }
+    }
+
+    /** Tags that carry an id some other attribute in the document may point at. */
+    private static final List<String> IDENTIFIED_TAGS = List.of(
+            PnmlConstants.ELEMENT_PLACE, PnmlConstants.ELEMENT_TRANSITION, PnmlConstants.ELEMENT_ARC,
+            PnmlConstants.ELEMENT_REFERENCE_PLACE, PnmlConstants.ELEMENT_REFERENCE_TRANSITION);
+
+    /**
+     * Rewrites every place, transition, arc and reference-node id in the document that is not
+     * a valid NCName ({@link PnmlIds#isValid}) to a sanitized, document-unique replacement, and
+     * rewrites every attribute elsewhere in the document that names one of those ids: an arc's
+     * {@code source}/{@code target}, a reference node's {@code ref}, and a declared link's
+     * {@code sourceElementId}/{@code targetElementId}.
+     *
+     * <p>Meant to run once, on the whole document, before anything else reads an id out of it,
+     * so that a reader downstream never has to tell a valid id from a sanitized one. The writer
+     * runs it too, over the document it is about to write, on exactly the same ids a hand-built
+     * {@code PetriP} or {@code PetriT} may carry without ever having gone through this
+     * project's own id generator.
+     *
+     * <p>Two elements that share the same invalid raw id stay sharing one after this runs: every
+     * occurrence of that raw id is rewritten to the same sanitized replacement, one remap entry
+     * per raw id rather than one per element. The uniqueness a replacement is made unique
+     * against only ever resolves a collision between two <em>different</em> raw ids that
+     * sanitize to the same thing, or a collision with an id that was already valid; it never
+     * separates two occurrences of the same raw id from each other. That is what keeps the
+     * duplicate-id check the caller runs after this one able to see the duplicate at all: two
+     * elements named {@code "my place"} come out of here both named {@code "my-place"}, still
+     * duplicates, rather than {@code "my-place"} and {@code "my-place-2"}, which would make
+     * every existing reference to {@code "my place"} silently rebind to whichever element was
+     * sanitized last.
+     *
+     * @return one message per distinct raw id replaced, in document order, empty when every id
+     *         was already valid
+     */
+    static List<String> sanitizeIds(Document document) {
+        List<Element> idElements = new ArrayList<>();
+        for (String tagName : IDENTIFIED_TAGS) {
+            NodeList nodes = document.getElementsByTagName(tagName);
+            for (int i = 0; i < nodes.getLength(); i++) {
+                idElements.add((Element) nodes.item(i));
+            }
+        }
+
+        Set<String> used = new HashSet<>();
+        for (Element element : idElements) {
+            String id = element.getAttribute(PnmlConstants.ATTR_ID);
+            if (PnmlIds.isValid(id)) {
+                used.add(id);
+            }
+        }
+
+        List<String> warnings = new ArrayList<>();
+        Map<String, String> remap = new LinkedHashMap<>();
+        for (Element element : idElements) {
+            String id = element.getAttribute(PnmlConstants.ATTR_ID);
+            if (PnmlIds.isValid(id)) {
+                continue;
+            }
+            // The same raw id seen again: reuse its earlier replacement rather than minting a
+            // fresh, unique one, so the two elements stay recognisably the same duplicate id.
+            String replacement = remap.get(id);
+            if (replacement == null) {
+                replacement = PnmlIds.makeUnique(PnmlIds.sanitize(id), used);
+                remap.put(id, replacement);
+                warnings.add(String.format(PnmlConstants.WARNING_INVALID_ID, id, replacement));
+            }
+            element.setAttribute(PnmlConstants.ATTR_ID, replacement);
+        }
+
+        if (!remap.isEmpty()) {
+            rewriteIdAttribute(document, PnmlConstants.ELEMENT_ARC, PnmlConstants.ATTR_SOURCE, remap);
+            rewriteIdAttribute(document, PnmlConstants.ELEMENT_ARC, PnmlConstants.ATTR_TARGET, remap);
+            rewriteIdAttribute(document, PnmlConstants.ELEMENT_REFERENCE_PLACE, PnmlConstants.ATTR_REF, remap);
+            rewriteIdAttribute(document, PnmlConstants.ELEMENT_REFERENCE_TRANSITION, PnmlConstants.ATTR_REF, remap);
+            rewriteIdAttribute(document, PnmlConstants.ELEMENT_LINK, PnmlConstants.ATTR_SOURCE_ELEMENT_ID, remap);
+            rewriteIdAttribute(document, PnmlConstants.ELEMENT_LINK, PnmlConstants.ATTR_TARGET_ELEMENT_ID, remap);
+        }
+        return warnings;
+    }
+
+    private static void rewriteIdAttribute(Document document, String tagName, String attribute,
+                                           Map<String, String> remap) {
+        NodeList nodes = document.getElementsByTagName(tagName);
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Element element = (Element) nodes.item(i);
+            String replacement = remap.get(element.getAttribute(attribute));
+            if (replacement != null) {
+                element.setAttribute(attribute, replacement);
+            }
         }
     }
 

@@ -392,6 +392,30 @@ public class ComposedPnmlConformanceTest {
                 2, legacy.getObjectCount());
     }
 
+    /**
+     * The same check, but the shared id is not a valid NCName to begin with. Sanitizing must
+     * not be what turns the duplicate into two distinct ids: both occurrences of the raw id
+     * "my place" have to come out sanitized to the very same replacement, so the document is
+     * still recognisably a duplicate by the time this check runs. Sanitizing the two
+     * occurrences into "my-place" and "my-place-2" would hide the duplicate from this check
+     * entirely, and every existing reference to "my place" would be silently rebound to
+     * whichever element sanitized last.
+     */
+    @Test
+    public void anInvalidIdSharedAcrossPagesIsStillDuplicateAfterSanitizing() throws Exception {
+        try {
+            new PnmlModelParser().parseXml(twoPageDocument(
+                    "<place id=\"my place\"/><referencePlace id=\"stand_in\" ref=\"beta_p\"/>",
+                    "<place id=\"my place\"/><place id=\"beta_p\"/>"));
+            fail("two elements sharing the same invalid raw id sanitize to the same id, "
+                    + "and so are still a duplicate");
+        } catch (Exception expected) {
+            assertTrue("the message should name the sanitized, still-duplicated id, was: "
+                            + expected.getMessage(),
+                    expected.getMessage().contains("my-place"));
+        }
+    }
+
     // ---------------------------------------------------------------- writing
 
     @Test

@@ -11,7 +11,9 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -27,6 +29,7 @@ public class PnmlParser {
     private final Map<String, Integer> transitionIdToNumber = new HashMap<>();
     private final Map<Integer, java.awt.geom.Point2D.Double> placeCoordinates = new HashMap<>();
     private final Map<Integer, java.awt.geom.Point2D.Double> transitionCoordinates = new HashMap<>();
+    private final List<String> warnings = new ArrayList<>();
 
     /**
      * Parse PNML from an XML string.
@@ -56,6 +59,13 @@ public class PnmlParser {
     }
 
     private PetriNet buildNet(Document document) throws Exception {
+        // A parser instance may be reused across documents; getWarnings() promises the
+        // warnings of the most recent one, not an accumulation across every call.
+        warnings.clear();
+        // Before anything else reads an id out of the document, so every id below is already
+        // a valid NCName, whether the document supplied one or this fixed it in place.
+        warnings.addAll(XmlHelper.sanitizeIds(document));
+
         Element netElement = findNetElement(document);
         // The whole page subtree, since a page written inside another page is a Petri-object
         // exactly like a sibling one, and counting only the net's direct children would let a
@@ -66,7 +76,27 @@ public class PnmlParser {
             // nets that only a composed model can run.
             throw new Exception(String.format(PnmlConstants.ERROR_OBJECT_MODEL_NOT_SUPPORTED, pages));
         }
-        return parseScope(netElement, netElement.getAttribute(PnmlConstants.ATTR_ID));
+
+        // The net's own display name, the same preference order PnmlModelParser already
+        // gives a model's name: <name><text> first, the id only when there is no name at all.
+        String netName = XmlHelper.getDirectTextContent(netElement, PnmlConstants.ELEMENT_NAME);
+        if (!XmlHelper.isNotEmpty(netName)) {
+            netName = netElement.getAttribute(PnmlConstants.ATTR_ID);
+        }
+        return parseScope(netElement, netName);
+    }
+
+    /**
+     * Warnings collected while reading the most recent document: an id that was not a valid
+     * XML id and was imported under a different one, a value that did not parse as the number
+     * it named, an arc dropped because its endpoints were not both on this page. Parsing
+     * continues past all of them; this is what lets a caller show them to a user afterwards
+     * instead.
+     *
+     * @return the warnings, in document order, empty when the document raised none
+     */
+    public List<String> getWarnings() {
+        return Collections.unmodifiableList(warnings);
     }
 
     /**
@@ -178,7 +208,8 @@ public class PnmlParser {
 
         // Get initial marking
         String markingText = XmlHelper.getTextContent(placeElement, PnmlConstants.ELEMENT_INITIAL_MARKING);
-        int marking = XmlHelper.parseIntSafe(markingText, 0);
+        int marking = XmlHelper.parseIntSafe(markingText, 0, warnings,
+                "place '" + id + "'", PnmlConstants.ELEMENT_INITIAL_MARKING);
 
         // Parse place parameters from toolspecific section
         String markingParam = null;
@@ -218,7 +249,8 @@ public class PnmlParser {
             name = id;
         }
         int marking = XmlHelper.parseIntSafe(
-                XmlHelper.getToolSpecificText(reference, PnmlConstants.ELEMENT_FUSED_INITIAL_MARKING), 0);
+                XmlHelper.getToolSpecificText(reference, PnmlConstants.ELEMENT_FUSED_INITIAL_MARKING), 0,
+                warnings, "reference place '" + id + "'", PnmlConstants.ELEMENT_FUSED_INITIAL_MARKING);
 
         PetriP place = new PetriP(id, name, marking);
         // The slot may still be driven by a model parameter; that belongs to the object, not
@@ -260,12 +292,14 @@ public class PnmlParser {
             String priorityParam = null;
             String probabilityParam = null;
             String distributionParam = null;
+            String description = "transition '" + id + "'";
 
             for (Element toolElement : XmlHelper.toolSpecificBlocks(transitionElement)) {
                 // Parse time delay or its parameter
                 NodeList delayNodes = toolElement.getElementsByTagName("timeDelay");
                 if (delayNodes.getLength() > 0) {
-                    timeDelay = XmlHelper.parseDoubleSafe(delayNodes.item(0).getTextContent(), 0.0);
+                    timeDelay = XmlHelper.parseDoubleSafe(delayNodes.item(0).getTextContent(), 0.0,
+                            warnings, description, "timeDelay");
                 }
                 NodeList delayParamNodes = toolElement.getElementsByTagName("timeDelayParameter");
                 if (delayParamNodes.getLength() > 0) {
@@ -275,19 +309,22 @@ public class PnmlParser {
                 // Parse delay mean value
                 NodeList delayMeanNodes = toolElement.getElementsByTagName("delayMeanValue");
                 if (delayMeanNodes.getLength() > 0) {
-                    delayMeanValue = XmlHelper.parseDoubleSafe(delayMeanNodes.item(0).getTextContent(), 0.0);
+                    delayMeanValue = XmlHelper.parseDoubleSafe(delayMeanNodes.item(0).getTextContent(), 0.0,
+                            warnings, description, "delayMeanValue");
                 }
 
                 // Parse standard deviation
                 NodeList stdDeviationNodes = toolElement.getElementsByTagName("standardDeviation");
                 if (stdDeviationNodes.getLength() > 0) {
-                    standardDeviation = XmlHelper.parseDoubleSafe(stdDeviationNodes.item(0).getTextContent(), 0.0);
+                    standardDeviation = XmlHelper.parseDoubleSafe(stdDeviationNodes.item(0).getTextContent(), 0.0,
+                            warnings, description, "standardDeviation");
                 }
 
                 // Parse priority or its parameter
                 NodeList priorityNodes = toolElement.getElementsByTagName("priority");
                 if (priorityNodes.getLength() > 0) {
-                    priority = XmlHelper.parseIntSafe(priorityNodes.item(0).getTextContent(), 0);
+                    priority = XmlHelper.parseIntSafe(priorityNodes.item(0).getTextContent(), 0,
+                            warnings, description, "priority");
                 }
                 NodeList priorityParamNodes = toolElement.getElementsByTagName("priorityParameter");
                 if (priorityParamNodes.getLength() > 0) {
@@ -297,7 +334,8 @@ public class PnmlParser {
                 // Parse probability or its parameter
                 NodeList probabilityNodes = toolElement.getElementsByTagName("probability");
                 if (probabilityNodes.getLength() > 0) {
-                    probability = XmlHelper.parseDoubleSafe(probabilityNodes.item(0).getTextContent(), 1.0);
+                    probability = XmlHelper.parseDoubleSafe(probabilityNodes.item(0).getTextContent(), 1.0,
+                            warnings, description, "probability");
                 }
                 NodeList probabilityParamNodes = toolElement.getElementsByTagName("probabilityParameter");
                 if (probabilityParamNodes.getLength() > 0) {
@@ -377,7 +415,8 @@ public class PnmlParser {
 
             // Get arc weight
             String weightText = XmlHelper.getTextContent(arcElement, PnmlConstants.ELEMENT_INSCRIPTION);
-            int weight = XmlHelper.parseIntSafe(weightText, 1);
+            int weight = XmlHelper.parseIntSafe(weightText, 1, warnings,
+                    "arc '" + arcId + "'", PnmlConstants.ELEMENT_INSCRIPTION);
 
             // Parse toolspecific information for informational arcs and parameters
             boolean isInformational = false;
@@ -465,105 +504,114 @@ public class PnmlParser {
                 // else, which is the worst outcome available here.
                 log.warn("Dropping arc {}: endpoints {} -> {} are not both on this page",
                         arcId, source, target);
+                warnings.add(String.format(PnmlConstants.WARNING_CROSS_PAGE_ARC_DROPPED,
+                        arcId, source, target));
             }
         }
     }
 
     /**
-     * Parse coordinates from toolspecific element for a place
+     * Reads a place's or transition's position: the standard {@code <graphics><position>}
+     * first, which is what a foreign tool that only understands the ISO vocabulary can have
+     * written or edited, and the tool-specific {@code <coordinates>} only when the standard
+     * graphics carry none at all, or are malformed. A position of (0,0) is accepted at face
+     * value: only the complete absence of both is "no coordinates", which is what the fallback
+     * grid layout in {@code GraphNetBuilder} is for.
+     *
+     * <p>A {@code <position>} whose x or y does not parse as a number is not defaulted to 0.0
+     * for the bad half: that would commit to the standard source with a fabricated coordinate
+     * and never give the tool-specific {@code <coordinates>} a chance to supply the real one.
+     * It is instead treated as though the whole {@code <position>} were absent, after warning
+     * about it, so parsing falls through to the coordinates fallback exactly as it would for a
+     * standard graphics block that never stated a position at all.
+     *
+     * @return the position, or {@code null} when the element states neither
+     */
+    private java.awt.geom.Point2D.Double parseNodePosition(Element element, String description) {
+        Element graphics = XmlHelper.firstDirectChild(element, PnmlConstants.ELEMENT_GRAPHICS);
+        Element position = graphics == null
+                ? null : XmlHelper.firstDirectChild(graphics, PnmlConstants.ELEMENT_POSITION);
+        if (position != null) {
+            java.awt.geom.Point2D.Double standard = parseStandardPosition(position, description);
+            if (standard != null) {
+                return standard;
+            }
+            // Falls through: a malformed standard position does not commit to (0,0).
+        }
+        for (Element toolElement : XmlHelper.toolSpecificBlocks(element)) {
+            Element coordinates = XmlHelper.firstDirectChild(toolElement, PnmlConstants.ELEMENT_COORDINATES);
+            if (coordinates != null) {
+                return parsePoint(coordinates, description, PnmlConstants.ELEMENT_COORDINATES);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Parses the standard {@code <position>} strictly: a malformed x or y is warned about and
+     * the position is reported as absent rather than defaulted, which is what lets {@link
+     * #parseNodePosition} fall through to the tool-specific coordinates instead of shadowing
+     * them with a fabricated (0,0)-or-half-fabricated point.
+     *
+     * @return the position, or {@code null} when either coordinate fails to parse
+     */
+    private java.awt.geom.Point2D.Double parseStandardPosition(Element position, String description) {
+        String xText = position.getAttribute(PnmlConstants.ATTR_X);
+        String yText = position.getAttribute(PnmlConstants.ATTR_Y);
+        boolean malformed = false;
+        if (!isParsableOrAbsent(xText)) {
+            warnings.add(String.format(PnmlConstants.WARNING_MALFORMED_POSITION,
+                    description, PnmlConstants.ELEMENT_POSITION + " x", xText.trim()));
+            malformed = true;
+        }
+        if (!isParsableOrAbsent(yText)) {
+            warnings.add(String.format(PnmlConstants.WARNING_MALFORMED_POSITION,
+                    description, PnmlConstants.ELEMENT_POSITION + " y", yText.trim()));
+            malformed = true;
+        }
+        return malformed ? null : parsePoint(position, description, PnmlConstants.ELEMENT_POSITION);
+    }
+
+    /** @return whether {@code text} is either absent (default applies) or a parsable number */
+    private static boolean isParsableOrAbsent(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return true;
+        }
+        try {
+            Double.parseDouble(text.trim());
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private java.awt.geom.Point2D.Double parsePoint(Element element, String description, String field) {
+        double x = XmlHelper.parseDoubleSafe(element.getAttribute(PnmlConstants.ATTR_X), 0.0,
+                warnings, description, field + " x");
+        double y = XmlHelper.parseDoubleSafe(element.getAttribute(PnmlConstants.ATTR_Y), 0.0,
+                warnings, description, field + " y");
+        return new java.awt.geom.Point2D.Double(x, y);
+    }
+
+    /**
+     * Parse coordinates for a place
      */
     private void parseCoordinatesForPlace(Element placeElement, int placeNumber) {
-        boolean coordinatesFound = false;
-
-        // First try to parse from tool-specific coordinates (preferred)
-        for (Element toolElement : XmlHelper.toolSpecificBlocks(placeElement)) {
-            if (coordinatesFound) {
-                break;
-            }
-            NodeList coordinatesNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_COORDINATES);
-            if (coordinatesNodes.getLength() > 0) {
-                Element coordElement = (Element) coordinatesNodes.item(0);
-                try {
-                    double x = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_X));
-                    double y = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_Y));
-                    placeCoordinates.put(placeNumber, new java.awt.geom.Point2D.Double(x, y));
-                    coordinatesFound = true;
-                } catch (NumberFormatException e) {
-                    // Ignore invalid coordinates
-                }
-            }
-        }
-
-        // If no tool-specific coordinates found, try standard graphics coordinates
-        if (!coordinatesFound) {
-            NodeList graphicsNodes = placeElement.getElementsByTagName(PnmlConstants.ELEMENT_GRAPHICS);
-            // Find graphics element with position child (not offset)
-            for (int i = 0; i < graphicsNodes.getLength() && !coordinatesFound; i++) {
-                Element graphicsElement = (Element) graphicsNodes.item(i);
-                NodeList positionNodes = graphicsElement.getElementsByTagName(PnmlConstants.ELEMENT_POSITION);
-                if (positionNodes.getLength() > 0) {
-                    Element positionElement = (Element) positionNodes.item(0);
-                    try {
-                        double x = Double.parseDouble(positionElement.getAttribute(PnmlConstants.ATTR_X));
-                        double y = Double.parseDouble(positionElement.getAttribute(PnmlConstants.ATTR_Y));
-                        if (x != 0.0 || y != 0.0) {
-                            placeCoordinates.put(placeNumber, new java.awt.geom.Point2D.Double(x, y));
-                            coordinatesFound = true;
-                        }
-                    } catch (NumberFormatException e) {
-                        // Ignore invalid coordinates
-                    }
-                }
-            }
+        java.awt.geom.Point2D.Double position = parseNodePosition(placeElement,
+                "place '" + placeElement.getAttribute(PnmlConstants.ATTR_ID) + "'");
+        if (position != null) {
+            placeCoordinates.put(placeNumber, position);
         }
     }
 
     /**
-     * Parse coordinates from toolspecific element for a transition
+     * Parse coordinates for a transition
      */
     private void parseCoordinatesForTransition(Element transitionElement, int transitionNumber) {
-        boolean coordinatesFound = false;
-
-        // First try to parse from tool-specific coordinates (preferred)
-        for (Element toolElement : XmlHelper.toolSpecificBlocks(transitionElement)) {
-            if (coordinatesFound) {
-                break;
-            }
-            NodeList coordinatesNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_COORDINATES);
-            if (coordinatesNodes.getLength() > 0) {
-                Element coordElement = (Element) coordinatesNodes.item(0);
-                try {
-                    double x = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_X));
-                    double y = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_Y));
-                    transitionCoordinates.put(transitionNumber, new java.awt.geom.Point2D.Double(x, y));
-                    coordinatesFound = true;
-                } catch (NumberFormatException e) {
-                    // Ignore invalid coordinates
-                }
-            }
-        }
-
-        // If no tool-specific coordinates found, try standard graphics coordinates
-        if (!coordinatesFound) {
-            NodeList graphicsNodes = transitionElement.getElementsByTagName(PnmlConstants.ELEMENT_GRAPHICS);
-            // Find graphics element with position child (not offset)
-            for (int i = 0; i < graphicsNodes.getLength() && !coordinatesFound; i++) {
-                Element graphicsElement = (Element) graphicsNodes.item(i);
-                NodeList positionNodes = graphicsElement.getElementsByTagName(PnmlConstants.ELEMENT_POSITION);
-                if (positionNodes.getLength() > 0) {
-                    Element positionElement = (Element) positionNodes.item(0);
-                    try {
-                        double x = Double.parseDouble(positionElement.getAttribute(PnmlConstants.ATTR_X));
-                        double y = Double.parseDouble(positionElement.getAttribute(PnmlConstants.ATTR_Y));
-                        if (x != 0.0 || y != 0.0) {
-                            transitionCoordinates.put(transitionNumber, new java.awt.geom.Point2D.Double(x, y));
-                            coordinatesFound = true;
-                        }
-                    } catch (NumberFormatException e) {
-                        // Ignore invalid coordinates
-                    }
-                }
-            }
+        java.awt.geom.Point2D.Double position = parseNodePosition(transitionElement,
+                "transition '" + transitionElement.getAttribute(PnmlConstants.ATTR_ID) + "'");
+        if (position != null) {
+            transitionCoordinates.put(transitionNumber, position);
         }
     }
 
