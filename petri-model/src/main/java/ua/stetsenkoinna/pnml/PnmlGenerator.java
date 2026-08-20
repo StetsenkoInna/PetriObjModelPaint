@@ -54,15 +54,16 @@ public class PnmlGenerator {
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document document = builder.newDocument();
 
-        // Create root element
-        Element pnmlElement = document.createElement(PnmlConstants.ELEMENT_PNML);
-        pnmlElement.setAttribute(PnmlConstants.ATTR_XMLNS, PnmlConstants.PNML_NAMESPACE);
+        // Create root element. Every element below is created with createElementNS in this
+        // same namespace, so the root carrying it is enough: the serializer states it exactly
+        // once, on <pnml> itself, with nothing to override further down.
+        Element pnmlElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_PNML);
         document.appendChild(pnmlElement);
 
         // Create net element
-        Element netElement = document.createElement(PnmlConstants.ELEMENT_NET);
-        netElement.setAttribute(PnmlConstants.ATTR_ID,
-                XmlHelper.isNotEmpty(petriNet.getName()) ? petriNet.getName() : PnmlConstants.DEFAULT_NET_ID);
+        Element netElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_NET);
+        netElement.setAttribute(PnmlConstants.ATTR_ID, XmlHelper.isNotEmpty(petriNet.getName())
+                ? PnmlIds.sanitize(petriNet.getName()) : PnmlConstants.DEFAULT_NET_ID);
         netElement.setAttribute(PnmlConstants.ATTR_TYPE, PnmlConstants.PTNET_TYPE);
         pnmlElement.appendChild(netElement);
 
@@ -73,18 +74,16 @@ public class PnmlGenerator {
         }
 
         // Create page element for better compatibility with tools like Tina
-        Element pageElement = document.createElement(PnmlConstants.ELEMENT_PAGE);
+        Element pageElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_PAGE);
         pageElement.setAttribute(PnmlConstants.ATTR_ID, PnmlConstants.DEFAULT_PAGE_ID);
         netElement.appendChild(pageElement);
 
         writeNetInto(document, pageElement, petriNet, graphPetriNet);
 
-        // One pass over the finished document, rather than a second block at each of the
-        // write sites above: every tool-specific block is stamped with this project's
-        // release and gets its twin under the other tool name, so the file opens in both
-        // tools that share this dialect. The version each block carries above is the value
-        // it was written with before releases were stamped, and this is what replaces it.
-        XmlHelper.mirrorToolSpecificBlocks(document);
+        // The same invariants the composed writer holds itself to, on the same shared check:
+        // ids sanitized where they can be, and only genuinely broken structure refused.
+        WriterInvariants.assertValid(document);
+
         writeDocument(document, file);
     }
 
@@ -153,7 +152,7 @@ public class PnmlGenerator {
             String placeId = place.getId() != null ? place.getId() : "p" + place.getNumber();
             placeNumberToId.put(place.getNumber(), placeId);
 
-            Element placeElement = document.createElement(PnmlConstants.ELEMENT_PLACE);
+            Element placeElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_PLACE);
             placeElement.setAttribute(PnmlConstants.ATTR_ID, placeId);
             netElement.appendChild(placeElement);
 
@@ -164,61 +163,46 @@ public class PnmlGenerator {
 
             // Add initial marking
             if (!place.markIsParam() && place.getMark() > 0) {
-                Element markingElement = document.createElement(PnmlConstants.ELEMENT_INITIAL_MARKING);
-                Element textElement = document.createElement(PnmlConstants.ELEMENT_TEXT);
+                Element markingElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_INITIAL_MARKING);
+                Element textElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_TEXT);
                 textElement.setTextContent(String.valueOf(place.getMark()));
                 markingElement.appendChild(textElement);
                 placeElement.appendChild(markingElement);
             }
 
-            // Add toolspecific information (coordinates and parameters)
-            boolean needsToolspecific = place.markIsParam();
-            GraphPetriPlace graphPlace = findGraphPlaceByNumber(place.getNumber());
-            if (graphPlace != null) {
-                needsToolspecific = true;
+            // Add toolspecific information (marking parameter, if any). Built unconditionally
+            // and only appended when it ends up carrying something: a place whose only would-be
+            // content was its coordinates now has nothing tool-specific to say at all.
+            Element toolspecificElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_TOOLSPECIFIC);
+            toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
+            toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
+
+            if (place.markIsParam() && place.getMarkParamName() != null) {
+                Element markParamElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_INITIAL_MARKING_PARAMETER);
+                markParamElement.setTextContent(place.getMarkParamName());
+                toolspecificElement.appendChild(markParamElement);
             }
 
-            if (needsToolspecific) {
-                Element toolspecificElement = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
-                toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
-                toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
-
-                // Add coordinates if available
-                if (graphPlace != null) {
-                    Element coordinatesElement = document.createElement(PnmlConstants.ELEMENT_COORDINATES);
-                    Point2D center = graphPlace.getGraphElementCenter();
-                    coordinatesElement.setAttribute(PnmlConstants.ATTR_X, String.valueOf(center.getX()));
-                    coordinatesElement.setAttribute(PnmlConstants.ATTR_Y, String.valueOf(center.getY()));
-                    toolspecificElement.appendChild(coordinatesElement);
-                }
-
-                // Add marking parameter if present
-                if (place.markIsParam() && place.getMarkParamName() != null) {
-                    Element markParamElement = document.createElement(PnmlConstants.ELEMENT_INITIAL_MARKING_PARAMETER);
-                    markParamElement.setTextContent(place.getMarkParamName());
-                    toolspecificElement.appendChild(markParamElement);
-                }
-
+            if (toolspecificElement.hasChildNodes()) {
                 placeElement.appendChild(toolspecificElement);
             }
 
-            // Add graphics information with real coordinates for PNML compatibility
-            Element graphicsElement = document.createElement(PnmlConstants.ELEMENT_GRAPHICS);
-            Element positionElement = document.createElement(PnmlConstants.ELEMENT_POSITION);
+            GraphPetriPlace graphPlace = findGraphPlaceByNumber(place.getNumber());
 
-            // Use coordinates from GraphPetriNet if available, otherwise use defaults
-            GraphPetriPlace graphPlaceForGraphics = findGraphPlaceByNumber(place.getNumber());
-            if (graphPlaceForGraphics != null) {
-                Point2D center = graphPlaceForGraphics.getGraphElementCenter();
-                positionElement.setAttribute(PnmlConstants.ATTR_X, String.valueOf((int)center.getX()));
-                positionElement.setAttribute(PnmlConstants.ATTR_Y, String.valueOf((int)center.getY()));
-            } else {
-                positionElement.setAttribute(PnmlConstants.ATTR_X, "0");
-                positionElement.setAttribute(PnmlConstants.ATTR_Y, "0");
+            // Add graphics information with real coordinates for PNML compatibility. Omitted
+            // entirely when there is no drawing to take a position from: the schema makes node
+            // graphics optional, and a written (0,0) placeholder is indistinguishable from a
+            // real position at the origin, which pins the node there on read instead of
+            // leaving it to the fallback grid.
+            if (graphPlace != null) {
+                Element graphicsElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_GRAPHICS);
+                Element positionElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_POSITION);
+                Point2D center = graphPlace.getGraphElementCenter();
+                positionElement.setAttribute(PnmlConstants.ATTR_X, String.valueOf(Math.round(center.getX())));
+                positionElement.setAttribute(PnmlConstants.ATTR_Y, String.valueOf(Math.round(center.getY())));
+                graphicsElement.appendChild(positionElement);
+                placeElement.appendChild(graphicsElement);
             }
-
-            graphicsElement.appendChild(positionElement);
-            placeElement.appendChild(graphicsElement);
         }
     }
 
@@ -230,7 +214,7 @@ public class PnmlGenerator {
             String transitionId = transition.getId() != null ? transition.getId() : "t" + transition.getNumber();
             transitionNumberToId.put(transition.getNumber(), transitionId);
 
-            Element transitionElement = document.createElement(PnmlConstants.ELEMENT_TRANSITION);
+            Element transitionElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_TRANSITION);
             transitionElement.setAttribute(PnmlConstants.ATTR_ID, transitionId);
             netElement.appendChild(transitionElement);
 
@@ -239,75 +223,67 @@ public class PnmlGenerator {
                 transitionElement.appendChild(createNameElement(document, transition.getName()));
             }
 
-            // Add toolspecific information for extended properties and coordinates
-            Element toolspecificElement = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
+            // Add toolspecific information for extended properties
+            Element toolspecificElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_TOOLSPECIFIC);
             toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
             toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
 
-            // Add coordinates from GraphPetriNet if available
             GraphPetriTransition graphTransition = findGraphTransitionByNumber(transition.getNumber());
-            if (graphTransition != null) {
-                Element coordinatesElement = document.createElement(PnmlConstants.ELEMENT_COORDINATES);
-                Point2D center = graphTransition.getGraphElementCenter();
-                coordinatesElement.setAttribute(PnmlConstants.ATTR_X, String.valueOf(center.getX()));
-                coordinatesElement.setAttribute(PnmlConstants.ATTR_Y, String.valueOf(center.getY()));
-                toolspecificElement.appendChild(coordinatesElement);
-            }
 
             // Add time delay or its parameter
             if (transition.parametrIsParam() && transition.getParameterParamName() != null) {
-                Element timeDelayParamElement = document.createElement("timeDelayParameter");
+                Element timeDelayParamElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "timeDelayParameter");
                 timeDelayParamElement.setTextContent(transition.getParameterParamName());
                 toolspecificElement.appendChild(timeDelayParamElement);
             } else if (transition.getParameter() > 0) {
-                Element timeDelayElement = document.createElement("timeDelay");
+                Element timeDelayElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "timeDelay");
                 timeDelayElement.setTextContent(String.valueOf(transition.getParameter()));
                 toolspecificElement.appendChild(timeDelayElement);
             }
 
             // Add delay mean value (always export if > 0)
             if (transition.getParameter() > 0) {
-                Element delayMeanElement = document.createElement("delayMeanValue");
+                Element delayMeanElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "delayMeanValue");
                 delayMeanElement.setTextContent(String.valueOf(transition.getParameter()));
                 toolspecificElement.appendChild(delayMeanElement);
             }
 
             // Add standard deviation (always export if > 0)
             if (transition.getParamDeviation() > 0) {
-                Element stdDeviationElement = document.createElement("standardDeviation");
+                Element stdDeviationElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "standardDeviation");
                 stdDeviationElement.setTextContent(String.valueOf(transition.getParamDeviation()));
                 toolspecificElement.appendChild(stdDeviationElement);
             }
 
             // Add priority or its parameter
             if (transition.priorityIsParam() && transition.getPriorityParamName() != null) {
-                Element priorityParamElement = document.createElement("priorityParameter");
+                Element priorityParamElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "priorityParameter");
                 priorityParamElement.setTextContent(transition.getPriorityParamName());
                 toolspecificElement.appendChild(priorityParamElement);
             } else if (transition.getPriority() != 0) {
-                Element priorityElement = document.createElement("priority");
+                Element priorityElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "priority");
                 priorityElement.setTextContent(String.valueOf(transition.getPriority()));
                 toolspecificElement.appendChild(priorityElement);
             }
 
             // Add probability or its parameter
             if (transition.probabilityIsParam() && transition.getProbabilityParamName() != null) {
-                Element probabilityParamElement = document.createElement("probabilityParameter");
+                Element probabilityParamElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "probabilityParameter");
                 probabilityParamElement.setTextContent(transition.getProbabilityParamName());
                 toolspecificElement.appendChild(probabilityParamElement);
             } else if (transition.getProbability() != 1.0) {
-                Element probabilityElement = document.createElement("probability");
+                Element probabilityElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "probability");
                 probabilityElement.setTextContent(String.valueOf(transition.getProbability()));
                 toolspecificElement.appendChild(probabilityElement);
             }
 
             // Add distribution or its parameter
             if (transition.distributionIsParam() && transition.getDistributionParamName() != null) {
-                Element distributionParamElement = document.createElement("distributionParameter");
+                Element distributionParamElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "distributionParameter");
                 distributionParamElement.setTextContent(transition.getDistributionParamName());
                 toolspecificElement.appendChild(distributionParamElement);
             } else if (transition.getDistribution() != null && !transition.getDistribution().isEmpty()) {
-                Element distributionElement = document.createElement("distribution");
+                Element distributionElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "distribution");
                 distributionElement.setTextContent(transition.getDistribution());
                 toolspecificElement.appendChild(distributionElement);
             }
@@ -316,23 +292,20 @@ public class PnmlGenerator {
                 transitionElement.appendChild(toolspecificElement);
             }
 
-            // Add graphics information with real coordinates for PNML compatibility
-            Element graphicsElement = document.createElement(PnmlConstants.ELEMENT_GRAPHICS);
-            Element positionElement = document.createElement(PnmlConstants.ELEMENT_POSITION);
-
-            // Use coordinates from GraphPetriNet if available, otherwise use defaults
-            GraphPetriTransition graphTransitionForGraphics = findGraphTransitionByNumber(transition.getNumber());
-            if (graphTransitionForGraphics != null) {
-                Point2D center = graphTransitionForGraphics.getGraphElementCenter();
-                positionElement.setAttribute(PnmlConstants.ATTR_X, String.valueOf((int)center.getX()));
-                positionElement.setAttribute(PnmlConstants.ATTR_Y, String.valueOf((int)center.getY()));
-            } else {
-                positionElement.setAttribute(PnmlConstants.ATTR_X, "0");
-                positionElement.setAttribute(PnmlConstants.ATTR_Y, "0");
+            // Add graphics information with real coordinates for PNML compatibility. Omitted
+            // entirely when there is no drawing to take a position from: the schema makes node
+            // graphics optional, and a written (0,0) placeholder is indistinguishable from a
+            // real position at the origin, which pins the node there on read instead of
+            // leaving it to the fallback grid.
+            if (graphTransition != null) {
+                Element graphicsElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_GRAPHICS);
+                Element positionElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_POSITION);
+                Point2D center = graphTransition.getGraphElementCenter();
+                positionElement.setAttribute(PnmlConstants.ATTR_X, String.valueOf(Math.round(center.getX())));
+                positionElement.setAttribute(PnmlConstants.ATTR_Y, String.valueOf(Math.round(center.getY())));
+                graphicsElement.appendChild(positionElement);
+                transitionElement.appendChild(graphicsElement);
             }
-
-            graphicsElement.appendChild(positionElement);
-            transitionElement.appendChild(graphicsElement);
         }
     }
 
@@ -344,7 +317,7 @@ public class PnmlGenerator {
 
         // Generate input arcs (Place to Transition)
         for (ArcIn arcIn : arcIns) {
-            Element arcElement = document.createElement(PnmlConstants.ELEMENT_ARC);
+            Element arcElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_ARC);
             String arcId = arcIn.getId() != null ? arcIn.getId() : "arc" + arcCounter++;
             arcElement.setAttribute(PnmlConstants.ATTR_ID, arcId);
             arcElement.setAttribute(PnmlConstants.ATTR_SOURCE, placeNumberToId.get(arcIn.getNumP()));
@@ -352,8 +325,8 @@ public class PnmlGenerator {
             netElement.appendChild(arcElement);
 
             // Add inscription (weight) - always include even if quantity is 1
-            Element inscriptionElement = document.createElement(PnmlConstants.ELEMENT_INSCRIPTION);
-            Element textElement = document.createElement(PnmlConstants.ELEMENT_TEXT);
+            Element inscriptionElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_INSCRIPTION);
+            Element textElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_TEXT);
             textElement.setTextContent(String.valueOf(arcIn.getQuantity()));
             inscriptionElement.appendChild(textElement);
             arcElement.appendChild(inscriptionElement);
@@ -361,24 +334,24 @@ public class PnmlGenerator {
             // Add toolspecific information for informational arcs and parameters
             boolean needsToolspecific = arcIn.getIsInf() || arcIn.infIsParam() || arcIn.kIsParam();
             if (needsToolspecific) {
-                Element toolspecificElement = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
+                Element toolspecificElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_TOOLSPECIFIC);
                 toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
                 toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
 
                 if (arcIn.getIsInf()) {
-                    Element infElement = document.createElement("informational");
+                    Element infElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "informational");
                     infElement.setTextContent("true");
                     toolspecificElement.appendChild(infElement);
                 }
 
                 if (arcIn.infIsParam() && arcIn.getInfParamName() != null) {
-                    Element infParamElement = document.createElement("informationalParameter");
+                    Element infParamElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "informationalParameter");
                     infParamElement.setTextContent(arcIn.getInfParamName());
                     toolspecificElement.appendChild(infParamElement);
                 }
 
                 if (arcIn.kIsParam() && arcIn.getKParamName() != null) {
-                    Element kParamElement = document.createElement("multiplicityParameter");
+                    Element kParamElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "multiplicityParameter");
                     kParamElement.setTextContent(arcIn.getKParamName());
                     toolspecificElement.appendChild(kParamElement);
                 }
@@ -389,7 +362,7 @@ public class PnmlGenerator {
 
         // Generate output arcs (Transition to Place)
         for (ArcOut arcOut : arcOuts) {
-            Element arcElement = document.createElement(PnmlConstants.ELEMENT_ARC);
+            Element arcElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_ARC);
             String arcId = arcOut.getId() != null ? arcOut.getId() : "arc" + arcCounter++;
             arcElement.setAttribute(PnmlConstants.ATTR_ID, arcId);
             arcElement.setAttribute(PnmlConstants.ATTR_SOURCE, transitionNumberToId.get(arcOut.getNumT()));
@@ -397,19 +370,19 @@ public class PnmlGenerator {
             netElement.appendChild(arcElement);
 
             // Add inscription (weight) - always include even if quantity is 1
-            Element inscriptionElement = document.createElement(PnmlConstants.ELEMENT_INSCRIPTION);
-            Element textElement = document.createElement(PnmlConstants.ELEMENT_TEXT);
+            Element inscriptionElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_INSCRIPTION);
+            Element textElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_TEXT);
             textElement.setTextContent(String.valueOf(arcOut.getQuantity()));
             inscriptionElement.appendChild(textElement);
             arcElement.appendChild(inscriptionElement);
 
             // Add toolspecific information for parameters
             if (arcOut.kIsParam() && arcOut.getKParamName() != null) {
-                Element toolspecificElement = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
+                Element toolspecificElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_TOOLSPECIFIC);
                 toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
                 toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
 
-                Element kParamElement = document.createElement("multiplicityParameter");
+                Element kParamElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "multiplicityParameter");
                 kParamElement.setTextContent(arcOut.getKParamName());
                 toolspecificElement.appendChild(kParamElement);
 
@@ -422,8 +395,8 @@ public class PnmlGenerator {
      * Creates name element with text content
      */
     private Element createNameElement(Document document, String name) {
-        Element nameElement = document.createElement(PnmlConstants.ELEMENT_NAME);
-        Element textElement = document.createElement(PnmlConstants.ELEMENT_TEXT);
+        Element nameElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_NAME);
+        Element textElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_TEXT);
         textElement.setTextContent(name);
         nameElement.appendChild(textElement);
         return nameElement;

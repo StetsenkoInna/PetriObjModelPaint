@@ -35,5 +35,14 @@
             <artifactId>junit</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- RELAX NG validator, test scope only: PnmlRngConformanceTest checks writer output
+             against the ISO/IEC 15909-2 PNML grammar itself, not only against this project's
+             own reader. -->
+        <dependency>
+            <groupId>org.relaxng</groupId>
+            <artifactId>jing</artifactId>
+            <version>20220510</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

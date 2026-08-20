@@ -99,8 +99,8 @@ public class PageHierarchyPnmlTest {
         Document document = parseXml(new PnmlModelGenerator().generateXml(nestedModel()));
         List<String> outer = tagNames(children(pageById(document, "object0"), null));
 
-        assertEquals("name, tool-specific blocks, nodes, arcs, then the child pages",
-                List.of("name", "toolspecific", "toolspecific",
+        assertEquals("name, tool-specific block, nodes, arcs, then the child pages",
+                List.of("name", "toolspecific",
                         "place", "place", "transition", "arc", "arc",
                         "page", "page"),
                 outer);

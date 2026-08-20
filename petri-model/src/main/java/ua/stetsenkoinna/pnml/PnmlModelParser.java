@@ -24,6 +24,7 @@ import java.awt.Point;
 import java.io.File;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -77,6 +78,21 @@ public class PnmlModelParser {
 
     private static final Logger log = LoggerFactory.getLogger(PnmlModelParser.class);
 
+    private final List<String> warnings = new ArrayList<>();
+
+    /**
+     * Warnings collected while reading the most recent document: an id that was not a valid
+     * XML id and was imported under a different one, a value that did not parse as the number
+     * it named, a duplicate id in a legacy document, a declared link that disagreed with or
+     * could not be bound to the document's structure. Parsing continues past all of them; this
+     * is what lets a caller show them to a user afterwards instead.
+     *
+     * @return the warnings, in document order, empty when the document raised none
+     */
+    public List<String> getWarnings() {
+        return Collections.unmodifiableList(warnings);
+    }
+
     /**
      * Reads a model from a PNML file.
      *
@@ -102,6 +118,13 @@ public class PnmlModelParser {
     }
 
     private GraphPetriObjModel buildModel(Document document) throws Exception {
+        // A parser instance may be reused across documents; getWarnings() promises the
+        // warnings of the most recent one, not an accumulation across every call.
+        warnings.clear();
+        // Before anything else reads an id out of the document, so every id below is already
+        // a valid NCName, whether the document supplied one or this fixed it in place.
+        warnings.addAll(XmlHelper.sanitizeIds(document));
+
         Element netElement = PnmlParser.findNetElement(document);
 
         String modelName = XmlHelper.getDirectTextContent(netElement, PnmlConstants.ELEMENT_NAME);
@@ -110,14 +133,14 @@ public class PnmlModelParser {
         }
         GraphPetriObjModel model = new GraphPetriObjModel(modelName);
 
-        List<Element> pages = orderedPages(netElement);
+        List<Element> pages = orderedPages(netElement, warnings);
         // The reference nodes decide which reader runs, and they are built before any page is
         // read because a page reader needs to know which of its arcs are really links.
         ReferenceNodeIndex references = ReferenceNodeIndex.isConformant(document)
-                ? new ReferenceNodeIndex(netElement, pages)
+                ? new ReferenceNodeIndex(netElement, pages, warnings)
                 : null;
         if (references == null) {
-            warnAboutDuplicateIds(pages);
+            warnAboutDuplicateIds(pages, warnings);
         }
 
         if (pages.isEmpty()) {
@@ -134,11 +157,12 @@ public class PnmlModelParser {
             }
         }
 
-        for (PetriObjLink link : readModelLinks(netElement, references)) {
+        for (PetriObjLink link : readModelLinks(netElement, references, warnings)) {
             try {
                 model.addLink(link);
             } catch (IllegalArgumentException invalid) {
                 log.warn("Ignoring link that does not fit the parsed model: {}", invalid.getMessage());
+                warnings.add(String.format(PnmlConstants.WARNING_LINK_UNBOUND, invalid.getMessage()));
             }
         }
         return model;
@@ -167,13 +191,14 @@ public class PnmlModelParser {
      *
      * @throws Exception when a nested document does not state a usable index on every page
      */
-    private static List<Element> orderedPages(Element netElement) throws Exception {
+    private static List<Element> orderedPages(Element netElement, List<String> warnings) throws Exception {
         List<Element> pages = XmlHelper.descendantPages(netElement);
         Element[] byIndex = new Element[pages.size()];
         for (Element page : pages) {
             Element objectElement = findObjectElement(page);
             int index = objectElement == null ? -1 : XmlHelper.parseIntSafe(
-                    objectElement.getAttribute(PnmlConstants.ATTR_INDEX), -1);
+                    objectElement.getAttribute(PnmlConstants.ATTR_INDEX), -1, warnings,
+                    "page '" + page.getAttribute(PnmlConstants.ATTR_ID) + "'", PnmlConstants.ATTR_INDEX);
             if (index < 0 || index >= byIndex.length || byIndex[index] != null) {
                 if (isNested(pages)) {
                     // Document order is not object order once pages nest: a child of object 0
@@ -246,13 +271,13 @@ public class PnmlModelParser {
      *
      * @throws Exception if the document declares a link of a retired type
      */
-    private static List<PetriObjLink> readModelLinks(Element netElement, ReferenceNodeIndex references)
-            throws Exception {
-        List<PetriObjLink> declared = readLinks(netElement, references);
+    private static List<PetriObjLink> readModelLinks(Element netElement, ReferenceNodeIndex references,
+                                                     List<String> warnings) throws Exception {
+        List<PetriObjLink> declared = readLinks(netElement, references, warnings);
         if (references == null) {
             return declared;
         }
-        return mergeDeclaredLinks(references.structuralLinks(), declared);
+        return mergeDeclaredLinks(references.structuralLinks(), declared, warnings);
     }
 
     /**
@@ -260,7 +285,7 @@ public class PnmlModelParser {
      * {@link #readModelLinks}.
      */
     private static List<PetriObjLink> mergeDeclaredLinks(List<PetriObjLink> structural,
-                                                         List<PetriObjLink> declared) {
+                                                         List<PetriObjLink> declared, List<String> warnings) {
         List<PetriObjLink> links = new ArrayList<>(structural);
         Map<String, PetriObjLink> byEndpoints = new LinkedHashMap<>();
         for (PetriObjLink link : structural) {
@@ -277,6 +302,8 @@ public class PnmlModelParser {
             } else if (structured.getQuantity() != link.getQuantity()) {
                 log.warn("Link {} disagrees with the declaration {}; the document's structure wins",
                         structured, link);
+                warnings.add(String.format(PnmlConstants.WARNING_LINK_DISAGREES_WITH_STRUCTURE,
+                        structured, link));
             }
         }
         return links;
@@ -295,7 +322,7 @@ public class PnmlModelParser {
      * read as conformant would be rejected, and a user who is about to hit that deserves to
      * hear about it while the file still opens.
      */
-    private static void warnAboutDuplicateIds(List<Element> pages) {
+    private static void warnAboutDuplicateIds(List<Element> pages, List<String> warnings) {
         Set<String> seen = new HashSet<>();
         for (Element page : pages) {
             for (Element element : XmlHelper.directChildren(page)) {
@@ -306,6 +333,7 @@ public class PnmlModelParser {
                         if (XmlHelper.isNotEmpty(id) && !seen.add(id)) {
                             log.warn("Element id '{}' is used on more than one page; "
                                     + "a document that also carried reference nodes would be rejected", id);
+                            warnings.add(String.format(PnmlConstants.WARNING_DUPLICATE_LEGACY_ID, id));
                         }
                     }
                     default -> { /* pages carry names, tool-specific blocks and nothing else */ }
@@ -350,6 +378,10 @@ public class PnmlModelParser {
         resetElementCounters();
         PnmlParser parser = new PnmlParser();
         PetriNet net = parser.parseScope(scope, name, references);
+        // Ids in this page are already valid: buildModel sanitized the whole document before
+        // any page was read. What the page reader still finds are the numeric and structural
+        // warnings only it can see, and they belong on this model's own list.
+        warnings.addAll(parser.getWarnings());
 
         // A page with our own petriObject metadata carries the user's exact canvas
         // coordinates; normalizing them to the (50,50) corner is a defense that only
@@ -362,14 +394,20 @@ public class PnmlModelParser {
         object.setAbsoluteLayout(ownDocument);
 
         if (objectElement != null) {
+            String description = "Petri-object '" + name + "'";
             object.setPriority(XmlHelper.parseIntSafe(
-                    objectElement.getAttribute(PnmlConstants.ATTR_PRIORITY), 0));
+                    objectElement.getAttribute(PnmlConstants.ATTR_PRIORITY), 0,
+                    warnings, description, PnmlConstants.ATTR_PRIORITY));
             object.setPosition(new Point(
-                    XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_X), 0),
-                    XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_Y), 0)));
+                    XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_X), 0,
+                            warnings, description, PnmlConstants.ATTR_X),
+                    XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_Y), 0,
+                            warnings, description, PnmlConstants.ATTR_Y)));
             object.setSize(
-                    XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_WIDTH), 0),
-                    XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_HEIGHT), 0));
+                    XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_WIDTH), 0,
+                            warnings, description, PnmlConstants.ATTR_WIDTH),
+                    XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_HEIGHT), 0,
+                            warnings, description, PnmlConstants.ATTR_HEIGHT));
             object.setCollapsed(
                     Boolean.parseBoolean(objectElement.getAttribute(PnmlConstants.ATTR_COLLAPSED)));
         }
@@ -433,8 +471,8 @@ public class PnmlModelParser {
      *        document; when present, an endpoint given by id is resolved through it
      * @throws Exception if the block declares a link of a retired type
      */
-    private static List<PetriObjLink> readLinks(Element netElement, ReferenceNodeIndex references)
-            throws Exception {
+    private static List<PetriObjLink> readLinks(Element netElement, ReferenceNodeIndex references,
+                                                List<String> warnings) throws Exception {
         List<PetriObjLink> links = new ArrayList<>();
         for (Element toolspecific : XmlHelper.toolSpecificBlocks(netElement)) {
             Element linksElement =
@@ -443,7 +481,7 @@ public class PnmlModelParser {
                 continue;
             }
             for (Element linkElement : XmlHelper.directChildren(linksElement, PnmlConstants.ELEMENT_LINK)) {
-                PetriObjLink link = readLink(linkElement, references);
+                PetriObjLink link = readLink(linkElement, references, warnings);
                 if (link != null) {
                     links.add(link);
                 }
@@ -460,28 +498,37 @@ public class PnmlModelParser {
      * @throws Exception if the declaration is of a retired type, which is a statement about
      *         the model the reader must not quietly drop or quietly rewrite
      */
-    private static PetriObjLink readLink(Element element, ReferenceNodeIndex references)
+    private static PetriObjLink readLink(Element element, ReferenceNodeIndex references, List<String> warnings)
             throws Exception {
-        int sourceObject = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_SOURCE_OBJECT), -1);
-        int sourceElement = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_SOURCE_ELEMENT), -1);
-        int targetObject = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_TARGET_OBJECT), -1);
-        int targetElement = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_TARGET_ELEMENT), -1);
+        // Read first, so the numeric fields below have something more specific than "link" to
+        // name in a warning about themselves.
+        String type = element.getAttribute(PnmlConstants.ATTR_LINK_TYPE);
+        String description = "link '" + type + "'";
+
+        int sourceObject = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_SOURCE_OBJECT), -1,
+                warnings, description, PnmlConstants.ATTR_SOURCE_OBJECT);
+        int sourceElement = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_SOURCE_ELEMENT), -1,
+                warnings, description, PnmlConstants.ATTR_SOURCE_ELEMENT);
+        int targetObject = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_TARGET_OBJECT), -1,
+                warnings, description, PnmlConstants.ATTR_TARGET_OBJECT);
+        int targetElement = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_TARGET_ELEMENT), -1,
+                warnings, description, PnmlConstants.ATTR_TARGET_ELEMENT);
 
         // An id says which element the user meant even if the document's elements are
         // numbered differently than when the declaration was written, so it wins.
-        int[] source = slotOf(references, element.getAttribute(PnmlConstants.ATTR_SOURCE_ELEMENT_ID));
+        int[] source = slotOf(references, element.getAttribute(PnmlConstants.ATTR_SOURCE_ELEMENT_ID), warnings);
         if (source != null) {
             sourceObject = source[0];
             sourceElement = source[1];
         }
-        int[] target = slotOf(references, element.getAttribute(PnmlConstants.ATTR_TARGET_ELEMENT_ID));
+        int[] target = slotOf(references, element.getAttribute(PnmlConstants.ATTR_TARGET_ELEMENT_ID), warnings);
         if (target != null) {
             targetObject = target[0];
             targetElement = target[1];
         }
 
-        int quantity = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_QUANTITY), 1);
-        String type = element.getAttribute(PnmlConstants.ATTR_LINK_TYPE);
+        int quantity = XmlHelper.parseIntSafe(element.getAttribute(PnmlConstants.ATTR_QUANTITY), 1,
+                warnings, description, PnmlConstants.ATTR_QUANTITY);
 
         // Refused before anything else is done with it: this declaration says the model has a
         // shape the technique no longer has, and there is no reading of it that is both silent
@@ -500,11 +547,13 @@ public class PnmlModelParser {
                                 targetElement, quantity);
                 default -> {
                     log.warn("Ignoring link of unknown type '{}'", type);
+                    warnings.add(String.format(PnmlConstants.WARNING_LINK_UNKNOWN_TYPE, type));
                     yield null;
                 }
             };
         } catch (IllegalArgumentException malformed) {
             log.warn("Ignoring malformed link: {}", malformed.getMessage());
+            warnings.add(String.format(PnmlConstants.WARNING_LINK_MALFORMED, malformed.getMessage()));
             return null;
         }
     }
@@ -513,7 +562,7 @@ public class PnmlModelParser {
      * @return the object and element index the given id addresses, or {@code null} when the
      *         document has no such element or does not use ids at all
      */
-    private static int[] slotOf(ReferenceNodeIndex references, String elementId) {
+    private static int[] slotOf(ReferenceNodeIndex references, String elementId, List<String> warnings) {
         if (references == null || !XmlHelper.isNotEmpty(elementId)) {
             return null;
         }
@@ -521,6 +570,7 @@ public class PnmlModelParser {
         if (slot == null) {
             log.warn("Link declaration names element '{}', which the document does not contain",
                     elementId);
+            warnings.add(String.format(PnmlConstants.WARNING_LINK_UNKNOWN_ELEMENT_ID, elementId));
         }
         return slot;
     }

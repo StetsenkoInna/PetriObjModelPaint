@@ -4,8 +4,6 @@ import org.junit.After;
 import org.junit.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.w3c.dom.NamedNodeMap;
-import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import ua.stetsenkoinna.graphnet.GraphNetBuilder;
@@ -16,11 +14,13 @@ import ua.stetsenkoinna.petriobj.ArcIn;
 import ua.stetsenkoinna.petriobj.ArcOut;
 import ua.stetsenkoinna.petriobj.PetriNet;
 import ua.stetsenkoinna.petriobj.PetriObjLink;
+import ua.stetsenkoinna.petriobj.PetriObjLinkType;
 import ua.stetsenkoinna.petriobj.PetriP;
 import ua.stetsenkoinna.petriobj.PetriT;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.awt.Point;
+import java.awt.geom.Point2D;
 import java.io.File;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -37,19 +38,20 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 /**
- * The two tool identities a document carries, and what each of them costs a reader.
+ * The two tool identities a document can carry, and what each of them costs a reader.
  *
- * <p>This project and the web application that shares this PNML dialect both read and write
- * the same tool-specific vocabulary. Every document written here now states it twice, once
- * under each tool name, so that a file written by either tool opens in both. These tests pin
- * the two halves of that bargain: the writer emits the pair, in that order, with the same
- * children; and the reader accepts a document that carries either one alone, which is what
- * every file saved before the second identity existed looks like.
+ * <p>This project and the web application that shares this PNML dialect each write only their
+ * own identity now: every block this project writes is {@link PnmlConstants#TOOL_PETRI_OBJ_MODEL},
+ * stating this project's own release. These tests pin that half of the bargain: nothing written
+ * here states the web application's name or version any more.
+ *
+ * <p>The other half is the reader's: {@link XmlHelper#toolSpecificBlocks} still prefers this
+ * project's own blocks but falls back to {@link PnmlConstants#TOOL_PETRI_NET_SIM} ones, which
+ * is what lets a document the web application wrote open here at all. That fallback is
+ * exercised against a real, hand-authored fixture carrying only the other tool's identity, see
+ * {@link #aDocumentCarryingOnlyTheOtherToolsIdentityImportsFully}.
  */
 public class ToolSpecificIdentityTest {
-
-    /** A legacy document: only this project's blocks, and the version stamps of the day. */
-    private static final String LEGACY = "/pnml/composed_legacy_v20.pnml";
 
     private final File tempFile = new File("target/test-classes/tool_specific_identity_junit.pnml");
 
@@ -62,38 +64,13 @@ public class ToolSpecificIdentityTest {
 
     // ---------------------------------------------------------------- writing
 
-    /**
-     * Every block of a written document is a pair: this project's block, then the web
-     * application's, holding exactly the same children.
-     */
+    /** Every tool-specific block a writer produces carries this project's own identity alone. */
     @Test
-    public void everyToolSpecificBlockIsWrittenTwice() throws Exception {
-        assertPairedEverywhere(parse(new PnmlModelGenerator().generateXml(twoObjectModel())));
+    public void everyToolSpecificBlockStatesThisProjectsOwnIdentityAlone() throws Exception {
+        assertOnlyOwnIdentity(parse(new PnmlModelGenerator().generateXml(twoObjectModel())));
 
         new PnmlGenerator().generate(plainNet(), tempFile, null);
-        assertPairedEverywhere(parse(Files.readString(tempFile.toPath(), StandardCharsets.UTF_8)));
-    }
-
-    /** Both halves of every pair state the release their vocabulary belongs to. */
-    @Test
-    public void eachBlockStatesTheReleaseOfItsOwnTool() throws Exception {
-        Document document = parse(new PnmlModelGenerator().generateXml(twoObjectModel()));
-
-        int blocks = 0;
-        for (Element block : allBlocks(document)) {
-            blocks++;
-            String tool = block.getAttribute(PnmlConstants.ATTR_TOOL);
-            String version = block.getAttribute(PnmlConstants.ATTR_VERSION);
-            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(tool)) {
-                // Not the literal: theOwnReleaseIsTheOneStatedByThePom pins the constant to
-                // the pom, so repeating the string here would only break the next bump.
-                assertEquals(PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL, version);
-            } else {
-                assertEquals(PnmlConstants.TOOL_PETRI_NET_SIM, tool);
-                assertEquals(PnmlConstants.TOOL_VERSION_PETRI_NET_SIM, version);
-            }
-        }
-        assertTrue("the document should carry blocks at all", blocks > 0);
+        assertOnlyOwnIdentity(parse(Files.readString(tempFile.toPath(), StandardCharsets.UTF_8)));
     }
 
     /**
@@ -107,93 +84,25 @@ public class ToolSpecificIdentityTest {
                 pomVersion(), PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
     }
 
-    /** Writing the pair a second time onto the same document must not make it a triple. */
-    @Test
-    public void mirroringAnAlreadyMirroredDocumentChangesNothing() throws Exception {
-        Document document = parse(new PnmlModelGenerator().generateXml(twoObjectModel()));
-        int blocks = allBlocks(document).size();
-
-        XmlHelper.mirrorToolSpecificBlocks(document);
-
-        assertEquals(blocks, allBlocks(document).size());
-        assertPairedEverywhere(document);
-    }
-
-    // ---------------------------------------------------------------- reading
-
-    /**
-     * A document that states only this project's identity, which is every file saved before
-     * the second one existed, describes exactly the model the paired document describes.
-     */
-    @Test
-    public void aDocumentCarryingOnlyThisToolParsesUnchanged() throws Exception {
-        String paired = new PnmlModelGenerator().generateXml(twoObjectModel());
-        String alone = without(paired, PnmlConstants.TOOL_PETRI_NET_SIM);
-
-        assertFalse(alone.contains(PnmlConstants.TOOL_PETRI_NET_SIM));
-        assertEquals(reExport(paired), reExport(alone));
-    }
-
-    /** And so does one that states only the other tool's identity. */
-    @Test
-    public void aDocumentCarryingOnlyTheOtherToolParses() throws Exception {
-        String paired = new PnmlModelGenerator().generateXml(twoObjectModel());
-        String alone = without(paired, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
-
-        assertFalse(alone.contains("\"" + PnmlConstants.TOOL_PETRI_OBJ_MODEL + "\""));
-        assertEquals(reExport(paired), reExport(alone));
-    }
-
-    /**
-     * The same for a plain net, whose blocks carry the coordinates, the marking parameter and
-     * the informational flag rather than the object metadata.
-     */
-    @Test
-    public void aPlainNetIsReadTheSameFromEitherIdentityAlone() throws Exception {
-        new PnmlGenerator().generate(plainNet(), tempFile, null);
-        String paired = Files.readString(tempFile.toPath(), StandardCharsets.UTF_8);
-
-        String expected = summary(new PnmlParser().parseXml(paired));
-        assertEquals(expected,
-                summary(new PnmlParser().parseXml(without(paired, PnmlConstants.TOOL_PETRI_NET_SIM))));
-        assertEquals(expected,
-                summary(new PnmlParser().parseXml(without(paired, PnmlConstants.TOOL_PETRI_OBJ_MODEL))));
-    }
-
-    /**
-     * A file written before this change, pinned verbatim in the test resources, still parses
-     * into what it always described: giving its blocks their twins changes not one thing
-     * about the model it yields.
-     */
-    @Test
-    public void aFileSavedBeforeTheSecondIdentityStillParses() throws Exception {
-        String legacy = Files.readString(
-                Paths.get(getClass().getResource(LEGACY).toURI()), StandardCharsets.UTF_8);
-        assertFalse("the fixture is the point: it names one tool only",
-                legacy.contains(PnmlConstants.TOOL_PETRI_NET_SIM));
-
-        Document mirrored = parse(legacy);
-        XmlHelper.mirrorToolSpecificBlocks(mirrored);
-
-        assertEquals(reExport(legacy), reExport(PnmlGenerator.toXml(mirrored)));
-    }
-
     // ---------------------------------------------------------------- the reader's choice
 
     /**
-     * Which block a reader takes, asked where the answer is visible.
-     *
-     * <p>Nothing writes blocks that disagree: the twin is a clone. That is exactly why the
-     * preference needs a document built by hand, since with identical children every reading
-     * looks right and the rule underneath is never exercised.
+     * Which block a reader takes when an element carries both, asked where the answer is
+     * visible. Nothing written here carries both any more, so the disagreement is injected by
+     * hand: exactly the shape a document from a third tool sharing this dialect could still put
+     * in front of this reader.
      */
     @Test
     public void ownIdentityWinsWhenTheTwoBlocksDisagree() throws Exception {
         Document document = parse(new PnmlModelGenerator().generateXml(twoObjectModel()));
         Element page = (Element) document.getElementsByTagName(PnmlConstants.ELEMENT_PAGE).item(0);
-        String written = markerName(ownIdentityBlock(page));
-        markerOf(otherIdentityBlock(page))
-                .setAttribute(PnmlConstants.ATTR_NAME, "written by the other tool");
+        Element own = ownIdentityBlock(page);
+        String written = markerName(own);
+
+        Element other = (Element) own.cloneNode(true);
+        other.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_NET_SIM);
+        markerOf(other).setAttribute(PnmlConstants.ATTR_NAME, "written by the other tool");
+        page.insertBefore(other, own.getNextSibling());
 
         List<Element> chosen = XmlHelper.toolSpecificBlocks(page);
 
@@ -209,8 +118,7 @@ public class ToolSpecificIdentityTest {
     public void theOtherIdentityIsTheFallback() throws Exception {
         Document document = parse(new PnmlModelGenerator().generateXml(twoObjectModel()));
         Element page = (Element) document.getElementsByTagName(PnmlConstants.ELEMENT_PAGE).item(0);
-        Element own = ownIdentityBlock(page);
-        own.getParentNode().removeChild(own);
+        ownIdentityBlock(page).setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_NET_SIM);
 
         List<Element> chosen = XmlHelper.toolSpecificBlocks(page);
 
@@ -244,20 +152,77 @@ public class ToolSpecificIdentityTest {
     }
 
     private static Element ownIdentityBlock(Element scope) {
-        return identityBlock(scope, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
-    }
-
-    private static Element otherIdentityBlock(Element scope) {
-        return identityBlock(scope, PnmlConstants.TOOL_PETRI_NET_SIM);
-    }
-
-    private static Element identityBlock(Element scope, String tool) {
         for (Element block : XmlHelper.directChildren(scope, PnmlConstants.ELEMENT_TOOLSPECIFIC)) {
-            if (tool.equals(block.getAttribute(PnmlConstants.ATTR_TOOL))) {
+            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(block.getAttribute(PnmlConstants.ATTR_TOOL))) {
                 return block;
             }
         }
-        throw new AssertionError("no " + tool + " block on <" + scope.getNodeName() + ">");
+        throw new AssertionError("no " + PnmlConstants.TOOL_PETRI_OBJ_MODEL
+                + " block on <" + scope.getNodeName() + ">");
+    }
+
+    // ---------------------------------------------------------------- the reader's fallback
+
+    private static final String OTHER_TOOL_ONLY = "/pnml/composed_other_tool_only.pnml";
+
+    /**
+     * A document carrying only the web application's identity, {@code tool="PetriNetSim"},
+     * imports fully: everything {@link XmlHelper#toolSpecificBlocks}'s fallback has to carry
+     * across on its own, with no {@link PnmlConstants#TOOL_PETRI_OBJ_MODEL} block anywhere to
+     * fall back from. See the fixture's own header for exactly what it exercises: the
+     * {@code <petriObject>} marker, a reference node's {@code <referenceRole>}, a transition's
+     * timed parameters, an arc's {@code <arcType>}, and the tool-specific {@code <coordinates>}
+     * fallback for a place with no standard position at all.
+     */
+    @Test
+    public void aDocumentCarryingOnlyTheOtherToolsIdentityImportsFully() throws Exception {
+        String xml = Files.readString(
+                Paths.get(getClass().getResource(OTHER_TOOL_ONLY).toURI()), StandardCharsets.UTF_8);
+        assertFalse("the fixture is the point: it names one tool only",
+                xml.contains("\"" + PnmlConstants.TOOL_PETRI_OBJ_MODEL + "\""));
+
+        PnmlModelParser parser = new PnmlModelParser();
+        GraphPetriObjModel model = parser.parseXml(xml);
+        assertEquals(List.of(), parser.getWarnings());
+        assertEquals(2, model.getObjectCount());
+
+        // The petriObject marker: name, priority and canvas position of each object.
+        GraphPetriObject alpha = model.getObject(0);
+        assertEquals("Alpha", alpha.getName());
+        assertEquals(2, alpha.getPriority());
+        assertEquals(new Point(10, 20), alpha.getPosition());
+        assertEquals("Beta", model.getObject(1).getName());
+
+        // referenceRole: "Shared" is a declared fusion, so it stays a place slot of Alpha, and
+        // it is what the resulting link resolves to Beta's "Target".
+        assertEquals(List.of("Pool", "Shared"), placeNames(alpha));
+        assertEquals(1, model.getLinks().size());
+        PetriObjLink fusion = model.getLinks().get(0);
+        assertEquals(PetriObjLinkType.PLACE_FUSION, fusion.getType());
+        assertEquals(0, fusion.getSourceObject());
+        assertEquals(1, fusion.getSourceElement());
+        assertEquals(1, fusion.getTargetObject());
+        assertEquals(0, fusion.getTargetElement());
+
+        // Timed transition parameters.
+        PetriT run = Arrays.stream(alpha.getGraphNet().getPetriNet().getListT())
+                .filter(t -> "Run".equals(t.getName()))
+                .findFirst().orElseThrow(() -> new AssertionError("transition Run not found"));
+        assertEquals(1.5, run.getParameter(), 0.0);
+        assertEquals("det", run.getDistribution());
+        assertEquals(3, run.getPriority());
+
+        // arcType: the flat dialect's inhibitor marker reads as an informational arc.
+        assertTrue("arcType maps to the informational arc flag",
+                alpha.getGraphNet().getGraphArcInList().get(0).getArcIn().getIsInf());
+
+        // The tool-specific <coordinates> fallback: "Pool" carries no standard <graphics> at all.
+        Point2D poolCenter = alpha.getGraphNet().getGraphPetriPlaceList().stream()
+                .filter(place -> "alpha_pool".equals(place.getPetriPlace().getId()))
+                .findFirst().orElseThrow(() -> new AssertionError("place alpha_pool not found"))
+                .getGraphElementCenter();
+        assertEquals(15.0, poolCenter.getX(), 0.0);
+        assertEquals(25.0, poolCenter.getY(), 0.0);
     }
 
     // ---------------------------------------------------------------- round trip
@@ -368,91 +333,23 @@ public class ToolSpecificIdentityTest {
         return blocks;
     }
 
-    /**
-     * Asserts that wherever the document carries tool-specific blocks they come two by two:
-     * this project's first, the web application's second, with the same children.
-     */
-    private static void assertPairedEverywhere(Document document) {
-        int pairs = 0;
-        for (Element block : allBlocks(document)) {
-            if (!PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(block.getAttribute(PnmlConstants.ATTR_TOOL))) {
-                continue;
-            }
-            Element twin = nextElement(block);
-            assertNotNull("the block of " + ownerOf(block) + " has no twin after it", twin);
-            assertEquals("the twin has to be the very next element",
-                    PnmlConstants.ELEMENT_TOOLSPECIFIC, twin.getNodeName());
-            assertEquals(PnmlConstants.TOOL_PETRI_NET_SIM, twin.getAttribute(PnmlConstants.ATTR_TOOL));
-            assertEquals("the two blocks of " + ownerOf(block) + " must say the same thing",
-                    children(block), children(twin));
-            pairs++;
+    /** Asserts every tool-specific block of the document states this project's own identity. */
+    private static void assertOnlyOwnIdentity(Document document) {
+        List<Element> blocks = allBlocks(document);
+        assertTrue("the document should carry blocks at all", !blocks.isEmpty());
+        for (Element block : blocks) {
+            assertEquals(PnmlConstants.TOOL_PETRI_OBJ_MODEL, block.getAttribute(PnmlConstants.ATTR_TOOL));
+            assertEquals(PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL,
+                    block.getAttribute(PnmlConstants.ATTR_VERSION));
         }
-        assertTrue("the document should carry blocks at all", pairs > 0);
-        assertEquals("no block may be left unpaired", 2 * pairs, allBlocks(document).size());
     }
 
-    private static Element nextElement(Node node) {
-        for (Node next = node.getNextSibling(); next != null; next = next.getNextSibling()) {
-            if (next.getNodeType() == Node.ELEMENT_NODE) {
-                return (Element) next;
-            }
+    private static List<String> placeNames(GraphPetriObject object) {
+        List<String> names = new ArrayList<>();
+        for (int i = 0; i < object.getPlaceCount(); i++) {
+            names.add(object.getPlaceName(i));
         }
-        return null;
-    }
-
-    /** @return what the block belongs to, for a message that says where the failure is */
-    private static String ownerOf(Element block) {
-        Element parent = (Element) block.getParentNode();
-        return parent.getNodeName() + " " + parent.getAttribute(PnmlConstants.ATTR_ID);
-    }
-
-    /**
-     * @return the children of a block as text, so that two blocks can be compared without the
-     *         indentation the serialiser inserted between them
-     */
-    private static String children(Element block) {
-        StringBuilder text = new StringBuilder();
-        for (Element child : XmlHelper.directChildren(block)) {
-            text.append(render(child));
-        }
-        return text.toString();
-    }
-
-    private static String render(Element element) {
-        StringBuilder text = new StringBuilder(element.getNodeName()).append('{');
-        NamedNodeMap attributes = element.getAttributes();
-        for (int i = 0; i < attributes.getLength(); i++) {
-            Node attribute = attributes.item(i);
-            text.append(attribute.getNodeName()).append('=').append(attribute.getNodeValue()).append(';');
-        }
-        List<Element> children = XmlHelper.directChildren(element);
-        if (children.isEmpty()) {
-            text.append(element.getTextContent().trim());
-        } else {
-            for (Element child : children) {
-                text.append(render(child));
-            }
-        }
-        return text.append('}').toString();
-    }
-
-    /** @return the document with every block of that tool removed */
-    private static String without(String xml, String tool) throws Exception {
-        Document document = parse(xml);
-        for (Element block : allBlocks(document)) {
-            if (tool.equals(block.getAttribute(PnmlConstants.ATTR_TOOL))) {
-                block.getParentNode().removeChild(block);
-            }
-        }
-        return PnmlGenerator.toXml(document);
-    }
-
-    /**
-     * @return the document a composed model writes after being read from the given one, the
-     *         shortest statement of "these two documents describe the same model"
-     */
-    private static String reExport(String xml) throws Exception {
-        return new PnmlModelGenerator().generateXml(new PnmlModelParser().parseXml(xml));
+        return names;
     }
 
     /**

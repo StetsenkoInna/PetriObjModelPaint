@@ -93,6 +93,7 @@ final class ReferenceNodeIndex {
     private final List<Element> referenceNodes = new ArrayList<>();
     private final Map<Element, Node> nodeOfElement = new HashMap<>();
     private final List<PetriObjLink> structural = new ArrayList<>();
+    private final List<String> warnings;
 
     /**
      * @param document the document to look at
@@ -113,11 +114,14 @@ final class ReferenceNodeIndex {
      *        indices run; empty for a document whose elements sit directly under the net.
      *        A page nested inside another is a Petri-object like any other and is indexed
      *        against its own direct children, never against the page enclosing it.
+     * @param warnings sink for numeric text that named a link arc's multiplicity but did not
+     *        parse as one
      * @throws Exception if two elements share an id, which would make a {@code ref}
      *         ambiguous, or if a reference chain does not end at a real node
      */
-    ReferenceNodeIndex(Element netElement, List<Element> pages) throws Exception {
+    ReferenceNodeIndex(Element netElement, List<Element> pages, List<String> warnings) throws Exception {
         this.scopes = pages.isEmpty() ? List.of(netElement) : pages;
+        this.warnings = warnings;
         for (int page = 0; page < scopes.size(); page++) {
             indexPage(scopes.get(page), page);
         }
@@ -313,9 +317,11 @@ final class ReferenceNodeIndex {
      * @return the arc's multiplicity; 1 when the document omits the inscription, which the
      *         standard allows even though this tool always writes it
      */
-    private static int quantityOf(Element arc) {
+    private int quantityOf(Element arc) {
         return Math.max(1, XmlHelper.parseIntSafe(
-                XmlHelper.getTextContent(arc, PnmlConstants.ELEMENT_INSCRIPTION), 1));
+                XmlHelper.getTextContent(arc, PnmlConstants.ELEMENT_INSCRIPTION), 1,
+                warnings, "arc '" + arc.getAttribute(PnmlConstants.ATTR_ID) + "'",
+                PnmlConstants.ELEMENT_INSCRIPTION));
     }
 
     /**
