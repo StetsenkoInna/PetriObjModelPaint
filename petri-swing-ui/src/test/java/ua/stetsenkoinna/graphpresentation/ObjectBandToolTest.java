@@ -387,18 +387,38 @@ public class ObjectBandToolTest {
     }
 
     @Test
-    public void pressingOnAnExistingFrameSelectsItInsteadOfStartingABand() {
-        // The same precedent the Marquee tool already sets: a press that lands inside a frame's
-        // own body selects the frame rather than arming a drag from on top of it.
+    public void aPressInsideAFrameArmsABandRatherThanSelectingTheFrame() {
+        // Drawing a band inside a frame is how an object is built inside another one, which is
+        // the whole of rule 4. Every other tool treats a press on a frame body as "select this
+        // frame", and taking that path here left rule 4 unreachable through the gesture: a band
+        // could only ever be started on empty canvas.
         PetriNetsPanel panel = freshPanel();
-        GraphObjectFrame frame = topLevelFrame(panel, "Existing", new Rectangle(100, 100, 200, 150));
+        topLevelFrame(panel, "Existing", new Rectangle(100, 100, 200, 150));
         panel.setTool(CanvasTool.OBJECT_BAND);
 
         press(panel, 150, 150);
+        dragTo(panel, 250, 220);
 
-        assertSame(frame, panel.getSelection().getSelectedFrame());
-        assertNull("no band was armed by a press that landed on the frame",
-                fieldOf(panel, "startDragMouseLocation"));
+        assertEquals(new Rectangle(150, 150, 100, 70), marqueeRectangleOf(panel));
+        assertNull("the frame under the press is not selected by a band gesture",
+                panel.getSelection().getSelectedFrame());
+    }
+
+    @Test
+    public void aPressOnSomethingSelectedStillBandsRatherThanDraggingTheSelection() {
+        // The marquee lets a press inside the selection drag it; a tool whose only gesture is
+        // "draw a band" must not inherit that, or the band the user reached for would silently
+        // become a move.
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace place = placeAt(panel, "P1", 200, 200);
+        panel.getSelection().add(place);
+        panel.setTool(CanvasTool.OBJECT_BAND);
+
+        press(panel, 200, 200);
+        dragTo(panel, 320, 300);
+
+        assertEquals(new Rectangle(200, 200, 120, 100), marqueeRectangleOf(panel));
+        assertEquals("the element did not move", 200, (int) place.getGraphElementCenter().getX());
     }
 
     @Test
