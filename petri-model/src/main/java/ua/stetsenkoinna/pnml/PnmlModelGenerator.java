@@ -128,6 +128,13 @@ public class PnmlModelGenerator {
 
         netElement.appendChild(createLinksBlock(document, model, ids));
         assertWriterInvariants(document);
+
+        // Last, on the finished document: every block written above, whether it came from
+        // here or from the net generator, is stamped with this project's release and gets
+        // its twin under the other tool name. Doing it in one pass is what keeps the write
+        // sites reading as one block each, and it runs after the invariant check so that the
+        // check sees the structure the writer built.
+        XmlHelper.mirrorToolSpecificBlocks(document);
         return document;
     }
 
@@ -140,8 +147,7 @@ public class PnmlModelGenerator {
         page.setAttribute(PnmlConstants.ATTR_ID, pageId(index));
         page.appendChild(createNameElement(document, object.getName()));
 
-        Element toolspecific = createToolspecific(document,
-                PnmlConstants.TOOL_VERSION_OBJECT_MODEL_CONFORMANT);
+        Element toolspecific = createToolspecific(document);
         Element objectElement = document.createElement(PnmlConstants.ELEMENT_PETRI_OBJECT);
         objectElement.setAttribute(PnmlConstants.ATTR_INDEX, String.valueOf(index));
         objectElement.setAttribute(PnmlConstants.ATTR_NAME, object.getName());
@@ -283,8 +289,7 @@ public class PnmlModelGenerator {
             reference.appendChild(name.cloneNode(true));
         }
 
-        Element toolspecific = createToolspecific(document,
-                PnmlConstants.TOOL_VERSION_OBJECT_MODEL_CONFORMANT);
+        Element toolspecific = createToolspecific(document);
         toolspecific.appendChild(textElement(document, PnmlConstants.ELEMENT_REFERENCE_ROLE,
                 PnmlConstants.ROLE_FUSION));
         for (Element block : XmlHelper.toolSpecificBlocks(place)) {
@@ -338,8 +343,7 @@ public class PnmlModelGenerator {
             reference.appendChild(name.cloneNode(true));
         }
 
-        Element toolspecific = createToolspecific(document,
-                PnmlConstants.TOOL_VERSION_OBJECT_MODEL_CONFORMANT);
+        Element toolspecific = createToolspecific(document);
         toolspecific.appendChild(textElement(document, PnmlConstants.ELEMENT_REFERENCE_ROLE,
                 PnmlConstants.ROLE_REPRESENTATIVE));
         Element coordinates = target == null ? null
@@ -395,8 +399,7 @@ public class PnmlModelGenerator {
      * the user declared it, now addressed by element id as well as by position.
      */
     private Element createLinksBlock(Document document, GraphPetriObjModel model, ElementIds ids) {
-        Element toolspecific = createToolspecific(document,
-                PnmlConstants.TOOL_VERSION_OBJECT_MODEL_CONFORMANT);
+        Element toolspecific = createToolspecific(document);
         Element linksElement = document.createElement(PnmlConstants.ELEMENT_PETRI_OBJECT_LINKS);
         for (PetriObjLink link : model.getLinks()) {
             Element linkElement = document.createElement(PnmlConstants.ELEMENT_LINK);
@@ -437,10 +440,16 @@ public class PnmlModelGenerator {
         };
     }
 
-    private Element createToolspecific(Document document, String version) {
+    /**
+     * A tool-specific block under this project's own identity, stating this project's
+     * release. The finished document also carries the twin under the other identity, see
+     * {@link XmlHelper#mirrorToolSpecificBlocks(Document)}.
+     */
+    private Element createToolspecific(Document document) {
         Element toolspecific = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
         toolspecific.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
-        toolspecific.setAttribute(PnmlConstants.ATTR_VERSION, version);
+        toolspecific.setAttribute(
+                PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
         return toolspecific;
     }
 

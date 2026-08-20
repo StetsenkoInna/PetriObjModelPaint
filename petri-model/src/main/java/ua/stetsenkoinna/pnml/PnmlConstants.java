@@ -55,13 +55,54 @@ public final class PnmlConstants {
     public static final String ATTR_REF = "ref";
 
     // Tool-specific values
+
+    /** This project's own identity, the one its readers look for first. */
     public static final String TOOL_PETRI_OBJ_MODEL = "PetriObjModel";
+
+    /**
+     * The identity of the web application that shares this PNML dialect.
+     *
+     * <p>Every document written here carries the same payload twice, once under each tool
+     * name, so that a file written by either tool opens in both. Each tool finds its own
+     * block, ignores the other, and nothing has to be converted on the way across.
+     * {@link #TOOL_PETRI_OBJ_MODEL} is written first, so a reader that stops at the first
+     * block it recognises reads exactly what it read before the second one existed.
+     */
+    public static final String TOOL_PETRI_NET_SIM = "PetriNetSim";
+
+    /**
+     * The release of this project that the {@link #TOOL_PETRI_OBJ_MODEL} vocabulary belongs
+     * to, taken from this project's own {@code pom.xml}.
+     *
+     * <p>It states a release, not a format revision, and no reader in this family filters on
+     * it; see {@link #TOOL_VERSION_OBJECT_MODEL_CONFORMANT}. That is what makes it safe for
+     * the value to move with the project.
+     */
+    public static final String TOOL_VERSION_PETRI_OBJ_MODEL = "2.2.2";
+
+    /**
+     * The release of the web application that the {@link #TOOL_PETRI_NET_SIM} vocabulary
+     * belongs to, taken from that project's {@code package.json}.
+     */
+    public static final String TOOL_VERSION_PETRI_NET_SIM = "0.1.0";
+
+    /**
+     * The element-level version of the first format, stamped on the block of a place, a
+     * transition or an arc.
+     *
+     * <p>Nothing writes it any more: the writers stamp {@link #TOOL_VERSION_PETRI_OBJ_MODEL}
+     * on every block they produce. It sits in every file saved before that change, so it
+     * stays a value readers must accept.
+     */
     public static final String TOOL_VERSION = "1.0";
 
     /**
      * Tool-specific version of the first composed format, pages plus a positional link
-     * block, with no reference nodes. Still written by other tools in this family and still
-     * sitting in saved files, so it stays a value readers must accept.
+     * block, with no reference nodes.
+     *
+     * <p>This project never wrote it, and no writer produces it now: the writers stamp
+     * {@link #TOOL_VERSION_PETRI_OBJ_MODEL}. Other tools in this family did write it, and it
+     * is still sitting in saved files, so it stays a value readers must accept.
      */
     public static final String TOOL_VERSION_OBJECT_MODEL = "2.0";
 
@@ -69,9 +110,13 @@ public final class PnmlConstants {
      * Tool-specific version stamped on the page-level and net-level blocks of a document
      * whose inter-object structure is also expressed with reference nodes.
      *
-     * <p>It is a hint about what else the document carries, never a filter: a reader that
-     * selects tool-specific blocks by their {@code version} would drop the object metadata
-     * of every document written by a newer build. Match on {@link #ATTR_TOOL} only.
+     * <p>A version is a hint about what else the document carries, never a filter: a reader
+     * that selects tool-specific blocks by their {@code version} would drop the object
+     * metadata of every document written by a newer build. Match on {@link #ATTR_TOOL} only.
+     *
+     * <p>No writer stamps it any more: they state this project's release,
+     * {@link #TOOL_VERSION_PETRI_OBJ_MODEL}. It stays here as a value readers must accept
+     * rather than one they may expect.
      */
     public static final String TOOL_VERSION_OBJECT_MODEL_CONFORMANT = "2.1";
 

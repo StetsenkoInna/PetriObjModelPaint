@@ -176,14 +176,10 @@ public class PnmlParser {
 
         // Parse place parameters from toolspecific section
         String markingParam = null;
-        NodeList toolspecificNodes = placeElement.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
-        for (int j = 0; j < toolspecificNodes.getLength(); j++) {
-            Element toolElement = (Element) toolspecificNodes.item(j);
-            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
-                NodeList markingParamNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_INITIAL_MARKING_PARAMETER);
-                if (markingParamNodes.getLength() > 0) {
-                    markingParam = markingParamNodes.item(0).getTextContent();
-                }
+        for (Element toolElement : XmlHelper.toolSpecificBlocks(placeElement)) {
+            NodeList markingParamNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_INITIAL_MARKING_PARAMETER);
+            if (markingParamNodes.getLength() > 0) {
+                markingParam = markingParamNodes.item(0).getTextContent();
             }
         }
 
@@ -260,61 +256,57 @@ public class PnmlParser {
             String probabilityParam = null;
             String distributionParam = null;
 
-            NodeList toolspecificNodes = transitionElement.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
-            for (int j = 0; j < toolspecificNodes.getLength(); j++) {
-                Element toolElement = (Element) toolspecificNodes.item(j);
-                if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
-                    // Parse time delay or its parameter
-                    NodeList delayNodes = toolElement.getElementsByTagName("timeDelay");
-                    if (delayNodes.getLength() > 0) {
-                        timeDelay = XmlHelper.parseDoubleSafe(delayNodes.item(0).getTextContent(), 0.0);
-                    }
-                    NodeList delayParamNodes = toolElement.getElementsByTagName("timeDelayParameter");
-                    if (delayParamNodes.getLength() > 0) {
-                        timeDelayParam = delayParamNodes.item(0).getTextContent();
-                    }
+            for (Element toolElement : XmlHelper.toolSpecificBlocks(transitionElement)) {
+                // Parse time delay or its parameter
+                NodeList delayNodes = toolElement.getElementsByTagName("timeDelay");
+                if (delayNodes.getLength() > 0) {
+                    timeDelay = XmlHelper.parseDoubleSafe(delayNodes.item(0).getTextContent(), 0.0);
+                }
+                NodeList delayParamNodes = toolElement.getElementsByTagName("timeDelayParameter");
+                if (delayParamNodes.getLength() > 0) {
+                    timeDelayParam = delayParamNodes.item(0).getTextContent();
+                }
 
-                    // Parse delay mean value
-                    NodeList delayMeanNodes = toolElement.getElementsByTagName("delayMeanValue");
-                    if (delayMeanNodes.getLength() > 0) {
-                        delayMeanValue = XmlHelper.parseDoubleSafe(delayMeanNodes.item(0).getTextContent(), 0.0);
-                    }
+                // Parse delay mean value
+                NodeList delayMeanNodes = toolElement.getElementsByTagName("delayMeanValue");
+                if (delayMeanNodes.getLength() > 0) {
+                    delayMeanValue = XmlHelper.parseDoubleSafe(delayMeanNodes.item(0).getTextContent(), 0.0);
+                }
 
-                    // Parse standard deviation
-                    NodeList stdDeviationNodes = toolElement.getElementsByTagName("standardDeviation");
-                    if (stdDeviationNodes.getLength() > 0) {
-                        standardDeviation = XmlHelper.parseDoubleSafe(stdDeviationNodes.item(0).getTextContent(), 0.0);
-                    }
+                // Parse standard deviation
+                NodeList stdDeviationNodes = toolElement.getElementsByTagName("standardDeviation");
+                if (stdDeviationNodes.getLength() > 0) {
+                    standardDeviation = XmlHelper.parseDoubleSafe(stdDeviationNodes.item(0).getTextContent(), 0.0);
+                }
 
-                    // Parse priority or its parameter
-                    NodeList priorityNodes = toolElement.getElementsByTagName("priority");
-                    if (priorityNodes.getLength() > 0) {
-                        priority = XmlHelper.parseIntSafe(priorityNodes.item(0).getTextContent(), 0);
-                    }
-                    NodeList priorityParamNodes = toolElement.getElementsByTagName("priorityParameter");
-                    if (priorityParamNodes.getLength() > 0) {
-                        priorityParam = priorityParamNodes.item(0).getTextContent();
-                    }
+                // Parse priority or its parameter
+                NodeList priorityNodes = toolElement.getElementsByTagName("priority");
+                if (priorityNodes.getLength() > 0) {
+                    priority = XmlHelper.parseIntSafe(priorityNodes.item(0).getTextContent(), 0);
+                }
+                NodeList priorityParamNodes = toolElement.getElementsByTagName("priorityParameter");
+                if (priorityParamNodes.getLength() > 0) {
+                    priorityParam = priorityParamNodes.item(0).getTextContent();
+                }
 
-                    // Parse probability or its parameter
-                    NodeList probabilityNodes = toolElement.getElementsByTagName("probability");
-                    if (probabilityNodes.getLength() > 0) {
-                        probability = XmlHelper.parseDoubleSafe(probabilityNodes.item(0).getTextContent(), 1.0);
-                    }
-                    NodeList probabilityParamNodes = toolElement.getElementsByTagName("probabilityParameter");
-                    if (probabilityParamNodes.getLength() > 0) {
-                        probabilityParam = probabilityParamNodes.item(0).getTextContent();
-                    }
+                // Parse probability or its parameter
+                NodeList probabilityNodes = toolElement.getElementsByTagName("probability");
+                if (probabilityNodes.getLength() > 0) {
+                    probability = XmlHelper.parseDoubleSafe(probabilityNodes.item(0).getTextContent(), 1.0);
+                }
+                NodeList probabilityParamNodes = toolElement.getElementsByTagName("probabilityParameter");
+                if (probabilityParamNodes.getLength() > 0) {
+                    probabilityParam = probabilityParamNodes.item(0).getTextContent();
+                }
 
-                    // Parse distribution or its parameter
-                    NodeList distributionNodes = toolElement.getElementsByTagName("distribution");
-                    if (distributionNodes.getLength() > 0) {
-                        distribution = distributionNodes.item(0).getTextContent();
-                    }
-                    NodeList distributionParamNodes = toolElement.getElementsByTagName("distributionParameter");
-                    if (distributionParamNodes.getLength() > 0) {
-                        distributionParam = distributionParamNodes.item(0).getTextContent();
-                    }
+                // Parse distribution or its parameter
+                NodeList distributionNodes = toolElement.getElementsByTagName("distribution");
+                if (distributionNodes.getLength() > 0) {
+                    distribution = distributionNodes.item(0).getTextContent();
+                }
+                NodeList distributionParamNodes = toolElement.getElementsByTagName("distributionParameter");
+                if (distributionParamNodes.getLength() > 0) {
+                    distributionParam = distributionParamNodes.item(0).getTextContent();
                 }
             }
 
@@ -390,36 +382,32 @@ public class PnmlParser {
             String infParamName = null;
             String kParamName = null;
 
-            NodeList toolspecificNodes = arcElement.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
-            for (int j = 0; j < toolspecificNodes.getLength(); j++) {
-                Element toolElement = (Element) toolspecificNodes.item(j);
-                if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
-                    // Check for informational flag
-                    NodeList infNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_INFORMATIONAL);
-                    if (infNodes.getLength() > 0) {
-                        isInformational = "true".equals(infNodes.item(0).getTextContent());
-                    }
+            for (Element toolElement : XmlHelper.toolSpecificBlocks(arcElement)) {
+                // Check for informational flag
+                NodeList infNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_INFORMATIONAL);
+                if (infNodes.getLength() > 0) {
+                    isInformational = "true".equals(infNodes.item(0).getTextContent());
+                }
 
-                    // Check for arc type (inhibitor/read arcs map to informational arcs)
-                    NodeList arcTypeNodes = toolElement.getElementsByTagName("arcType");
-                    if (arcTypeNodes.getLength() > 0) {
-                        String arcType = arcTypeNodes.item(0).getTextContent();
-                        if ("inhibitor".equalsIgnoreCase(arcType) || "read".equalsIgnoreCase(arcType)) {
-                            isInformational = true;
-                        }
+                // Check for arc type (inhibitor/read arcs map to informational arcs)
+                NodeList arcTypeNodes = toolElement.getElementsByTagName("arcType");
+                if (arcTypeNodes.getLength() > 0) {
+                    String arcType = arcTypeNodes.item(0).getTextContent();
+                    if ("inhibitor".equalsIgnoreCase(arcType) || "read".equalsIgnoreCase(arcType)) {
+                        isInformational = true;
                     }
+                }
 
-                    // Check for informational parameter
-                    NodeList infParamNodes = toolElement.getElementsByTagName("informationalParameter");
-                    if (infParamNodes.getLength() > 0) {
-                        infParamName = infParamNodes.item(0).getTextContent();
-                    }
+                // Check for informational parameter
+                NodeList infParamNodes = toolElement.getElementsByTagName("informationalParameter");
+                if (infParamNodes.getLength() > 0) {
+                    infParamName = infParamNodes.item(0).getTextContent();
+                }
 
-                    // Check for multiplicity parameter
-                    NodeList kParamNodes = toolElement.getElementsByTagName("multiplicityParameter");
-                    if (kParamNodes.getLength() > 0) {
-                        kParamName = kParamNodes.item(0).getTextContent();
-                    }
+                // Check for multiplicity parameter
+                NodeList kParamNodes = toolElement.getElementsByTagName("multiplicityParameter");
+                if (kParamNodes.getLength() > 0) {
+                    kParamName = kParamNodes.item(0).getTextContent();
                 }
             }
 
@@ -486,21 +474,20 @@ public class PnmlParser {
         boolean coordinatesFound = false;
 
         // First try to parse from tool-specific coordinates (preferred)
-        NodeList toolspecificNodes = placeElement.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
-        for (int i = 0; i < toolspecificNodes.getLength() && !coordinatesFound; i++) {
-            Element toolElement = (Element) toolspecificNodes.item(i);
-            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
-                NodeList coordinatesNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_COORDINATES);
-                if (coordinatesNodes.getLength() > 0) {
-                    Element coordElement = (Element) coordinatesNodes.item(0);
-                    try {
-                        double x = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_X));
-                        double y = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_Y));
-                        placeCoordinates.put(placeNumber, new java.awt.geom.Point2D.Double(x, y));
-                        coordinatesFound = true;
-                    } catch (NumberFormatException e) {
-                        // Ignore invalid coordinates
-                    }
+        for (Element toolElement : XmlHelper.toolSpecificBlocks(placeElement)) {
+            if (coordinatesFound) {
+                break;
+            }
+            NodeList coordinatesNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_COORDINATES);
+            if (coordinatesNodes.getLength() > 0) {
+                Element coordElement = (Element) coordinatesNodes.item(0);
+                try {
+                    double x = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_X));
+                    double y = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_Y));
+                    placeCoordinates.put(placeNumber, new java.awt.geom.Point2D.Double(x, y));
+                    coordinatesFound = true;
+                } catch (NumberFormatException e) {
+                    // Ignore invalid coordinates
                 }
             }
         }
@@ -536,21 +523,20 @@ public class PnmlParser {
         boolean coordinatesFound = false;
 
         // First try to parse from tool-specific coordinates (preferred)
-        NodeList toolspecificNodes = transitionElement.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
-        for (int i = 0; i < toolspecificNodes.getLength() && !coordinatesFound; i++) {
-            Element toolElement = (Element) toolspecificNodes.item(i);
-            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolElement.getAttribute(PnmlConstants.ATTR_TOOL))) {
-                NodeList coordinatesNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_COORDINATES);
-                if (coordinatesNodes.getLength() > 0) {
-                    Element coordElement = (Element) coordinatesNodes.item(0);
-                    try {
-                        double x = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_X));
-                        double y = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_Y));
-                        transitionCoordinates.put(transitionNumber, new java.awt.geom.Point2D.Double(x, y));
-                        coordinatesFound = true;
-                    } catch (NumberFormatException e) {
-                        // Ignore invalid coordinates
-                    }
+        for (Element toolElement : XmlHelper.toolSpecificBlocks(transitionElement)) {
+            if (coordinatesFound) {
+                break;
+            }
+            NodeList coordinatesNodes = toolElement.getElementsByTagName(PnmlConstants.ELEMENT_COORDINATES);
+            if (coordinatesNodes.getLength() > 0) {
+                Element coordElement = (Element) coordinatesNodes.item(0);
+                try {
+                    double x = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_X));
+                    double y = Double.parseDouble(coordElement.getAttribute(PnmlConstants.ATTR_Y));
+                    transitionCoordinates.put(transitionNumber, new java.awt.geom.Point2D.Double(x, y));
+                    coordinatesFound = true;
+                } catch (NumberFormatException e) {
+                    // Ignore invalid coordinates
                 }
             }
         }

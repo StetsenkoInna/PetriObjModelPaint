@@ -79,6 +79,12 @@ public class PnmlGenerator {
 
         writeNetInto(document, pageElement, petriNet, graphPetriNet);
 
+        // One pass over the finished document, rather than a second block at each of the
+        // write sites above: every tool-specific block is stamped with this project's
+        // release and gets its twin under the other tool name, so the file opens in both
+        // tools that share this dialect. The version each block carries above is the value
+        // it was written with before releases were stamped, and this is what replaces it.
+        XmlHelper.mirrorToolSpecificBlocks(document);
         writeDocument(document, file);
     }
 
@@ -175,7 +181,7 @@ public class PnmlGenerator {
             if (needsToolspecific) {
                 Element toolspecificElement = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
                 toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
-                toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION);
+                toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
 
                 // Add coordinates if available
                 if (graphPlace != null) {
@@ -236,7 +242,7 @@ public class PnmlGenerator {
             // Add toolspecific information for extended properties and coordinates
             Element toolspecificElement = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
             toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
-            toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION);
+            toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
 
             // Add coordinates from GraphPetriNet if available
             GraphPetriTransition graphTransition = findGraphTransitionByNumber(transition.getNumber());
@@ -357,7 +363,7 @@ public class PnmlGenerator {
             if (needsToolspecific) {
                 Element toolspecificElement = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
                 toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
-                toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION);
+                toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
 
                 if (arcIn.getIsInf()) {
                     Element infElement = document.createElement("informational");
@@ -401,7 +407,7 @@ public class PnmlGenerator {
             if (arcOut.kIsParam() && arcOut.getKParamName() != null) {
                 Element toolspecificElement = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
                 toolspecificElement.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
-                toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION);
+                toolspecificElement.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
 
                 Element kParamElement = document.createElement("multiplicityParameter");
                 kParamElement.setTextContent(arcOut.getKParamName());

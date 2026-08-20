@@ -326,9 +326,10 @@ public class PnmlModelParser {
     /**
      * Reads the link declarations of the net-level tool-specific block.
      *
-     * <p>The block is matched on its tool alone, never on its version: both {@code "2.0"} and
-     * {@code "2.1"} are current, and a version filter here would drop the links of every
-     * document written by a build newer than this one.
+     * <p>The block is matched on its tool alone, never on its version: {@code "2.0"},
+     * {@code "2.1"} and the release strings written since are all current, and a version
+     * filter here would drop the links of every document written by a build newer than this
+     * one. Which tool name is matched is {@link XmlHelper#toolSpecificBlocks}'s single rule.
      *
      * @param netElement the document's net
      * @param references the document's reference nodes, or {@code null} for a legacy

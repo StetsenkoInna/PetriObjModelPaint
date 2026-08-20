@@ -1,5 +1,6 @@
 package ua.stetsenkoinna.pnml;
 
+import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -75,8 +76,16 @@ final class XmlHelper {
     }
 
     /**
-     * Collects the tool-specific blocks this tool wrote, among the direct children of the
-     * given element.
+     * Collects the tool-specific blocks this family of tools wrote, among the direct
+     * children of the given element.
+     *
+     * <p>This project's own identity wins: the blocks of {@link
+     * PnmlConstants#TOOL_PETRI_OBJ_MODEL} are returned whenever the element carries any, and
+     * the blocks of {@link PnmlConstants#TOOL_PETRI_NET_SIM} only when it carries none. A
+     * document written by either tool carries both, holding the same payload, so the choice
+     * changes nothing there; it is what lets a document written by a tool that emits only
+     * one of the two be read whichever one that is. The two are never mixed in one result,
+     * so a caller that takes the first match it finds cannot read half of each.
      *
      * <p>Selection is on {@code tool} alone, never on {@code version}: a document written by
      * a newer build carries a higher version on the very blocks that hold the object
@@ -84,13 +93,79 @@ final class XmlHelper {
      * unrelated pages.
      */
     static List<Element> toolSpecificBlocks(Element scope) {
-        List<Element> blocks = new ArrayList<>();
+        List<Element> own = new ArrayList<>();
+        List<Element> sibling = new ArrayList<>();
         for (Element toolspecific : directChildren(scope, PnmlConstants.ELEMENT_TOOLSPECIFIC)) {
-            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(toolspecific.getAttribute(PnmlConstants.ATTR_TOOL))) {
-                blocks.add(toolspecific);
+            String tool = toolspecific.getAttribute(PnmlConstants.ATTR_TOOL);
+            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(tool)) {
+                own.add(toolspecific);
+            } else if (PnmlConstants.TOOL_PETRI_NET_SIM.equals(tool)) {
+                sibling.add(toolspecific);
             }
         }
-        return blocks;
+        return own.isEmpty() ? sibling : own;
+    }
+
+    /**
+     * Gives every tool-specific block of a finished document its twin, so that the document
+     * says the same thing to both tools that share this PNML dialect.
+     *
+     * <p>Each {@link PnmlConstants#TOOL_PETRI_OBJ_MODEL} block is stamped with this
+     * project's release and followed by a deep clone of itself carrying {@link
+     * PnmlConstants#TOOL_PETRI_NET_SIM} and that project's release. The children are
+     * identical and the order is fixed: this project's block first, so a reader that stops at
+     * the first block it recognises reads exactly what it read before the twin existed.
+     *
+     * <p>Running this over a document that already carries both blocks changes nothing, which
+     * is what lets it sit on the serialisation path rather than at each of the write sites.
+     *
+     * @param document the finished document, modified in place
+     */
+    static void mirrorToolSpecificBlocks(Document document) {
+        NodeList blocks = document.getElementsByTagName(PnmlConstants.ELEMENT_TOOLSPECIFIC);
+        List<Element> own = new ArrayList<>();
+        for (int i = 0; i < blocks.getLength(); i++) {
+            Element block = (Element) blocks.item(i);
+            if (PnmlConstants.TOOL_PETRI_OBJ_MODEL.equals(block.getAttribute(PnmlConstants.ATTR_TOOL))) {
+                own.add(block);
+            }
+        }
+        // Collected first: inserting into a live node list while walking it would visit the
+        // clones as well.
+        for (Element block : own) {
+            block.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
+            if (isMirrored(block)) {
+                continue;
+            }
+            Element mirror = (Element) block.cloneNode(true);
+            mirror.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_NET_SIM);
+            mirror.setAttribute(PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_NET_SIM);
+            block.getParentNode().insertBefore(mirror, block.getNextSibling());
+        }
+    }
+
+    /**
+     * Whether the block's element already carries the other identity.
+     *
+     * <p>Asked of the whole element rather than of the block's immediate neighbour: the twin
+     * is written straight after its own block here, but a document that arrived with the two
+     * in the other order, or with something between them, still has both, and adding a third
+     * would be wrong.
+     *
+     * @return whether the element this block belongs to already states the other identity
+     */
+    private static boolean isMirrored(Element block) {
+        Node parent = block.getParentNode();
+        if (!(parent instanceof Element)) {
+            return false;
+        }
+        for (Element sibling : directChildren((Element) parent, PnmlConstants.ELEMENT_TOOLSPECIFIC)) {
+            if (PnmlConstants.TOOL_PETRI_NET_SIM.equals(
+                    sibling.getAttribute(PnmlConstants.ATTR_TOOL))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
