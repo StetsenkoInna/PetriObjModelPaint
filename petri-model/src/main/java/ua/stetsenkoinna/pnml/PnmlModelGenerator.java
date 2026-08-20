@@ -53,6 +53,13 @@ import java.util.Set;
  * as a shared place plus an ordinary arc inside the object that owns the transition, which
  * says the same thing without giving a transition a second set of input places.
  *
+ * <h2>How the hierarchy is drawn</h2>
+ *
+ * <p>An object nested inside another has its {@code <page>} written inside that object's
+ * page, which is how ISO/IEC 15909-2 states a page hierarchy. Only top-level objects, and the
+ * page holding the elements that belong to no object, sit directly under {@code <net>}. See
+ * {@link #nestPages}: nothing tool-specific is written about the hierarchy at all.
+ *
  * <h2>What still has to be tool-specific</h2>
  *
  * <p>Only what a P/T net cannot say: an informational (test) arc inside an object's own net,
@@ -126,6 +133,11 @@ public class PnmlModelGenerator {
         ElementIds ids = ElementIds.of(pages);
         projectLinks(document, model, pages, ids);
 
+        // After the links, so that a page's own content is complete before a child page is
+        // put behind it, and so that a stand-in inserted before the page's first arc lands
+        // among the page's nodes rather than in front of a child page.
+        nestPages(model, pages);
+
         netElement.appendChild(createLinksBlock(document, model, ids));
         assertWriterInvariants(document);
 
@@ -161,10 +173,9 @@ public class PnmlModelGenerator {
         if (object.isCollapsed()) {
             objectElement.setAttribute(PnmlConstants.ATTR_COLLAPSED, "true");
         }
-        if (object.getParentIndex() >= 0) {
-            objectElement.setAttribute(PnmlConstants.ATTR_PARENT_OBJECT,
-                    String.valueOf(object.getParentIndex()));
-        }
+        // No parent is stated here: which object encloses this one is said by where the page
+        // sits, see nestPages. The page starts out at the top level and is moved once the
+        // links are drawn.
         toolspecific.appendChild(objectElement);
 
         NetTemplateRef template = object.getTemplate();
@@ -191,6 +202,65 @@ public class PnmlModelGenerator {
     /** @return the id of the page that carries the n-th Petri-object */
     private static String pageId(int index) {
         return PnmlConstants.OBJECT_PAGE_ID_PREFIX + index;
+    }
+
+    /**
+     * Moves the page of every object that has a parent inside its parent's page.
+     *
+     * <p>This is the whole statement of the hierarchy. ISO/IEC 15909-2 expresses a page
+     * hierarchy by nesting a {@code <page>} inside a {@code <page>}, so a reader that is
+     * neither of the tools sharing this dialect sees the nesting and needs nothing
+     * tool-specific to see it. A top-level object, and the page holding the elements that
+     * belong to no object, stay directly under {@code <net>}.
+     *
+     * <p>A child page goes after everything its parent page holds of its own, and the pages
+     * are moved in ascending object index, so several children of one parent keep that order
+     * too.
+     *
+     * <p>A parent index that names no object of this model, or that closes a cycle, is
+     * reported and dropped rather than being fatal: the page stays at the top level, which is
+     * all a reader could make of it anyway, and the rest of the export is unharmed.
+     */
+    private static void nestPages(GraphPetriObjModel model, List<Element> pages) {
+        for (int index = 0; index < pages.size(); index++) {
+            int parent = model.getObject(index).getParentIndex();
+            if (parent < 0) {
+                continue;
+            }
+            if (!isNestable(model, index, parent)) {
+                log.warn("Not nesting Petri-object {} inside {}: no such object, or the chain "
+                        + "comes back round to it. It stays at the top level.", index, parent);
+                continue;
+            }
+            pages.get(parent).appendChild(pages.get(index));
+        }
+    }
+
+    /**
+     * Whether one object may be written inside another.
+     *
+     * <p>Only this edge is judged. An object further up the chain naming a parent that does
+     * not exist is that object's own problem, and it is answered by leaving that one at the
+     * top level; disqualifying everything below it as well would strip a hierarchy the model
+     * states perfectly clearly. What is rejected is a parent this model does not have, an
+     * object claiming itself, and a chain that comes back round to this object, which no
+     * document could hold and which appendChild would answer with HIERARCHY_REQUEST_ERR.
+     *
+     * @param index the object being nested
+     * @param parent the object it names as its parent
+     */
+    private static boolean isNestable(GraphPetriObjModel model, int index, int parent) {
+        if (parent >= model.getObjectCount() || parent == index) {
+            return false;
+        }
+        int steps = 0;
+        for (int current = parent; current >= 0 && current < model.getObjectCount();
+                current = model.getObject(current).getParentIndex()) {
+            if (current == index || ++steps > model.getObjectCount()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -615,11 +685,16 @@ public class PnmlModelGenerator {
      * <p>Cheap, and it is what keeps a regression here from reaching a reader as a model that
      * quietly means something else.
      *
+     * <p>Every page of the document is checked, nested ones included, and each against its
+     * own direct children: a node on a nested page is a node of that page and not of the page
+     * enclosing it, so an arc reaching into a child page is exactly the violation this looks
+     * for.
+     *
      * @throws Exception naming the first violation
      */
     private static void assertWriterInvariants(Document document) throws Exception {
         Element netElement = PnmlParser.findNetElement(document);
-        List<Element> pages = XmlHelper.directChildren(netElement, PnmlConstants.ELEMENT_PAGE);
+        List<Element> pages = XmlHelper.descendantPages(netElement);
         if (pages.isEmpty()) {
             throw new Exception(PnmlConstants.ERROR_NO_OBJECTS);
         }
@@ -627,10 +702,6 @@ public class PnmlModelGenerator {
         Set<String> allIds = new HashSet<>();
         Map<String, String> referenceTargets = new HashMap<>();
         for (Element page : pages) {
-            if (!XmlHelper.directChildren(page, PnmlConstants.ELEMENT_PAGE).isEmpty()) {
-                throw new Exception("Page " + page.getAttribute(PnmlConstants.ATTR_ID)
-                        + " contains a page: nested pages are not written");
-            }
             Set<String> nodesOnPage = new HashSet<>();
             for (Element child : XmlHelper.directChildren(page)) {
                 String id = child.getAttribute(PnmlConstants.ATTR_ID);

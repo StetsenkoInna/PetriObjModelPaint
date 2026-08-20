@@ -220,6 +220,44 @@ library method it was instantiated from is gone.
 A document of several pages is a composed model, and the plain net reader refuses it rather
 than merging the pages into one net — it says so, and points at the model reader.
 
+### A hierarchy of objects
+
+An object nested inside another has its `<page>` written **inside** its parent's page, which
+is how ISO/IEC 15909-2 expresses a hierarchy of pages. Only top-level objects, and the page
+holding the elements that belong to no object, sit directly under `<net>`. A child page comes
+after everything its parent page holds of its own, and several children of one parent are
+written in ascending object index.
+
+```xml
+<page id="object0">
+  <name><text>Outer</text></name>
+  <toolspecific tool="PetriObjModel" version="2.2.2">
+    <petriObject index="0" name="Outer" priority="0" x="40" y="40" width="600" height="400"/>
+  </toolspecific>
+  <place id="p0"> ... </place>
+  <transition id="t0"> ... </transition>
+  <arc id="a0" source="p0" target="t0"> ... </arc>
+
+  <page id="object1">
+    <name><text>Inner</text></name>
+    <toolspecific tool="PetriObjModel" version="2.2.2">
+      <petriObject index="1" name="Inner" priority="0" x="80" y="140" width="300" height="200"/>
+    </toolspecific>
+    ...
+  </page>
+</page>
+```
+
+A page's own net is what that page itself holds: the places, transitions and arcs of a nested
+page belong to the nested object alone, and an arc never crosses from one page into another.
+Objects are still addressed by the `index` its `petriObject` element states, links included,
+so nesting changes where a page is written and nothing about what it means.
+
+Documents written before this carry the hierarchy in a tool-specific `parentObject` attribute
+instead, with every page a flat sibling. The reader still accepts that attribute, so those
+files keep opening unchanged; where a document states both, the nesting wins, because it is
+the statement every reader of the standard can see. Nothing writes the attribute any more.
+
 ---
 
 ## Running a model from code

@@ -57,7 +57,10 @@ public class PnmlParser {
 
     private PetriNet buildNet(Document document) throws Exception {
         Element netElement = findNetElement(document);
-        int pages = XmlHelper.directChildren(netElement, PnmlConstants.ELEMENT_PAGE).size();
+        // The whole page subtree, since a page written inside another page is a Petri-object
+        // exactly like a sibling one, and counting only the net's direct children would let a
+        // nested model through as if it were a single net.
+        int pages = XmlHelper.descendantPages(netElement).size();
         if (pages > 1) {
             // Every page is a Petri-object of its own; flattening them would silently merge
             // nets that only a composed model can run.
@@ -93,6 +96,9 @@ public class PnmlParser {
      *
      * <p>Each parser instance keeps its own id-to-number maps, so a caller reading several
      * pages has to use a fresh parser per page.
+     *
+     * <p>A page written inside the given page is a Petri-object of its own, and nothing it
+     * holds is read into this net: the net of a page is what the page itself holds.
      *
      * @param scope the element to read the net from
      * @param netName name to give the resulting net
@@ -142,9 +148,9 @@ public class PnmlParser {
                                           ReferenceNodeIndex.PageReferences references) {
         ArrayList<PetriP> places = new ArrayList<>();
         if (references == null) {
-            NodeList placeNodes = netElement.getElementsByTagName(PnmlConstants.ELEMENT_PLACE);
-            for (int i = 0; i < placeNodes.getLength(); i++) {
-                places.add(parsePlace((Element) placeNodes.item(i)));
+            for (Element placeElement
+                    : XmlHelper.scopedElements(netElement, PnmlConstants.ELEMENT_PLACE)) {
+                places.add(parsePlace(placeElement));
             }
             return places;
         }
@@ -231,10 +237,9 @@ public class PnmlParser {
      */
     private ArrayList<PetriT> parseTransitions(Element netElement) {
         ArrayList<PetriT> transitions = new ArrayList<>();
-        NodeList transitionNodes = netElement.getElementsByTagName(PnmlConstants.ELEMENT_TRANSITION);
 
-        for (int i = 0; i < transitionNodes.getLength(); i++) {
-            Element transitionElement = (Element) transitionNodes.item(i);
+        for (Element transitionElement
+                : XmlHelper.scopedElements(netElement, PnmlConstants.ELEMENT_TRANSITION)) {
             String id = transitionElement.getAttribute(PnmlConstants.ATTR_ID);
 
             // Get transition name
@@ -359,10 +364,7 @@ public class PnmlParser {
      */
     private void parseArcs(Element netElement, ArrayList<ArcIn> arcIns, ArrayList<ArcOut> arcOuts,
                            ReferenceNodeIndex.PageReferences references) {
-        NodeList arcNodes = netElement.getElementsByTagName(PnmlConstants.ELEMENT_ARC);
-
-        for (int i = 0; i < arcNodes.getLength(); i++) {
-            Element arcElement = (Element) arcNodes.item(i);
+        for (Element arcElement : XmlHelper.scopedElements(netElement, PnmlConstants.ELEMENT_ARC)) {
             String arcId = arcElement.getAttribute(PnmlConstants.ATTR_ID);
             String source = arcElement.getAttribute(PnmlConstants.ATTR_SOURCE);
             String target = arcElement.getAttribute(PnmlConstants.ATTR_TARGET);

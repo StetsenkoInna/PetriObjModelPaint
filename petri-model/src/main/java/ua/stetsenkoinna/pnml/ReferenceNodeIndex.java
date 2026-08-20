@@ -109,8 +109,10 @@ final class ReferenceNodeIndex {
      * slot ordinals every link index is expressed in.
      *
      * @param netElement the document's net
-     * @param pages the net's pages, empty for a document whose elements sit directly under
-     *        the net
+     * @param pages every page of the net, nested ones included, in the order the object
+     *        indices run; empty for a document whose elements sit directly under the net.
+     *        A page nested inside another is a Petri-object like any other and is indexed
+     *        against its own direct children, never against the page enclosing it.
      * @throws Exception if two elements share an id, which would make a {@code ref}
      *         ambiguous, or if a reference chain does not end at a real node
      */

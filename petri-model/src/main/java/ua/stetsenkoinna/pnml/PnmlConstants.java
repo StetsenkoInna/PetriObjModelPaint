@@ -177,10 +177,15 @@ public final class PnmlConstants {
     public static final String ATTR_HEIGHT = "height";
     public static final String ATTR_COLLAPSED = "collapsed";
     /**
-     * The index of the Petri-object this one is nested inside, absent for a top-level
-     * object. Tool-specific, like the rest of the petriObject element: standard PNML has no
-     * nesting between sibling pages, so a foreign reader simply sees flat pages, exactly
-     * what it saw before this attribute existed.
+     * The index of the Petri-object this one is nested inside, absent for a top-level object.
+     *
+     * <p>Nothing writes it any more. The hierarchy is now real page nesting, a child object's
+     * {@code <page>} inside its parent's, which is how ISO/IEC 15909-2 states a page
+     * hierarchy and which every reader of the standard sees; an exported file carries nothing
+     * non-standard where pages are concerned. This attribute is the tool-specific shape that
+     * said the same thing while the pages were flat siblings, and every file saved before that
+     * change carries it, so it stays a value readers must accept. Where a document states
+     * both, the nesting wins: it is the standard's own statement.
      */
     public static final String ATTR_PARENT_OBJECT = "parentObject";
 
@@ -242,6 +247,16 @@ public final class PnmlConstants {
             "Reference node '%s' stands for itself, directly or through a cycle";
     public static final String ERROR_DANGLING_REFERENCE =
             "Reference node '%s' points at '%s', which is not an element of this net";
+    /**
+     * Refuses a nested document whose pages do not state a usable object index. Document order
+     * is not object order once pages nest, and the links address objects by that index, so the
+     * order cannot be guessed from the document without re-binding every link.
+     */
+    public static final String ERROR_UNUSABLE_PAGE_INDEX =
+            "This document nests its pages, so every page must state a unique "
+                    + "<petriObject index> in 0..%d. Page order cannot be taken from the "
+                    + "document, and the links address objects by that index.";
+
     public static final String ERROR_NO_OBJECTS =
             "A Petri-object model document needs at least one object";
 

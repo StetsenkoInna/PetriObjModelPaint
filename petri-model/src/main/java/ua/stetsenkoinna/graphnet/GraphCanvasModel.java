@@ -873,10 +873,10 @@ public class GraphCanvasModel implements Serializable {
      * Lays a Petri-object model out on one canvas: a frame per object, its net inside, and
      * the links restored as arcs crossing frame borders or as shared places.
      *
-     * <p>Nothing here nests anything, because the document carries no nesting to restore: a
-     * nested object is exported as an ordinary sibling {@code <page>} and comes back as one.
-     * That is the same round trip the web editor makes and it is accepted rather than treated as
-     * a defect - the alternative would be a PNML extension no other tool reads.
+     * <p>The nest between objects is restored too, in a second pass once every frame exists.
+     * A model carries it as each object's parent index, which a document states by writing a
+     * child object's {@code <page>} inside its parent's, the way ISO/IEC 15909-2 states a
+     * hierarchy of pages.
      *
      * @param model the model to show
      * @return the canvas that draws it
@@ -932,10 +932,10 @@ public class GraphCanvasModel implements Serializable {
             canvas.absorb(object.getGraphNet());
         }
 
-        // Second pass, once every frame exists: the nest the flat pages carried as an
-        // attribute. Reimporting used to lose it, so the inner object came back sitting
-        // geometrically inside the outer frame while structurally belonging to nobody -
-        // dragging the outer object left it behind.
+        // Second pass, once every frame exists: the nest the document stated by writing one
+        // page inside another. Reimporting used to lose it, so the inner object came back
+        // sitting geometrically inside the outer frame while structurally belonging to
+        // nobody, and dragging the outer object left it behind.
         for (int index = 0; index < model.getObjectCount(); index++) {
             GraphObjectFrame frame = frameByObjectIndex.get(index);
             GraphObjectFrame parent = frameByObjectIndex.get(model.getObject(index).getParentIndex());

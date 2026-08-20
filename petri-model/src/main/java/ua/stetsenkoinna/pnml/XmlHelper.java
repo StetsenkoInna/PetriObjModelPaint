@@ -54,6 +54,69 @@ final class XmlHelper {
     }
 
     /**
+     * Collects every {@code <page>} of a net, however deeply nested, in document order.
+     *
+     * <p>ISO/IEC 15909-2 expresses a page hierarchy by nesting a page inside a page, so the
+     * pages of a document are its whole page subtree and not only the direct children of the
+     * net. A parent is visited before its children.
+     *
+     * @param scope the net, or any element whose page subtree is wanted
+     * @return the pages below it, outermost first
+     */
+    static List<Element> descendantPages(Element scope) {
+        List<Element> pages = new ArrayList<>();
+        collectPages(scope, pages);
+        return pages;
+    }
+
+    private static void collectPages(Element parent, List<Element> pages) {
+        for (Element page : directChildren(parent, PnmlConstants.ELEMENT_PAGE)) {
+            pages.add(page);
+            collectPages(page, pages);
+        }
+    }
+
+    /**
+     * Collects the elements of one scope with the given tag name, without crossing into a
+     * page that scope contains.
+     *
+     * <p>A page inside a page is a Petri-object of its own and its nodes are its own;
+     * {@link Element#getElementsByTagName(String)} would gather them into the enclosing
+     * object's net instead. A whole {@code <net>} is the one scope whose pages are entered:
+     * a plain document keeps its only net inside a single page, and that net is the
+     * document's own.
+     *
+     * <p>A {@code <net>} scope does enter its pages, one level of them: a document whose whole
+     * net is written inside a single page reads the same as one that writes it directly under
+     * the net, which is what the plain net reader has always done.
+     *
+     * @param scope a {@code <page>} whose own net is wanted, or a {@code <net>}
+     * @param tagName tag of the elements to collect
+     */
+    static List<Element> scopedElements(Element scope, String tagName) {
+        List<Element> found = new ArrayList<>();
+        collectScoped(scope, tagName,
+                !PnmlConstants.ELEMENT_PAGE.equals(scope.getTagName()), found);
+        return found;
+    }
+
+    private static void collectScoped(Element parent, String tagName, boolean enterPages,
+                                      List<Element> found) {
+        for (Element child : directChildren(parent)) {
+            if (PnmlConstants.ELEMENT_PAGE.equals(child.getTagName())) {
+                if (enterPages) {
+                    collectScoped(child, tagName, false, found);
+                }
+                continue;
+            }
+            if (tagName.equals(child.getTagName())) {
+                found.add(child);
+            }
+            collectScoped(child, tagName, false, found);
+        }
+    }
+
+    /**
      * @return the first direct child with the given tag name, or {@code null} if there is none
      */
     static Element firstDirectChild(Element parent, String tagName) {

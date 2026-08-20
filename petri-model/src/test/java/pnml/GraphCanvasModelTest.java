@@ -578,12 +578,12 @@ public class GraphCanvasModelTest {
 
     @Test
     public void aNestedCanvasExportsAsSiblingObjectsAndTheNestComesBack() {
-        // PNML has no notion of one page inside another, so a nested object is still written
-        // as an ordinary sibling page with its own index - a foreign reader sees flat pages,
-        // as before. The nest itself travels as a tool-specific parentObject attribute and
-        // is restored on import: it used to be dropped, so the inner object came back
-        // sitting inside the outer frame's rectangle while structurally belonging to
-        // nobody, and dragging the outer object left it behind.
+        // A model is a flat, indexed list of objects however deeply the canvas nests them, so
+        // a nested object is a sibling object here and records which sibling encloses it. A
+        // document says the same thing by writing the child's page inside its parent's; see
+        // PageHierarchyPnmlTest. The nest is restored on import: it used to be dropped, so
+        // the inner object came back sitting inside the outer frame's rectangle while
+        // structurally belonging to nobody, and dragging the outer object left it behind.
         resetCounters();
         GraphCanvasModel canvas = new GraphCanvasModel("Nested", new GraphPetriNet());
         GraphObjectFrame parent = new GraphObjectFrame("Parent", new Rectangle(0, 0, 400, 400));
@@ -610,7 +610,7 @@ public class GraphCanvasModelTest {
         GraphCanvasModel reimported = GraphCanvasModel.fromObjModel(exported);
 
         assertEquals(2, reimported.getFrames().size());
-        assertSame("and the nest is restored from the attribute",
+        assertSame("and the nest is restored from the parent index",
                 reimported.getFrames().get(0),
                 reimported.enclosingOf(reimported.getFrames().get(1)));
     }

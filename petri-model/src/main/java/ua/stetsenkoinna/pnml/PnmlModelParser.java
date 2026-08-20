@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 import ua.stetsenkoinna.graphnet.GraphNetBuilder;
 import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
@@ -24,6 +25,7 @@ import java.io.File;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,9 +34,19 @@ import java.util.Set;
 /**
  * Reads a PNML document as a composed {@link GraphPetriObjModel}.
  *
- * <p>Each {@code <page>} of the document's net becomes one Petri-object. A document written
- * before Petri-object composition existed, a single page, or no page at all, and no link
- * block, reads back as a model of one object, so every net saved so far keeps opening.
+ * <p>Each {@code <page>} of the document's net becomes one Petri-object, wherever in the net
+ * it sits. A document written before Petri-object composition existed, a single page, or no
+ * page at all, and no link block, reads back as a model of one object, so every net saved so
+ * far keeps opening.
+ *
+ * <h2>Two shapes of hierarchy, one reader</h2>
+ *
+ * <p>Which object encloses which is read from the document's own structure first: a page
+ * written inside another page is the child of that page's object, the way ISO/IEC 15909-2
+ * states a page hierarchy. A document whose pages are flat siblings states it instead with
+ * {@link PnmlConstants#ATTR_PARENT_OBJECT}, which is the shape everything saved before the
+ * pages were nested has, and that attribute is still read. Where a document says both, the
+ * nesting wins: it is the standard's own statement, and it is what every other reader sees.
  *
  * <h2>Two dialects, one reader</h2>
  *
@@ -97,7 +109,7 @@ public class PnmlModelParser {
         }
         GraphPetriObjModel model = new GraphPetriObjModel(modelName);
 
-        List<Element> pages = XmlHelper.directChildren(netElement, PnmlConstants.ELEMENT_PAGE);
+        List<Element> pages = orderedPages(netElement);
         // The reference nodes decide which reader runs, and they are built before any page is
         // read because a page reader needs to know which of its arcs are really links.
         ReferenceNodeIndex references = ReferenceNodeIndex.isConformant(document)
@@ -109,13 +121,16 @@ public class PnmlModelParser {
 
         if (pages.isEmpty()) {
             // A document whose elements sit directly under <net>: one Petri-object.
-            model.addObject(readObject(netElement, netElement, modelName, 0,
+            model.addObject(readObject(netElement, netElement, modelName, 0, -1, false,
                     references == null ? null : references.pageReferences(0)));
         } else {
+            int[] enclosing = enclosingObjects(pages);
+            boolean documentNests = isNested(pages);
             for (int index = 0; index < pages.size(); index++) {
                 Element page = pages.get(index);
                 model.addObject(readObject(page, page,
-                        defaultObjectName(modelName, pages.size(), index), index,
+                        defaultObjectName(modelName, pages.size(), index), index, enclosing[index],
+                        documentNests,
                         references == null ? null : references.pageReferences(index)));
             }
         }
@@ -128,6 +143,79 @@ public class PnmlModelParser {
             }
         }
         return model;
+    }
+
+    /**
+     * The document's pages, one per Petri-object, in the order the object indices run.
+     *
+     * <p>Pages are collected from the whole net subtree, not only from its direct children:
+     * a child object's page is written inside its parent's, which is how ISO/IEC 15909-2
+     * states a page hierarchy, and a reader that looked at the direct children alone would
+     * see only the top-level objects.
+     *
+     * <p>Nesting also parts document order from object index: a child of the first object is
+     * written before a second top-level object, whatever index it carries. So the index each
+     * page states is what orders them, and it is used only when the document states one for
+     * every page and the indices are exactly the object indices of the model, {@code 0} to
+     * {@code n - 1}. Anything else falls back to document order, which is all a foreign
+     * document, and any document written before object metadata existed, can offer.
+     */
+    private static List<Element> orderedPages(Element netElement) throws Exception {
+        List<Element> pages = XmlHelper.descendantPages(netElement);
+        Element[] byIndex = new Element[pages.size()];
+        for (Element page : pages) {
+            Element objectElement = findObjectElement(page);
+            int index = objectElement == null ? -1 : XmlHelper.parseIntSafe(
+                    objectElement.getAttribute(PnmlConstants.ATTR_INDEX), -1);
+            if (index < 0 || index >= byIndex.length || byIndex[index] != null) {
+                if (isNested(pages)) {
+                    // Document order is not object order once pages nest: a child of object 0
+                    // is written before a second top-level object. Links address objects by
+                    // the stated index, so falling back here would quietly bind every one of
+                    // them to a different object than the document names.
+                    throw new Exception(String.format(
+                            PnmlConstants.ERROR_UNUSABLE_PAGE_INDEX, pages.size() - 1));
+                }
+                return pages;
+            }
+            byIndex[index] = page;
+        }
+        return List.of(byIndex);
+    }
+
+    /** Whether any page of the document sits inside another page. */
+    private static boolean isNested(List<Element> pages) {
+        for (Element page : pages) {
+            Node parent = page.getParentNode();
+            if (parent instanceof Element enclosing
+                    && PnmlConstants.ELEMENT_PAGE.equals(enclosing.getTagName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Works out what encloses each page.
+     *
+     * @param pages the document's pages, in object index order
+     * @return for every page, the index of the object whose page encloses it, or {@code -1}
+     *         when it sits directly under the net
+     */
+    private static int[] enclosingObjects(List<Element> pages) {
+        Map<Element, Integer> indexOfPage = new IdentityHashMap<>();
+        for (int index = 0; index < pages.size(); index++) {
+            indexOfPage.put(pages.get(index), index);
+        }
+        int[] enclosing = new int[pages.size()];
+        for (int index = 0; index < pages.size(); index++) {
+            Node parent = pages.get(index).getParentNode();
+            enclosing[index] = parent instanceof Element page
+                    && PnmlConstants.ELEMENT_PAGE.equals(page.getTagName())
+                    ? indexOfPage.getOrDefault(page, -1)
+                    : -1;
+        }
+        return enclosing;
     }
 
     /**
@@ -234,11 +322,13 @@ public class PnmlModelParser {
      * @param metadataScope element whose tool-specific block holds the object's metadata
      * @param fallbackName name to use when the document does not carry one
      * @param index position of the object in the model
+     * @param enclosing index of the object whose page encloses this one, or {@code -1}
      * @param references what this page's reference nodes mean, or {@code null} for a legacy
      *        document
      */
     private GraphPetriObject readObject(Element scope, Element metadataScope,
-                                        String fallbackName, int index,
+                                        String fallbackName, int index, int enclosing,
+                                        boolean documentNests,
                                         ReferenceNodeIndex.PageReferences references) throws Exception {
         Element objectElement = findObjectElement(metadataScope);
 
@@ -276,9 +366,15 @@ public class PnmlModelParser {
                     XmlHelper.parseIntSafe(objectElement.getAttribute(PnmlConstants.ATTR_HEIGHT), 0));
             object.setCollapsed(
                     Boolean.parseBoolean(objectElement.getAttribute(PnmlConstants.ATTR_COLLAPSED)));
-            object.setParentIndex(XmlHelper.parseIntSafe(
-                    objectElement.getAttribute(PnmlConstants.ATTR_PARENT_OBJECT), -1));
         }
+        // One document, one answer. A document that nests any page states the whole hierarchy
+        // that way, and the attribute is not consulted there at all: reading it per page would
+        // let a stale value on a top-level page contradict the structure, and the two sources
+        // together can describe a cycle that neither describes alone. A document with no
+        // nesting is one written before the pages were nested, and the attribute is all it has.
+        int declaredParent = objectElement == null ? -1 : XmlHelper.parseIntSafe(
+                objectElement.getAttribute(PnmlConstants.ATTR_PARENT_OBJECT), -1);
+        object.setParentIndex(documentNests ? enclosing : declaredParent);
         object.setTemplate(readTemplate(metadataScope));
         return object;
     }
