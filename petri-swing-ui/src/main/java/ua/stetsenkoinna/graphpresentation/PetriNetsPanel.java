@@ -2442,6 +2442,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 PetriNet net = parser.parse(armedTemplate.prototypeFile().toFile());
                 placeGraphNet(GraphNetBuilder.build(net, parser.getAllPlaceCoordinates(),
                         parser.getAllTransitionCoordinates(), at), name, null);
+                MessageHelper.showImportWarnings(dialogOwner(), parser.getWarnings());
             } else {
                 PetriNet net = NetTemplateCatalog.instantiate(
                         armedTemplate.methodName(), armedTemplate.arguments());
@@ -2449,8 +2450,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
         } catch (Exception failure) {
             LOGGER.error("Failed to stamp the Petri-object template {}", armedTemplate.id(), failure);
+            // The prototype's own file is the "where" a saved-object template fails to read
+            // from; a library template has no file, only its method name, which the "what"
+            // (its display name) already names well enough.
+            String where = armedTemplate.kind() == PetriObjectTemplate.Kind.PROTOTYPE
+                    ? " (" + armedTemplate.prototypeFile().getFileName() + ")"
+                    : "";
             MessageHelper.showException(dialogOwner(),
-                    "Cannot put '" + armedTemplate.displayName() + "' on the canvas", failure);
+                    "Cannot put '" + armedTemplate.displayName() + "'" + where + " on the canvas", failure);
         }
     }
 
