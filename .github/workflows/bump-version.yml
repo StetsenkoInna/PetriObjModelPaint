@@ -1,0 +1,45 @@
+name: Bump version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New version, e.g. 2.2.3'
+        required: true
+      branch:
+        description: 'Branch to bump and tag'
+        required: false
+        default: develop
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '23'
+          cache: maven
+
+      - name: Set version in all module poms
+        run: >
+          mvn --batch-mode --no-transfer-progress
+          org.codehaus.mojo:versions-maven-plugin:2.18.0:set
+          -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false
+
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pom.xml petri-math/pom.xml petri-api/pom.xml petri-model/pom.xml petri-swing-ui/pom.xml petri-server/pom.xml
+          git commit -m "Bump project version to ${{ inputs.version }}"
+          git tag "v${{ inputs.version }}"
+          git push origin "${{ inputs.branch }}"
+          git push origin "v${{ inputs.version }}"
