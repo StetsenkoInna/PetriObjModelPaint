@@ -2944,14 +2944,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             prevMouseLocation = scaledCurrentMousePoint;
             if (tool == CanvasTool.MARQUEE) {
-                // The marquee tool always rubber-band selects, even starting on top of an
-                // element — never picks it up the way the default Select tool would. The
-                // previous selection is dropped right away: it used to survive into the
-                // drag, whose move-selection branch then dragged it across the canvas
-                // instead of drawing the band. Only a left press starts a band, though: a
-                // right press is on its way to the context menu, and clearing here wiped
-                // the very selection the menu's "group into Petri-object" was about to
-                // offer to group.
+                // The marquee tool rubber-band selects on a press that misses the current
+                // selection, the same as it always did: the old selection is dropped right
+                // away, because letting it survive into the drag fed it to the move-selection
+                // branch below, which dragged it across the canvas instead of the band being
+                // drawn. A press that lands on an element already in the selection is the one
+                // exception: it keeps the whole selection and starts dragging it, exactly like
+                // the Select tool's own press-inside-selection case does. Only a left press
+                // does either of these, though: a right press is on its way to the context
+                // menu, and clearing here wiped the very selection the menu's "group into
+                // Petri-object" was about to offer to group.
                 if (current != null) {
                     current.setColor(Color.BLACK);
                     current = null;
@@ -2961,9 +2963,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
                 choosenArc = null;
                 if (SwingUtilities.isLeftMouseButton(ev)) {
-                    choosen = null;
-                    setDefaultColorGraphElements();
-                    selection.clear();
+                    GraphElement pressedElement = find(scaledCurrentMousePoint);
+                    if (pressedElement != null && selection.contains(pressedElement)) {
+                        choosen = pressedElement;
+                        current = pressedElement;
+                        setDefaultColorGraphElements();
+                        selection.paintHighlight();
+                    } else {
+                        choosen = null;
+                        setDefaultColorGraphElements();
+                        selection.clear();
+                    }
                 }
             } else if (current != null && SwingUtilities.isLeftMouseButton(ev)) {
                 // A right-click never selects an element — it either falls through to its own

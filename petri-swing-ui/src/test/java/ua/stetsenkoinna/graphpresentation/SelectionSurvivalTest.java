@@ -37,6 +37,13 @@ import static org.junit.Assert.assertTrue;
  * abandoned the gesture in flight and the selection along with it. Every tool still abandons
  * the gesture; only Select keeps what is selected, since it is the one tool whose gestures act
  * on a selection rather than on whatever is under the pointer.
+ *
+ * <p>The Marquee tool dropped a selection it was standing on, without even a tool switch to
+ * blame: every left press cleared it and started a fresh band, so picking a selection up to
+ * drag it meant switching to Select first. A press that lands on something already selected now
+ * keeps the selection and drags it, the same as Select's own press does; a press anywhere else
+ * still clears it and starts a band, which is what stops an old selection being dragged across
+ * the canvas by a band gesture.
  */
 public class SelectionSurvivalTest {
 
@@ -148,6 +155,23 @@ public class SelectionSurvivalTest {
         PetriNetsPanel panel = freshPanel();
         placeAt(panel, "P1", 200, 200);
         placeAt(panel, "P2", 320, 200);
+        drag(panel, 140, 140, 380, 260);
+        assertEquals("the band must select both places to begin with",
+                2, panel.getSelection().elements().size());
+        return panel;
+    }
+
+    /**
+     * The same two places, but selected without ever leaving the Marquee tool: switching a panel
+     * onto Marquee drops whatever was selected under a previous tool, so a test of "the Marquee
+     * tool holding a press against its own selection" has to build that selection while Marquee
+     * is already active, not switch onto it afterwards the way {@link #twoSelectedPlaces} does.
+     */
+    private static PetriNetsPanel twoSelectedPlacesViaMarqueeThroughout() {
+        PetriNetsPanel panel = freshPanel();
+        placeAt(panel, "P1", 200, 200);
+        placeAt(panel, "P2", 320, 200);
+        panel.setTool(CanvasTool.MARQUEE);
         drag(panel, 140, 140, 380, 260);
         assertEquals("the band must select both places to begin with",
                 2, panel.getSelection().elements().size());
@@ -499,5 +523,126 @@ public class SelectionSurvivalTest {
                 200, (int) place.getGraphElementCenter().getX());
         assertEquals("and neither did the selected transition",
                 320, (int) transition.getGraphElementCenter().getX());
+    }
+
+    // ------------------------------------------------------------------ the Marquee tool itself
+
+    /**
+     * The reported defect, on the tool where it was reported: a press on a selected element used
+     * to drop the selection and start a band right on top of it, so dragging a selection meant
+     * switching to Select first. The press now reads the same as Select's own. The selection here
+     * is built without ever leaving Marquee, which is the whole point: the fix is for the tool
+     * switch to stop being necessary, not to still require one on the way in.
+     */
+    @Test
+    public void pressingASelectedElementWithTheMarqueeToolKeepsTheWholeSelectionLookingSelected() {
+        PetriNetsPanel panel = twoSelectedPlacesViaMarqueeThroughout();
+        GraphPetriPlace pressed = place(panel, 0);
+        GraphPetriPlace other = place(panel, 1);
+
+        press(panel, 200, 200);
+
+        assertTrue("the selection itself is kept, the same as under Select",
+                panel.getSelection().contains(pressed) && panel.getSelection().contains(other));
+        assertEquals("the pressed element still reads as selected",
+                selectionColour(), pressed.getColor());
+        assertEquals("and so does the rest of the selection",
+                selectionColour(), other.getColor());
+    }
+
+    /**
+     * Not only does the press keep the selection: the drag that follows moves all of it, exactly
+     * as it already did once the Select tool was switched to first. The point of the fix is that
+     * the switch is no longer needed.
+     */
+    @Test
+    public void aDragFromInsideTheSelectionWithTheMarqueeToolMovesAllOfIt() {
+        PetriNetsPanel panel = twoSelectedPlacesViaMarqueeThroughout();
+        GraphPetriPlace pressed = place(panel, 0);
+        GraphPetriPlace other = place(panel, 1);
+
+        drag(panel, 200, 200, 260, 260);
+
+        assertTrue("the whole selection is still selected after the drag",
+                panel.getSelection().contains(pressed) && panel.getSelection().contains(other));
+        assertEquals("the pressed element moved by the drag delta",
+                260, (int) pressed.getGraphElementCenter().getX());
+        assertEquals("and so did the rest of the selection, by the same delta",
+                380, (int) other.getGraphElementCenter().getX());
+    }
+
+    /**
+     * A frame is the other kind of selected thing a marquee press can land on. It never went
+     * through the branch the element fix above touches: a frame is claimed earlier, before the
+     * tool is even looked at, so it already kept the rest of the selection regardless of tool.
+     * This pins that it still does, on a selection built and pressed without ever leaving
+     * Marquee, on the same mixed selection the general press-on-either-kind test above uses.
+     */
+    @Test
+    public void pressingASelectedPetriObjectWithTheMarqueeToolKeepsTheWholeSelection() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace loose = placeAt(panel, "P1", 200, 200);
+        GraphPetriPlace member = placeAt(panel, "PM", 500, 230);
+        GraphObjectFrame frame =
+                framedPlace(panel, "Obj", new Rectangle(420, 140, 160, 140), member);
+        panel.setTool(CanvasTool.MARQUEE);
+        drag(panel, 140, 120, 620, 300);
+        assertTrue("the band must select both kinds to begin with",
+                panel.getSelection().contains(loose) && panel.getSelection().contains(frame));
+
+        press(panel, 450, 250);
+
+        assertTrue("pressing the object with the marquee tool keeps the element selected",
+                panel.getSelection().contains(loose));
+        assertEquals("and the element still reads as selected",
+                selectionColour(), loose.getColor());
+        assertTrue("and the object itself is of course still selected",
+                panel.getSelection().contains(frame));
+    }
+
+    /**
+     * A press that misses the selection is still the marquee's own case, not Select's: it starts
+     * a fresh band rather than picking anything up, so the pressed element is not even remembered
+     * as the gesture's target.
+     */
+    @Test
+    public void pressingAnUnselectedElementWithTheMarqueeToolStillClearsTheSelection() {
+        PetriNetsPanel panel = twoSelectedPlacesViaMarqueeThroughout();
+        GraphPetriPlace wasSelected = place(panel, 0);
+        placeAt(panel, "P3", 700, 500);
+
+        press(panel, 700, 500);
+
+        assertFalse("the old selection is replaced", panel.getSelection().contains(wasSelected));
+        assertNotEquals("and stops looking selected",
+                selectionColour(), wasSelected.getColor());
+        assertNull("the marquee tool does not pick the pressed element up the way Select does",
+                panel.getChoosen());
+    }
+
+    /** A press on empty canvas still deselects under the marquee tool itself, no switch needed. */
+    @Test
+    public void aPressOnEmptyCanvasWithTheMarqueeToolStillDeselects() {
+        PetriNetsPanel panel = twoSelectedPlacesViaMarqueeThroughout();
+
+        press(panel, 800, 600);
+
+        assertTrue("a press on nothing clears the selection", panel.getSelection().isEmpty());
+    }
+
+    /** A band drawn by the marquee tool still replaces whatever selection it starts with. */
+    @Test
+    public void aMarqueeToolBandStillReplacesTheSelectionItStartsWith() {
+        PetriNetsPanel panel = twoSelectedPlacesViaMarqueeThroughout();
+        GraphPetriPlace wasSelected = place(panel, 0);
+        GraphPetriPlace elsewhere = placeAt(panel, "P3", 700, 500);
+
+        drag(panel, 640, 440, 780, 560);
+
+        assertFalse("the old selection is gone", panel.getSelection().contains(wasSelected));
+        assertTrue("the band's own catch is what is selected",
+                panel.getSelection().contains(elsewhere));
+        assertEquals("and nothing else came along with it",
+                1, panel.getSelection().elements().size());
     }
 }
