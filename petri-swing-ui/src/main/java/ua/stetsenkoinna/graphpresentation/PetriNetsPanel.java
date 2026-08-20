@@ -2987,11 +2987,24 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 if (current != null) {
                     // An element already inside the selection drags the whole selection;
                     // anything else replaces it, like any fresh single click.
-                    if (!selection.contains(current)) {
+                    boolean pressedInsideSelection = selection.contains(current);
+                    if (!pressedInsideSelection) {
                         selection.clear();
                     }
                     setDefaultColorGraphElements();
-                    current.setColor(Color.BLUE); //26.07.2018
+                    if (pressedInsideSelection) {
+                        // This press starts a drag of everything selected, so everything
+                        // selected keeps looking selected. The wholesale colour reset above
+                        // used to be followed by colouring the pressed element alone, so every
+                        // other selected element went back to its default colour and the
+                        // selection looked like it had collapsed to the one thing under the
+                        // pointer. The model kept it and the drag moved all of it; only from
+                        // the second drag event onwards did mouseDragged's own paintHighlight
+                        // put the colours back, which left the press itself visibly wrong.
+                        selection.paintHighlight();
+                    } else {
+                        current.setColor(Color.BLUE); //26.07.2018
+                    }
                     choosen = current;
                     // Remember where this element started: dragging it into another frame
                     // moves it to another Petri-object, which the user gets to confirm. A
@@ -4190,8 +4203,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     /**
      * Switches which gesture a left-click-drag performs. Whatever the previous tool left
-     * mid-flight — a selection, an arc half-drawn to its first endpoint — is abandoned first,
-     * since none of that state means the same thing under a different tool.
+     * mid-flight, a half-finished drag or an arc drawn to its first endpoint only, is
+     * abandoned first, since none of that state means the same thing under a different tool.
+     *
+     * <p>What is selected is not part of that state when the new tool is
+     * {@link CanvasTool#SELECT}. Reaching for the pointer is how a user gets back to moving,
+     * copying, grouping or deleting what they have just picked out, so a switch into Select
+     * keeps the selection; it used to be wiped, which made "marquee, then Select, then act on
+     * it" impossible to finish. Every other tool acts on whatever is under the pointer rather
+     * than on a selection and has no use for one, so it still drops it on the way in, which is
+     * the behaviour those tools have today.
      *
      * @param newTool the tool to activate
      */
@@ -4221,7 +4242,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             removeCurrentArc();
         }
         isSettingArc = false;
-        clearSelectionState();
+        resetGestureState();
+        if (newTool == CanvasTool.SELECT) {
+            // resetGestureState resets element colours wholesale, so a selection that stays
+            // has to be told to look selected again.
+            selection.paintHighlight();
+        } else {
+            selection.clear();
+        }
         if (newTool != CanvasTool.PLACE_LOADED_NET) {
             // Switching away abandons a net that was waiting to be placed — otherwise its
             // outline would keep tracking the pointer under a tool that cannot commit it.
@@ -4233,14 +4261,30 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         repaint();
     }
 
+    /**
+     * Abandons the gesture in flight and the selection with it: what leaving this canvas for
+     * another one does, since neither the gesture nor what it had picked out means anything at
+     * the level being opened.
+     */
     private void clearSelectionState() {
+        resetGestureState();
+        selection.clear();
+    }
+
+    /**
+     * Drops the half-finished gesture without touching what is selected: the marquee anchor and
+     * its running corner, the pressed-button and drag-completed flags, the single element, arc
+     * or shared place a click had picked out, and the wholesale colour reset that goes with
+     * them. A gesture caught half-way through must not survive into another tool even where the
+     * selection does.
+     */
+    private void resetGestureState() {
         setDefaultColorGraphElements();
         setDefaultColorGraphArcs();
         current = null;
         choosen = null;
         choosenArc = null;
         choosenFusion = null;
-        selection.clear();
         startDragMouseLocation = null;
         currentDragMouseLocation = null;
         leftMouseButtonPressed = false;
