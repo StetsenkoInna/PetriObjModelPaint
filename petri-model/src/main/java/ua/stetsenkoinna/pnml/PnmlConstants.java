@@ -55,13 +55,47 @@ public final class PnmlConstants {
     public static final String ATTR_REF = "ref";
 
     // Tool-specific values
+
+    /** This project's own identity, the one its readers look for first. */
     public static final String TOOL_PETRI_OBJ_MODEL = "PetriObjModel";
+
+    /**
+     * The identity of the web application that shares this PNML dialect.
+     *
+     * <p>This project never writes a block under this name; only the web application does.
+     * It is kept here as the name a reader falls back to when an element carries none of
+     * {@link #TOOL_PETRI_OBJ_MODEL}'s own blocks, which is what lets a document the web
+     * application wrote open here without anything having to be converted on the way across.
+     */
+    public static final String TOOL_PETRI_NET_SIM = "PetriNetSim";
+
+    /**
+     * The release of this project that the {@link #TOOL_PETRI_OBJ_MODEL} vocabulary belongs
+     * to, taken from this project's own {@code pom.xml}.
+     *
+     * <p>It states a release, not a format revision, and no reader in this family filters on
+     * it; see {@link #TOOL_VERSION_OBJECT_MODEL_CONFORMANT}. That is what makes it safe for
+     * the value to move with the project.
+     */
+    public static final String TOOL_VERSION_PETRI_OBJ_MODEL = "2.2.2";
+
+    /**
+     * The element-level version of the first format, stamped on the block of a place, a
+     * transition or an arc.
+     *
+     * <p>Nothing writes it any more: the writers stamp {@link #TOOL_VERSION_PETRI_OBJ_MODEL}
+     * on every block they produce. It sits in every file saved before that change, so it
+     * stays a value readers must accept.
+     */
     public static final String TOOL_VERSION = "1.0";
 
     /**
      * Tool-specific version of the first composed format, pages plus a positional link
-     * block, with no reference nodes. Still written by other tools in this family and still
-     * sitting in saved files, so it stays a value readers must accept.
+     * block, with no reference nodes.
+     *
+     * <p>This project never wrote it, and no writer produces it now: the writers stamp
+     * {@link #TOOL_VERSION_PETRI_OBJ_MODEL}. Other tools in this family did write it, and it
+     * is still sitting in saved files, so it stays a value readers must accept.
      */
     public static final String TOOL_VERSION_OBJECT_MODEL = "2.0";
 
@@ -69,9 +103,13 @@ public final class PnmlConstants {
      * Tool-specific version stamped on the page-level and net-level blocks of a document
      * whose inter-object structure is also expressed with reference nodes.
      *
-     * <p>It is a hint about what else the document carries, never a filter: a reader that
-     * selects tool-specific blocks by their {@code version} would drop the object metadata
-     * of every document written by a newer build. Match on {@link #ATTR_TOOL} only.
+     * <p>A version is a hint about what else the document carries, never a filter: a reader
+     * that selects tool-specific blocks by their {@code version} would drop the object
+     * metadata of every document written by a newer build. Match on {@link #ATTR_TOOL} only.
+     *
+     * <p>No writer stamps it any more: they state this project's release,
+     * {@link #TOOL_VERSION_PETRI_OBJ_MODEL}. It stays here as a value readers must accept
+     * rather than one they may expect.
      */
     public static final String TOOL_VERSION_OBJECT_MODEL_CONFORMANT = "2.1";
 
@@ -131,13 +169,6 @@ public final class PnmlConstants {
     public static final String ATTR_WIDTH = "width";
     public static final String ATTR_HEIGHT = "height";
     public static final String ATTR_COLLAPSED = "collapsed";
-    /**
-     * The index of the Petri-object this one is nested inside, absent for a top-level
-     * object. Tool-specific, like the rest of the petriObject element: standard PNML has no
-     * nesting between sibling pages, so a foreign reader simply sees flat pages, exactly
-     * what it saw before this attribute existed.
-     */
-    public static final String ATTR_PARENT_OBJECT = "parentObject";
 
     // Link type values, kept stable regardless of how the enum constants are named
     public static final String LINK_TYPE_PLACE_FUSION = "placeFusion";
@@ -197,6 +228,16 @@ public final class PnmlConstants {
             "Reference node '%s' stands for itself, directly or through a cycle";
     public static final String ERROR_DANGLING_REFERENCE =
             "Reference node '%s' points at '%s', which is not an element of this net";
+    /**
+     * Refuses a nested document whose pages do not state a usable object index. Document order
+     * is not object order once pages nest, and the links address objects by that index, so the
+     * order cannot be guessed from the document without re-binding every link.
+     */
+    public static final String ERROR_UNUSABLE_PAGE_INDEX =
+            "This document nests its pages, so every page must state a unique "
+                    + "<petriObject index> in 0..%d. Page order cannot be taken from the "
+                    + "document, and the links address objects by that index.";
+
     public static final String ERROR_NO_OBJECTS =
             "A Petri-object model document needs at least one object";
 
@@ -224,4 +265,41 @@ public final class PnmlConstants {
                     + "a shared place of the page that owns the transition, a <referencePlace> "
                     + "standing in the page's own place slot, and run an ordinary arc from it to "
                     + "the transition on that same page.";
+
+    // Warning messages: soft validation. Parsing continues; these are collected rather than
+    // thrown, so the caller decides whether and how to show them to a user.
+    /** One id replaced by {@link PnmlIds}; %s = the id read, %s = the id imported instead. */
+    public static final String WARNING_INVALID_ID =
+            "Element id \"%s\" is not a valid XML id; imported as \"%s\".";
+    /** Text that named a number but did not parse as one; %s = where, %s = what, %s = text, %s = default used. */
+    public static final String WARNING_MALFORMED_NUMBER = "%s: %s \"%s\" is not a number; using %s.";
+    /**
+     * A standard {@code <graphics><position>} attribute that did not parse as a number; %s =
+     * where, %s = which coordinate, %s = the text read. Unlike {@link #WARNING_MALFORMED_NUMBER}
+     * this never says a default was used: the whole {@code <position>} is dropped instead, so a
+     * valid tool-specific {@code <coordinates>} is not shadowed by defaulting the corrupt half
+     * of a corrupt standard position to zero.
+     */
+    public static final String WARNING_MALFORMED_POSITION =
+            "%s: standard %s \"%s\" is not a number; ignoring the standard position.";
+    /** A plain-dialect arc whose endpoints are not both on the one page the reader can see. */
+    public static final String WARNING_CROSS_PAGE_ARC_DROPPED =
+            "Arc '%s' was dropped: its endpoints '%s' -> '%s' are not both on this page.";
+    /** An id reused across pages of a legacy composed document; not fatal there, but flagged. */
+    public static final String WARNING_DUPLICATE_LEGACY_ID =
+            "Element id '%s' is used on more than one page; a document that also carried "
+                    + "reference nodes would be rejected.";
+    /** A declared link whose multiplicity disagrees with what the document's structure states. */
+    public static final String WARNING_LINK_DISAGREES_WITH_STRUCTURE =
+            "Declared link %s disagrees with the document's structure %s; the structure wins.";
+    /** A declared link named an element id the document does not contain. */
+    public static final String WARNING_LINK_UNKNOWN_ELEMENT_ID =
+            "Link declaration names element '%s', which the document does not contain.";
+    /** A declared link named an object or element the parsed model does not have. */
+    public static final String WARNING_LINK_UNBOUND =
+            "Ignoring a declared link that does not fit the parsed model: %s";
+    /** A declared link whose type this reader does not recognise. */
+    public static final String WARNING_LINK_UNKNOWN_TYPE = "Ignoring a declared link of unknown type '%s'.";
+    /** A declared link whose attributes could not be turned into a link at all. */
+    public static final String WARNING_LINK_MALFORMED = "Ignoring a malformed declared link: %s";
 }

@@ -10,6 +10,8 @@ import ua.stetsenkoinna.pnml.PnmlGenerator;
 import ua.stetsenkoinna.pnml.PnmlParser;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * JUnit test class for PNML import/export functionality
@@ -38,14 +40,16 @@ public class PnmlTest {
 
     @Test
     public void testImportPnmlFile() throws Exception {
-        File testFile = new File(PnmlTest.class.getResource("/pnml/test_petri_net.pnml").toURI());
+        File testFile = new File(PnmlTest.class.getResource("/pnml/test3.pnml").toURI());
         assertTrue("Test file should exist", testFile.exists());
 
         PetriNet petriNet = parser.parse(testFile);
 
         // Verify basic structure
         assertNotNull("PetriNet should not be null", petriNet);
-        assertEquals("Net name should match", "testNet", petriNet.getName());
+        // The net's display name comes from <name><text>, the same preference PnmlModelParser
+        // already gives a model's name; the id is a separate, machine-facing identifier.
+        assertEquals("Net name should match", "Test Petri Net", petriNet.getName());
         assertEquals("Should have 2 places", 2, petriNet.getListP().length);
         assertEquals("Should have 1 transition", 1, petriNet.getListT().length);
         assertEquals("Should have 1 input arc", 1, petriNet.getArcIn().length);
@@ -124,5 +128,33 @@ public class PnmlTest {
         }
         assertTrue("Should find TestPlace1", foundPlace1);
         assertTrue("Should find TestPlace2", foundPlace2);
+    }
+
+    /**
+     * Two hand-built places sharing one invalid raw id ("my place" is not a valid NCName)
+     * must be refused at write time rather than silently rewired: sanitizing has to give both
+     * occurrences of that raw id the same replacement, so the pre-existing duplicate-id check
+     * still sees them as one duplicate id instead of two distinct, unique ones.
+     */
+    @Test
+    public void testWritingTwoElementsWithTheSameInvalidIdFails() throws Exception {
+        PetriP first = new PetriP("my place", "First", 1);
+        PetriP second = new PetriP("my place", "Second", 0);
+        PetriT gate = new PetriT("gate", "Gate", 1.0);
+        ArrayList<PetriP> places = new ArrayList<>(List.of(first, second));
+        ArrayList<PetriT> transitions = new ArrayList<>(List.of(gate));
+        ArrayList<ArcIn> arcsIn = new ArrayList<>(List.of(new ArcIn(first, gate, 1)));
+        ArrayList<ArcOut> arcsOut = new ArrayList<>(List.of(new ArcOut(gate, second, 1)));
+        PetriNet net = new PetriNet("Duplicate Raw Id", places, transitions, arcsIn, arcsOut);
+
+        try {
+            generator.generate(net, tempExportFile);
+            fail("two elements sharing the same invalid raw id must be refused, not silently "
+                    + "rewired onto whichever one sanitized last");
+        } catch (Exception expected) {
+            assertTrue("the message should name the sanitized, still-duplicated id, was: "
+                            + expected.getMessage(),
+                    expected.getMessage().contains("my-place"));
+        }
     }
 }

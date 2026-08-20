@@ -53,6 +53,13 @@ import java.util.Set;
  * as a shared place plus an ordinary arc inside the object that owns the transition, which
  * says the same thing without giving a transition a second set of input places.
  *
+ * <h2>How the hierarchy is drawn</h2>
+ *
+ * <p>An object nested inside another has its {@code <page>} written inside that object's
+ * page, which is how ISO/IEC 15909-2 states a page hierarchy. Only top-level objects, and the
+ * page holding the elements that belong to no object, sit directly under {@code <net>}. See
+ * {@link #nestPages}: nothing tool-specific is written about the hierarchy at all.
+ *
  * <h2>What still has to be tool-specific</h2>
  *
  * <p>Only what a P/T net cannot say: an informational (test) arc inside an object's own net,
@@ -104,12 +111,16 @@ public class PnmlModelGenerator {
         DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
         Document document = builder.newDocument();
 
-        Element pnmlElement = document.createElement(PnmlConstants.ELEMENT_PNML);
-        pnmlElement.setAttribute(PnmlConstants.ATTR_XMLNS, PnmlConstants.PNML_NAMESPACE);
+        // Every element below is created with createElementNS in this same namespace, so the
+        // root carrying it is enough: the serializer states it exactly once, on <pnml> itself,
+        // with nothing to override further down (see the RELAX NG grammar, which is one
+        // namespace throughout).
+        Element pnmlElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_PNML);
         document.appendChild(pnmlElement);
 
-        Element netElement = document.createElement(PnmlConstants.ELEMENT_NET);
-        netElement.setAttribute(PnmlConstants.ATTR_ID, model.getName());
+        Element netElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_NET);
+        netElement.setAttribute(PnmlConstants.ATTR_ID, XmlHelper.isNotEmpty(model.getName())
+                ? PnmlIds.sanitize(model.getName()) : PnmlConstants.DEFAULT_NET_ID);
         netElement.setAttribute(PnmlConstants.ATTR_TYPE, PnmlConstants.PTNET_TYPE);
         netElement.appendChild(createNameElement(document, model.getName()));
         pnmlElement.appendChild(netElement);
@@ -126,8 +137,14 @@ public class PnmlModelGenerator {
         ElementIds ids = ElementIds.of(pages);
         projectLinks(document, model, pages, ids);
 
+        // After the links, so that a page's own content is complete before a child page is
+        // put behind it, and so that a stand-in inserted before the page's first arc lands
+        // among the page's nodes rather than in front of a child page.
+        nestPages(model, pages);
+
         netElement.appendChild(createLinksBlock(document, model, ids));
-        assertWriterInvariants(document);
+        WriterInvariants.assertValid(document);
+
         return document;
     }
 
@@ -136,13 +153,12 @@ public class PnmlModelGenerator {
      */
     private Element createPage(Document document, GraphPetriObject object, int index)
             throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
-        Element page = document.createElement(PnmlConstants.ELEMENT_PAGE);
+        Element page = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_PAGE);
         page.setAttribute(PnmlConstants.ATTR_ID, pageId(index));
         page.appendChild(createNameElement(document, object.getName()));
 
-        Element toolspecific = createToolspecific(document,
-                PnmlConstants.TOOL_VERSION_OBJECT_MODEL_CONFORMANT);
-        Element objectElement = document.createElement(PnmlConstants.ELEMENT_PETRI_OBJECT);
+        Element toolspecific = createToolspecific(document);
+        Element objectElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_PETRI_OBJECT);
         objectElement.setAttribute(PnmlConstants.ATTR_INDEX, String.valueOf(index));
         objectElement.setAttribute(PnmlConstants.ATTR_NAME, object.getName());
         objectElement.setAttribute(PnmlConstants.ATTR_PRIORITY, String.valueOf(object.getPriority()));
@@ -155,18 +171,17 @@ public class PnmlModelGenerator {
         if (object.isCollapsed()) {
             objectElement.setAttribute(PnmlConstants.ATTR_COLLAPSED, "true");
         }
-        if (object.getParentIndex() >= 0) {
-            objectElement.setAttribute(PnmlConstants.ATTR_PARENT_OBJECT,
-                    String.valueOf(object.getParentIndex()));
-        }
+        // No parent is stated here: which object encloses this one is said by where the page
+        // sits, see nestPages. The page starts out at the top level and is moved once the
+        // links are drawn.
         toolspecific.appendChild(objectElement);
 
         NetTemplateRef template = object.getTemplate();
         if (template != null) {
-            Element templateElement = document.createElement(PnmlConstants.ELEMENT_NET_TEMPLATE);
+            Element templateElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_NET_TEMPLATE);
             templateElement.setAttribute(PnmlConstants.ATTR_METHOD, template.getMethodName());
             for (String argument : template.getArguments()) {
-                Element argumentElement = document.createElement(PnmlConstants.ELEMENT_TEMPLATE_ARGUMENT);
+                Element argumentElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_TEMPLATE_ARGUMENT);
                 argumentElement.setTextContent(argument);
                 templateElement.appendChild(argumentElement);
             }
@@ -185,6 +200,65 @@ public class PnmlModelGenerator {
     /** @return the id of the page that carries the n-th Petri-object */
     private static String pageId(int index) {
         return PnmlConstants.OBJECT_PAGE_ID_PREFIX + index;
+    }
+
+    /**
+     * Moves the page of every object that has a parent inside its parent's page.
+     *
+     * <p>This is the whole statement of the hierarchy. ISO/IEC 15909-2 expresses a page
+     * hierarchy by nesting a {@code <page>} inside a {@code <page>}, so a reader that is
+     * neither of the tools sharing this dialect sees the nesting and needs nothing
+     * tool-specific to see it. A top-level object, and the page holding the elements that
+     * belong to no object, stay directly under {@code <net>}.
+     *
+     * <p>A child page goes after everything its parent page holds of its own, and the pages
+     * are moved in ascending object index, so several children of one parent keep that order
+     * too.
+     *
+     * <p>A parent index that names no object of this model, or that closes a cycle, is
+     * reported and dropped rather than being fatal: the page stays at the top level, which is
+     * all a reader could make of it anyway, and the rest of the export is unharmed.
+     */
+    private static void nestPages(GraphPetriObjModel model, List<Element> pages) {
+        for (int index = 0; index < pages.size(); index++) {
+            int parent = model.getObject(index).getParentIndex();
+            if (parent < 0) {
+                continue;
+            }
+            if (!isNestable(model, index, parent)) {
+                log.warn("Not nesting Petri-object {} inside {}: no such object, or the chain "
+                        + "comes back round to it. It stays at the top level.", index, parent);
+                continue;
+            }
+            pages.get(parent).appendChild(pages.get(index));
+        }
+    }
+
+    /**
+     * Whether one object may be written inside another.
+     *
+     * <p>Only this edge is judged. An object further up the chain naming a parent that does
+     * not exist is that object's own problem, and it is answered by leaving that one at the
+     * top level; disqualifying everything below it as well would strip a hierarchy the model
+     * states perfectly clearly. What is rejected is a parent this model does not have, an
+     * object claiming itself, and a chain that comes back round to this object, which no
+     * document could hold and which appendChild would answer with HIERARCHY_REQUEST_ERR.
+     *
+     * @param index the object being nested
+     * @param parent the object it names as its parent
+     */
+    private static boolean isNestable(GraphPetriObjModel model, int index, int parent) {
+        if (parent >= model.getObjectCount() || parent == index) {
+            return false;
+        }
+        int steps = 0;
+        for (int current = parent; current >= 0 && current < model.getObjectCount();
+                current = model.getObject(current).getParentIndex()) {
+            if (current == index || ++steps > model.getObjectCount()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -274,7 +348,7 @@ public class PnmlModelGenerator {
             return;
         }
 
-        Element reference = document.createElement(PnmlConstants.ELEMENT_REFERENCE_PLACE);
+        Element reference = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_REFERENCE_PLACE);
         reference.setAttribute(PnmlConstants.ATTR_ID, placeId);
         reference.setAttribute(PnmlConstants.ATTR_REF, targetId);
 
@@ -283,13 +357,12 @@ public class PnmlModelGenerator {
             reference.appendChild(name.cloneNode(true));
         }
 
-        Element toolspecific = createToolspecific(document,
-                PnmlConstants.TOOL_VERSION_OBJECT_MODEL_CONFORMANT);
+        Element toolspecific = createToolspecific(document);
         toolspecific.appendChild(textElement(document, PnmlConstants.ELEMENT_REFERENCE_ROLE,
                 PnmlConstants.ROLE_FUSION));
         for (Element block : XmlHelper.toolSpecificBlocks(place)) {
-            // Coordinates and any marking parameter belong to the drawing, not to the net, so
-            // they follow the node rather than the place that stops existing.
+            // Any marking parameter belongs to the drawing, not to the net, so it follows the
+            // node rather than the place that stops existing.
             for (Element carried : XmlHelper.directChildren(block)) {
                 toolspecific.appendChild(carried.cloneNode(true));
             }
@@ -325,7 +398,7 @@ public class PnmlModelGenerator {
             return existing;
         }
 
-        Element reference = document.createElement(tagName);
+        Element reference = document.createElementNS(PnmlConstants.PNML_NAMESPACE, tagName);
         reference.setAttribute(PnmlConstants.ATTR_ID,
                 PnmlConstants.REFERENCE_NODE_ID_PREFIX + pageId(page) + "_" + targetId);
         reference.setAttribute(PnmlConstants.ATTR_REF, targetId);
@@ -338,15 +411,9 @@ public class PnmlModelGenerator {
             reference.appendChild(name.cloneNode(true));
         }
 
-        Element toolspecific = createToolspecific(document,
-                PnmlConstants.TOOL_VERSION_OBJECT_MODEL_CONFORMANT);
+        Element toolspecific = createToolspecific(document);
         toolspecific.appendChild(textElement(document, PnmlConstants.ELEMENT_REFERENCE_ROLE,
                 PnmlConstants.ROLE_REPRESENTATIVE));
-        Element coordinates = target == null ? null
-                : firstToolSpecificChild(target, PnmlConstants.ELEMENT_COORDINATES);
-        if (coordinates != null) {
-            toolspecific.appendChild(coordinates.cloneNode(true));
-        }
         reference.appendChild(toolspecific);
 
         Element graphics = target == null ? null
@@ -374,12 +441,12 @@ public class PnmlModelGenerator {
      */
     private void appendLinkArc(Document document, Element page, int linkIndex,
                                String sourceId, String targetId, int quantity) {
-        Element arc = document.createElement(PnmlConstants.ELEMENT_ARC);
+        Element arc = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_ARC);
         arc.setAttribute(PnmlConstants.ATTR_ID, PnmlConstants.LINK_ARC_ID_PREFIX + linkIndex);
         arc.setAttribute(PnmlConstants.ATTR_SOURCE, sourceId);
         arc.setAttribute(PnmlConstants.ATTR_TARGET, targetId);
 
-        Element inscription = document.createElement(PnmlConstants.ELEMENT_INSCRIPTION);
+        Element inscription = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_INSCRIPTION);
         inscription.appendChild(textElement(document, PnmlConstants.ELEMENT_TEXT,
                 String.valueOf(Math.max(1, quantity))));
         arc.appendChild(inscription);
@@ -395,11 +462,10 @@ public class PnmlModelGenerator {
      * the user declared it, now addressed by element id as well as by position.
      */
     private Element createLinksBlock(Document document, GraphPetriObjModel model, ElementIds ids) {
-        Element toolspecific = createToolspecific(document,
-                PnmlConstants.TOOL_VERSION_OBJECT_MODEL_CONFORMANT);
-        Element linksElement = document.createElement(PnmlConstants.ELEMENT_PETRI_OBJECT_LINKS);
+        Element toolspecific = createToolspecific(document);
+        Element linksElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_PETRI_OBJECT_LINKS);
         for (PetriObjLink link : model.getLinks()) {
-            Element linkElement = document.createElement(PnmlConstants.ELEMENT_LINK);
+            Element linkElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_LINK);
             linkElement.setAttribute(PnmlConstants.ATTR_LINK_TYPE, linkTypeName(link));
             linkElement.setAttribute(PnmlConstants.ATTR_SOURCE_OBJECT, String.valueOf(link.getSourceObject()));
             linkElement.setAttribute(PnmlConstants.ATTR_SOURCE_ELEMENT, String.valueOf(link.getSourceElement()));
@@ -437,21 +503,27 @@ public class PnmlModelGenerator {
         };
     }
 
-    private Element createToolspecific(Document document, String version) {
-        Element toolspecific = document.createElement(PnmlConstants.ELEMENT_TOOLSPECIFIC);
+    /**
+     * A tool-specific block under this project's own identity, stating this project's release.
+     * This is the only identity this project writes; the web application's own blocks are a
+     * reader-side fallback for documents it wrote, see {@link XmlHelper#toolSpecificBlocks}.
+     */
+    private Element createToolspecific(Document document) {
+        Element toolspecific = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_TOOLSPECIFIC);
         toolspecific.setAttribute(PnmlConstants.ATTR_TOOL, PnmlConstants.TOOL_PETRI_OBJ_MODEL);
-        toolspecific.setAttribute(PnmlConstants.ATTR_VERSION, version);
+        toolspecific.setAttribute(
+                PnmlConstants.ATTR_VERSION, PnmlConstants.TOOL_VERSION_PETRI_OBJ_MODEL);
         return toolspecific;
     }
 
     private Element createNameElement(Document document, String name) {
-        Element nameElement = document.createElement(PnmlConstants.ELEMENT_NAME);
+        Element nameElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_NAME);
         nameElement.appendChild(textElement(document, PnmlConstants.ELEMENT_TEXT, name));
         return nameElement;
     }
 
     private static Element textElement(Document document, String tagName, String text) {
-        Element element = document.createElement(tagName);
+        Element element = document.createElementNS(PnmlConstants.PNML_NAMESPACE, tagName);
         element.setTextContent(text);
         return element;
     }
@@ -464,16 +536,6 @@ public class PnmlModelGenerator {
         for (Element child : XmlHelper.directChildren(page)) {
             if ((tagName == null || tagName.equals(child.getTagName()))
                     && id.equals(child.getAttribute(PnmlConstants.ATTR_ID))) {
-                return child;
-            }
-        }
-        return null;
-    }
-
-    private static Element firstToolSpecificChild(Element element, String tagName) {
-        for (Element block : XmlHelper.toolSpecificBlocks(element)) {
-            Element child = XmlHelper.firstDirectChild(block, tagName);
-            if (child != null) {
                 return child;
             }
         }
@@ -598,90 +660,4 @@ public class PnmlModelGenerator {
         }
     }
 
-    /**
-     * Checks the document against the invariants a PNML reader is entitled to assume and a
-     * RELAX NG schema cannot state, most importantly that an arc never leaves its page,
-     * which the schema types as a plain IDREF and therefore cannot see.
-     *
-     * <p>Cheap, and it is what keeps a regression here from reaching a reader as a model that
-     * quietly means something else.
-     *
-     * @throws Exception naming the first violation
-     */
-    private static void assertWriterInvariants(Document document) throws Exception {
-        Element netElement = PnmlParser.findNetElement(document);
-        List<Element> pages = XmlHelper.directChildren(netElement, PnmlConstants.ELEMENT_PAGE);
-        if (pages.isEmpty()) {
-            throw new Exception(PnmlConstants.ERROR_NO_OBJECTS);
-        }
-
-        Set<String> allIds = new HashSet<>();
-        Map<String, String> referenceTargets = new HashMap<>();
-        for (Element page : pages) {
-            if (!XmlHelper.directChildren(page, PnmlConstants.ELEMENT_PAGE).isEmpty()) {
-                throw new Exception("Page " + page.getAttribute(PnmlConstants.ATTR_ID)
-                        + " contains a page: nested pages are not written");
-            }
-            Set<String> nodesOnPage = new HashSet<>();
-            for (Element child : XmlHelper.directChildren(page)) {
-                String id = child.getAttribute(PnmlConstants.ATTR_ID);
-                boolean reference = PnmlConstants.ELEMENT_REFERENCE_PLACE.equals(child.getTagName())
-                        || PnmlConstants.ELEMENT_REFERENCE_TRANSITION.equals(child.getTagName());
-                boolean node = reference
-                        || PnmlConstants.ELEMENT_PLACE.equals(child.getTagName())
-                        || PnmlConstants.ELEMENT_TRANSITION.equals(child.getTagName());
-                if (!node && !PnmlConstants.ELEMENT_ARC.equals(child.getTagName())) {
-                    continue;
-                }
-                if (!allIds.add(id)) {
-                    throw new Exception(String.format(PnmlConstants.ERROR_DUPLICATE_ID, id));
-                }
-                if (node) {
-                    nodesOnPage.add(id);
-                }
-                if (reference) {
-                    if (child.getElementsByTagName(PnmlConstants.ELEMENT_INITIAL_MARKING).getLength() > 0) {
-                        throw new Exception("Reference node " + id + " carries an initial marking, "
-                                + "which would double the tokens of the node it stands for");
-                    }
-                    referenceTargets.put(id, child.getAttribute(PnmlConstants.ATTR_REF));
-                }
-            }
-            for (Element arc : XmlHelper.directChildren(page, PnmlConstants.ELEMENT_ARC)) {
-                String source = arc.getAttribute(PnmlConstants.ATTR_SOURCE);
-                String target = arc.getAttribute(PnmlConstants.ATTR_TARGET);
-                if (!nodesOnPage.contains(source) || !nodesOnPage.contains(target)) {
-                    throw new Exception("Arc " + arc.getAttribute(PnmlConstants.ATTR_ID)
-                            + " runs from " + source + " to " + target
-                            + ", which are not both on page " + page.getAttribute(PnmlConstants.ATTR_ID));
-                }
-                // A weight below one is not a P/T arc at all; writing it out would hand a
-                // reader a document that cannot mean anything, so the net is fixed instead.
-                int weight = XmlHelper.parseIntSafe(
-                        XmlHelper.getTextContent(arc, PnmlConstants.ELEMENT_INSCRIPTION), 1);
-                if (weight < 1) {
-                    throw new Exception("Arc " + arc.getAttribute(PnmlConstants.ATTR_ID)
-                            + " has multiplicity " + weight + "; a Petri net arc moves at least one token");
-                }
-            }
-        }
-
-        for (String id : referenceTargets.keySet()) {
-            String current = id;
-            for (int depth = 0; ; depth++) {
-                String next = referenceTargets.get(current);
-                if (next == null) {
-                    if (!allIds.contains(current)) {
-                        throw new Exception(String.format(
-                                PnmlConstants.ERROR_DANGLING_REFERENCE, id, current));
-                    }
-                    break;
-                }
-                if (next.equals(id) || depth > PnmlConstants.MAX_REFERENCE_DEPTH) {
-                    throw new Exception(String.format(PnmlConstants.ERROR_REFERENCE_CYCLE, id));
-                }
-                current = next;
-            }
-        }
-    }
 }

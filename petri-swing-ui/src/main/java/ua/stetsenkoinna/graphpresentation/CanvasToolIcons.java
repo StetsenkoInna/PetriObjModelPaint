@@ -125,6 +125,48 @@ public final class CanvasToolIcons {
     }
 
     /**
+     * A dashed rectangle like {@link #marquee}, with a small plus at its centre - the Petri-object
+     * band tool, which unlike a plain selection marquee always makes something out of the
+     * rectangle it draws, even an empty object when the band catches nothing.
+     *
+     * @param size the icon's side length
+     */
+    static Icon objectBand(int size) {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = prepare(g);
+                g2.setColor(c.getForeground());
+                float inset = size * 0.12f;
+                RoundRectangle2D rect = new RoundRectangle2D.Float(
+                        x + inset, y + inset, size - 2 * inset, size - 2 * inset, 3, 3);
+                g2.setStroke(new java.awt.BasicStroke(1.4f, java.awt.BasicStroke.CAP_ROUND,
+                        java.awt.BasicStroke.JOIN_ROUND, 1f, new float[]{2.5f, 2.5f}, 0f));
+                g2.draw(rect);
+
+                float cx = x + size / 2f;
+                float cy = y + size / 2f;
+                float arm = size * 0.16f;
+                g2.setStroke(new java.awt.BasicStroke(1.6f, java.awt.BasicStroke.CAP_ROUND,
+                        java.awt.BasicStroke.JOIN_ROUND));
+                g2.draw(new java.awt.geom.Line2D.Float(cx - arm, cy, cx + arm, cy));
+                g2.draw(new java.awt.geom.Line2D.Float(cx, cy - arm, cx, cy + arm));
+                g2.dispose();
+            }
+
+            @Override
+            public int getIconWidth() {
+                return size;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return size;
+            }
+        };
+    }
+
+    /**
      * A simple "&lt;" / "&gt;" chevron, stroked rather than filled — the sidebar's
      * collapse/expand toggle. Drawn instead of relying on a Unicode triangle glyph
      * ({@code ◀}/{@code ▶}) since not every installed font actually carries those code

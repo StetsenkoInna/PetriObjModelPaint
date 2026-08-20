@@ -106,8 +106,12 @@ enclosed it, or to the free elements when nothing did, and the objects nested in
 same enclosing object. Its canvas closes with it, and the active canvas falls back to the
 nearest surviving enclosing one.
 
-A nested object is an ordinary sibling `<page>` in an exported PNML document and imports back
-flat, which is what the web editor does with the same relation.
+A nested object's `<page>` is written inside its parent's in an exported PNML document, which
+is how ISO/IEC 15909-2 states a page hierarchy, and importing restores the nest from it: where
+a page sits is the only thing the reader consults. The web editor writes and reads the same
+shape. A document written before the pages were nested carries the hierarchy in a tool-specific
+`parentObject` attribute instead, which is neither written nor read any more, so it still
+imports with every object, net and link intact but with its objects flattened to the top level.
 
 The eye icon in a frame's header shows or hides its own drawing, independent of the frame's
 size — the elements still exist and still hold their marking either way. A locked object

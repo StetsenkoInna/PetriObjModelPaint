@@ -126,10 +126,12 @@ public class GraphPetriObject implements Serializable {
 
     /**
      * The index of the object this one is nested inside, or -1 for a top-level object.
-     * Carries the canvas's nesting through the model: PNML flattens objects to sibling
-     * pages, and reimporting used to lose the nest - the inner object came back sitting
-     * geometrically inside the outer frame while structurally belonging to nobody, so
-     * dragging the outer object left it behind.
+     *
+     * <p>The model's only carrier of the canvas's nesting. A document states it by writing the
+     * inner object's page inside the outer one's; before that it was flattened to sibling
+     * pages, and reimporting lost the nest: the inner object came back sitting geometrically
+     * inside the outer frame while structurally belonging to nobody, so dragging the outer
+     * object left it behind.
      */
     private int parentIndex = -1;
 
