@@ -2185,12 +2185,23 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * from the parent search below however deep the band's centre lands in it, which is what
      * stops a band drawn around an object nesting the new object INSIDE that object instead of
      * around it (the two ending up looking like they had swapped names, and on a third band a
-     * closed parent cycle that hung the editor). Rule 4: the parent is the innermost frame drawn
-     * on this canvas whose bounds contain the band's centre and that the band does not swallow;
-     * with no such frame the new object goes at the top of this canvas. Rule 5: only what is
-     * loose at the resolved parent's own level - its direct members, its direct child frames -
-     * is capturable; something owned by another object travels with that object and is left
-     * alone, and a swallowed frame's own contents come with it rather than being torn out.
+     * closed parent cycle that hung the editor). Rule 4: the parent is a frame drawn directly on
+     * this canvas - nested no deeper than the object being edited, the same scope every other
+     * structural change here keeps to, since grouping refuses to pull a frame out of the object
+     * that owns it and a drag will not reparent across levels either - whose bounds contain the
+     * band's centre, whose content is shown (a collapsed or eye-hidden frame is ruled out the
+     * same way it is ruled out as a drop target), and that the band does not swallow; with no
+     * such frame the new object goes at the top of this canvas. A band whose centre lands inside
+     * a frame nested deeper still, one only visible because every frame above it happens to be
+     * expanded, resolves to that frame's own ancestor on this canvas instead: the same answer
+     * grouping a selection that reaches that deep already gives, where the deeper frame is left
+     * exactly where it is rather than pulled into the new object. Rule 5: only what is loose at
+     * the resolved parent's own level - its direct members, its direct child frames - is
+     * capturable, and loose means unowned as well as owned by the resolved parent itself, the
+     * same two-part rule the web editor's own {@code resolveObjectBand} applies (see
+     * {@code petri-object-model.ts}): something owned by another object travels with that object
+     * and is left alone, and a swallowed frame's own contents come with it rather than being torn
+     * out.
      *
      * @param band the rectangle the gesture drew, in canvas coordinates
      * @return the frame to build inside, and what the band takes
@@ -2198,15 +2209,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     public ObjectBandCapture resolveObjectBand(Rectangle band) {
         Point2D centre = new Point2D.Double(band.getCenterX(), band.getCenterY());
         GraphObjectFrame parent = topmostFrame(centre, (candidate, point) ->
-                !candidate.isCollapsed() && candidate.contains(point)
-                        && !bandSwallows(band, candidate.getBounds()));
+                isFrameOnThisCanvas(candidate) && candidate.isContentShown()
+                        && candidate.contains(point) && !bandSwallows(band, candidate.getBounds()));
         if (parent == null) {
             parent = focusedFrame;
         }
 
         List<GraphObjectFrame> frames = new ArrayList<>();
         for (GraphObjectFrame candidate : canvasModel.getFrames()) {
-            if (candidate != parent && canvasModel.enclosingOf(candidate) == parent
+            if (candidate != parent && capturable(canvasModel.enclosingOf(candidate), parent)
                     && bandSwallows(band, candidate.getBounds())) {
                 frames.add(candidate);
             }
@@ -2214,17 +2225,31 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         List<GraphElement> elements = new ArrayList<>();
         for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
-            if (canvasModel.ownerOf(place) == parent && centredIn(band, place)) {
+            if (capturable(canvasModel.ownerOf(place), parent) && centredIn(band, place)) {
                 elements.add(place);
             }
         }
         for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
-            if (canvasModel.ownerOf(transition) == parent && centredIn(band, transition)) {
+            if (capturable(canvasModel.ownerOf(transition), parent) && centredIn(band, transition)) {
                 elements.add(transition);
             }
         }
 
         return new ObjectBandCapture(parent, elements, frames);
+    }
+
+    /**
+     * @param owner what currently claims a place, transition or frame the band's rectangle
+     *        reaches, or {@code null} when nothing does
+     * @param parent the frame {@link #resolveObjectBand} resolved as the new object's home
+     * @return true when the band is allowed to capture it: owned by nobody, or already owned by
+     *         the resolved parent itself. The same two-part eligibility test the web editor's own
+     *         {@code resolveObjectBand} applies, so something loose at the top level is captured
+     *         whatever frame the band's centre happens to resolve as the parent, not only when it
+     *         already sits inside that frame.
+     */
+    private static boolean capturable(GraphObjectFrame owner, GraphObjectFrame parent) {
+        return owner == null || owner == parent;
     }
 
     /** @return true when {@code band} contains {@code inner} in full, border touching allowed */

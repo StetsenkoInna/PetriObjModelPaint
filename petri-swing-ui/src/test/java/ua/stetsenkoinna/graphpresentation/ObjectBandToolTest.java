@@ -232,10 +232,17 @@ public class ObjectBandToolTest {
     }
 
     @Test
-    public void theInnermostFrameSearchCascadesPastOneLevelOfNesting() {
-        // Not just the frame drawn directly on this canvas: a band centre sitting inside an
-        // already-expanded nested object picks THAT object, the same "innermost" rule 4 asks
-        // for, not the outer one it happens to be inside too.
+    public void theParentSearchDoesNotReachPastThisCanvassOwnDirectChildren() {
+        // A frame nested two levels deep can still be VISIBLE here, drawn because every
+        // ancestor above it happens to be expanded - but resolving it as the new object's
+        // parent would be a structural change reaching past what this canvas itself edits.
+        // Everything else here scopes a structural change to isFrameOnThisCanvas: grouping
+        // refuses to pull a frame out of the object that owns it, and a drag will not reparent
+        // across levels either. The band's own parent search keeps to the same scope, so a
+        // band whose centre lands inside the deeper frame still resolves to that frame's own
+        // ancestor drawn directly here - exactly what grouping a selection that reaches this
+        // deep already does, leaving the deeper frame right where it is rather than pulling it
+        // into the new object.
         PetriNetsPanel panel = freshPanel();
         GraphObjectFrame outer = topLevelFrame(panel, "Outer", new Rectangle(0, 0, 400, 300));
         GraphObjectFrame inner = new GraphObjectFrame("Inner", new Rectangle(100, 100, 120, 100));
@@ -245,8 +252,28 @@ public class ObjectBandToolTest {
 
         PetriNetsPanel.ObjectBandCapture capture = panel.resolveObjectBand(band);
 
-        assertSame("the deeper, still-visible frame wins over the one enclosing it",
-                inner, capture.parent());
+        assertSame("the deeper frame is only visible here, not edited here - the search stops "
+                + "at the frame drawn directly on this canvas instead",
+                outer, capture.parent());
+    }
+
+    @Test
+    public void aFrameWhoseContentIsEyeHiddenIsNotEligibleAsParent() {
+        // isCollapsed() alone misses this: an object's net can be hidden by the eye toggle
+        // without collapsing it, and GraphObjectFrame.isContentShown() - !collapsed &&
+        // contentVisible - is the test frameAtExcluding and ownerForDropAt already use for the
+        // same reason. A band cannot sensibly build a new object inside a frame whose contents
+        // the user cannot see.
+        PetriNetsPanel panel = freshPanel();
+        GraphObjectFrame hidden = topLevelFrame(panel, "Hidden", new Rectangle(0, 0, 400, 300));
+        hidden.setContentVisible(false);
+        Rectangle band = new Rectangle(150, 120, 60, 60);
+
+        PetriNetsPanel.ObjectBandCapture capture = panel.resolveObjectBand(band);
+
+        assertNull("content hidden by the eye icon rules the frame out exactly as it rules it "
+                + "out as a drop target, even though it is not collapsed",
+                capture.parent());
     }
 
     // ------------------------------------------------------------------ rule 5: only what is loose
@@ -299,6 +326,46 @@ public class ObjectBandToolTest {
         assertSame("the member is still exactly where it was claimed",
                 target, panel.getCanvasModel().ownerOf(member));
         assertSame(wrapper, panel.getCanvasModel().enclosingOf(target));
+    }
+
+    // ------------------------------------------------------------------ rule 5: capturable is two-part
+
+    @Test
+    public void anUnownedElementIsCapturedWhateverFrameTheBandResolvesAsParent() {
+        // The web editor's own rule (resolveObjectBand in petri-object-model.ts): capturable =
+        // owner === undefined || owner === parent. An element loose at the top level is caught
+        // by the band whatever frame its centre happens to resolve as the parent, not only one
+        // that already claims it.
+        PetriNetsPanel panel = freshPanel();
+        GraphObjectFrame frame = topLevelFrame(panel, "Frame", new Rectangle(0, 0, 300, 300));
+        GraphPetriPlace loose = placeAt(panel, "Loose", 390, 150);
+        Rectangle band = new Rectangle(100, 100, 350, 100);
+
+        PetriNetsPanel.ObjectBandCapture capture = panel.resolveObjectBand(band);
+
+        assertSame("fixture sanity check: the band's centre lands inside the frame",
+                frame, capture.parent());
+        assertTrue("unowned at the top level, so it is captured even though the resolved "
+                + "parent is a frame it was never inside",
+                capture.elements().contains(loose));
+    }
+
+    @Test
+    public void anUnownedFrameIsSwallowedIntoTheCaptureEvenWhenAnotherFrameIsResolvedAsParent() {
+        // Same two-part rule as above, for the frame test: enclosingOf(candidate) == parent
+        // used to leave out a frame owned by nobody whenever the resolved parent was not null.
+        PetriNetsPanel panel = freshPanel();
+        GraphObjectFrame parent = topLevelFrame(panel, "Parent", new Rectangle(0, 0, 300, 100));
+        GraphObjectFrame loose = topLevelFrame(panel, "Loose", new Rectangle(320, 20, 60, 60));
+        Rectangle band = new Rectangle(100, 0, 300, 100);
+
+        PetriNetsPanel.ObjectBandCapture capture = panel.resolveObjectBand(band);
+
+        assertSame("fixture sanity check: the band's centre lands inside the other frame",
+                parent, capture.parent());
+        assertTrue("unowned at the top level, so a frame the band fully swallows is captured "
+                + "even though it was never inside the resolved parent",
+                capture.frames().contains(loose));
     }
 
     // ------------------------------------------------------------------ rule 6: empty capture
