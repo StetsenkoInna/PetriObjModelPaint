@@ -1141,6 +1141,16 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         pinnedToolsPanel.add(toolSectionSeparator());
         pinnedToolsPanel.add(javax.swing.Box.createVerticalStrut(8));
 
+        javax.swing.JToggleButton objectBandToolButton =
+                new javax.swing.JToggleButton(CanvasToolIcons.objectBand(TOOL_ICON_SIZE));
+        objectBandToolButton.setToolTipText(
+                "Draw Petri-object: drag a rectangle, and whatever it fully encloses becomes a"
+                        + " new Petri-object");
+        objectBandToolButton.addActionListener(evt -> getPetriNetsPanel().setTool(CanvasTool.OBJECT_BAND));
+        styleToolButton(objectBandToolButton);
+        canvasToolGroup.add(objectBandToolButton);
+        pinnedToolsPanel.add(objectBandToolButton);
+
         leftIconToolBar.add(pinnedToolsPanel, java.awt.BorderLayout.NORTH);
 
         petriObjectSectionPanel = new javax.swing.JPanel();
@@ -1947,6 +1957,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         if (!confirmDiscardingCurrentNet()) {
             return;
         }
+        java.io.File selectedFile = null;
         try {
             javax.swing.JFileChooser chooser = newDocumentChooser("Open");
             chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
@@ -1954,7 +1965,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             if (chooser.showOpenDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) {
                 return;
             }
-            java.io.File selectedFile = chooser.getSelectedFile();
+            selectedFile = chooser.getSelectedFile();
             lastOpenDirectory = selectedFile.getParentFile();
 
             // Opening a document, so everything the old one left behind goes with it — the
@@ -1963,7 +1974,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             loadPnmlFile(selectedFile);
         } catch (Exception ex) {
             LOGGER.error("Failed to import PNML", ex);
-            MessageHelper.showException(this, "Error importing PNML file", ex);
+            String fileName = selectedFile != null ? selectedFile.getName() : "the selected file";
+            MessageHelper.showException(this, "Error importing PNML file: " + fileName, ex);
         }
     }
 
@@ -1974,9 +1986,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * auto-reopen. Callers are responsible for confirming discard and calling {@link
      * #resetWorkspaceForNewDocument()} first, since not every caller wants those at the same
      * point — a blank canvas at startup has nothing to discard or reset.
+     *
+     * <p>Any soft-validation warning the parser raised is shown once opening succeeds: an id
+     * that was not valid XML and was remapped, a value that did not parse, a link the document
+     * declared but the structure disagreed with. Opening proceeds regardless; the dialog is
+     * purely informational.
      */
     private void loadPnmlFile(java.io.File file) throws Exception {
-        GraphPetriObjModel objModel = new PnmlModelParser().parse(file);
+        PnmlModelParser parser = new PnmlModelParser();
+        GraphPetriObjModel objModel = parser.parse(file);
         GraphCanvasModel canvas = GraphCanvasModel.fromObjModel(objModel);
         getPetriNetsPanel().setCanvasModel(canvas);
         netNameTextField.setText(objModel.getName());
@@ -1988,6 +2006,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared()
                         .recordOpened(file.toPath(), objModel.getName());
         ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared().setActiveProjectId(entry.getId());
+
+        MessageHelper.showImportWarnings(this, parser.getWarnings());
     }
 
     /**
@@ -2001,7 +2021,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             loadPnmlFile(file);
         } catch (Exception ex) {
             LOGGER.error("Failed to auto-reopen project", ex);
-            MessageHelper.showException(this, "Could not reopen the last project", ex);
+            MessageHelper.showException(this,
+                    "Could not reopen the last project: " + file.getName(), ex);
         }
     }
 
@@ -2024,7 +2045,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             loadPnmlFile(file);
         } catch (Exception ex) {
             LOGGER.error("Failed to open recent project", ex);
-            MessageHelper.showException(this, "Error opening PNML file", ex);
+            MessageHelper.showException(this, "Error opening PNML file: " + file.getName(), ex);
         }
     }
 
@@ -2088,7 +2109,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         loadPnmlFile(file);
                     } catch (Exception ex) {
                         LOGGER.error("Failed to open project from welcome screen", ex);
-                        MessageHelper.showException(this, "Error opening PNML file", ex);
+                        MessageHelper.showException(this, "Error opening PNML file: " + file.getName(), ex);
                     }
                     return true; // discard was already confirmed above, before this frame was hidden
                 },
@@ -2125,7 +2146,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         loadPnmlFile(file);
                     } catch (Exception ex) {
                         LOGGER.error("Failed to open project from recent-projects manager", ex);
-                        MessageHelper.showException(this, "Error opening PNML file", ex);
+                        MessageHelper.showException(this, "Error opening PNML file: " + file.getName(), ex);
                     }
                     focusMainFrame();
                     return true;

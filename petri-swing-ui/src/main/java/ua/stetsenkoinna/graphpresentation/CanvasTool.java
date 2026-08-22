@@ -25,6 +25,15 @@ public enum CanvasTool {
      */
     ADD_PETRI_OBJECT,
     /**
+     * Drag out a rectangle and release: whatever it captures becomes one new Petri-object, the
+     * same gesture the web editor's own object tool draws. A frame joins only when the band
+     * swallows it whole, wrapping it inside the new object; a place or transition joins by its
+     * centre. A capture-nothing drag still creates an empty object at the drawn rectangle. Not
+     * to be confused with {@link #ADD_PETRI_OBJECT}, which stamps a library template instead of
+     * building a fresh object out of whatever the band encloses.
+     */
+    OBJECT_BAND,
+    /**
      * A net has been loaded and is waiting for the user to say where it goes: an outline
      * follows the pointer and the next click drops it there. Unlike the tools above this one
      * is one-shot — it disarms itself once the net has been placed, because loading a net is a

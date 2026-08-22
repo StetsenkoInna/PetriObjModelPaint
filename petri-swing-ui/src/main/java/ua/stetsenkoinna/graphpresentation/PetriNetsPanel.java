@@ -78,6 +78,7 @@ import ua.stetsenkoinna.graphpresentation.undoable_edits.AddObjectFrameEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteGraphElementsEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.JoinPlacesEdit;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.NeighborNudge;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.ObjectFrameSnapshot;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.PasteElementsEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.RemoveObjectFrameEdit;
@@ -529,7 +530,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     ? canvasModel.enclosingOf(originalRoot)
                     : copies.get(canvasModel.enclosingOf(original));
             canvasModel.nest(copy, parent);
-            addObjectFrame(copy);
+            // The copy already carries its own membership, translated by the constructor above,
+            // so unlike a frame built by grouping there is nothing left to claim afterward: the
+            // push can run right away.
+            addObjectFrame(copy).pushNeighborsClear();
             for (GraphElement member : copy.getMembers()) {
                 // Locked inside the copy, so leaving one selected would let Delete or a
                 // drag act on an object's own net from the shared canvas.
@@ -703,12 +707,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (currentDragMouseLocation != null && startDragMouseLocation != null && leftMouseButtonPressed) {
             // Set explicitly rather than inherited from whatever was drawn last: on an empty
             // canvas nothing has been, and the graphics' default black is invisible in dark.
-            g2.setColor(CanvasPalette.current().get(CanvasColor.GUIDE));
-            g2.setStroke((Stroke) new BasicStroke(1.0f,
-                    BasicStroke.CAP_ROUND,
-                    BasicStroke.JOIN_BEVEL,
-                    20.0f,
-                    new float[]{15.0f, 15.0f}, 0.0f));
+            if (tool == CanvasTool.OBJECT_BAND) {
+                // A solid accent line rather than the plain dashed marquee, so the band that is
+                // about to build a Petri-object reads as its own gesture, not a selection.
+                g2.setColor(CanvasPalette.current().get(CanvasColor.ACCENT));
+                g2.setStroke(new BasicStroke(1.6f));
+            } else {
+                g2.setColor(CanvasPalette.current().get(CanvasColor.GUIDE));
+                g2.setStroke((Stroke) new BasicStroke(1.0f,
+                        BasicStroke.CAP_ROUND,
+                        BasicStroke.JOIN_BEVEL,
+                        20.0f,
+                        new float[]{15.0f, 15.0f}, 0.0f));
+            }
             g2.drawRect(startDragMouseLocation.x,
                     startDragMouseLocation.y,
                     currentDragMouseLocation.x - startDragMouseLocation.x,
@@ -2009,22 +2020,57 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     public GraphObjectFrame groupIntoObject(List<GraphElement> chunk,
             List<GraphObjectFrame> objects, String name) {
+        // Grouping from a selection always builds at the level being edited - the caller that
+        // wants a different parent (the Petri-object band) says so through the overload below.
+        return groupIntoObject(chunk, objects, focusedFrame, name);
+    }
+
+    /**
+     * Groups elements and whole Petri-objects together into one new object, built inside a
+     * parent the caller chooses rather than assumed to be {@link #focusedFrame} - what the
+     * Petri-object band gesture needs, since the band's own centre point can pick a frame drawn
+     * on this canvas as the new object's home instead of the canvas currently being edited.
+     *
+     * <p>Selecting a chunk of net that includes an object and grouping it used to produce an
+     * object holding only the loose elements: an object is not a {@code GraphElement}, so it was
+     * never in the list being grouped and was quietly left where it was. Grouping now takes what
+     * the user actually selected, and an object caught in it becomes nested in the new one.
+     *
+     * @param chunk loose elements to claim for the new object
+     * @param objects objects to nest inside it; one already inside another in the same set stays
+     *        where it is, since it is already covered by grouping its parent
+     * @param parent the frame the new object is built inside, or {@code null} for the top level
+     * @param name name for the new Petri-object
+     * @return the new frame, or {@code null} when there was nothing to group, or when
+     *         {@code parent} is {@code objects} own selves or something nested inside one of
+     *         them - nesting there would close the new object into its own ancestor, which
+     *         {@link GraphCanvasModel#nest} would otherwise refuse with an exception rather than
+     *         a caller that resolved {@code parent} from geometry (the band) being able to
+     *         handle gracefully
+     */
+    public GraphObjectFrame groupIntoObject(List<GraphElement> chunk,
+            List<GraphObjectFrame> objects, GraphObjectFrame parent, String name) {
         List<GraphObjectFrame> nested = new ArrayList<>();
         for (GraphObjectFrame candidate : objects) {
-            if (candidate == focusedFrame || enclosedByAnyOf(candidate, objects)) {
+            if (candidate == parent || enclosedByAnyOf(candidate, objects)) {
                 continue;
             }
-            // Same scope rule as every other structural change: a marquee can catch a frame
-            // nested deep inside another object, and grouping used to yank it out of the
-            // object that owned it into the brand-new one - a re-parenting the edit-scope
-            // rule blocks for a plain drag from this same canvas.
-            if (!isFrameOnThisCanvas(candidate)) {
+            // Same scope rule as every other structural change: a marquee (or a Petri-object
+            // band) can catch a frame nested deep inside another object, and grouping used to
+            // yank it out of the object that owned it into the brand-new one - a re-parenting
+            // the edit-scope rule blocks for a plain drag from this same canvas.
+            if (canvasModel.enclosingOf(candidate) != parent) {
                 continue;
             }
             nested.add(candidate);
         }
         if (chunk.isEmpty() && nested.isEmpty()) {
             return null;
+        }
+        for (GraphObjectFrame child : nested) {
+            if (parent != null && isFrameOrAncestorOf(child, parent)) {
+                return null;
+            }
         }
 
         // An element of an object being nested belongs to that object, not to the new one, so
@@ -2041,8 +2087,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
 
         GraphObjectFrame frame = new GraphObjectFrame(name, bounds);
-        canvasModel.nest(frame, focusedFrame);
-        addObjectFrame(frame);
+        canvasModel.nest(frame, parent);
+        AddObjectFrameEdit creation = addObjectFrame(frame);
         for (GraphElement element : loose) {
             canvasModel.claim(frame, element);
         }
@@ -2050,10 +2096,18 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             canvasModel.nest(child, frame);
         }
         chunk = loose;
-        if (focusedFrame != null) {
-            growToContain(focusedFrame, frame.getBounds());
-            frame.setCollapsed(true);
+        if (parent != null) {
+            growToContain(parent, frame.getBounds());
+            // Collapsed only when the new object is made from inside its parent's own canvas,
+            // where it stands for a level the user has left rather than one they are looking
+            // at. A band drawn round part of a frame on this canvas names that frame as the
+            // parent too, and there the user is looking straight at what they just enclosed:
+            // handing back a collapsed box would hide it the moment it appeared.
+            frame.setCollapsed(parent == focusedFrame);
         }
+        // Membership is settled now, so whatever is left standing too close to the frame is
+        // genuinely a stranger to it, not one of the members just claimed above.
+        creation.pushNeighborsClear();
 
         // The grouped elements are now locked inside their new frame — highlighting them as
         // "selected" afterward would be stale and, unlike before, no longer something Delete
@@ -2068,6 +2122,24 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         return frame;
     }
 
+    /**
+     * @param maybeAncestor a Petri-object frame
+     * @param frame another one
+     * @return true if {@code maybeAncestor} is {@code frame} itself, or something {@code frame}
+     *         is nested inside at any depth - whether nesting a brand-new frame under
+     *         {@code frame} and then nesting {@code maybeAncestor} inside that new frame would
+     *         close a cycle, the same check {@link GraphCanvasModel#nest} makes before it
+     *         accepts a parent
+     */
+    private boolean isFrameOrAncestorOf(GraphObjectFrame maybeAncestor, GraphObjectFrame frame) {
+        for (GraphObjectFrame above = frame; above != null; above = canvasModel.enclosingOf(above)) {
+            if (above == maybeAncestor) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** @return true when some other frame in {@code others} already encloses this one */
     private boolean enclosedByAnyOf(GraphObjectFrame frame, List<GraphObjectFrame> others) {
         for (GraphObjectFrame above = canvasModel.enclosingOf(frame); above != null;
@@ -2077,6 +2149,173 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
         }
         return false;
+    }
+
+    // ------------------------------------------------------------------ Petri-object band
+
+    /**
+     * Smallest Petri-object band drag treated as a gesture rather than a stray click - the same
+     * 10 pixel threshold, on either side, the web editor's own object tool uses.
+     */
+    private static final int OBJECT_BAND_MIN_DRAG = 10;
+
+    /**
+     * What one Petri-object band gesture resolves to: which frame the new object is built
+     * inside, and what it takes as its own direct contents - the same two questions the web
+     * editor's {@code resolveObjectBand} answers (see {@code petri-object-model.ts}), kept as
+     * their own dialog-free, side-effect-free step so the rules that decide them can be pinned
+     * directly against a drawn rectangle without a name ever having to be asked for.
+     *
+     * @param parent the frame the new object is built inside, or {@code null} for the top level
+     * @param elements the loose places and transitions the band's centre catches
+     * @param frames the whole frames the band swallows, to be nested inside the new object
+     */
+    public record ObjectBandCapture(GraphObjectFrame parent, List<GraphElement> elements,
+            List<GraphObjectFrame> frames) {
+    }
+
+    /**
+     * Resolves a Petri-object band gesture: given the rectangle the user dragged out, decides
+     * which frame the new object is built inside and what it captures.
+     *
+     * <p>Rule 1: a frame joins the capture only when the band swallows it whole - its centre
+     * being in range is not enough, or a small band over a big frame would swallow it. Rule 2: a
+     * place or transition joins by its centre, as it always has. Rule 3: a swallowed frame is
+     * wrapped by the new object, never made its parent - a frame the band swallows is excluded
+     * from the parent search below however deep the band's centre lands in it, which is what
+     * stops a band drawn around an object nesting the new object INSIDE that object instead of
+     * around it (the two ending up looking like they had swapped names, and on a third band a
+     * closed parent cycle that hung the editor). Rule 4: the parent is a frame drawn directly on
+     * this canvas - nested no deeper than the object being edited, the same scope every other
+     * structural change here keeps to, since grouping refuses to pull a frame out of the object
+     * that owns it and a drag will not reparent across levels either - whose bounds contain the
+     * band's centre, whose content is shown (a collapsed or eye-hidden frame is ruled out the
+     * same way it is ruled out as a drop target), and that the band does not swallow; with no
+     * such frame the new object goes at the top of this canvas. A band whose centre lands inside
+     * a frame nested deeper still, one only visible because every frame above it happens to be
+     * expanded, resolves to that frame's own ancestor on this canvas instead: the same answer
+     * grouping a selection that reaches that deep already gives, where the deeper frame is left
+     * exactly where it is rather than pulled into the new object. Rule 5: only what is loose at
+     * the resolved parent's own level - its direct members, its direct child frames - is
+     * capturable, and loose means unowned as well as owned by the resolved parent itself, the
+     * same two-part rule the web editor's own {@code resolveObjectBand} applies (see
+     * {@code petri-object-model.ts}): something owned by another object travels with that object
+     * and is left alone, and a swallowed frame's own contents come with it rather than being torn
+     * out.
+     *
+     * @param band the rectangle the gesture drew, in canvas coordinates
+     * @return the frame to build inside, and what the band takes
+     */
+    public ObjectBandCapture resolveObjectBand(Rectangle band) {
+        Point2D centre = new Point2D.Double(band.getCenterX(), band.getCenterY());
+        GraphObjectFrame parent = topmostFrame(centre, (candidate, point) ->
+                isFrameOnThisCanvas(candidate) && candidate.isContentShown()
+                        && candidate.contains(point) && !bandSwallows(band, candidate.getBounds()));
+        if (parent == null) {
+            parent = focusedFrame;
+        }
+
+        List<GraphObjectFrame> frames = new ArrayList<>();
+        for (GraphObjectFrame candidate : canvasModel.getFrames()) {
+            if (candidate != parent && capturable(canvasModel.enclosingOf(candidate), parent)
+                    && bandSwallows(band, candidate.getBounds())) {
+                frames.add(candidate);
+            }
+        }
+
+        List<GraphElement> elements = new ArrayList<>();
+        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
+            if (capturable(canvasModel.ownerOf(place), parent) && centredIn(band, place)) {
+                elements.add(place);
+            }
+        }
+        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
+            if (capturable(canvasModel.ownerOf(transition), parent) && centredIn(band, transition)) {
+                elements.add(transition);
+            }
+        }
+
+        return new ObjectBandCapture(parent, elements, frames);
+    }
+
+    /**
+     * @param owner what currently claims a place, transition or frame the band's rectangle
+     *        reaches, or {@code null} when nothing does
+     * @param parent the frame {@link #resolveObjectBand} resolved as the new object's home
+     * @return true when the band is allowed to capture it: owned by nobody, or already owned by
+     *         the resolved parent itself. The same two-part eligibility test the web editor's own
+     *         {@code resolveObjectBand} applies, so something loose at the top level is captured
+     *         whatever frame the band's centre happens to resolve as the parent, not only when it
+     *         already sits inside that frame.
+     */
+    private static boolean capturable(GraphObjectFrame owner, GraphObjectFrame parent) {
+        return owner == null || owner == parent;
+    }
+
+    /** @return true when {@code band} contains {@code inner} in full, border touching allowed */
+    private static boolean bandSwallows(Rectangle band, Rectangle inner) {
+        return band.x <= inner.x && band.y <= inner.y
+                && band.x + band.width >= inner.x + inner.width
+                && band.y + band.height >= inner.y + inner.height;
+    }
+
+    /** @return true when {@code element}'s centre falls inside {@code band} */
+    private static boolean centredIn(Rectangle band, GraphElement element) {
+        Point2D centre = element.getGraphElementCenter();
+        return centre != null && band.contains(centre);
+    }
+
+    /**
+     * Creates the Petri-object one band gesture describes: resolves what it captures with
+     * {@link #resolveObjectBand}, then either groups the capture the ordinary way, or - rule 6
+     * of the gesture - builds an empty frame at the band's own bounds when it captured nothing
+     * at all, inside the same parent the resolution gave.
+     *
+     * @param band the rectangle the gesture drew, in canvas coordinates
+     * @param name name for the new Petri-object
+     * @return the new frame
+     */
+    public GraphObjectFrame createObjectFromBand(Rectangle band, String name) {
+        ObjectBandCapture capture = resolveObjectBand(band);
+        if (capture.elements().isEmpty() && capture.frames().isEmpty()) {
+            // Below the drag threshold in at most one direction is still allowed through (the
+            // threshold only asks that ONE side reach it), so the band alone could be a sliver
+            // a couple of pixels thin - floored at the frame's own minimum size, the same way
+            // the web editor's own empty-capture object is.
+            Rectangle bounds = new Rectangle(band.x, band.y,
+                    Math.max(GraphObjectFrame.MIN_WIDTH, band.width),
+                    Math.max(GraphObjectFrame.MIN_HEIGHT, band.height));
+            GraphObjectFrame frame = new GraphObjectFrame(name, bounds);
+            canvasModel.nest(frame, capture.parent());
+            AddObjectFrameEdit creation = addObjectFrame(frame);
+            if (capture.parent() != null) {
+                growToContain(capture.parent(), frame.getBounds());
+            }
+            // An empty object has no members that could be mistaken for strangers, so its
+            // neighbours are pushed clear straight away, the same as every other creation
+            // path does once its own membership is settled.
+            creation.pushNeighborsClear();
+            return frame;
+        }
+        return groupIntoObject(capture.elements(), capture.frames(), capture.parent(), name);
+    }
+
+    /**
+     * Asks for a name and creates the object one Petri-object band gesture describes - the
+     * dialog-driven counterpart of {@link #createObjectFromBand}, split off the same way
+     * {@link #askAndGroupIntoObject} is split from {@link #groupIntoObject}: {@code JOptionPane}
+     * cannot run in a test JVM, so the naming step stays here and everything it hands off to is
+     * reachable without one. If the dialog is cancelled, nothing is created.
+     *
+     * @param band the rectangle the gesture drew, in canvas coordinates
+     */
+    private void askAndCreateObjectFromBand(Rectangle band) {
+        String name = JOptionPane.showInputDialog(dialogOwner(), "Name of the Petri-object",
+                "Object " + (canvasModel.getFrames().size() + 1));
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        createObjectFromBand(band, name.trim());
     }
 
     /**
@@ -2200,7 +2439,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         Rectangle bounds = new Rectangle(Math.max(0, at.x - 180), Math.max(0, at.y - 120), 360, 240);
         GraphObjectFrame frame = new GraphObjectFrame(name.trim(), bounds);
         canvasModel.nest(frame, focusedFrame);
-        addObjectFrame(frame);
+        // Nothing claims this frame yet - it is put down empty, to be drawn into - so whatever
+        // stands too close to it right now is settled, not a member still to be claimed.
+        addObjectFrame(frame).pushNeighborsClear();
         if (focusedFrame != null) {
             growToContain(focusedFrame, bounds);
         }
@@ -2244,6 +2485,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 PetriNet net = parser.parse(armedTemplate.prototypeFile().toFile());
                 placeGraphNet(GraphNetBuilder.build(net, parser.getAllPlaceCoordinates(),
                         parser.getAllTransitionCoordinates(), at), name, null);
+                MessageHelper.showImportWarnings(dialogOwner(), parser.getWarnings());
             } else {
                 PetriNet net = NetTemplateCatalog.instantiate(
                         armedTemplate.methodName(), armedTemplate.arguments());
@@ -2251,8 +2493,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
         } catch (Exception failure) {
             LOGGER.error("Failed to stamp the Petri-object template {}", armedTemplate.id(), failure);
+            // The prototype's own file is the "where" a saved-object template fails to read
+            // from; a library template has no file, only its method name, which the "what"
+            // (its display name) already names well enough.
+            String where = armedTemplate.kind() == PetriObjectTemplate.Kind.PROTOTYPE
+                    ? " (" + armedTemplate.prototypeFile().getFileName() + ")"
+                    : "";
             MessageHelper.showException(dialogOwner(),
-                    "Cannot put '" + armedTemplate.displayName() + "' on the canvas", failure);
+                    "Cannot put '" + armedTemplate.displayName() + "'" + where + " on the canvas", failure);
         }
     }
 
@@ -2397,7 +2645,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             GraphObjectFrame frame = new GraphObjectFrame(objectName, boundsAround(members));
             frame.setTemplate(template);
             canvasModel.nest(frame, focusedFrame);
-            addObjectFrame(frame);
+            AddObjectFrameEdit creation = addObjectFrame(frame);
             for (GraphElement element : members) {
                 canvasModel.claim(frame, element);
                 // Locked inside a frame from the moment it lands, so it is never left looking
@@ -2410,6 +2658,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 growToContain(focusedFrame, frame.getBounds());
                 frame.setCollapsed(true);
             }
+            // Membership is settled now, so whatever is left standing too close to the frame is
+            // genuinely a stranger to it, not one of the members just claimed above.
+            creation.pushNeighborsClear();
             // addObjectFrame leaves what it added selected, which is right when the user created
             // one deliberately but wrong here: stamping drops object after object, and each would
             // sit highlighted with nothing having been selected at all.
@@ -2762,6 +3013,90 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private static final int BOUNDS_PADDING = 48;
 
+    /**
+     * Pushes every place and transition on the same canvas level as a just-created frame out of
+     * its way, when their drawn extent - {@link #boundsAround}'s own notion of one, an element's
+     * centre plus its border - comes closer to the frame's border than {@link #BOUNDS_PADDING}.
+     * The frame itself is never moved or resized here: the user drew it where they wanted it.
+     *
+     * <p>An element the frame is about to claim is not yet its member at the point this runs
+     * (grouping and template placement both add the frame before claiming what it holds), but
+     * {@link #boundsAround} already fitted the frame's bounds around such elements with this
+     * same padding, so none of them is normally closer to the border than the padding allows and
+     * none of them moves. An element already claimed by a different frame is that frame's
+     * business and is never a candidate, regardless of how close it sits.
+     *
+     * @param frame the frame that was just added to the canvas
+     * @return every element this pushed, paired with the offset it moved by - what undoing or
+     *         redoing the creation has to replay in reverse or forward
+     */
+    public List<NeighborNudge> nudgeNeighborsAway(GraphObjectFrame frame) {
+        GraphObjectFrame level = canvasModel.enclosingOf(frame);
+        List<NeighborNudge> nudges = new ArrayList<>();
+        List<GraphElement> candidates = new ArrayList<>();
+        candidates.addAll(graphNet.getGraphPetriPlaceList());
+        candidates.addAll(graphNet.getGraphPetriTransitionList());
+        for (GraphElement element : candidates) {
+            if (canvasModel.ownerOf(element) != level) {
+                continue;
+            }
+            Point2D centre = element.getGraphElementCenter();
+            if (centre == null) {
+                continue;
+            }
+            int border = Math.max(element.getBorder(), 20);
+            int cx = (int) centre.getX();
+            int cy = (int) centre.getY();
+            Rectangle extent = new Rectangle(cx - border, cy - border, border * 2, border * 2);
+            Point push = shiftToClearMargin(extent, frame.getBounds(), BOUNDS_PADDING);
+            int dx = Math.max(0, cx + push.x) - cx;
+            int dy = Math.max(0, cy + push.y) - cy;
+            if (dx == 0 && dy == 0) {
+                continue;
+            }
+            element.moveBy(dx, dy);
+            nudges.add(new NeighborNudge(element, dx, dy));
+        }
+        if (!nudges.isEmpty()) {
+            updateArcCoordinates();
+        }
+        return nudges;
+    }
+
+    /**
+     * @param extent the drawn extent of an element - its centre plus its border
+     * @param frameBounds a Petri-object frame's rectangle
+     * @param margin the clearance the frame's border needs on every side
+     * @return the smallest straight push, along one axis only, that puts {@code extent}
+     *         entirely outside {@code frameBounds} grown by {@code margin} on every side - or
+     *         {@code (0, 0)} when it already is, be it because it was never close or because it
+     *         sat inside {@code frameBounds} itself
+     */
+    private static Point shiftToClearMargin(Rectangle extent, Rectangle frameBounds, int margin) {
+        Rectangle padded = new Rectangle(frameBounds);
+        padded.grow(margin, margin);
+        if (!padded.intersects(extent)) {
+            return new Point(0, 0);
+        }
+        int pushRight = padded.x + padded.width - extent.x;
+        int pushLeft = padded.x - (extent.x + extent.width);
+        int pushDown = padded.y + padded.height - extent.y;
+        int pushUp = padded.y - (extent.y + extent.height);
+
+        int best = Math.min(Math.min(Math.abs(pushRight), Math.abs(pushLeft)),
+                Math.min(Math.abs(pushDown), Math.abs(pushUp)));
+        if (best == Math.abs(pushRight)) {
+            return new Point(pushRight, 0);
+        }
+        if (best == Math.abs(pushLeft)) {
+            return new Point(pushLeft, 0);
+        }
+        if (best == Math.abs(pushDown)) {
+            return new Point(0, pushDown);
+        }
+        return new Point(0, pushUp);
+    }
+
     public class MouseHandler extends MouseAdapter {
 
         private java.util.Timer timer;
@@ -2901,7 +3236,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // whatever net element happens to be underneath. The object being edited is skipped
             // by frameAt, so a click inside the room the user is standing in reaches its net.
             GraphObjectFrame frameAtPoint = frameAt(scaledCurrentMousePoint);
-            if (frameAtPoint != null) {
+            // The band tool is the one gesture that means something INSIDE a frame: drawing a
+            // band there is how a Petri-object is built inside another one, which is the whole
+            // of rule 4. Selecting the frame and returning here left that case unreachable, so
+            // a band could only ever be started on empty canvas.
+            if (frameAtPoint != null && tool != CanvasTool.OBJECT_BAND) {
                 // Pressing an object that is not part of the current selection replaces the
                 // selection, like any fresh single click - otherwise the drag that follows
                 // would carry the leftovers of the previous gesture along with the frame.
@@ -2943,15 +3282,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 startDragMouseLocation = scaledCurrentMousePoint;
             }
             prevMouseLocation = scaledCurrentMousePoint;
-            if (tool == CanvasTool.MARQUEE) {
-                // The marquee tool always rubber-band selects, even starting on top of an
-                // element — never picks it up the way the default Select tool would. The
-                // previous selection is dropped right away: it used to survive into the
-                // drag, whose move-selection branch then dragged it across the canvas
-                // instead of drawing the band. Only a left press starts a band, though: a
-                // right press is on its way to the context menu, and clearing here wiped
-                // the very selection the menu's "group into Petri-object" was about to
-                // offer to group.
+            if (tool == CanvasTool.MARQUEE || tool == CanvasTool.OBJECT_BAND) {
+                // The Petri-object band reuses the marquee's own press handling: it only ever
+                // cares about the drag that follows, so arming that drag the same way keeps
+                // this one gesture the single place that machinery lives. It does not take the
+                // press-inside-selection exception, though. That exception exists so a
+                // selection can be dragged without leaving the marquee, and a tool whose only
+                // gesture is "draw a band" has nothing to gain from it: a press on something
+                // already selected would silently move the selection instead of starting the
+                // band the user reached for the tool to draw.
+                //
+                // The marquee tool rubber-band selects on a press that misses the current
+                // selection, the same as it always did: the old selection is dropped right
+                // away, because letting it survive into the drag fed it to the move-selection
+                // branch below, which dragged it across the canvas instead of the band being
+                // drawn. A press that lands on an element already in the selection is the one
+                // exception: it keeps the whole selection and starts dragging it, exactly like
+                // the Select tool's own press-inside-selection case does. Only a left press
+                // does either of these, though: a right press is on its way to the context
+                // menu, and clearing here wiped the very selection the menu's "group into
+                // Petri-object" was about to offer to group.
                 if (current != null) {
                     current.setColor(Color.BLACK);
                     current = null;
@@ -2961,9 +3311,18 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
                 choosenArc = null;
                 if (SwingUtilities.isLeftMouseButton(ev)) {
-                    choosen = null;
-                    setDefaultColorGraphElements();
-                    selection.clear();
+                    GraphElement pressedElement = tool == CanvasTool.MARQUEE
+                            ? find(scaledCurrentMousePoint) : null;
+                    if (pressedElement != null && selection.contains(pressedElement)) {
+                        choosen = pressedElement;
+                        current = pressedElement;
+                        setDefaultColorGraphElements();
+                        selection.paintHighlight();
+                    } else {
+                        choosen = null;
+                        setDefaultColorGraphElements();
+                        selection.clear();
+                    }
                 }
             } else if (current != null && SwingUtilities.isLeftMouseButton(ev)) {
                 // A right-click never selects an element — it either falls through to its own
@@ -2987,11 +3346,24 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 if (current != null) {
                     // An element already inside the selection drags the whole selection;
                     // anything else replaces it, like any fresh single click.
-                    if (!selection.contains(current)) {
+                    boolean pressedInsideSelection = selection.contains(current);
+                    if (!pressedInsideSelection) {
                         selection.clear();
                     }
                     setDefaultColorGraphElements();
-                    current.setColor(Color.BLUE); //26.07.2018
+                    if (pressedInsideSelection) {
+                        // This press starts a drag of everything selected, so everything
+                        // selected keeps looking selected. The wholesale colour reset above
+                        // used to be followed by colouring the pressed element alone, so every
+                        // other selected element went back to its default colour and the
+                        // selection looked like it had collapsed to the one thing under the
+                        // pointer. The model kept it and the drag moved all of it; only from
+                        // the second drag event onwards did mouseDragged's own paintHighlight
+                        // put the colours back, which left the press itself visibly wrong.
+                        selection.paintHighlight();
+                    } else {
+                        current.setColor(Color.BLUE); //26.07.2018
+                    }
                     choosen = current;
                     // Remember where this element started: dragging it into another frame
                     // moves it to another Petri-object, which the user gets to confirm. A
@@ -3253,6 +3625,27 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 startDragMouseLocation = null;
                 currentDragMouseLocation = null;
                 setCursor(Cursor.getDefaultCursor());
+                repaint();
+                return;
+            }
+
+            if (tool == CanvasTool.OBJECT_BAND) {
+                if (startDragMouseLocation != null && currentDragMouseLocation != null && leftMouseButtonPressed) {
+                    Rectangle band = marqueeRectangle();
+                    // A band smaller than a few pixels on both sides is a click, not a drag: it
+                    // is ignored rather than read as "capture nothing, build an empty object
+                    // here", the same threshold the web editor's own object tool uses.
+                    if (band.width >= OBJECT_BAND_MIN_DRAG || band.height >= OBJECT_BAND_MIN_DRAG) {
+                        askAndCreateObjectFromBand(band);
+                    }
+                }
+                startDragMouseLocation = null;
+                currentDragMouseLocation = null;
+                leftMouseButtonPressed = false;
+                current = null;
+                // The tool stays armed for the next band, so it keeps its own cursor rather
+                // than handing back the pointer the way a one-shot gesture would.
+                setCursor(cursorFor(tool));
                 repaint();
                 return;
             }
@@ -4190,8 +4583,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     /**
      * Switches which gesture a left-click-drag performs. Whatever the previous tool left
-     * mid-flight — a selection, an arc half-drawn to its first endpoint — is abandoned first,
-     * since none of that state means the same thing under a different tool.
+     * mid-flight, a half-finished drag or an arc drawn to its first endpoint only, is
+     * abandoned first, since none of that state means the same thing under a different tool.
+     *
+     * <p>What is selected is not part of that state when the new tool is
+     * {@link CanvasTool#SELECT}. Reaching for the pointer is how a user gets back to moving,
+     * copying, grouping or deleting what they have just picked out, so a switch into Select
+     * keeps the selection; it used to be wiped, which made "marquee, then Select, then act on
+     * it" impossible to finish. Every other tool acts on whatever is under the pointer rather
+     * than on a selection and has no use for one, so it still drops it on the way in, which is
+     * the behaviour those tools have today.
      *
      * @param newTool the tool to activate
      */
@@ -4221,7 +4622,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             removeCurrentArc();
         }
         isSettingArc = false;
-        clearSelectionState();
+        resetGestureState();
+        if (newTool == CanvasTool.SELECT) {
+            // resetGestureState resets element colours wholesale, so a selection that stays
+            // has to be told to look selected again.
+            selection.paintHighlight();
+        } else {
+            selection.clear();
+        }
         if (newTool != CanvasTool.PLACE_LOADED_NET) {
             // Switching away abandons a net that was waiting to be placed — otherwise its
             // outline would keep tracking the pointer under a tool that cannot commit it.
@@ -4233,14 +4641,30 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         repaint();
     }
 
+    /**
+     * Abandons the gesture in flight and the selection with it: what leaving this canvas for
+     * another one does, since neither the gesture nor what it had picked out means anything at
+     * the level being opened.
+     */
     private void clearSelectionState() {
+        resetGestureState();
+        selection.clear();
+    }
+
+    /**
+     * Drops the half-finished gesture without touching what is selected: the marquee anchor and
+     * its running corner, the pressed-button and drag-completed flags, the single element, arc
+     * or shared place a click had picked out, and the wholesale colour reset that goes with
+     * them. A gesture caught half-way through must not survive into another tool even where the
+     * selection does.
+     */
+    private void resetGestureState() {
         setDefaultColorGraphElements();
         setDefaultColorGraphArcs();
         current = null;
         choosen = null;
         choosenArc = null;
         choosenFusion = null;
-        selection.clear();
         startDragMouseLocation = null;
         currentDragMouseLocation = null;
         leftMouseButtonPressed = false;
@@ -4257,6 +4681,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             case ADD_PLACE:
             case ADD_TRANSITION:
             case ADD_PETRI_OBJECT:
+            case OBJECT_BAND:
             case PLACE_LOADED_NET:
                 return new Cursor(Cursor.CROSSHAIR_CURSOR);
             default:
@@ -4692,14 +5117,24 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * object's net lived behind a modal window with its own Cancel. With editing in place there is
      * no Cancel anywhere, so Ctrl+Z has to reach object creation too.
      *
+     * <p>Returns the edit rather than posting it and forgetting about it, because a caller that
+     * still has to claim members for the frame - grouping, template placement - claims them
+     * after this returns and only then knows what actually stands next to the frame rather than
+     * inside it; such a caller finishes by calling {@link AddObjectFrameEdit#pushNeighborsClear()}
+     * on what comes back. A caller with nothing left to claim, or whose frame already carries its
+     * members, may call it immediately.
+     *
      * @param frame the frame to add
+     * @return the edit this posted
      */
-    public void addObjectFrame(GraphObjectFrame frame) {
+    public AddObjectFrameEdit addObjectFrame(GraphObjectFrame frame) {
         canvasModel.getFrames().add(frame);
         selection.setSelectedFrame(frame);
-        PetriNetsFrame.getUndoSupport().postEdit(new AddObjectFrameEdit(this, frame));
+        AddObjectFrameEdit edit = new AddObjectFrameEdit(this, frame);
+        PetriNetsFrame.getUndoSupport().postEdit(edit);
         canvasStack.notifyChanged();
         repaint();
+        return edit;
     }
 
     /**
