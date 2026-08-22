@@ -90,16 +90,12 @@ public class AnimationSpeedControl extends JPanel {
             new Speed("Max", "As fast as the model runs", 0));
 
     /**
-     * Simulation units per real second, with one unit read as one second - the same five ratios
-     * the web editor offers, and the same labels, so a model watched in one editor plays at a
-     * recognisably equal speed in the other.
+     * Model units per real second - the same five ratios the web editor offers, so a model
+     * watched in one editor plays at a recognisably equal speed in the other. Only the ratios
+     * are fixed; what each one is called depends on what a unit is taken to stand for, which is
+     * {@link TimeUnitScale}'s business.
      */
-    private static final List<Speed> VISUAL_SPEEDS = List.of(
-            new Speed("1 s/s", "1 simulated second per second", 1),
-            new Speed("10 s/s", "10 simulated seconds per second", 10),
-            new Speed("1 min/s", "1 simulated minute per second", 60),
-            new Speed("10 min/s", "10 simulated minutes per second", 600),
-            new Speed("1 h/s", "1 simulated hour per second", 3600));
+    private static final double[] VISUAL_RATES = {1, 10, 60, 600, 3600};
 
     /** Longest a single step is ever held, so a slow ratio cannot look like a hang. */
     private static final long MAX_STEP_SLEEP_MILLIS = 5_000;
@@ -153,6 +149,15 @@ public class AnimationSpeedControl extends JPanel {
      */
     private volatile long lastStepBudgetMillis = -1;
 
+    /**
+     * What one unit of the model's clock is taken to stand for. Names the Visual speeds and
+     * nothing else - see {@link TimeUnitScale} for why that is the whole of its effect.
+     */
+    private TimeUnitScale timeUnitScale = TimeUnitScale.SECONDS;
+
+    /** Which speed of the current row is chosen, so relabelling the row does not lose it. */
+    private int selectedSpeedIndex;
+
     private final List<Runnable> listeners = new ArrayList<>();
 
     public AnimationSpeedControl() {
@@ -204,35 +209,81 @@ public class AnimationSpeedControl extends JPanel {
     private void applyMode(Mode newMode) {
         mode = newMode;
         (newMode == Mode.VISUAL ? visualButton : scientificButton).setSelected(true);
+        // Each mode's own starting speed: the slowest in Scientific, which is where the slider
+        // used to start, and sixty units a second in Visual, which is the ratio the web editor
+        // opens on.
+        buildSpeedRow(newMode == Mode.VISUAL ? 2 : 0);
+    }
 
+    /**
+     * Lays out the row of speeds for the current mode and scale.
+     *
+     * @param chosen which of them is selected - carried over when only the labels changed, and
+     *        the mode's own default when the mode itself changed
+     */
+    private void buildSpeedRow(int chosen) {
         speedGroup.removeAll();
-        List<Speed> speeds = speedsFor(newMode);
+        List<Speed> speeds = speedsFor(mode);
+        int index = Math.min(Math.max(0, chosen), speeds.size() - 1);
         ButtonGroup group = new ButtonGroup();
-        for (Speed option : speeds) {
+        for (int i = 0; i < speeds.size(); i++) {
+            Speed option = speeds.get(i);
+            int position = i;
             Chip button = new Chip(option.label());
             button.setToolTipText(option.tooltip());
             button.addActionListener(e -> {
                 speed = option.value();
+                selectedSpeedIndex = position;
                 applyTheme();
                 notifyListeners();
             });
             group.add(button);
             speedGroup.add(button);
         }
-        // Each mode's own starting speed: the slowest in Scientific, which is where the slider
-        // used to start, and a simulated minute per second in Visual, which is the ratio the
-        // web editor opens on.
-        int initial = newMode == Mode.VISUAL ? 2 : 0;
-        speed = speeds.get(initial).value();
-        ((AbstractButton) speedGroup.getComponent(initial)).setSelected(true);
+        speed = speeds.get(index).value();
+        selectedSpeedIndex = index;
+        ((AbstractButton) speedGroup.getComponent(index)).setSelected(true);
 
         applyTheme();
         revalidate();
         repaint();
     }
 
-    private static List<Speed> speedsFor(Mode mode) {
-        return mode == Mode.VISUAL ? VISUAL_SPEEDS : SCIENTIFIC_SPEEDS;
+    private List<Speed> speedsFor(Mode mode) {
+        if (mode != Mode.VISUAL) {
+            return SCIENTIFIC_SPEEDS;
+        }
+        List<Speed> speeds = new ArrayList<>(VISUAL_RATES.length);
+        for (double rate : VISUAL_RATES) {
+            speeds.add(new Speed(timeUnitScale.formatRate(rate),
+                    timeUnitScale.describeRate(rate), rate));
+        }
+        return speeds;
+    }
+
+    /**
+     * @return what one unit of the model's clock is currently taken to stand for
+     */
+    public TimeUnitScale getTimeUnitScale() {
+        return timeUnitScale;
+    }
+
+    /**
+     * Re-reads the Visual speeds under a different meaning of "one unit". The ratios do not move
+     * and neither does the chosen one - a run set to sixty units a second stays set to sixty
+     * units a second - only what they are called changes, which is the entire point of saying
+     * what a unit is.
+     *
+     * @param scale what one model unit stands for
+     */
+    public void setTimeUnitScale(TimeUnitScale scale) {
+        if (scale == null || scale == timeUnitScale) {
+            return;
+        }
+        timeUnitScale = scale;
+        if (mode == Mode.VISUAL) {
+            buildSpeedRow(selectedSpeedIndex);
+        }
     }
 
     /**

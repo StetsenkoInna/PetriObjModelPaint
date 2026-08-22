@@ -946,6 +946,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartField = new javax.swing.JTextField();
         timeModelingLabel = new javax.swing.JLabel();
         timeModelingTextField = new javax.swing.JTextField();
+        timeUnitScaleCombo = new javax.swing.JComboBox<>(TimeUnitScale.values());
         speedLabel = new javax.swing.JLabel();
         speedControl = new AnimationSpeedControl();
         runProgressBar = new javax.swing.JProgressBar();
@@ -1018,6 +1019,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeModelingTextField.setCaretPosition(1);
         timeModelingTextField.setMinimumSize(new java.awt.Dimension(0, 0));
 
+        // What the horizon beside it, and every delay in the net, are counted in. It changes no
+        // number the simulator sees - see TimeUnitScale - so it sits next to the number it
+        // explains rather than anywhere a setting would.
+        timeUnitScaleCombo.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
+        timeUnitScaleCombo.setToolTipText("What one unit of the model's clock stands for."
+                + " Names the Visual playback speeds; changes nothing the simulation computes.");
+        timeUnitScaleCombo.addActionListener(evt ->
+                speedControl.setTimeUnitScale((TimeUnitScale) timeUnitScaleCombo.getSelectedItem()));
+
         speedLabel.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         speedLabel.setText("Animation speed");
 
@@ -1064,12 +1074,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeModelingLabel.setMaximumSize(new java.awt.Dimension(timeModelingLabel.getPreferredSize().width, Short.MAX_VALUE));
         timeModelingTextField.setPreferredSize(new java.awt.Dimension(60, timeModelingTextField.getPreferredSize().height));
         timeModelingTextField.setMaximumSize(new java.awt.Dimension(80, timeModelingTextField.getPreferredSize().height));
+        timeUnitScaleCombo.setMaximumSize(timeUnitScaleCombo.getPreferredSize());
 
         speedLabel.setMaximumSize(new java.awt.Dimension(speedLabel.getPreferredSize().width, Short.MAX_VALUE));
 
         for (java.awt.Component field : new java.awt.Component[]{netNameTextField,
                 timeStartLabel, timeStartField, timeModelingLabel, timeModelingTextField,
-                speedLabel, speedControl}) {
+                timeUnitScaleCombo, speedLabel, speedControl}) {
             ((javax.swing.JComponent) field).setAlignmentY(java.awt.Component.CENTER_ALIGNMENT);
         }
 
@@ -1088,6 +1099,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         headerSimulationGroup.add(timeStartField);
         headerSimulationGroup.add(timeModelingLabel);
         headerSimulationGroup.add(timeModelingTextField);
+        headerSimulationGroup.add(timeUnitScaleCombo);
         headerSimulationGroup.add(headerSeparator());
         headerSimulationGroup.add(speedLabel);
         headerSimulationGroup.add(speedControl);
@@ -2521,6 +2533,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         netNameTextField.setEnabled(enabled);
         timeStartField.setEnabled(enabled);
         timeModelingTextField.setEnabled(enabled);
+        timeUnitScaleCombo.setEnabled(enabled);
 
         protocolTextArea.setEnabled(enabled);
         statisticsTextArea.setEnabled(enabled);
@@ -2583,6 +2596,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton stopAnimationButton;
     private javax.swing.JLabel timeModelingLabel;
     private javax.swing.JTextField timeModelingTextField;
+    private javax.swing.JComboBox<TimeUnitScale> timeUnitScaleCombo;
     private javax.swing.JTextField timeStartField;
     private javax.swing.JLabel timeStartLabel;
     private javax.swing.JMenuItem undoMenuItem;
