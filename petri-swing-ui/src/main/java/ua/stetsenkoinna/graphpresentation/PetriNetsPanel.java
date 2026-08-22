@@ -5840,6 +5840,49 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         repaint();
     }
 
+    /**
+     * How fast the animation is meant to play, so the pulse that lights a firing up can be
+     * scaled to fit the time that firing has. Null outside a run, and while the canvas is used
+     * without a frame around it (the tests, the read-only views), where the pulse simply keeps
+     * the delays written into it.
+     */
+    private AnimationSpeedControl animationPace;
+
+    /**
+     * @param pace the speed control the header shows, or {@code null} to animate at the frame
+     *        delays the calls below ask for
+     */
+    public void setAnimationPace(AnimationSpeedControl pace) {
+        this.animationPace = pace;
+    }
+
+    /**
+     * One frame of a pulse, scaled to the chosen speed.
+     *
+     * <p>Every animation call below names the delay it wants, and those numbers are the shape
+     * of the pulse - which phase is held longer than which. What that shape costs in real time
+     * is the speed control's business, and it is asked here rather than at each of the twenty-odd
+     * call sites, which go on saying what they mean.
+     *
+     * @param nominalMillis the delay the animation asks for
+     * @return what to actually wait
+     */
+    private long pulseFrame(long nominalMillis) {
+        return animationPace == null ? nominalMillis : animationPace.pulseFrameMillis(nominalMillis);
+    }
+
+    /**
+     * Waits out one frame of a pulse. Zero is not a sleep at all: at the fastest speeds the
+     * scaled delay rounds to nothing, and {@code Thread.sleep(0)} still yields the animation
+     * thread, which at a hundred events a second is a hundred needless handovers a second.
+     */
+    private void pulseSleep(long nominalMillis) throws InterruptedException {
+        long millis = pulseFrame(nominalMillis);
+        if (millis > 0) {
+            Thread.sleep(millis);
+        }
+    }
+
     private void animArcIn(ArrayList<GraphArcIn> list, long sleepDelay, int lineWidth, Color color) {
         try {
             for (GraphArcIn a : list) {
@@ -5847,7 +5890,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 a.setColor(color);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5859,7 +5902,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 a.setLineWidth(lineWidth);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5872,7 +5915,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 a.setColor(color);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5884,7 +5927,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 a.setLineWidth(lineWidth);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5897,7 +5940,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 p.setColor(color);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5909,7 +5952,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 p.setLineWidth(lineWidth);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5922,7 +5965,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 tr.setColor(color);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5934,7 +5977,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 tr.setLineWidth(lineWidth);
                 this.repaint();
             }
-            Thread.sleep(sleepInterval);
+            pulseSleep(sleepInterval);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }

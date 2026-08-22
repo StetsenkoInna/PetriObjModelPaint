@@ -52,8 +52,10 @@ import ua.stetsenkoinna.theme.CanvasPalette;
  * </ul>
  *
  * <p>Both are expressed to the animation through one question - {@link
- * #sleepMillisAfterStep(double)}, "given that the model just advanced this far, how long should
- * this step be held?" - so the simulator itself does not know which mode is in force.
+ * #stepBudgetMillis(double)}, "given that the model just advanced this far, how long should this
+ * step take?" - so the simulator itself does not know which mode is in force. That budget covers
+ * the whole step, the pulse that lights the firing up included; {@link #pulseFrameMillis(long)}
+ * is how the pulse is fitted into it.
  */
 public class AnimationSpeedControl extends JPanel {
 
@@ -102,6 +104,30 @@ public class AnimationSpeedControl extends JPanel {
     /** Longest a single step is ever held, so a slow ratio cannot look like a hang. */
     private static final long MAX_STEP_SLEEP_MILLIS = 5_000;
 
+    /**
+     * Roughly how long the pulse that lights up a firing - its places, its arcs, the transition
+     * itself - takes at the frame delays written into the canvas's own animation, in
+     * milliseconds. Those delays are the shape of the pulse, and this is what that shape costs
+     * when nothing scales it.
+     *
+     * <p>It is the denominator of {@link #pulseFrameMillis(long)} and nothing else: an exact
+     * figure would still be wrong the moment a net had a transition with a different number of
+     * arcs, and what is wanted is only "does the pulse fit in the time this step has".
+     */
+    private static final double NOMINAL_PULSE_MILLIS = 3_000;
+
+    /** What the pulse is scaled against before the first step has reported a budget. */
+    private static final long ASSUMED_FIRST_BUDGET_MILLIS = 1_000;
+
+    /**
+     * How much of a step's budget the pulse is allowed to take. The rest is head-room: repainting
+     * the canvas between the pulse's frames costs real time that no scaling removes, and a pulse
+     * sized to the whole budget therefore overran it every time and left nothing to pause for
+     * afterwards - so a run went slower than the speed it was set to. Leaving a share back means
+     * a step lands near its budget instead of a little past it.
+     */
+    private static final double PULSE_SHARE_OF_BUDGET = 0.7;
+
     /** Bounds on how often the canvas is repainted while a run is in progress. */
     private static final int MIN_REPAINT_MILLIS = 30;
     private static final int MAX_REPAINT_MILLIS = 250;
@@ -118,6 +144,14 @@ public class AnimationSpeedControl extends JPanel {
      */
     private volatile Mode mode = Mode.SCIENTIFIC;
     private volatile double speed = SCIENTIFIC_SPEEDS.get(0).value();
+
+    /**
+     * What the last step was given to happen in, so the pulse of the next one can be scaled to
+     * fit it. Only {@link Mode#VISUAL} needs it: there a step's budget depends on how far the
+     * model's own clock moved, which is not known until the step has happened, whereas a
+     * Scientific budget is the chosen rate and nothing else. Negative until a step reports one.
+     */
+    private volatile long lastStepBudgetMillis = -1;
 
     private final List<Runnable> listeners = new ArrayList<>();
 
@@ -202,16 +236,30 @@ public class AnimationSpeedControl extends JPanel {
     }
 
     /**
-     * How long the step that just finished should be held on screen before the next one runs.
+     * Picks the fastest speed the current mode offers, exactly as clicking the last chip of the
+     * row would - so the row's own highlight moves with it rather than saying one thing while
+     * the animation does another.
+     */
+    public void selectFastestSpeed() {
+        ((AbstractButton) speedGroup.getComponent(speedGroup.getComponentCount() - 1)).doClick();
+    }
+
+    /**
+     * How long one step of the animation should take from end to end - the pulse that lights
+     * the firing up included, not just the pause afterwards.
      *
-     * <p>This is the one question the animation asks, and both modes answer it - which is why
-     * the simulator never learns which mode is in force.
+     * <p>This is the one question the animation asks, and both modes answer it, which is why
+     * the simulator never learns which mode is in force. It covers the whole step because the
+     * pulse is most of what a step costs: lighting one firing takes the better part of three
+     * seconds at the frame delays the canvas animates with, so a budget that only governed the
+     * pause afterwards left every speed above the slowest making no difference at all - the
+     * animation was already spending longer than the budget before the pause was even reached.
      *
      * @param simTimeAdvanced how much simulated time that step took; ignored in {@link
-     *        Mode#SCIENTIFIC}, where every event is held equally long however long it took
-     * @return milliseconds to sleep, never negative and never long enough to read as a hang
+     *        Mode#SCIENTIFIC}, where every event gets the same budget however long it took
+     * @return milliseconds, never negative and never long enough to read as a hang
      */
-    public long sleepMillisAfterStep(double simTimeAdvanced) {
+    public long stepBudgetMillis(double simTimeAdvanced) {
         double rate = speed;
         if (rate <= 0) {
             // "Max": no pacing at all, the model runs as fast as it can and the canvas keeps up
@@ -223,7 +271,38 @@ public class AnimationSpeedControl extends JPanel {
                 // takes no time to watch either, which is what pacing by simulated time means.
                 ? Math.max(0, simTimeAdvanced) / rate * 1000.0
                 : 1000.0 / rate;
-        return (long) Math.min(MAX_STEP_SLEEP_MILLIS, Math.max(0, Math.round(millis)));
+        long budget = (long) Math.min(MAX_STEP_SLEEP_MILLIS, Math.max(0, Math.round(millis)));
+        if (mode == Mode.VISUAL) {
+            lastStepBudgetMillis = budget;
+        }
+        return budget;
+    }
+
+    /**
+     * Scales one frame of the pulse that lights up a firing, so the highlight itself speeds up
+     * with everything else.
+     *
+     * <p>Without this the speed row barely did anything. The pulse's frame delays are written
+     * into the canvas's animation as fixed numbers, and lighting one firing through them costs
+     * the better part of three seconds - so "100 events a second" and "as fast as the model
+     * runs" both played at about one event every three seconds, the pause between them being
+     * the only thing the speed ever shortened.
+     *
+     * <p>Scaled rather than dropped: the pulse is how a firing is legible at all, and at the
+     * slower speeds it should look exactly as it always did. It is only compressed to fit when
+     * the step has less time than the pulse would take, and at the fastest speeds that leaves
+     * the frames at zero - the colours still change, and the canvas still repaints, but nothing
+     * waits between them.
+     *
+     * @param nominalMillis the frame delay the animation asks for, unscaled
+     * @return what to actually wait, never longer than what was asked for
+     */
+    public long pulseFrameMillis(long nominalMillis) {
+        long budget = mode == Mode.VISUAL
+                ? (lastStepBudgetMillis < 0 ? ASSUMED_FIRST_BUDGET_MILLIS : lastStepBudgetMillis)
+                : stepBudgetMillis(0);
+        double scale = Math.min(1.0, budget * PULSE_SHARE_OF_BUDGET / NOMINAL_PULSE_MILLIS);
+        return Math.max(0, Math.round(nominalMillis * scale));
     }
 
     /**
@@ -241,7 +320,7 @@ public class AnimationSpeedControl extends JPanel {
                 // pinned to the ratio instead: the faster simulated time runs, the more often
                 // something on screen has moved.
                 ? Math.round(1000.0 / Math.max(1, speed / 60.0))
-                : sleepMillisAfterStep(0);
+                : stepBudgetMillis(0);
         return (int) Math.min(MAX_REPAINT_MILLIS, Math.max(MIN_REPAINT_MILLIS, step));
     }
 

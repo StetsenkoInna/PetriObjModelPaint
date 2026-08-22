@@ -36,6 +36,14 @@ public class AnimRunPetriSim extends PetriSim {
      * simulated time it advanced - which is what a run paced by simulated time is paced by.
      */
     private double simTimeAtPreviousStep;
+
+    /**
+     * When the previous step finished, on the wall clock. A step's budget covers the whole step,
+     * and most of a step is the pulse that lights the firing up - so what is left to wait at the
+     * end of one is the budget less whatever the pulse already spent, which is the time between
+     * this point and now. Zero until the first step ends.
+     */
+    private long previousStepEndedNanos;
     private AnimRunPetriObjModel parentModel;
 
     /**
@@ -136,10 +144,16 @@ public class AnimRunPetriSim extends PetriSim {
                     advanced = Math.max(0, now - simTimeAtPreviousStep);
                     simTimeAtPreviousStep = now;
                 }
-                long sleep = pace.sleepMillisAfterStep(advanced);
+                long spentOnThisStep = previousStepEndedNanos == 0 ? 0
+                        : (System.nanoTime() - previousStepEndedNanos) / 1_000_000L;
+                // What is left of this step's budget once the pulse has had its share. A pulse
+                // that overran the budget leaves nothing, which is the right answer: the step
+                // has already taken longer than it was meant to.
+                long sleep = pace.stepBudgetMillis(advanced) - spentOnThisStep;
                 if (sleep > 0) {
                     Thread.sleep(sleep);
                 }
+                previousStepEndedNanos = System.nanoTime();
             }
             
             /* pausing/unpausing support */   

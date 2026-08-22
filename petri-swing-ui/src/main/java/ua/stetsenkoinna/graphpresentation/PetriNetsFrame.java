@@ -339,6 +339,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timer = new Timer(250, ae -> getPetriNetsPanel().repaint());
 
         petriNetsPanel = new PetriNetsPanel(netNameTextField);
+        // The canvas scales the pulse that lights up a firing to whatever speed is chosen, and
+        // cannot ask the header for that on its own. Here rather than in initComponents, where
+        // the header is built: the canvas does not exist yet at that point.
+        petriNetsPanel.setAnimationPace(speedControl);
         petriNetPanelScrollPane.setViewportView(petriNetsPanel);
         buildCanvasTabsBar();
 
