@@ -1,0 +1,57 @@
+name: Bug report
+description: Something isn't working as expected
+labels: [bug]
+body:
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      description: Which part of the project is affected?
+      options:
+        - petri-math (simulation engine)
+        - petri-api
+        - petri-model (graph model / PNML)
+        - petri-swing-ui (desktop editor)
+        - petri-server (REST/WebSocket server)
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: >
+        Steps to reproduce the behavior. Attach a minimal PNML file or a code
+        snippet if relevant.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: java-version
+    attributes:
+      label: Java version
+      placeholder: "java -version output, e.g. openjdk 23.0.1"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "Windows 11 / Ubuntu 24.04 / macOS 15"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      render: shell
