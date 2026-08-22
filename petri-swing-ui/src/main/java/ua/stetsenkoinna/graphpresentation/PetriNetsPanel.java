@@ -3291,6 +3291,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 if (!isFrameOnThisCanvas(draggedFrame)) {
                     draggedFrame = null;
                 }
+                // An object caught in a wider selection is not grabbed by its header as a
+                // single object: the press means "drag all of this". Declining here lets it
+                // fall through to the body-drag path below, which moves the whole selection -
+                // the header used to pull that one object out of the group it was selected
+                // with, leaving the rest standing. A resize handle keeps its own meaning,
+                // since pulling a corner is about one object's size either way.
+                if (draggedFrame != null && multiSelectionFrameAt(scaledCurrentMousePoint) != null) {
+                    draggedFrame = null;
+                }
             }
             if (resizedFrame != null || draggedFrame != null) {
                 GraphObjectFrame grabbed = resizedFrame != null ? resizedFrame : draggedFrame;
@@ -3306,8 +3315,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // A port — or, while its object is shown, the real element it stands in for —
             // always starts a link next; no tool needs to be active first, since making
             // cross-object connections is the one thing a port is for.
+            // Except inside a multi-selection, where the press means "drag all of this" the
+            // same way it does on the object's header or its floor. An element of a shown
+            // object doubles as its own port, so after Ctrl+A every element on the canvas
+            // started a link instead of moving anything: the only spot that moved the drawing
+            // at all was an empty patch of some object's floor. Starting a link needs nothing
+            // more than clicking elsewhere first to drop the selection.
             FramePort port = portOnCanvasAt(scaledCurrentMousePoint);
-            if (port != null && SwingUtilities.isLeftMouseButton(ev)) {
+            if (port != null && SwingUtilities.isLeftMouseButton(ev)
+                    && multiSelectionFrameAt(scaledCurrentMousePoint) == null) {
                 draggedFromPort = port;
                 draggedPortCurrentPoint = scaledCurrentMousePoint;
                 repaint();
@@ -5387,6 +5403,27 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private GraphObjectFrame frameAt(Point2D point) {
         return topmostFrame(point, GraphObjectFrame::contains);
+    }
+
+    /**
+     * Whether a press at this point is a press on the current multi-selection rather than on one
+     * particular Petri-object - which decides between "drag everything selected" and the
+     * single-object gestures the same press would otherwise start.
+     *
+     * <p>Only above one selected thing: with a single object selected, its header still drags it
+     * alone and its elements still start links, which is what those gestures are for. It is the
+     * moment a selection spans several objects that a press on any of them stops plausibly
+     * meaning "act on this one".
+     *
+     * @param point where the press landed
+     * @return the selected Petri-object the press landed inside, or {@code null}
+     */
+    private GraphObjectFrame multiSelectionFrameAt(Point2D point) {
+        if (selection.size() <= 1) {
+            return null;
+        }
+        GraphObjectFrame frame = frameAt(point);
+        return frame != null && selection.contains(frame) ? frame : null;
     }
 
     /**

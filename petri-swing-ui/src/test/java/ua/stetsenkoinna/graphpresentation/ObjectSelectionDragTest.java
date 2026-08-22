@@ -12,6 +12,8 @@ import ua.stetsenkoinna.petriobj.PetriP;
 import ua.stetsenkoinna.petriobj.PetriT;
 
 import java.awt.Rectangle;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionListener;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.List;
@@ -89,6 +91,55 @@ public class ObjectSelectionDragTest {
     /** Membership is an identity set, so "which one" is arbitrary - only that it moves matters. */
     private static GraphElement anyMemberOf(GraphObjectFrame frame) {
         return frame.getMembers().iterator().next();
+    }
+
+    private static PetriNetsPanel.MouseHandler mouseHandlerOf(PetriNetsPanel panel) {
+        for (java.awt.event.MouseListener listener : panel.getMouseListeners()) {
+            if (listener instanceof PetriNetsPanel.MouseHandler handler) {
+                return handler;
+            }
+        }
+        throw new AssertionError("the panel registered no MouseHandler");
+    }
+
+    private static MouseEvent event(PetriNetsPanel panel, int id, int x, int y) {
+        return new MouseEvent(panel, id, System.currentTimeMillis(), 0, x, y, 1, false,
+                MouseEvent.BUTTON1);
+    }
+
+    /** Press, drag and release with the real handlers, the way a user's pointer would. */
+    private static void dragFrom(PetriNetsPanel panel, int x, int y, int dx, int dy) {
+        PetriNetsPanel.MouseHandler handler = mouseHandlerOf(panel);
+        MouseMotionListener motion = panel.getMouseMotionListeners()[0];
+        handler.mousePressed(event(panel, MouseEvent.MOUSE_PRESSED, x, y));
+        motion.mouseDragged(event(panel, MouseEvent.MOUSE_DRAGGED, x + dx / 2, y + dy / 2));
+        motion.mouseDragged(event(panel, MouseEvent.MOUSE_DRAGGED, x + dx, y + dy));
+        handler.mouseReleased(event(panel, MouseEvent.MOUSE_RELEASED, x + dx, y + dy));
+    }
+
+    /** Ctrl+A, then a drag from one point, answering with how far each object actually moved. */
+    private static List<Point2D> selectAllAndDragFrom(PetriNetsPanel panel, int x, int y) {
+        panel.selectAll();
+        List<Point2D> before = new ArrayList<>();
+        for (GraphObjectFrame frame : panel.getCanvasModel().getFrames()) {
+            before.add(new Point2D.Double(frame.getBounds().x, frame.getBounds().y));
+        }
+        dragFrom(panel, x, y, 100, 80);
+        List<Point2D> deltas = new ArrayList<>();
+        int index = 0;
+        for (GraphObjectFrame frame : panel.getCanvasModel().getFrames()) {
+            Point2D was = before.get(index++);
+            deltas.add(new Point2D.Double(frame.getBounds().x - was.getX(),
+                    frame.getBounds().y - was.getY()));
+        }
+        return deltas;
+    }
+
+    private static void assertEveryObjectMovedBy(List<Point2D> deltas, int dx, int dy) {
+        for (Point2D delta : deltas) {
+            assertEquals("every selected object moves by the same amount", dx, delta.getX(), 0.001);
+            assertEquals("every selected object moves by the same amount", dy, delta.getY(), 0.001);
+        }
     }
 
     private static GraphPetriPlace placeAt(GraphPetriNet net, int x, int y) {
@@ -214,6 +265,60 @@ public class ObjectSelectionDragTest {
             assertEquals(before.x + 40, frame.getBounds().x);
             assertEquals(before.y + 30, frame.getBounds().y);
         }
+    }
+
+    @Test
+    public void grabbingAnObjectByItsHeaderInsideASelectionDragsTheWholeSelection() {
+        PetriNetsPanel panel = panelHoldingSomething();
+        panel.addCanvasModel(twoLinkedObjects());
+        Rectangle left = panel.getCanvasModel().getFrames().get(0).getBounds();
+
+        // The header band, which used to pull this one object out of the group it was in.
+        assertEveryObjectMovedBy(
+                selectAllAndDragFrom(panel, left.x + 150, left.y + 8), 100, 80);
+    }
+
+    @Test
+    public void grabbingAnElementInsideASelectedObjectDragsTheWholeSelection() {
+        PetriNetsPanel panel = panelHoldingSomething();
+        panel.addCanvasModel(twoLinkedObjects());
+        GraphElement member = anyMemberOf(panel.getCanvasModel().getFrames().get(0));
+        Point2D centre = member.getGraphElementCenter();
+
+        // An element of a shown object doubles as its own port, so this used to start a link
+        // and move nothing at all.
+        assertEveryObjectMovedBy(selectAllAndDragFrom(
+                panel, (int) centre.getX(), (int) centre.getY()), 100, 80);
+    }
+
+    @Test
+    public void grabbingAnObjectsFloorInsideASelectionDragsTheWholeSelection() {
+        PetriNetsPanel panel = panelHoldingSomething();
+        panel.addCanvasModel(twoLinkedObjects());
+        Rectangle left = panel.getCanvasModel().getFrames().get(0).getBounds();
+
+        assertEveryObjectMovedBy(selectAllAndDragFrom(
+                panel, left.x + 20, left.y + left.height - 20), 100, 80);
+    }
+
+    @Test
+    public void aLoneObjectIsStillGrabbedByItsHeaderOnItsOwn() {
+        PetriNetsPanel panel = panelHoldingSomething();
+        panel.addCanvasModel(twoLinkedObjects());
+        GraphObjectFrame left = panel.getCanvasModel().getFrames().get(0);
+        GraphObjectFrame right = panel.getCanvasModel().getFrames().get(1);
+        Rectangle rightBefore = new Rectangle(right.getBounds());
+
+        // Selecting one object and dragging it is unchanged: the multi-selection rule only
+        // applies above one selected thing.
+        panel.getSelection().clear();
+        panel.getSelection().setSelectedFrame(left);
+        dragFrom(panel, left.getBounds().x + 150, left.getBounds().y + 8, 60, 40);
+
+        assertEquals(160, left.getBounds().x);
+        assertEquals(140, left.getBounds().y);
+        assertEquals("the object that was not selected stayed where it was",
+                rightBefore.x, right.getBounds().x);
     }
 
     @Test
