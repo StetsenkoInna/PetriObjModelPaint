@@ -31,8 +31,9 @@ public class TimeUnitControl extends JPanel {
 
         ButtonGroup group = new ButtonGroup();
         for (TimeUnitScale option : TimeUnitScale.values()) {
+            // No tooltip: the reading right beside the row already says what choosing one
+            // does, and the question mark at the end of it says why.
             Chip chip = new Chip(option.chipLabel());
-            chip.setToolTipText(option.toString());
             chip.addActionListener(e -> {
                 scale = option;
                 for (Consumer<TimeUnitScale> listener : listeners) {

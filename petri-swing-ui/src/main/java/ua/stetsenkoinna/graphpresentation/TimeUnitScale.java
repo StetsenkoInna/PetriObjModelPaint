@@ -14,29 +14,29 @@ package ua.stetsenkoinna.graphpresentation;
  */
 public enum TimeUnitScale {
 
-    SECONDS("s", "1 unit = 1 second", 1),
-    MINUTES("min", "1 unit = 1 minute", 60),
-    HOURS("h", "1 unit = 1 hour", 3600),
+    SECONDS("s", 1),
+    MINUTES("min", 60),
+    HOURS("h", 3600),
 
     /**
      * The model's units mean nothing in particular, which is the honest answer for a great many
      * nets and the reason seconds are not simply assumed.
      */
-    ABSTRACT("abstract", "Units stand for nothing in particular", 0);
+    ABSTRACT("abstract", 0);
 
     private final String chipLabel;
-    private final String description;
     private final double secondsPerUnit;
 
-    TimeUnitScale(String chipLabel, String description, double secondsPerUnit) {
+    TimeUnitScale(String chipLabel, double secondsPerUnit) {
         this.chipLabel = chipLabel;
-        this.description = description;
         this.secondsPerUnit = secondsPerUnit;
     }
 
     /**
-     * @return the short form the chip carries, where the row it sits in already says what is
-     *         being counted
+     * @return the short form the chip carries. The only name any of these is shown under: the
+     *         row it sits in already says what is being counted, the reading beside it says what
+     *         choosing one does, and the question mark at the end of the row says why - so there
+     *         is nothing left for a longer name, or a tooltip carrying it, to add.
      */
     public String chipLabel() {
         return chipLabel;
@@ -85,10 +85,5 @@ public enum TimeUnitScale {
         long days = seconds / 86_400;
         long rest = (seconds % 86_400) / 3600;
         return rest > 0 ? days + " d " + rest + " h" : days + " d";
-    }
-
-    @Override
-    public String toString() {
-        return description;
     }
 }

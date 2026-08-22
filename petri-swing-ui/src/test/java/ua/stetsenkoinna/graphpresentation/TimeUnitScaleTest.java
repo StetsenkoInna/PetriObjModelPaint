@@ -46,10 +46,11 @@ public class TimeUnitScaleTest {
     }
 
     @Test
-    public void eachUnitCarriesAShortLabelAndAFullReading() {
+    public void eachUnitCarriesTheShortLabelItsChipShows() {
         assertEquals("s", TimeUnitScale.SECONDS.chipLabel());
         assertEquals("min", TimeUnitScale.MINUTES.chipLabel());
-        assertEquals("1 unit = 1 hour", TimeUnitScale.HOURS.toString());
+        assertEquals("h", TimeUnitScale.HOURS.chipLabel());
+        assertEquals("abstract", TimeUnitScale.ABSTRACT.chipLabel());
         assertTrue(TimeUnitScale.HOURS.isConcrete());
     }
 }

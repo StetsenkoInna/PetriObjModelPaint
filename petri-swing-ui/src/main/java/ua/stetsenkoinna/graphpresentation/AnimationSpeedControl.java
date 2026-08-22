@@ -35,12 +35,16 @@ public class AnimationSpeedControl extends JPanel {
     /**
      * One named speed.
      *
+     * <p>A label and nothing else to explain it. The row is five short chips whose meaning is
+     * the arithmetic already written on them, and the question mark at the end of the
+     * parameters row covers what a multiple of the normal pace is; a popup over each one on the
+     * way to clicking the next was noise between the user and the thing they were reaching for.
+     *
      * @param label what the chip says
-     * @param tooltip the longer reading of it
      * @param factor how many times faster than the animation's own pace; zero means no pacing
      *        at all
      */
-    private record Speed(String label, String tooltip, double factor) {
+    private record Speed(String label, double factor) {
     }
 
     /**
@@ -49,11 +53,11 @@ public class AnimationSpeedControl extends JPanel {
      * watching at half of them.
      */
     private static final List<Speed> SPEEDS = List.of(
-            new Speed("0.5x", "Half speed", 0.5),
-            new Speed("1x", "Normal speed", 1),
-            new Speed("2x", "Twice as fast", 2),
-            new Speed("5x", "Five times as fast", 5),
-            new Speed("Max", "As fast as the model runs, with no pauses at all", 0));
+            new Speed("0.5x", 0.5),
+            new Speed("1x", 1),
+            new Speed("2x", 2),
+            new Speed("5x", 5),
+            new Speed("Max", 0));
 
     /** Which of them the editor opens on: the pace the animation has always played at. */
     private static final int NORMAL_INDEX = 1;
@@ -89,7 +93,6 @@ public class AnimationSpeedControl extends JPanel {
         ButtonGroup group = new ButtonGroup();
         for (Speed option : SPEEDS) {
             Chip chip = new Chip(option.label());
-            chip.setToolTipText(option.tooltip());
             chip.addActionListener(e -> {
                 factor = option.factor();
                 notifyListeners();
