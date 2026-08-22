@@ -7,65 +7,49 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Naming a playback ratio in terms of the thing being modelled.
+ * Saying what a stretch of the model's clock amounts to.
  *
- * <p>The ratio itself is model units per real second and never moves; what moves is what those
- * units are taken to stand for, and therefore what the ratio is called. Sixty units a second is
- * a simulated minute per second when a unit is a second, and a simulated hour per second when a
- * unit is a minute - the same ratio, the same amount of watching, described the way the person
- * watching thinks about it.
+ * <p>The simulator counts in units of nothing in particular, which is right for a simulator and
+ * unreadable on a screen: a horizon of 1000 could be a quarter of an hour of a factory's day or
+ * six weeks of it. Naming the unit once turns that number into something a person can check.
  */
 public class TimeUnitScaleTest {
 
     @Test
-    public void secondsNameARatioInWhicheverRealUnitItComesOutRoundIn() {
-        assertEquals("1 s/s", TimeUnitScale.SECONDS.formatRate(1));
-        assertEquals("10 s/s", TimeUnitScale.SECONDS.formatRate(10));
-        assertEquals("1 min/s", TimeUnitScale.SECONDS.formatRate(60));
-        assertEquals("10 min/s", TimeUnitScale.SECONDS.formatRate(600));
-        assertEquals("1 h/s", TimeUnitScale.SECONDS.formatRate(3600));
+    public void aHorizonIsSaidInTheLargestRealUnitItFills() {
+        assertEquals("16 min 40 s", TimeUnitScale.SECONDS.formatDuration(1000));
+        assertEquals("45 s", TimeUnitScale.SECONDS.formatDuration(45));
+        assertEquals("2 h", TimeUnitScale.SECONDS.formatDuration(7200));
     }
 
     @Test
-    public void theSameRatiosClimbAScaleWhenAUnitIsWorthMore() {
-        // Every one of them is sixty times the watching it was, because every unit is.
-        assertEquals("1 min/s", TimeUnitScale.MINUTES.formatRate(1));
-        assertEquals("1 h/s", TimeUnitScale.MINUTES.formatRate(60));
-        assertEquals("1 h/s", TimeUnitScale.HOURS.formatRate(1));
-        assertEquals("1 d/s", TimeUnitScale.HOURS.formatRate(24));
+    public void theSameHorizonGrowsWhenAUnitIsWorthMore() {
+        assertEquals("16 h 40 min", TimeUnitScale.MINUTES.formatDuration(1000));
+        assertEquals("41 d 16 h", TimeUnitScale.HOURS.formatDuration(1000));
     }
 
     @Test
-    public void anAbstractScaleNamesTheBareRatioBecauseThereIsNothingToConvertItInto() {
+    public void aRoundHorizonDoesNotTrailAnEmptyRemainder() {
+        assertEquals("1 min", TimeUnitScale.SECONDS.formatDuration(60));
+        assertEquals("1 h", TimeUnitScale.MINUTES.formatDuration(60));
+    }
+
+    @Test
+    public void unitsThatStandForNothingAreNotConvertedIntoAnything() {
         assertFalse(TimeUnitScale.ABSTRACT.isConcrete());
-        assertEquals("60×", TimeUnitScale.ABSTRACT.formatRate(60));
+        assertEquals("", TimeUnitScale.ABSTRACT.formatDuration(1000));
     }
 
     @Test
-    public void aRatioThatIsNotWholeKeepsOneDecimalRatherThanReadingAsExact() {
-        // 3600 units a second at a minute a unit is two and a half days of watching a second.
-        assertEquals("2.5 d/s", TimeUnitScale.MINUTES.formatRate(3600));
+    public void thereIsNothingToSayAboutAHorizonOfZero() {
+        assertEquals("", TimeUnitScale.SECONDS.formatDuration(0));
     }
 
     @Test
-    public void changingWhatAUnitMeansRenamesTheSpeedsWithoutChangingWhichIsChosen() {
-        AnimationSpeedControl control = new AnimationSpeedControl();
-        control.setMode(AnimationSpeedControl.Mode.VISUAL);
-        // Opens on sixty units a second: a simulated minute per second, while a unit is a second.
-        long budgetBefore = control.stepBudgetMillis(60);
-
-        control.setTimeUnitScale(TimeUnitScale.MINUTES);
-
-        assertEquals(TimeUnitScale.MINUTES, control.getTimeUnitScale());
-        assertEquals("the ratio itself is untouched - only what it is called changed",
-                budgetBefore, control.stepBudgetMillis(60));
-    }
-
-    @Test
-    public void theScaleSaysWhatItMeansWhereverItIsShown() {
-        assertEquals("1 unit = 1 s", TimeUnitScale.SECONDS.toString());
-        assertEquals("1 unit = 1 min", TimeUnitScale.MINUTES.toString());
-        assertEquals("Abstract", TimeUnitScale.ABSTRACT.toString());
+    public void eachUnitCarriesAShortLabelAndAFullReading() {
+        assertEquals("s", TimeUnitScale.SECONDS.chipLabel());
+        assertEquals("min", TimeUnitScale.MINUTES.chipLabel());
+        assertEquals("1 unit = 1 hour", TimeUnitScale.HOURS.toString());
         assertTrue(TimeUnitScale.HOURS.isConcrete());
     }
 }

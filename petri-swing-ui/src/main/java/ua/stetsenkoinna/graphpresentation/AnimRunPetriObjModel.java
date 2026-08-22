@@ -43,44 +43,6 @@ public class AnimRunPetriObjModel extends PetriObjModel{
     private volatile boolean halted = false;
 
     /**
-     * The shared clock as it stood when any object of this model last finished a step.
-     *
-     * <p>Kept here rather than per object because the objects share one {@link StateTime}: were
-     * each to remember the clock at its own last step, two objects acting at the same moment
-     * would each measure the whole advance since they themselves last acted, and a run paced by
-     * simulated time would sleep for it twice over - once per object that happened to be
-     * involved. The advance belongs to the model, so it is measured once here.
-     */
-    private double simTimeAtPreviousStep;
-
-    /**
-     * @param now the shared clock as it stands after a step
-     * @return how far it moved since the last step of any object of this model, never negative
-     */
-    synchronized double advanceSince(double now) {
-        double advanced = now - simTimeAtPreviousStep;
-        simTimeAtPreviousStep = now;
-        return Math.max(0, advanced);
-    }
-
-    public AnimRunPetriObjModel(ArrayList<PetriSim> list,
-                                JTextArea area,
-                                PetriNetsPanel panel,
-                                AnimationSpeedControl pace
-    ){
-        super(list);
-        this.area = area;
-        StateTime s = new StateTime();
-        for(PetriSim sim: list){
-            // No GraphPetriObject is available from a bare PetriSim, so there is no per-object
-            // graphical net to scope animation lookups to; null falls back to the whole canvas.
-            runlist.add(new AnimRunPetriSim(sim.getNet(), s, area, panel, pace, this, null));
-        }
-        super.setTimeState(s); // It's very important for correct statistics but building of project get error
-        super.setListObj(list);
-    }
-
-    /**
      * Builds an animated model out of Petri-objects that are already bound to their views.
      *
      * <p>Every object of a composed model is drawn on a panel of its own, so the animated

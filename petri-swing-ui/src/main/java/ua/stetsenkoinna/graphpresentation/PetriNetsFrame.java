@@ -457,6 +457,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             petriNetsPanel.applyTheme();
         }
 
+        if (timeUnitControl != null) {
+            timeUnitControl.applyTheme();
+            refreshHorizonReading();
+        }
+
         if (speedControl != null) {
             // Its buttons are painted by hand rather than by the look and feel, so a theme
             // change reaches them only by being told about it.
@@ -954,7 +959,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartField = new javax.swing.JTextField();
         timeModelingLabel = new javax.swing.JLabel();
         timeModelingTextField = new javax.swing.JTextField();
-        timeUnitScaleCombo = new javax.swing.JComboBox<>(TimeUnitScale.values());
+        timeUnitControl = new TimeUnitControl();
         speedLabel = new javax.swing.JLabel();
         speedControl = new AnimationSpeedControl();
         runProgressBar = new javax.swing.JProgressBar();
@@ -1029,12 +1034,26 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
         // What the horizon beside it, and every delay in the net, are counted in. It changes no
         // number the simulator sees - see TimeUnitScale - so it sits next to the number it
-        // explains rather than anywhere a setting would.
-        timeUnitScaleCombo.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
-        timeUnitScaleCombo.setToolTipText("What one unit of the model's clock stands for."
-                + " Names the Visual playback speeds; changes nothing the simulation computes.");
-        timeUnitScaleCombo.addActionListener(evt ->
-                speedControl.setTimeUnitScale((TimeUnitScale) timeUnitScaleCombo.getSelectedItem()));
+        // explains rather than anywhere a setting would, and its whole visible effect is the
+        // reading after it.
+        horizonReadingLabel.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
+        timeUnitControl.addChangeListener(scale -> refreshHorizonReading());
+        timeModelingTextField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                refreshHorizonReading();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                refreshHorizonReading();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                refreshHorizonReading();
+            }
+        });
 
         speedLabel.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         speedLabel.setText("Animation speed");
@@ -1082,13 +1101,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeModelingLabel.setMaximumSize(new java.awt.Dimension(timeModelingLabel.getPreferredSize().width, Short.MAX_VALUE));
         timeModelingTextField.setPreferredSize(new java.awt.Dimension(60, timeModelingTextField.getPreferredSize().height));
         timeModelingTextField.setMaximumSize(new java.awt.Dimension(80, timeModelingTextField.getPreferredSize().height));
-        timeUnitScaleCombo.setMaximumSize(timeUnitScaleCombo.getPreferredSize());
+
 
         speedLabel.setMaximumSize(new java.awt.Dimension(speedLabel.getPreferredSize().width, Short.MAX_VALUE));
 
         for (java.awt.Component field : new java.awt.Component[]{netNameTextField,
                 timeStartLabel, timeStartField, timeModelingLabel, timeModelingTextField,
-                timeUnitScaleCombo, speedLabel, speedControl}) {
+                timeUnitControl, horizonReadingLabel, speedLabel, speedControl}) {
             ((javax.swing.JComponent) field).setAlignmentY(java.awt.Component.CENTER_ALIGNMENT);
         }
 
@@ -1107,7 +1126,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         headerSimulationGroup.add(timeStartField);
         headerSimulationGroup.add(timeModelingLabel);
         headerSimulationGroup.add(timeModelingTextField);
-        headerSimulationGroup.add(timeUnitScaleCombo);
+        headerSimulationGroup.add(timeUnitControl);
+        headerSimulationGroup.add(horizonReadingLabel);
         headerSimulationGroup.add(headerSeparator());
         headerSimulationGroup.add(speedLabel);
         headerSimulationGroup.add(speedControl);
@@ -1852,6 +1872,21 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }
     }
 
+    /**
+     * Says what the horizon amounts to under the chosen units, which is the whole visible effect
+     * of choosing them. Blank while the units stand for nothing, or while the field holds
+     * something that is not a number - a half-typed value is not worth an error beside it.
+     */
+    private void refreshHorizonReading() {
+        String reading;
+        try {
+            reading = timeUnitControl.getScale().formatDuration(modelingTime());
+        } catch (NumberFormatException notANumberYet) {
+            reading = "";
+        }
+        horizonReadingLabel.setText(reading.isEmpty() ? " " : "= " + reading);
+    }
+
     /** The simulation horizon and the clock it starts from, as the header fields spell them. */
     private double modelingTime() {
         return Double.parseDouble(timeModelingTextField.getText());
@@ -2544,7 +2579,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         netNameTextField.setEnabled(enabled);
         timeStartField.setEnabled(enabled);
         timeModelingTextField.setEnabled(enabled);
-        timeUnitScaleCombo.setEnabled(enabled);
+        timeUnitControl.setEnabled(enabled);
 
         protocolTextArea.setEnabled(enabled);
         statisticsTextArea.setEnabled(enabled);
@@ -2607,7 +2642,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton stopAnimationButton;
     private javax.swing.JLabel timeModelingLabel;
     private javax.swing.JTextField timeModelingTextField;
-    private javax.swing.JComboBox<TimeUnitScale> timeUnitScaleCombo;
+    private TimeUnitControl timeUnitControl;
+    private final javax.swing.JLabel horizonReadingLabel = new javax.swing.JLabel();
     private javax.swing.JTextField timeStartField;
     private javax.swing.JLabel timeStartLabel;
     private javax.swing.JMenuItem undoMenuItem;

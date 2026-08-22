@@ -39,23 +39,16 @@ final class SimulationTimeHelp {
             The clock value a run stops at. This is how much of the model's life you simulate,
             not how long you wait.</p>
 
-            <p style='margin: 0 0 4px 0;'><b>1 unit = ...</b><br>
-            What one tick of that clock stands for. Purely a reading: it renames the playback
-            speeds and changes nothing the simulation computes. Pick Abstract if the units
-            stand for nothing in particular.</p>
+            <p style='margin: 0 0 4px 0;'><b>s, min, h, abstract</b><br>
+            What one tick of that clock stands for. Purely a reading: it says what the horizon
+            beside it amounts to and changes nothing the simulation computes. Pick abstract if
+            the units stand for nothing in particular.</p>
 
-            <p style='margin: 0 0 4px 0;'><b>Animation speed</b><br>
-            How fast a run is played back. It changes nothing about the result, only how long
-            you watch it.</p>
-
-            <p style='margin: 0 0 4px 0;'><b>Scientific</b><br>
-            Every event gets the same time on screen, however much of the clock it consumed.
-            Use it to follow the logic of a net.</p>
-
-            <p style='margin: 0 0 0 0;'><b>Visual</b><br>
-            Screen time follows clock time, so a delay of an hour takes longer to watch than one
-            of a minute, and instant transitions pass straight through. Use it to see the model
-            behave the way the thing it models would.</p>
+            <p style='margin: 0 0 0 0;'><b>Animation speed</b><br>
+            How fast a run is played back, as a multiple of the normal pace. It changes nothing
+            about the result, only how long you watch it. 1x is the pace the editor has always
+            animated at; 0.5x is worth using to follow a firing closely, Max plays with no
+            pauses at all.</p>
             </body></html>
             """;
 

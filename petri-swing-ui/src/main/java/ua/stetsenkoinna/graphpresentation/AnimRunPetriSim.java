@@ -24,26 +24,12 @@ public class AnimRunPetriSim extends PetriSim {
     private final JTextArea area; // specifies where simulation protokol is printed
     private final PetriNetsPanel panel;
     /**
-     * How long each fired transition is held on screen, and what that length is measured in -
-     * a fixed slice of real time per event, or a ratio of simulated time to real time. Asked
-     * fresh after every step rather than read once at the start, so changing speed part-way
-     * through a run takes effect on the very next event.
+     * How long to pause after each fired transition. Asked fresh after every step rather than
+     * read once at the start, so changing speed part-way through a run takes effect on the very
+     * next event.
      */
     private final AnimationSpeedControl pace;
 
-    /**
-     * The model's clock as it stood after the previous step, so this one knows how much
-     * simulated time it advanced - which is what a run paced by simulated time is paced by.
-     */
-    private double simTimeAtPreviousStep;
-
-    /**
-     * When the previous step finished, on the wall clock. A step's budget covers the whole step,
-     * and most of a step is the pulse that lights the firing up - so what is left to wait at the
-     * end of one is the budget less whatever the pulse already spent, which is the time between
-     * this point and now. Zero until the first step ends.
-     */
-    private long previousStepEndedNanos;
     private AnimRunPetriObjModel parentModel;
 
     /**
@@ -73,7 +59,6 @@ public class AnimRunPetriSim extends PetriSim {
         this.panel = panel;
         this.area = area;
         this.pace = pace;
-        this.simTimeAtPreviousStep = getCurrentTime();
         this.parentModel = parentModel;
         this.scope = scope;
     }
@@ -84,7 +69,7 @@ public class AnimRunPetriSim extends PetriSim {
      * @param net Petri net that describes the dynamics of object
      * @param area
      * @param panel
-     * @param pace how fast the animation plays, and what it is paced by
+     * @param pace how fast the animation plays
      * @param parentModel AnimRunPetriObjModel that includes this object
      * @param scope this object's own graphical net, for correctly-scoped animation lookups
      */
@@ -131,31 +116,12 @@ public class AnimRunPetriSim extends PetriSim {
     private void doAfterStep() {
         try {
             if (pace != null) {
-                double now = getCurrentTime();
-                // How far the clock moved over this step. Asked of the parent model when there
-                // is one, because every object of a composed model shares that clock and the
-                // advance is the model's, not any one object's - see advanceSince. A lone
-                // object measures against its own last step, which is the same thing when it
-                // is the only one stepping.
-                double advanced;
-                if (parentModel != null) {
-                    advanced = parentModel.advanceSince(now);
-                } else {
-                    advanced = Math.max(0, now - simTimeAtPreviousStep);
-                    simTimeAtPreviousStep = now;
+                long pause = pace.stepPauseMillis();
+                if (pause > 0) {
+                    Thread.sleep(pause);
                 }
-                long spentOnThisStep = previousStepEndedNanos == 0 ? 0
-                        : (System.nanoTime() - previousStepEndedNanos) / 1_000_000L;
-                // What is left of this step's budget once the pulse has had its share. A pulse
-                // that overran the budget leaves nothing, which is the right answer: the step
-                // has already taken longer than it was meant to.
-                long sleep = pace.stepBudgetMillis(advanced) - spentOnThisStep;
-                if (sleep > 0) {
-                    Thread.sleep(sleep);
-                }
-                previousStepEndedNanos = System.nanoTime();
             }
-            
+
             /* pausing/unpausing support */   
             if (parentModel != null) {
                 if (parentModel.isPaused()) {

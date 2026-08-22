@@ -1,383 +1,169 @@
 package ua.stetsenkoinna.graphpresentation;
 
-import java.awt.Color;
-import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Font;
-import java.awt.Insets;
 import java.util.ArrayList;
 import java.util.List;
 
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-
 import javax.swing.AbstractButton;
-import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JPanel;
-import javax.swing.JToggleButton;
-
-import ua.stetsenkoinna.graphpresentation.theme.ThemeManager;
-import ua.stetsenkoinna.graphpresentation.theme.UiPalette;
-import ua.stetsenkoinna.theme.CanvasColor;
-import ua.stetsenkoinna.theme.CanvasPalette;
 
 /**
- * How fast the animation plays, as the web editor states it: a mode, and a row of named speeds
- * to pick from.
+ * How fast a run is played back, as a row of named speeds.
  *
- * <p>This replaces a bare slider whose value was a sleep in milliseconds between one fired
- * transition and the next. A slider says nothing about what it is measuring - the two ends were
- * "slow" and "fast" and every position in between was a number the user could not name - and
- * milliseconds-per-event is not a speed anyone reasons about while watching a model of a
- * factory or a queue. Naming the speeds instead makes each one answerable: "20 events a second"
- * or "one simulated hour per second" is a thing you can want.
+ * <p>This replaces a slider whose value was a sleep in milliseconds between one fired transition
+ * and the next. A slider says nothing about what it is measuring - its two ends were "slow" and
+ * "fast" and every position between them was a number nobody could name - so the same pacing is
+ * offered as a handful of speeds instead, each one a multiple of how the animation has always
+ * played. 1x is exactly that: the frame delays the canvas was drawn with, and the pause between
+ * events the slider opened on.
  *
- * <h3>The two modes</h3>
- * They differ in what the animation is paced by, which is the same split the web editor draws
- * between "Scientific" and "Visual":
+ * <p>One kind of speed, not two. An earlier version of this offered a second mode that paced by
+ * simulated time rather than by events, so an hour's delay took longer to watch than a minute's.
+ * It is a real distinction and the web editor draws it, but it is not what this application's
+ * animation has ever meant: here every fired transition is one thing to look at, however much of
+ * the model's clock it consumed, and a second mode beside the first mostly raised the question of
+ * which one you were in.
  *
- * <ul>
- *   <li><b>Scientific</b> paces by <em>events</em>: every fired transition is held on screen for
- *       the same length of time, however much or little simulated time it took. This is what the
- *       slider always did, and it is the default here for that reason - it is the mode for
- *       watching the logic of a net, where a transition that fires in zero time matters exactly
- *       as much as one that takes an hour.</li>
- *   <li><b>Visual</b> paces by <em>simulated time</em>: a run plays back at a chosen ratio of
- *       simulated time to real time, so a delay of an hour actually takes longer on screen than
- *       one of a minute. This is the mode for watching a model behave the way the thing it
- *       models would.</li>
- * </ul>
- *
- * <p>Both are expressed to the animation through one question - {@link
- * #stepBudgetMillis(double)}, "given that the model just advanced this far, how long should this
- * step take?" - so the simulator itself does not know which mode is in force. That budget covers
- * the whole step, the pulse that lights the firing up included; {@link #pulseFrameMillis(long)}
- * is how the pulse is fitted into it.
+ * <p>The speed governs the whole of a step, not just the pause at the end of it. Lighting one
+ * firing up - its places, its arcs, the transition itself - is most of what a step costs, so a
+ * speed that left that alone barely changed anything: see {@link #pulseFrameMillis(long)}.
  */
 public class AnimationSpeedControl extends JPanel {
 
-    /** What the animation is paced by. */
-    public enum Mode {
-        /** A fixed length of real time per fired transition. */
-        SCIENTIFIC,
-        /** A fixed ratio of simulated time to real time. */
-        VISUAL
-    }
-
     /**
-     * One named speed on the row.
+     * One named speed.
      *
-     * @param label what the button says
+     * @param label what the chip says
      * @param tooltip the longer reading of it
-     * @param value events per second in {@link Mode#SCIENTIFIC}, simulation units per second in
-     *        {@link Mode#VISUAL}; zero means "as fast as the model runs"
+     * @param factor how many times faster than the animation's own pace; zero means no pacing
+     *        at all
      */
-    private record Speed(String label, String tooltip, double value) {
+    private record Speed(String label, String tooltip, double factor) {
     }
 
     /**
-     * Events per real second. The slowest is one a second, which is exactly where the slider
-     * used to start, so an existing habit lands on the same pace it always did.
+     * Multiples of the pace the animation was drawn to run at. Slower as well as faster: the
+     * frame delays it was given are brisk, and a net being explained to somebody is worth
+     * watching at half of them.
      */
-    private static final List<Speed> SCIENTIFIC_SPEEDS = List.of(
-            new Speed("1/s", "1 event per second", 1),
-            new Speed("5/s", "5 events per second", 5),
-            new Speed("20/s", "20 events per second", 20),
-            new Speed("100/s", "100 events per second", 100),
-            new Speed("Max", "As fast as the model runs", 0));
+    private static final List<Speed> SPEEDS = List.of(
+            new Speed("0.5x", "Half speed", 0.5),
+            new Speed("1x", "Normal speed", 1),
+            new Speed("2x", "Twice as fast", 2),
+            new Speed("5x", "Five times as fast", 5),
+            new Speed("Max", "As fast as the model runs, with no pauses at all", 0));
+
+    /** Which of them the editor opens on: the pace the animation has always played at. */
+    private static final int NORMAL_INDEX = 1;
 
     /**
-     * Model units per real second - the same five ratios the web editor offers, so a model
-     * watched in one editor plays at a recognisably equal speed in the other. Only the ratios
-     * are fixed; what each one is called depends on what a unit is taken to stand for, which is
-     * {@link TimeUnitScale}'s business.
+     * The pause held after each fired transition at 1x, in milliseconds. This is where the
+     * slider's own default sat, so an editor opened and left alone animates exactly as it did
+     * before there was anything to choose.
      */
-    private static final double[] VISUAL_RATES = {1, 10, 60, 600, 3600};
-
-    /** Longest a single step is ever held, so a slow ratio cannot look like a hang. */
-    private static final long MAX_STEP_SLEEP_MILLIS = 5_000;
-
-    /**
-     * Roughly how long the pulse that lights up a firing - its places, its arcs, the transition
-     * itself - takes at the frame delays written into the canvas's own animation, in
-     * milliseconds. Those delays are the shape of the pulse, and this is what that shape costs
-     * when nothing scales it.
-     *
-     * <p>It is the denominator of {@link #pulseFrameMillis(long)} and nothing else: an exact
-     * figure would still be wrong the moment a net had a transition with a different number of
-     * arcs, and what is wanted is only "does the pulse fit in the time this step has".
-     */
-    private static final double NOMINAL_PULSE_MILLIS = 3_000;
-
-    /** What the pulse is scaled against before the first step has reported a budget. */
-    private static final long ASSUMED_FIRST_BUDGET_MILLIS = 1_000;
-
-    /**
-     * How much of a step's budget the pulse is allowed to take. The rest is head-room: repainting
-     * the canvas between the pulse's frames costs real time that no scaling removes, and a pulse
-     * sized to the whole budget therefore overran it every time and left nothing to pause for
-     * afterwards - so a run went slower than the speed it was set to. Leaving a share back means
-     * a step lands near its budget instead of a little past it.
-     */
-    private static final double PULSE_SHARE_OF_BUDGET = 0.7;
+    private static final long NORMAL_PAUSE_MILLIS = 1000;
 
     /** Bounds on how often the canvas is repainted while a run is in progress. */
     private static final int MIN_REPAINT_MILLIS = 30;
     private static final int MAX_REPAINT_MILLIS = 250;
 
-    private final JPanel modeGroup = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
     private final JPanel speedGroup = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
-    private final Chip visualButton = new Chip("Visual");
-    private final Chip scientificButton = new Chip("Scientific");
 
     /**
-     * Read by the animation thread while the user clicks on the event dispatch thread, so both
-     * are volatile rather than guarded: a speed change is meant to take effect on the next step
-     * of a run already in progress, which is the whole point of choosing one mid-run.
+     * Read by the animation thread while the user clicks on the event dispatch thread, so it is
+     * volatile rather than guarded: a speed change is meant to take effect on the next step of a
+     * run already in progress, which is the whole point of choosing one mid-run.
      */
-    private volatile Mode mode = Mode.SCIENTIFIC;
-    private volatile double speed = SCIENTIFIC_SPEEDS.get(0).value();
-
-    /**
-     * What the last step was given to happen in, so the pulse of the next one can be scaled to
-     * fit it. Only {@link Mode#VISUAL} needs it: there a step's budget depends on how far the
-     * model's own clock moved, which is not known until the step has happened, whereas a
-     * Scientific budget is the chosen rate and nothing else. Negative until a step reports one.
-     */
-    private volatile long lastStepBudgetMillis = -1;
-
-    /**
-     * What one unit of the model's clock is taken to stand for. Names the Visual speeds and
-     * nothing else - see {@link TimeUnitScale} for why that is the whole of its effect.
-     */
-    private TimeUnitScale timeUnitScale = TimeUnitScale.SECONDS;
-
-    /** Which speed of the current row is chosen, so relabelling the row does not lose it. */
-    private int selectedSpeedIndex;
+    private volatile double factor = SPEEDS.get(NORMAL_INDEX).factor();
 
     private final List<Runnable> listeners = new ArrayList<>();
 
     public AnimationSpeedControl() {
-        super(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        super(new FlowLayout(FlowLayout.LEFT, 0, 0));
         setOpaque(false);
-
-        modeGroup.setOpaque(false);
         speedGroup.setOpaque(false);
-
-        ButtonGroup modes = new ButtonGroup();
-        for (Chip button : new Chip[] {visualButton, scientificButton}) {
-            modes.add(button);
-            modeGroup.add(button);
-        }
-        visualButton.setToolTipText("Play back at a ratio of simulated time to real time");
-        scientificButton.setToolTipText("Hold every event on screen for the same length of time");
-        visualButton.addActionListener(e -> setMode(Mode.VISUAL));
-        scientificButton.addActionListener(e -> setMode(Mode.SCIENTIFIC));
-
-        add(modeGroup);
         add(speedGroup);
 
-        applyMode(Mode.SCIENTIFIC);
-        applyTheme();
-    }
-
-    /**
-     * @return what the animation is paced by right now
-     */
-    public Mode getMode() {
-        return mode;
-    }
-
-    /**
-     * Switches mode, and with it the row of speeds. Each mode remembers nothing: it comes back
-     * on its own default, because its numbers mean something different from the other's and
-     * carrying a position across would be carrying a number that no longer applies.
-     *
-     * @param newMode the mode to switch to
-     */
-    public final void setMode(Mode newMode) {
-        if (newMode == mode && speedGroup.getComponentCount() > 0) {
-            return;
-        }
-        applyMode(newMode);
-        notifyListeners();
-    }
-
-    private void applyMode(Mode newMode) {
-        mode = newMode;
-        (newMode == Mode.VISUAL ? visualButton : scientificButton).setSelected(true);
-        // Each mode's own starting speed: the slowest in Scientific, which is where the slider
-        // used to start, and sixty units a second in Visual, which is the ratio the web editor
-        // opens on.
-        buildSpeedRow(newMode == Mode.VISUAL ? 2 : 0);
-    }
-
-    /**
-     * Lays out the row of speeds for the current mode and scale.
-     *
-     * @param chosen which of them is selected - carried over when only the labels changed, and
-     *        the mode's own default when the mode itself changed
-     */
-    private void buildSpeedRow(int chosen) {
-        speedGroup.removeAll();
-        List<Speed> speeds = speedsFor(mode);
-        int index = Math.min(Math.max(0, chosen), speeds.size() - 1);
         ButtonGroup group = new ButtonGroup();
-        for (int i = 0; i < speeds.size(); i++) {
-            Speed option = speeds.get(i);
-            int position = i;
-            Chip button = new Chip(option.label());
-            button.setToolTipText(option.tooltip());
-            button.addActionListener(e -> {
-                speed = option.value();
-                selectedSpeedIndex = position;
-                applyTheme();
+        for (Speed option : SPEEDS) {
+            Chip chip = new Chip(option.label());
+            chip.setToolTipText(option.tooltip());
+            chip.addActionListener(e -> {
+                factor = option.factor();
                 notifyListeners();
             });
-            group.add(button);
-            speedGroup.add(button);
+            group.add(chip);
+            speedGroup.add(chip);
         }
-        speed = speeds.get(index).value();
-        selectedSpeedIndex = index;
-        ((AbstractButton) speedGroup.getComponent(index)).setSelected(true);
-
-        applyTheme();
-        revalidate();
-        repaint();
-    }
-
-    private List<Speed> speedsFor(Mode mode) {
-        if (mode != Mode.VISUAL) {
-            return SCIENTIFIC_SPEEDS;
-        }
-        List<Speed> speeds = new ArrayList<>(VISUAL_RATES.length);
-        for (double rate : VISUAL_RATES) {
-            speeds.add(new Speed(timeUnitScale.formatRate(rate),
-                    timeUnitScale.describeRate(rate), rate));
-        }
-        return speeds;
+        ((AbstractButton) speedGroup.getComponent(NORMAL_INDEX)).setSelected(true);
     }
 
     /**
-     * @return what one unit of the model's clock is currently taken to stand for
-     */
-    public TimeUnitScale getTimeUnitScale() {
-        return timeUnitScale;
-    }
-
-    /**
-     * Re-reads the Visual speeds under a different meaning of "one unit". The ratios do not move
-     * and neither does the chosen one - a run set to sixty units a second stays set to sixty
-     * units a second - only what they are called changes, which is the entire point of saying
-     * what a unit is.
-     *
-     * @param scale what one model unit stands for
-     */
-    public void setTimeUnitScale(TimeUnitScale scale) {
-        if (scale == null || scale == timeUnitScale) {
-            return;
-        }
-        timeUnitScale = scale;
-        if (mode == Mode.VISUAL) {
-            buildSpeedRow(selectedSpeedIndex);
-        }
-    }
-
-    /**
-     * Picks the fastest speed the current mode offers, exactly as clicking the last chip of the
-     * row would - so the row's own highlight moves with it rather than saying one thing while
-     * the animation does another.
-     */
-    public void selectFastestSpeed() {
-        ((AbstractButton) speedGroup.getComponent(speedGroup.getComponentCount() - 1)).doClick();
-    }
-
-    /**
-     * How long one step of the animation should take from end to end - the pulse that lights
-     * the firing up included, not just the pause afterwards.
-     *
-     * <p>This is the one question the animation asks, and both modes answer it, which is why
-     * the simulator never learns which mode is in force. It covers the whole step because the
-     * pulse is most of what a step costs: lighting one firing takes the better part of three
-     * seconds at the frame delays the canvas animates with, so a budget that only governed the
-     * pause afterwards left every speed above the slowest making no difference at all - the
-     * animation was already spending longer than the budget before the pause was even reached.
-     *
-     * @param simTimeAdvanced how much simulated time that step took; ignored in {@link
-     *        Mode#SCIENTIFIC}, where every event gets the same budget however long it took
-     * @return milliseconds, never negative and never long enough to read as a hang
-     */
-    public long stepBudgetMillis(double simTimeAdvanced) {
-        double rate = speed;
-        if (rate <= 0) {
-            // "Max": no pacing at all, the model runs as fast as it can and the canvas keeps up
-            // as best it can.
-            return 0;
-        }
-        double millis = mode == Mode.VISUAL
-                // A step that advanced no simulated time at all - an immediate transition -
-                // takes no time to watch either, which is what pacing by simulated time means.
-                ? Math.max(0, simTimeAdvanced) / rate * 1000.0
-                : 1000.0 / rate;
-        long budget = (long) Math.min(MAX_STEP_SLEEP_MILLIS, Math.max(0, Math.round(millis)));
-        if (mode == Mode.VISUAL) {
-            lastStepBudgetMillis = budget;
-        }
-        return budget;
-    }
-
-    /**
-     * Scales one frame of the pulse that lights up a firing, so the highlight itself speeds up
-     * with everything else.
+     * Scales one frame of the pulse that lights up a firing, so the highlight speeds up and slows
+     * down with everything else.
      *
      * <p>Without this the speed row barely did anything. The pulse's frame delays are written
      * into the canvas's animation as fixed numbers, and lighting one firing through them costs
-     * the better part of three seconds - so "100 events a second" and "as fast as the model
-     * runs" both played at about one event every three seconds, the pause between them being
-     * the only thing the speed ever shortened.
+     * the better part of three seconds - so every speed played at about one event every three
+     * seconds, the pause between them being the only thing a speed ever changed.
      *
-     * <p>Scaled rather than dropped: the pulse is how a firing is legible at all, and at the
-     * slower speeds it should look exactly as it always did. It is only compressed to fit when
-     * the step has less time than the pulse would take, and at the fastest speeds that leaves
-     * the frames at zero - the colours still change, and the canvas still repaints, but nothing
-     * waits between them.
-     *
-     * @param nominalMillis the frame delay the animation asks for, unscaled
-     * @return what to actually wait, never longer than what was asked for
+     * @param nominalMillis the frame delay the animation asks for
+     * @return what to actually wait: the same at 1x, twice as long at 0.5x, nothing at Max
      */
     public long pulseFrameMillis(long nominalMillis) {
-        long budget = mode == Mode.VISUAL
-                ? (lastStepBudgetMillis < 0 ? ASSUMED_FIRST_BUDGET_MILLIS : lastStepBudgetMillis)
-                : stepBudgetMillis(0);
-        double scale = Math.min(1.0, budget * PULSE_SHARE_OF_BUDGET / NOMINAL_PULSE_MILLIS);
-        return Math.max(0, Math.round(nominalMillis * scale));
+        double rate = factor;
+        return rate <= 0 ? 0 : Math.max(0, Math.round(nominalMillis / rate));
+    }
+
+    /**
+     * @return how long to pause once a fired transition has finished being lit, in milliseconds
+     */
+    public long stepPauseMillis() {
+        double rate = factor;
+        return rate <= 0 ? 0 : Math.max(0, Math.round(NORMAL_PAUSE_MILLIS / rate));
     }
 
     /**
      * @return how often the canvas should repaint itself while a run is in progress. Tied to the
      *         chosen speed for the same reason it was tied to the slider: a fast animation whose
-     *         canvas repaints four times a second is a slideshow, and a slow one repainting
-     *         sixty times a second is that much work for nothing to have changed.
+     *         canvas repaints four times a second is a slideshow, and a slow one repainting sixty
+     *         times a second is that much work for nothing to have changed.
      */
     public int repaintIntervalMillis() {
-        if (speed <= 0) {
-            return MIN_REPAINT_MILLIS;
-        }
-        long step = mode == Mode.VISUAL
-                // A visual run's step length depends on the model, so its repaint interval is
-                // pinned to the ratio instead: the faster simulated time runs, the more often
-                // something on screen has moved.
-                ? Math.round(1000.0 / Math.max(1, speed / 60.0))
-                : stepBudgetMillis(0);
-        return (int) Math.min(MAX_REPAINT_MILLIS, Math.max(MIN_REPAINT_MILLIS, step));
+        long pause = stepPauseMillis();
+        return (int) Math.min(MAX_REPAINT_MILLIS, Math.max(MIN_REPAINT_MILLIS, pause / 4));
     }
 
     /**
-     * @param listener run whenever the mode or the speed changes - what the frame uses to keep
-     *        the canvas repaint timer in step with the chosen pace
+     * Picks the fastest speed on the row, exactly as clicking its last chip would - so the row's
+     * own highlight moves with it rather than saying one thing while the animation does another.
+     */
+    public void selectFastestSpeed() {
+        ((AbstractButton) speedGroup.getComponent(SPEEDS.size() - 1)).doClick();
+    }
+
+    /**
+     * Picks a speed by the label its chip carries, again by clicking it, so the row stays honest
+     * about what is in force.
+     *
+     * @param label one of the labels on the row
+     * @throws IllegalArgumentException if no chip carries that label
+     */
+    public void selectSpeed(String label) {
+        for (java.awt.Component chip : speedGroup.getComponents()) {
+            if (((AbstractButton) chip).getText().equals(label)) {
+                ((AbstractButton) chip).doClick();
+                return;
+            }
+        }
+        throw new IllegalArgumentException("No such speed: " + label);
+    }
+
+    /**
+     * @param listener run whenever the speed changes - what the frame uses to keep the canvas
+     *        repaint timer in step with the chosen pace
      */
     public void addChangeListener(Runnable listener) {
         listeners.add(listener);
@@ -389,71 +175,8 @@ public class AnimationSpeedControl extends JPanel {
         }
     }
 
-    /**
-     * One speed, or one mode, drawn as a filled pill: the accent behind the chosen one, a muted
-     * chip behind the rest.
-     *
-     * <p>Painted here rather than left to the look and feel, because a look and feel draws a
-     * selected toggle as a pressed-in button, and a pressed-in button sitting in a row of four
-     * others reads as a button someone left pressed rather than as one choice out of five. It
-     * also means the row looks the same under every look and feel this application can be
-     * started with, which the header's own colours already have to.
-     */
-    private static final class Chip extends JToggleButton {
-
-        private static final int ARC = 8;
-
-        private boolean hovered;
-
-        Chip(String text) {
-            super(text);
-            setFocusable(false);
-            setFocusPainted(false);
-            setBorderPainted(false);
-            setContentAreaFilled(false);
-            setOpaque(false);
-            setRolloverEnabled(true);
-            setFont(new Font("Arial", Font.PLAIN, 11));
-            setMargin(new Insets(3, 8, 3, 8));
-            setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8));
-            setAlignmentY(Component.CENTER_ALIGNMENT);
-            addMouseListener(new java.awt.event.MouseAdapter() {
-                @Override
-                public void mouseEntered(java.awt.event.MouseEvent e) {
-                    hovered = true;
-                    repaint();
-                }
-
-                @Override
-                public void mouseExited(java.awt.event.MouseEvent e) {
-                    hovered = false;
-                    repaint();
-                }
-            });
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            UiPalette palette = ThemeManager.palette();
-            boolean chosen = isSelected();
-            g2.setColor(chosen ? CanvasPalette.current().get(CanvasColor.ACCENT)
-                    : hovered ? palette.getDivider() : palette.getChromeAlt());
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), ARC, ARC);
-            g2.dispose();
-            setForeground(chosen ? Color.WHITE : palette.getChromeText());
-            super.paintComponent(g);
-        }
-    }
-
-    /**
-     * Re-reads the theme. The chips take their colours at paint time, so this only has to ask
-     * for a repaint - and re-draw the hairline around the mode pair, which is a border rather
-     * than something painted.
-     */
-    public final void applyTheme() {
-        modeGroup.setBorder(BorderFactory.createLineBorder(ThemeManager.palette().getDivider()));
+    /** Re-reads the theme. The chips take their colours at paint time, so a repaint is all. */
+    public void applyTheme() {
         repaint();
     }
 
