@@ -9,6 +9,7 @@ with live animation, watch the statistics, and exchange it as PNML.
 
 [![License](https://img.shields.io/badge/license-MIT_%2F_PolyForm_NC-1f6feb?style=flat-square)](#license)
 [![PNML](https://img.shields.io/badge/PNML-ISO%2FIEC_15909--2-2ea043?style=flat-square)](docs/petri-object-models.md)
+[![petri-net-sim](https://img.shields.io/badge/petri--net--sim-web_app-2563eb?style=flat-square&logo=data:image/svg%2Bxml%3Bbase64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTEiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzI1NjNlYiIgc3Ryb2tlLXdpZHRoPSI0Ii8+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iNC41IiBmaWxsPSIjMjU2M2ViIi8+PC9zdmc+&logoColor=white)](https://github.com/sergiorbk/petri-net-sim)
 
 ![Java 23](https://img.shields.io/badge/Java_23-ED8B00?style=flat-square&logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white)
