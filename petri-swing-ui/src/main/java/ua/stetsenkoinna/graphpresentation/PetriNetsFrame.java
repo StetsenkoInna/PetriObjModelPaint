@@ -445,6 +445,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             petriNetsPanel.applyTheme();
         }
 
+        if (speedControl != null) {
+            // Its buttons are painted by hand rather than by the look and feel, so a theme
+            // change reaches them only by being told about it.
+            speedControl.applyTheme();
+        }
+
         javax.swing.JRadioButtonMenuItem selected = themeMenuItems.get(ThemeManager.currentMode());
         if (selected != null) {
             selected.setSelected(true);
@@ -937,7 +943,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeModelingLabel = new javax.swing.JLabel();
         timeModelingTextField = new javax.swing.JTextField();
         speedLabel = new javax.swing.JLabel();
-        speedSlider = new javax.swing.JSlider();
+        speedControl = new AnimationSpeedControl();
         runProgressBar = new javax.swing.JProgressBar();
         playPauseAnimationButton = transportButton();
         stopAnimationButton = transportButton();
@@ -1011,10 +1017,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         speedLabel.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         speedLabel.setText("Animation speed");
 
-        speedSlider.setMaximum(1000);
-        speedSlider.setValue(1000);
-        speedSlider.setInverted(true);
-        speedSlider.addChangeListener(this::speedSliderStateChanged);
+        // The canvas repaint interval follows the chosen pace, the way it followed the
+        // slider: a fast animation repainting four times a second is a slideshow, and a slow
+        // one repainting sixty times a second is that much work for nothing having changed.
+        speedControl.addChangeListener(() -> timer.setDelay(speedControl.repaintIntervalMillis()));
 
         styleTransportButton(playPauseAnimationButton);
         playPauseAnimationButton.setAction(playPauseAction);
@@ -1056,12 +1062,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeModelingTextField.setMaximumSize(new java.awt.Dimension(80, timeModelingTextField.getPreferredSize().height));
 
         speedLabel.setMaximumSize(new java.awt.Dimension(speedLabel.getPreferredSize().width, Short.MAX_VALUE));
-        speedSlider.setPreferredSize(new java.awt.Dimension(130, speedSlider.getPreferredSize().height));
-        speedSlider.setMaximumSize(new java.awt.Dimension(170, speedSlider.getPreferredSize().height));
 
         for (java.awt.Component field : new java.awt.Component[]{netNameTextField,
                 timeStartLabel, timeStartField, timeModelingLabel, timeModelingTextField,
-                speedLabel, speedSlider}) {
+                speedLabel, speedControl}) {
             ((javax.swing.JComponent) field).setAlignmentY(java.awt.Component.CENTER_ALIGNMENT);
         }
 
@@ -1082,7 +1086,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         headerSimulationGroup.add(timeModelingTextField);
         headerSimulationGroup.add(headerSeparator());
         headerSimulationGroup.add(speedLabel);
-        headerSimulationGroup.add(speedSlider);
+        headerSimulationGroup.add(speedControl);
 
         // Only Run Net (no animation) shows this — it has no per-event visual feedback of
         // its own the way animation does, so this is the one indication of how far along a
@@ -1583,10 +1587,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         refreshUndoRedoMenuState();
     }//GEN-LAST:event_redoMenuItemActionPerformed
 
-    private void speedSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_speedSliderStateChanged
-        timer.setDelay(speedSlider.getValue() / 3);
-    }//GEN-LAST:event_speedSliderStateChanged
-
     private void timeStartFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timeStartFieldActionPerformed
     }//GEN-LAST:event_timeStartFieldActionPerformed
 
@@ -1935,7 +1935,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             // local number instead of ever finding both of them at once.
             AnimRunPetriSim petriSim = new AnimRunPetriSim(
                     object.getGraphNet().getPetriNet(), clock,
-                    protocolTextArea, getPetriNetsPanel(), speedSlider, null, object.getGraphNet());
+                    protocolTextArea, getPetriNetsPanel(), speedControl, null, object.getGraphNet());
             petriSim.setName(object.getName());
             petriSim.setPriority(object.getPriority());
             petriSim.setSimulationTime(modelingTime());
@@ -2572,7 +2572,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton stepBackButton;
     private javax.swing.JButton skipForwardAnimationButton;
     private javax.swing.JLabel speedLabel;
-    private javax.swing.JSlider speedSlider;
+    private AnimationSpeedControl speedControl;
     private javax.swing.JMenu statisticMenu;
     private javax.swing.JScrollPane statisticsScrollPane;
     private javax.swing.JTextArea statisticsTextArea;

@@ -8,7 +8,6 @@ import ua.stetsenkoinna.petriobj.PetriT;
 import ua.stetsenkoinna.petriobj.StateTime;
 
 import java.util.ArrayList;
-import javax.swing.JSlider;
 import javax.swing.JTextArea;
 
 import org.slf4j.Logger;
@@ -24,7 +23,19 @@ public class AnimRunPetriSim extends PetriSim {
 
     private final JTextArea area; // specifies where simulation protokol is printed
     private final PetriNetsPanel panel;
-    private final JSlider delaySlider;
+    /**
+     * How long each fired transition is held on screen, and what that length is measured in -
+     * a fixed slice of real time per event, or a ratio of simulated time to real time. Asked
+     * fresh after every step rather than read once at the start, so changing speed part-way
+     * through a run takes effect on the very next event.
+     */
+    private final AnimationSpeedControl pace;
+
+    /**
+     * The model's clock as it stood after the previous step, so this one knows how much
+     * simulated time it advanced - which is what a run paced by simulated time is paced by.
+     */
+    private double simTimeAtPreviousStep;
     private AnimRunPetriObjModel parentModel;
 
     /**
@@ -49,11 +60,12 @@ public class AnimRunPetriSim extends PetriSim {
     private volatile boolean halted = false;
 
     public AnimRunPetriSim(PetriNet net, StateTime timeState, JTextArea area, PetriNetsPanel panel,
-                           JSlider delaySlider, AnimRunPetriObjModel parentModel, GraphPetriNet scope) {
+                           AnimationSpeedControl pace, AnimRunPetriObjModel parentModel, GraphPetriNet scope) {
         super(net, timeState);
         this.panel = panel;
         this.area = area;
-        this.delaySlider = delaySlider;
+        this.pace = pace;
+        this.simTimeAtPreviousStep = getCurrentTime();
         this.parentModel = parentModel;
         this.scope = scope;
     }
@@ -64,18 +76,18 @@ public class AnimRunPetriSim extends PetriSim {
      * @param net Petri net that describes the dynamics of object
      * @param area
      * @param panel
-     * @param delaySlider
+     * @param pace how fast the animation plays, and what it is paced by
      * @param parentModel AnimRunPetriObjModel that includes this object
      * @param scope this object's own graphical net, for correctly-scoped animation lookups
      */
-   public AnimRunPetriSim(PetriNet net, JTextArea area, PetriNetsPanel panel, JSlider delaySlider,
+   public AnimRunPetriSim(PetriNet net, JTextArea area, PetriNetsPanel panel, AnimationSpeedControl pace,
                           AnimRunPetriObjModel parentModel, GraphPetriNet scope) {
-        this(net, new StateTime(), area, panel, delaySlider, parentModel, scope);
+        this(net, new StateTime(), area, panel, pace, parentModel, scope);
    }
 
-   public AnimRunPetriSim(String id, PetriNet net, JTextArea area, PetriNetsPanel panel, JSlider delaySlider,
-                          AnimRunPetriObjModel parentModel, GraphPetriNet scope) {
-       this(net, new StateTime(), area, panel, delaySlider, parentModel, scope);
+   public AnimRunPetriSim(String id, PetriNet net, JTextArea area, PetriNetsPanel panel,
+                          AnimationSpeedControl pace, AnimRunPetriObjModel parentModel, GraphPetriNet scope) {
+       this(net, new StateTime(), area, panel, pace, parentModel, scope);
        super.setId(id); // server set id
    }
 
@@ -110,8 +122,24 @@ public class AnimRunPetriSim extends PetriSim {
 
     private void doAfterStep() {
         try {
-            if (delaySlider != null) {
-                Thread.sleep(delaySlider.getValue());
+            if (pace != null) {
+                double now = getCurrentTime();
+                // How far the clock moved over this step. Asked of the parent model when there
+                // is one, because every object of a composed model shares that clock and the
+                // advance is the model's, not any one object's - see advanceSince. A lone
+                // object measures against its own last step, which is the same thing when it
+                // is the only one stepping.
+                double advanced;
+                if (parentModel != null) {
+                    advanced = parentModel.advanceSince(now);
+                } else {
+                    advanced = Math.max(0, now - simTimeAtPreviousStep);
+                    simTimeAtPreviousStep = now;
+                }
+                long sleep = pace.sleepMillisAfterStep(advanced);
+                if (sleep > 0) {
+                    Thread.sleep(sleep);
+                }
             }
             
             /* pausing/unpausing support */   
