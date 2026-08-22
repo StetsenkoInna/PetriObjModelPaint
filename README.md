@@ -28,6 +28,11 @@ with live animation, watch the statistics, and exchange it as PNML.
 > and run the launcher inside (`.bat` / `.sh` / `.command`): it checks for Java 23+ and points you
 > to the official download if it's missing.
 
+> [!NOTE]
+> **Want to contribute?** Open an issue to discuss the change first, then create a
+> branch, open a pull request against `master`, and follow the steps in
+> [CONTRIBUTING.md](CONTRIBUTING.md).
+
 This is a multi-module Maven project:
 
 | Module | Purpose |
