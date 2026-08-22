@@ -5,7 +5,7 @@
 **A graphical editor and simulator for Petri nets and Petri-object models.**
 
 Draw a net, or frame parts of it as linked Petri-objects to compose a larger model, then run it
-with live animation, watch the statistics, and exchange it as PNML with the sibling web app.
+with live animation, watch the statistics, and exchange it as PNML.
 
 [![License](https://img.shields.io/badge/license-MIT_%2F_PolyForm_NC-1f6feb?style=flat-square)](#license)
 [![PNML](https://img.shields.io/badge/PNML-ISO%2FIEC_15909--2-2ea043?style=flat-square)](docs/petri-object-models.md)
