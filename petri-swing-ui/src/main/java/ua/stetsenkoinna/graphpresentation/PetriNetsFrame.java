@@ -690,7 +690,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * while a run is in progress, and a disabled button that looks pixel-identical to an
      * enabled one just reads as unresponsive — hence people mashing the button several times
      * waiting for a click to "take". Also hides any Action's text label: these are strictly
-     * icon buttons (the label still surfaces as the tooltip via SHORT_DESCRIPTION).
+     * icon buttons, and they carry no tooltip either - a row of five, sitting eight pixels
+     * apart and hovered over constantly during a run, was a row of five popups appearing over
+     * whichever button was about to be clicked next.
      */
     private void styleTransportButton(AbstractButton button) {
         button.setFocusable(false);
@@ -705,20 +707,28 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
 
     /**
-     * Creates a transport-row button whose tooltip always renders in a fixed spot just below
-     * the whole header row, instead of Swing's cursor-relative default. At {@link
-     * #HEADER_BUTTON_SIZE} with only 8px between neighbors, that default placement (offset
-     * down-and-right from the mouse) can land the tooltip's popup window on top of the very
-     * button — or an adjacent one — the user is about to click, and the popup then eats the
-     * click instead of it reaching the button underneath.
+     * Keeps a button's greyed-out icon following its normal one.
+     *
+     * <p>Two of these buttons swap their icon while the window is up: play becomes pause, and
+     * stop becomes reset once a run has finished. Swing copies the new icon across from the
+     * action but never touches the disabled one, so a button that had swapped and then went
+     * disabled showed the greyed-out form of the icon it used to have.
+     *
+     * @param button a transport button already bound to its action
+     */
+    private static void keepDisabledIconInStep(AbstractButton button) {
+        button.setDisabledIcon(CanvasToolIcons.dimmed(button.getIcon()));
+        button.addPropertyChangeListener("icon", evt ->
+                button.setDisabledIcon(CanvasToolIcons.dimmed(button.getIcon())));
+    }
+
+    /**
+     * Creates a transport-row button. Plain now that these carry no tooltip: it used to place
+     * one in a fixed spot below the header, because Swing's cursor-relative default landed the
+     * popup on top of the very button about to be clicked.
      */
     private static JButton transportButton() {
-        return new JButton() {
-            @Override
-            public Point getToolTipLocation(MouseEvent event) {
-                return new Point(0, getHeight() + 4);
-            }
-        };
+        return new JButton();
     }
 
     /**
@@ -1069,11 +1079,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // "disabled" variant for Swing to fall back on — under Nimbus that renders as nothing
         // at all rather than the plain icon, so every transport button needs its disabled
         // state pointed at an explicit (dimmed) icon.
-        playPauseAnimationButton.setDisabledIcon(CanvasToolIcons.dimmed(playPauseAnimationButton.getIcon()));
+        keepDisabledIconInStep(playPauseAnimationButton);
+        keepDisabledIconInStep(stopAnimationButton);
 
         stopAnimationButton.setAction(stopSimulationAction);
-        stopAnimationButton.setIcon(CanvasToolIcons.stop(TOOL_ICON_SIZE));
-        stopAnimationButton.setDisabledIcon(CanvasToolIcons.dimmed(stopAnimationButton.getIcon()));
         styleTransportButton(stopAnimationButton);
 
         stepBackButton.setAction(stepBackAction);

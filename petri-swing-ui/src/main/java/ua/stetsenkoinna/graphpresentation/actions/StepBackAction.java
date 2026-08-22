@@ -15,7 +15,6 @@ public class StepBackAction extends AbstractAction {
 
     public StepBackAction(AnimationControls controls) {
         this.controls = controls;
-        putValue(SHORT_DESCRIPTION, "Step back");
     }
 
     @Override
