@@ -510,6 +510,48 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         });
 
+        // Ctrl+A selects everything, and switches to the Select tool to do it. Everything the
+        // selection is for - dragging it, copying it, deleting it - is a Select-tool gesture,
+        // so selecting the whole canvas while some other tool was active picked things out that
+        // the very next click would then throw away. Switching through the toolbar button
+        // rather than calling setTool keeps the toolbar's own highlight in step, the same way
+        // every binding here does; the switch comes first, since setTool keeps a selection only
+        // when it is switching to Select.
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, InputEvent.CTRL_DOWN_MASK), "selectAll");
+        actionMap.put("selectAll", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                selectToolButton.doClick();
+                getPetriNetsPanel().selectAll();
+                getPetriNetsPanel().repaint();
+            }
+        });
+
+        // Undo and redo are bound on the canvas as well as being menu accelerators. The
+        // accelerator alone left Ctrl+Z doing nothing at all while the canvas held focus -
+        // which is exactly where the user is standing after a drag they want to take back -
+        // so the one thing every editor promises about a mistake was unreachable from the
+        // keyboard. doClick() rather than calling the undo manager, so a key press does
+        // precisely what the menu item does, including being inert when there is nothing to
+        // undo. Ctrl+Y is here as well: it is what a Windows user reaches for to redo.
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK), "undoEdit");
+        actionMap.put("undoEdit", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                undoMenuItem.doClick();
+            }
+        });
+
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z,
+                InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), "redoEdit");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputEvent.CTRL_DOWN_MASK), "redoEdit");
+        actionMap.put("redoEdit", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                redoMenuItem.doClick();
+            }
+        });
+
         // A JScrollPane binds Left/Right to unit-scrolling its viewport by default, which is
         // the canvas sliding sideways under the cursor. Those arrows drive the simulation now,
         // so that default is cleared rather than left to fight the bindings above whenever the

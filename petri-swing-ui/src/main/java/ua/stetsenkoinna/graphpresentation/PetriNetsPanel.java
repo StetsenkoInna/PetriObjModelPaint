@@ -316,11 +316,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     deleteSelection();
                 }
 
-                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_A) {
-
-                    selectAll();
-                    repaint();
-                }
+                // Ctrl+A is not here: it activates the Select tool before it selects anything,
+                // which means going through the toolbar button so its highlight keeps up, and
+                // this canvas has no way to reach that. It lives in
+                // PetriNetsFrame.installCanvasToolShortcuts alongside the other bindings that
+                // drive a toolbar button, and reaches the canvas on exactly the same focus
+                // terms these listeners do.
 
                 if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_C) {
                     copySelection();

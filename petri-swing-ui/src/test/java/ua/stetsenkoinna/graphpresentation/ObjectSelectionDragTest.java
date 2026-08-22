@@ -322,6 +322,55 @@ public class ObjectSelectionDragTest {
     }
 
     @Test
+    public void ctrlAActivatesTheSelectToolBeforeSelectingAnything() throws Exception {
+        PetriNetsFrame frame = new PetriNetsFrame();
+        try {
+            PetriNetsPanel panel = frame.getPetriNetsPanel();
+            panel.setCanvasModel(twoLinkedObjects());
+            // Any tool whose drag handler returns early: with it left active, the drag that
+            // follows a select-all moved nothing at all, and Ctrl+Z then had nothing to take
+            // back - which is what "undo does not work after a move" turned out to be.
+            panel.setTool(CanvasTool.ADD_PLACE);
+
+            javax.swing.Action selectAll = panel.getActionMap().get("selectAll");
+            assertNotNull("Ctrl+A must be bound on the canvas", selectAll);
+            selectAll.actionPerformed(
+                    new java.awt.event.ActionEvent(panel, java.awt.event.ActionEvent.ACTION_PERFORMED, ""));
+
+            assertEquals(CanvasTool.SELECT, panel.getTool());
+            assertEquals(2, panel.getSelection().allFrames().size());
+        } finally {
+            frame.dispose();
+        }
+    }
+
+    @Test
+    public void undoAndRedoAreReachableFromTheCanvasKeyboard() throws Exception {
+        PetriNetsFrame frame = new PetriNetsFrame();
+        try {
+            PetriNetsPanel panel = frame.getPetriNetsPanel();
+            // Bound on the canvas itself, not only as a menu accelerator - the canvas is where
+            // focus sits after a drag the user wants to take back.
+            assertNotNull(panel.getActionMap().get("undoEdit"));
+            assertNotNull(panel.getActionMap().get("redoEdit"));
+
+            javax.swing.InputMap keys =
+                    panel.getInputMap(javax.swing.JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+            int ctrl = java.awt.event.InputEvent.CTRL_DOWN_MASK;
+            assertEquals("selectAll", keys.get(javax.swing.KeyStroke.getKeyStroke(
+                    java.awt.event.KeyEvent.VK_A, ctrl)));
+            assertEquals("undoEdit", keys.get(javax.swing.KeyStroke.getKeyStroke(
+                    java.awt.event.KeyEvent.VK_Z, ctrl)));
+            assertEquals("redoEdit", keys.get(javax.swing.KeyStroke.getKeyStroke(
+                    java.awt.event.KeyEvent.VK_Z, ctrl | java.awt.event.InputEvent.SHIFT_DOWN_MASK)));
+            assertEquals("redoEdit", keys.get(javax.swing.KeyStroke.getKeyStroke(
+                    java.awt.event.KeyEvent.VK_Y, ctrl)));
+        } finally {
+            frame.dispose();
+        }
+    }
+
+    @Test
     public void undoingADragPutsEveryObjectAndItsNetBackWhereItWas() {
         PetriNetsPanel panel = panelHoldingSomething();
         panel.addCanvasModel(twoLinkedObjects());
