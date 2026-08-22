@@ -651,7 +651,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         g2.scale(scale, scale);
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                 RenderingHints.VALUE_ANTIALIAS_ON);
-        this.requestFocusInWindow(); //added 1.06.2013
+        // Focus is not taken here. It used to be, on every single paint, which made the canvas
+        // pull focus back from whatever the user had just opened over it: a drop-down beside
+        // the header opened and shut again within the frame, because showing its popup repaints
+        // the canvas behind it and the repaint stole the focus the popup needs to stay up.
+        // Painting is not a gesture and must not move focus; the gestures that do mean "the
+        // user is working on the canvas" ask for it themselves - a press on it, and picking a
+        // tool for it.
         //додано 3.12.2012
         if (graphNet == null) {
             setCanvasNet(new GraphPetriNet());
@@ -3212,6 +3218,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mousePressed(MouseEvent ev) {
+            // Where the canvas takes focus: the user is demonstrably working on it, so its
+            // keyboard shortcuts should reach it from here on.
+            requestFocusInWindow();
             dragCompleted = false;
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
             if (maybeShowContextMenu(ev, scaledCurrentMousePoint)) {
@@ -4800,6 +4809,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         tool = newTool;
         armedTemplate = template;
         setCursor(cursorFor(newTool));
+        // Picking a tool is picking the canvas, so its own keyboard shortcuts follow the tool
+        // over from the toolbar without needing a click on the canvas first.
+        requestFocusInWindow();
         repaint();
     }
 

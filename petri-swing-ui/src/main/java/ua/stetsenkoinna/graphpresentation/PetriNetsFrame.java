@@ -350,6 +350,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetsPanel.enableDragAndDrop(this);
 
         installCanvasToolShortcuts();
+        // The canvas no longer takes focus while painting, so it takes it once when the window
+        // opens instead: its shortcuts work on a freshly started editor without a click first.
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowOpened(java.awt.event.WindowEvent e) {
+                petriNetsPanel.requestFocusInWindow();
+            }
+        });
         applyWindowGeometry();
         installUndoTracking();
         petriNetsFrameMenuBar.add(new HelpMenu(this));
@@ -1103,6 +1111,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         headerSimulationGroup.add(headerSeparator());
         headerSimulationGroup.add(speedLabel);
         headerSimulationGroup.add(speedControl);
+        // Last in the row, so it reads as being about the whole row rather than about the one
+        // control it happens to stand beside.
+        headerSimulationGroup.add(SimulationTimeHelp.button(this));
 
         // Only Run Net (no animation) shows this — it has no per-event visual feedback of
         // its own the way animation does, so this is the one indication of how far along a
