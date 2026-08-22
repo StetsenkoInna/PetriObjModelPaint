@@ -54,6 +54,9 @@
 
 ```bash
 mvn package -DskipTests
+```
+
+```bash
 java -jar petri-swing-ui/target/petri-swing-ui.jar
 ```
 
@@ -67,6 +70,9 @@ java -jar petri-swing-ui/target/petri-swing-ui.jar
 
 ```bash
 mvn package -DskipTests
+```
+
+```bash
 java -jar petri-server/target/petri-server.jar
 # або: mvn spring-boot:run -pl petri-server
 ```

@@ -54,6 +54,9 @@ Petri-object model.
 
 ```bash
 mvn package -DskipTests
+```
+
+```bash
 java -jar petri-swing-ui/target/petri-swing-ui.jar
 ```
 
@@ -67,6 +70,9 @@ borders, and animate the whole composition on one canvas.
 
 ```bash
 mvn package -DskipTests
+```
+
+```bash
 java -jar petri-server/target/petri-server.jar
 # or: mvn spring-boot:run -pl petri-server
 ```
