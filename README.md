@@ -16,25 +16,6 @@ Petri net graphical editor and simulator (**POMP** for short). Multi-module Mave
 | `petri-swing-ui` | Desktop editor (Swing, fat JAR) |
 | `petri-server` | Spring Boot REST + WebSocket server |
 
-## Desktop UI (Swing)
-
-```bash
-java -jar petri-swing-ui/target/petri-swing-ui.jar
-```
-
-Self-contained visual editor and simulator, no server required: draw a net, run it with
-live animation, watch statistics charts, save nets to the net library and import/export PNML.
-
-![Drawing and simulating a Petri net](docs/media/demo-petri-model.gif)
-
-Frame parts of a drawing as Petri-objects, link them across frame borders, and animate the
-whole composition on one canvas.
-
-![Composing and running a Petri-object model](docs/media/demo-petri-object-model.gif)
-
-**[docs/desktop-ui.md](docs/desktop-ui.md)**, full guide: editor, animation controls,
-statistics module, Petri-objects on the canvas, net library, PNML import/export.
-
 ## Petri-object simulation technique
 
 PetriObjModelPaint is the project of Petri-object simulation technique implementation. Petri-object simulation technique, the main concept of which is to compose the code of model of complicated discrete event system in a fast and flexible way, simultaneously providing fast running the simulation, is requisite. The behaviour description of the model is based on stochastic multichannel Petri net while the model composition is grounded on object-oriented technology. The Petri-object simulation software provides a scalable simulation algorithm, graphical editor, correct transformation of graphical images into a model, and correct simulation results.
@@ -59,6 +40,22 @@ mvn package -DskipTests
 Output:
 - `petri-swing-ui/target/petri-swing-ui.jar`
 - `petri-server/target/petri-server.jar`
+
+---
+
+## Desktop UI (Swing)
+
+```bash
+java -jar petri-swing-ui/target/petri-swing-ui.jar
+```
+
+Self-contained visual editor and simulator, no server required: draw a net, run it with
+live animation, watch statistics charts, save nets to the net library and import/export PNML.
+Frame parts of a drawing as Petri-objects, link them across frame borders, and animate the
+whole composition on one canvas.
+
+**[docs/desktop-ui.md](docs/desktop-ui.md)**, full guide: editor, animation controls,
+statistics module, Petri-objects on the canvas, net library, PNML import/export.
 
 ---
 
