@@ -42,23 +42,6 @@ public class AnimRunPetriObjModel extends PetriObjModel{
      */
     private volatile boolean halted = false;
 
-    public AnimRunPetriObjModel(ArrayList<PetriSim> list,
-                                JTextArea area,
-                                PetriNetsPanel panel,
-                                JSlider delaySlider
-    ){
-        super(list);
-        this.area = area;
-        StateTime s = new StateTime();
-        for(PetriSim sim: list){
-            // No GraphPetriObject is available from a bare PetriSim, so there is no per-object
-            // graphical net to scope animation lookups to; null falls back to the whole canvas.
-            runlist.add(new AnimRunPetriSim(sim.getNet(), s, area, panel, delaySlider, this, null));
-        }
-        super.setTimeState(s); // It's very important for correct statistics but building of project get error
-        super.setListObj(list);
-    }
-
     /**
      * Builds an animated model out of Petri-objects that are already bound to their views.
      *

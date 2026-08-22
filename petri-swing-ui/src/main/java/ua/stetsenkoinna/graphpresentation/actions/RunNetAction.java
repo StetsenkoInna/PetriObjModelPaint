@@ -13,7 +13,6 @@ public class RunNetAction extends AbstractAction {
 
     public RunNetAction(AnimationControls animationControls) {
         this.animationControls = animationControls;
-        putValue(SHORT_DESCRIPTION, "Run net");
     }
 
     @Override

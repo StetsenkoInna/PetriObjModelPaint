@@ -34,7 +34,6 @@ public class PlayPauseAction extends AbstractAction {
      */
     public void switchToPauseButton() {
         putValue(LARGE_ICON_KEY, CanvasToolIcons.pause(ICON_SIZE));
-        putValue(SHORT_DESCRIPTION, "Pause");
     }
 
     /**
@@ -48,7 +47,6 @@ public class PlayPauseAction extends AbstractAction {
      */
     public void switchToPlayButton() {
         putValue(LARGE_ICON_KEY, CanvasToolIcons.play(ICON_SIZE));
-        putValue(SHORT_DESCRIPTION, "Start");
     }
 
 }

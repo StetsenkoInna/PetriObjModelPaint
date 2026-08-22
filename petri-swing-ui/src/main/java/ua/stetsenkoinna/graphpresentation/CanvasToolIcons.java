@@ -211,7 +211,7 @@ public final class CanvasToolIcons {
     }
 
     /** Filled square — stop, replacing the {@code ⏹} glyph. */
-    static Icon stop(int size) {
+    public static Icon stop(int size) {
         return new Icon() {
             @Override
             public void paintIcon(Component c, Graphics g, int x, int y) {
@@ -219,6 +219,48 @@ public final class CanvasToolIcons {
                 g2.setColor(c.getForeground());
                 float inset = size * 0.22f;
                 g2.fill(new RoundRectangle2D.Float(x + inset, y + inset, size - 2 * inset, size - 2 * inset, 2, 2));
+                g2.dispose();
+            }
+
+            @Override
+            public int getIconWidth() {
+                return size;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return size;
+            }
+        };
+    }
+
+    /**
+     * A circular arrow — put the net back the way it was before the run.
+     *
+     * <p>Drawn rather than reusing {@code arrowLeft}: stepping back one event and discarding a
+     * whole run are different enough that they must not look alike, and a loop is the shape
+     * every application uses for "undo all of this".
+     */
+    public static Icon reset(int size) {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = prepare(g);
+                g2.setColor(c.getForeground());
+                float inset = size * 0.24f;
+                float diameter = size - 2 * inset;
+                g2.setStroke(new java.awt.BasicStroke(Math.max(1.4f, size * 0.11f),
+                        java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER));
+                // Open at the top left, where the arrowhead goes.
+                g2.draw(new java.awt.geom.Arc2D.Float(x + inset, y + inset, diameter, diameter,
+                        120, 300, java.awt.geom.Arc2D.OPEN));
+                float headX = x + inset + diameter * 0.25f;
+                float head = size * 0.20f;
+                float headY = y + inset + diameter * 0.07f;
+                g2.fillPolygon(new Polygon(
+                        new int[]{(int) headX, (int) (headX + head), (int) (headX + head)},
+                        new int[]{(int) headY, (int) (headY - head * 0.55f), (int) (headY + head * 0.55f)},
+                        3));
                 g2.dispose();
             }
 
