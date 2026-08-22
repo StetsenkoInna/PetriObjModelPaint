@@ -53,6 +53,7 @@
 **Десктопний UI.**
 
 ```bash
+mvn package -DskipTests
 java -jar petri-swing-ui/target/petri-swing-ui.jar
 ```
 
@@ -65,6 +66,7 @@ java -jar petri-swing-ui/target/petri-swing-ui.jar
 **Сервер.**
 
 ```bash
+mvn package -DskipTests
 java -jar petri-server/target/petri-server.jar
 # або: mvn spring-boot:run -pl petri-server
 ```
