@@ -17,15 +17,13 @@ import ua.stetsenkoinna.theme.CanvasPalette;
  * <p>A shared place is the classic way two Petri-objects are composed, and it is not an arc:
  * nothing flows along it, the two places simply are the same place.
  *
- * <p>How that is shown depends on whether either place is locked inside a Petri-object.
- * Between two free places — not yet grouped into any object — it is shown literally: the
- * joined place is kept on top of the place it was joined to, so the arcs of both meet at one
- * circle, drawn with a second ring to say it is shared. The moment either half is framed that
- * stops being possible — a locked place cannot be moved onto anything, and moving a free one
- * onto a place buried inside someone else's object would corrupt that object's own layout — so
- * there the fusion is shown as a line instead ({@link #drawBetweenPorts}), one end anchored to
- * whichever port stands for a framed half, the other to a free half's own position, and both
- * places keep whatever position they already had.
+ * <p>Always shown as a line ({@link #drawBetweenPorts}), one end anchored to whichever port
+ * stands for a framed half, the other to a free half's own position, and never moving either
+ * place. There used to be a second form for two free places, which stacked one on top of the
+ * other and drew a ring round the pair. It was unreachable while two free places could not be
+ * linked at all, and once they could it would have been wrong: a source repeated by several
+ * places would have piled all of them onto one point, destroying the layout and showing a ring
+ * that says nothing about what the place is linked to.
  *
  * <p>Which of the two is the {@code master} decides nothing about the semantics; it only
  * fixes which object keeps the place instance when the model is built, and, for a free-place
@@ -40,8 +38,6 @@ public class GraphPlaceFusion implements Serializable {
     private static final long serialVersionUID = 1L;
 
 
-    /** Radius added around the place to mark it as shared. */
-    private static final int RING_MARGIN = 5;
     // The ring's two colours come from the palette rather than from constants here, so that a
     // fused place is still legibly green in either theme; see CanvasPalette.
 
@@ -172,80 +168,9 @@ public class GraphPlaceFusion implements Serializable {
         return master == place || joined == place;
     }
 
-    /**
-     * Puts the joined place back on top of the master, which is what makes the two read as
-     * one place. Called after either of them was dragged.
-     *
-     * <p>Does nothing once either half is framed - see the class doc: a locked place cannot be
-     * moved onto anything, and moving a free one onto a place buried inside someone else's
-     * object would corrupt that object's own layout, so both keep whatever position they
-     * already had and only the drawn line ({@link #drawBetweenPorts}) shows the fusion. Left
-     * unguarded here, {@link GraphCanvasModel#syncFusions()} - called after every frame drag,
-     * to keep a free-free fusion's ring coincident - pulled a framed half's counterpart on top
-     * of wherever the frame had just moved it, so the two places visibly merged the moment
-     * either object was dragged.
-     */
-    public void syncPosition() {
-        if (isAnchoredToAFrame()) {
-            return;
-        }
-        Point2D centre = master.getGraphElementCenter();
-        if (centre != null) {
-            joined.setNewCoordinates(new Point2D.Double(centre.getX(), centre.getY()));
-        }
-    }
 
-    /**
-     * Moves the shared place, keeping both halves together.
-     */
-    public void moveTo(Point2D centre) {
-        master.setNewCoordinates(new Point2D.Double(centre.getX(), centre.getY()));
-        syncPosition();
-    }
 
-    /**
-     * Draws the ring that marks two free places as shared. Does nothing once either half is
-     * framed — draw {@link #drawBetweenPorts} for that one instead.
-     *
-     * @param g2 canvas graphics
-     * @param selected whether the fusion is the current selection
-     */
-    public void draw(Graphics2D g2, boolean selected) {
-        draw(g2, selected ? CanvasPalette.current().get(CanvasColor.FUSION_RING_SELECTED) : null);
-    }
 
-    /**
-     * The same drawing, told which colour to highlight in rather than only whether to.
-     *
-     * <p>A shared place is picked out for two different reasons that should not look alike: the
-     * user clicked it, or the animation lit it, which is the link's own accent colour; or it
-     * came along inside a wider selection, which is the canvas's selection colour, the same one
-     * the elements and frames around it are wearing. Drawing the second in the first's colour
-     * made a selected link read as a separate, differently-selected thing.
-     *
-     * @param g2 canvas graphics
-     * @param highlight the colour to draw it highlighted in, or {@code null} for its plain form
-     */
-    public void draw(Graphics2D g2, Color highlight) {
-        if (isAnchoredToAFrame()) {
-            return;
-        }
-        Point2D centre = master.getGraphElementCenter();
-        if (centre == null) {
-            return;
-        }
-        Stroke previousStroke = g2.getStroke();
-        Color previousColor = g2.getColor();
-
-        int radius = master.getBorder() + RING_MARGIN;
-        CanvasPalette palette = CanvasPalette.current();
-        g2.setColor(highlight != null ? highlight : palette.get(CanvasColor.FUSION_RING));
-        g2.setStroke(new BasicStroke(highlight != null ? 2.4f : 1.6f));
-        g2.drawOval((int) centre.getX() - radius, (int) centre.getY() - radius, radius * 2, radius * 2);
-
-        g2.setStroke(previousStroke);
-        g2.setColor(previousColor);
-    }
 
     /**
      * Draws a fusion anchored to at least one frame as a line between the two halves' drawn
@@ -284,22 +209,25 @@ public class GraphPlaceFusion implements Serializable {
 
         CanvasPalette palette = CanvasPalette.current();
         boolean selected = highlight != null;
+        float width = selected ? 2.2f : 1.4f;
         g2.setColor(selected ? highlight : palette.get(CanvasColor.ELEMENT_STROKE));
-        g2.setStroke(new BasicStroke(selected ? 2.2f : 1.4f, BasicStroke.CAP_BUTT,
-                BasicStroke.JOIN_MITER, 10f, new float[] {6f, 6f}, 0f));
+        // Dash-dot, where an informational arc is an even dash. The two used to be told apart
+        // only by dash length and by whether the arrowhead was filled - differences of degree,
+        // and those are the first thing to go when the canvas is zoomed out, printed or
+        // screenshotted. A pattern of a different kind survives all three.
+        g2.setStroke(new BasicStroke(width, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f,
+                new float[] {9f, 4f, 2f, 4f}, 0f));
         g2.drawLine(masterPoint.x, masterPoint.y, joinedPoint.x, joinedPoint.y);
 
-        // Open (unfilled) arrowhead at the master end, the UML dependency style.
-        double angle = Math.atan2(masterPoint.y - joinedPoint.y, masterPoint.x - joinedPoint.x);
-        int length = 11;
-        double spread = Math.toRadians(24);
-        g2.setStroke(new BasicStroke(selected ? 2.2f : 1.4f));
-        g2.drawLine(masterPoint.x, masterPoint.y,
-                (int) (masterPoint.x - length * Math.cos(angle - spread)),
-                (int) (masterPoint.y - length * Math.sin(angle - spread)));
-        g2.drawLine(masterPoint.x, masterPoint.y,
-                (int) (masterPoint.x - length * Math.cos(angle + spread)),
-                (int) (masterPoint.y - length * Math.sin(angle + spread)));
+        // A filled node on the source end, and no arrowhead at either. An arrowhead promises a
+        // flow, and nothing flows along a reference link: the target simply repeats the source.
+        // Direction still has to be legible - one end is the source and the other copies it -
+        // and the node carries that, being on one end only. It just stops spelling the
+        // relationship as movement. With one source repeated by several places the nodes
+        // coincide, so the fan reads as one origin rather than as several separate links.
+        g2.setStroke(new BasicStroke(width));
+        int radius = selected ? 5 : 4;
+        g2.fillOval(masterPoint.x - radius, masterPoint.y - radius, radius * 2, radius * 2);
 
         g2.setStroke(previousStroke);
         g2.setColor(previousColor);
@@ -335,23 +263,6 @@ public class GraphPlaceFusion implements Serializable {
         this.animationLit = animationLit;
     }
 
-    /**
-     * @param point a point on the canvas
-     * @return true if the point is on the shared-place ring, so a click there selects the
-     *         fusion rather than the place
-     */
-    public boolean isOnRing(Point2D point) {
-        if (isAnchoredToAFrame()) {
-            return false;
-        }
-        Point2D centre = master.getGraphElementCenter();
-        if (centre == null) {
-            return false;
-        }
-        double distance = centre.distance(point);
-        int radius = master.getBorder() + RING_MARGIN;
-        return distance <= radius + 3 && distance >= radius - 3;
-    }
 
     @Override
     public String toString() {

@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static pnml.PnmlConformanceAssertions.assertConformant;
@@ -124,6 +125,59 @@ public class PnmlRngConformanceTest {
     }
 
     // ---------------------------------------------------------------- (b) composed dialect
+
+    /**
+     * One place repeated by several others.
+     *
+     * <p>This is the conformance question behind one-to-many reference links, and the schema
+     * answers it plainly. A {@code <referencePlace>} carries a single {@code ref}, so there is
+     * no node that means "shared with many"; what the standard does not forbid is several
+     * reference places naming the same target. Its three validating instructions for a
+     * reference place are that {@code ref} names a place or another reference place, that it
+     * does not name its own element, and that it does not close a cycle - and N references to
+     * one place breaks none of them.
+     *
+     * <p>So the check is not that the writer learned a new construct. It is that emitting the
+     * links independently, which is all it does, produces a document the standard's own grammar
+     * accepts.
+     */
+    @Test
+    public void onePlaceRepeatedBySeveralOthersIsSchemaValid() throws Exception {
+        GraphPetriObjModel model = new GraphPetriObjModel("Fan Out Model");
+
+        GraphPetriObject source = new GraphPetriObject("Source", chainNet("Source", 4));
+        model.addObject(source);
+        GraphPetriObject firstCopy = new GraphPetriObject("FirstCopy", chainNet("FirstCopy", 0));
+        model.addObject(firstCopy);
+        GraphPetriObject secondCopy = new GraphPetriObject("SecondCopy", chainNet("SecondCopy", 0));
+        model.addObject(secondCopy);
+
+        // Both copies point at object 0's first place. In PNML terms each of them is the one
+        // replaced by a reference node, and object 0's place is the instance that survives.
+        model.addLink(PetriObjLink.placeFusion(1, 0, 0, 0));
+        model.addLink(PetriObjLink.placeFusion(2, 0, 0, 0));
+
+        String xml = new PnmlModelGenerator().generateXml(model);
+
+        assertSchemaValid(xml);
+        Document document = parse(xml);
+        assertConformant(document);
+
+        List<String> refs = referenceTargets(document);
+        assertEquals("one reference place per link", 2, refs.size());
+        assertEquals("both name the same place, which is what one-to-many is",
+                refs.get(0), refs.get(1));
+    }
+
+    /** Every {@code ref} attribute of every {@code <referencePlace>} in the document. */
+    private static List<String> referenceTargets(Document document) {
+        List<String> refs = new ArrayList<>();
+        org.w3c.dom.NodeList nodes = document.getElementsByTagName("referencePlace");
+        for (int i = 0; i < nodes.getLength(); i++) {
+            refs.add(((org.w3c.dom.Element) nodes.item(i)).getAttribute("ref"));
+        }
+        return refs;
+    }
 
     /**
      * A rich composed model: an object nested inside another, a place fusion, a

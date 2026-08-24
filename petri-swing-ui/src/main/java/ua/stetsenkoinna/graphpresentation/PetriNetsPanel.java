@@ -717,18 +717,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         // selection carries is a walk over every selected object's subtree, and asking that
         // per shared place per repaint would be the same walk over and over.
         java.util.Set<GraphElement> selectedElements = selectedElements();
-        for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            if (isFusionDrawnOnThisCanvas(fusion)) {
-                fusion.draw(g2, fusionHighlight(fusion, selectedElements));
-            }
-        }
         paintObjectFrames(g2, true);
         paintPorts(g2);
         // The boundary stubs of the object being edited: each connection to the rest of
         // the document ends in a short stub labelled with the outside element's name.
         paintBoundaryStubLabels(g2);
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            if (fusion.isAnchoredToAFrame() && isFusionDrawnOnThisCanvas(fusion)) {
+            // Every link, not only the ones touching a frame: two places that belong to no
+            // object can be linked now, and the line is the only form there is.
+            if (isFusionDrawnOnThisCanvas(fusion)) {
                 Line2D line = trimmedFusionLine(fusion);
                 if (line != null) {
                     fusion.drawBetweenPorts(g2,
@@ -4685,14 +4682,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (!isFusionDrawnOnThisCanvas(fusion)) {
                 continue;
             }
-            if (fusion.isOnRing(point)) {
+            Line2D line = trimmedFusionLine(fusion);
+            if (line != null && line.ptSegDist(point) <= 4) {
                 return fusion;
-            }
-            if (fusion.isAnchoredToAFrame()) {
-                Line2D line = trimmedFusionLine(fusion);
-                if (line != null && line.ptSegDist(point) <= 4) {
-                    return fusion;
-                }
             }
         }
         return null;

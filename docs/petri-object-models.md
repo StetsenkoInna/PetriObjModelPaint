@@ -28,7 +28,7 @@ Two kinds of link connect them:
 
 | Link | Written | What happens |
 |------|---------|--------------|
-| **Shared place** | `O0.P2 = O1.P1` | The two places become one instance. Both objects read and change the same marking — the classic composition of the technique. |
+| **Shared place** | `O0.P2 = O1.P1` | The two places become one instance. Both objects read and change the same marking — the classic composition of the technique. One place may be repeated by any number of others; see [One source, many copies](#one-source-many-copies). |
 | **Transition → place** | `O1.T1 → O2.P1 ×k` | Whenever the transition fires, it delivers `k` tokens into a place of the other object, without owning an output place of its own. |
 
 A transition's firing condition is always made of input places drawn in its own net; there is
@@ -107,7 +107,10 @@ another object's own element while that one is shown too:
 
 | Drag from a place (or its port) to | What you get |
 |-------------------------------------|---------------|
-| another place (or its port) | the two places become one shared place |
+| another place (or its port) | the second place becomes a copy of the first — the two are one instance |
+
+The drag runs **from the source to the copy**, and the direction is kept: the place you started
+from is the one whose marking the other repeats.
 
 | Drag from a transition (or its port) to | What you get |
 |-------------------------------------------|---------------|
@@ -317,16 +320,64 @@ curl -X POST http://localhost:8080/api/v2/model/parse \
 
 ---
 
+## One source, many copies
+
+A place may be repeated by any number of other places. Drag from the source onto each place that
+should repeat it, one link at a time; there is no separate gesture for a fan.
+
+The model keeps one pairwise link per copy rather than a single one-to-many object, because that
+is what the file format keeps too. PNML has no node meaning "shared with many": a
+`<referencePlace>` carries exactly one `ref`. What one-to-many is, in PNML, is several reference
+places naming the same target — which the standard's own grammar accepts, since its rules for a
+reference place are only that `ref` names a place or another reference place, that it does not
+name its own element, and that it does not close a cycle. `PnmlRngConformanceTest` validates a
+fan-out document against that grammar rather than taking anyone's word for it.
+
+Four things are refused, each for its own reason:
+
+| Refused | Why |
+|---|---|
+| Linking a place to itself | there is nothing to repeat |
+| Linking the same two places twice, or back the other way | these links are one-way; the reverse would make each place repeat the other |
+| A place copying two different sources | it would have no answer to whose marking it holds |
+| A chain of links closing into a loop | the same, spread over several places — and PNML forbids a cycle of reference places outright |
+
+Chains themselves are fine: a place that copies another may in turn be copied.
+
+Two places that belong to **no** object may now be linked. Two places of the **same** object may
+not — an object repeating itself says nothing.
+
+### Telling a reference link from an informational arc
+
+Both are thin dashed lines, and they used to differ only in dash length and in whether the
+arrowhead was filled. Those are differences of degree, and they are the first thing to disappear
+when the canvas is zoomed out, printed or screenshotted.
+
+| | Line | End |
+|---|---|---|
+| Informational arc | even dash | filled arrowhead at the transition |
+| Reference link | dash-dot | filled **node** on the source, no arrowhead |
+
+The reference link has no arrowhead on purpose. An arrowhead promises a flow, and nothing flows
+along a reference link — the copy simply *is* the source. Direction still matters and is still
+visible, because the node sits on one end only: the end everything else is copying. Where one
+source is repeated by several places, their nodes coincide, so the fan reads as one origin
+rather than as several unrelated links.
+
+---
+
 ## Things to know
 
 - **Element indices are positions.** A link addresses the n-th place or transition of an
   object. Reordering the elements of a net reorders what its links point at; the editor
   rebuilds the net from its drawing before every run and every save, so the two stay in step.
 - **A shared place does not move either half.** The two places may sit deep inside two
-  different objects, or one inside an object and one nowhere in particular; joining them never
-  repositions either one, and the connection is drawn as a line — to a port for a half whose
-  object has its content hidden, to the place itself otherwise — rather than a ring around a
-  shared point.
+  different objects, one inside an object and one nowhere in particular, or both nowhere at all;
+  joining them never repositions either one, and the connection is always drawn as a line — to a
+  port for a half whose object has its content hidden, to the place itself otherwise. There used
+  to be a second form for two places belonging to no object, which stacked one on top of the
+  other and drew a ring around the pair. It is gone: with one place repeated by several, it
+  would have piled all the copies onto one point.
 - **A transition's inputs are always local.** A transition-to-place link only ever adds an
   output; the only way a foreign place reaches a transition's firing condition is by being
   fused into a place already drawn as that transition's input inside its own object's net.

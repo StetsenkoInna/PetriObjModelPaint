@@ -227,6 +227,102 @@ public class GraphCanvasModelTest {
         assertSame(second, link.getJoined());
     }
 
+    // ---------------------------------------------------- one source, many copies
+
+    /** A canvas holding {@code count} loose places named P0, P1, ... */
+    private static GraphPetriPlace[] loosePlaces(GraphCanvasModel canvas, int count) {
+        GraphPetriPlace[] places = new GraphPetriPlace[count];
+        for (int i = 0; i < count; i++) {
+            places[i] = place(canvas, "P" + i, i == 0 ? 1 : 0, 40 + i * 80, 40);
+        }
+        return places;
+    }
+
+    private static GraphCanvasModel emptyCanvas() {
+        resetCounters();
+        return new GraphCanvasModel("Simple", new GraphPetriNet());
+    }
+
+    /**
+     * The feature itself. One place may be repeated by as many others as wanted, which is the
+     * whole of one-to-many: the model stores it as that many pairwise links sharing a source,
+     * exactly as PNML stores it as that many reference places sharing a ref.
+     */
+    @Test
+    public void onePlaceCanBeRepeatedByManyOthers() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 4);
+
+        canvas.joinPlaces(p[0], p[1]);
+        canvas.joinPlaces(p[0], p[2]);
+        canvas.joinPlaces(p[0], p[3]);
+
+        assertEquals("three links out of the one source", 3, canvas.fusionsFrom(p[0]).size());
+        assertEquals("and the source takes part in all of them", 3, canvas.fusionsOf(p[0]).size());
+        assertEquals("while each copy takes part in only its own", 1, canvas.fusionsOf(p[1]).size());
+        assertSame(p[0], canvas.sourceFusionOf(p[3]).getMaster());
+    }
+
+    /** Links of this kind are one-way: a link back the other way is refused. */
+    @Test
+    public void aLinkBackTheOtherWayIsRefused() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 2);
+        canvas.joinPlaces(p[0], p[1]);
+
+        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(p[1], p[0]));
+    }
+
+    @Test
+    public void theSameTwoPlacesCannotBeLinkedTwice() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 2);
+        canvas.joinPlaces(p[0], p[1]);
+
+        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(p[0], p[1]));
+    }
+
+    /**
+     * Many copies of one source, yes; one copy of many sources, no. A place with two sources
+     * would have no answer to whose marking it holds, which is the one thing a copy is for.
+     */
+    @Test
+    public void aPlaceCannotCopyTwoDifferentSources() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 3);
+        canvas.joinPlaces(p[0], p[2]);
+
+        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(p[1], p[2]));
+    }
+
+    @Test
+    public void aPlaceCannotBeLinkedToItself() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 1);
+
+        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(p[0], p[0]));
+    }
+
+    /**
+     * A chain is legal - a place that copies another may itself be copied - so the loop check
+     * has to walk the whole chain rather than looking one step up. PNML says the same thing in
+     * its own words: a reference place may refer to another reference place, but never to a
+     * cycle of them.
+     */
+    @Test
+    public void linksMayBeChainedButNotClosedIntoALoop() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 3);
+
+        canvas.joinPlaces(p[0], p[1]);
+        canvas.joinPlaces(p[1], p[2]);
+        assertEquals("a chain of two links stands", 2, canvas.getFusions().size());
+
+        // Closing the ring: p0 would copy p2, which copies p1, which copies p0.
+        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(p[2], p[0]));
+        assertEquals("and the refused link left nothing behind", 2, canvas.getFusions().size());
+    }
+
     @Test
     public void twoPlacesOfOneObjectCannotBeShared() {
         GraphCanvasModel canvas = twoFramedObjects();

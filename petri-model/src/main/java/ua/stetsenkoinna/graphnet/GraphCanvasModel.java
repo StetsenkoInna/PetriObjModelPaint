@@ -788,12 +788,15 @@ public class GraphCanvasModel implements Serializable {
     }
 
     /**
-     * Keeps every shared place drawn as one circle after elements were moved.
+     * Keeps every linked place holding its source's marking after elements were moved.
+     *
+     * <p>No longer moves anything. It used to pull a free target onto its source so the two
+     * could be drawn as one circle; a link now leaves both places exactly where they are, which
+     * is the only thing that makes sense once one source can be repeated by several places.
      */
     public void syncFusions() {
         refreshFusionOwners();
         for (GraphPlaceFusion fusion : fusions) {
-            fusion.syncPosition();
             // Self-healing for the one-marking rule: any path that changed a marking
             // without going through the properties dialog converges back to the master's.
             fusion.syncMarking();
