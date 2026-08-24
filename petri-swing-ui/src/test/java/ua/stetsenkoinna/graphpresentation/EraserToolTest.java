@@ -2,11 +2,13 @@ package ua.stetsenkoinna.graphpresentation;
 
 import org.junit.Test;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
+import ua.stetsenkoinna.graphnet.GraphObjectFrame;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.petriobj.PetriP;
 import ua.stetsenkoinna.petriobj.PetriT;
 
+import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 import java.awt.geom.Point2D;
@@ -240,5 +242,114 @@ public class EraserToolTest {
         click(panel, 600, 600);
 
         assertTrue("the second gesture erased too", places(panel) == 0);
+    }
+
+    // ------------------------------------------------------------------ Petri-objects
+
+    private static GraphObjectFrame frameWith(PetriNetsPanel panel, String name,
+                                              Rectangle bounds, GraphPetriPlace member) {
+        GraphObjectFrame frame = new GraphObjectFrame(name, bounds);
+        panel.getCanvasModel().getFrames().add(frame);
+        if (member != null) {
+            panel.getCanvasModel().claim(frame, member);
+        }
+        return frame;
+    }
+
+    private static int frames(PetriNetsPanel panel) {
+        return panel.getCanvasModel().getFrames().size();
+    }
+
+    /**
+     * Clicking a Petri-object takes the object, not just the box drawn round it.
+     *
+     * <p>It used to ask first and then remove only the frame, leaving the net that had been
+     * inside it loose on the canvas - so erasing an object left most of the object behind.
+     *
+     * <p>These tests carry a timeout on purpose: the confirmation this used to raise is a modal
+     * dialog, and if one ever comes back the test has to fail rather than hang forever waiting
+     * for a button nobody is there to press.
+     */
+    @Test(timeout = 10000)
+    public void clickingAnObjectErasesTheObjectAndItsNet() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace inside = placeAt(panel, "P1", 300, 300);
+        frameWith(panel, "Obj", new Rectangle(200, 200, 300, 250), inside);
+
+        panel.setTool(CanvasTool.DELETE);
+        // The frame's own area, clear of the place inside it.
+        click(panel, 230, 220);
+
+        assertEquals("the frame went", 0, frames(panel));
+        assertEquals("and so did the net it held", 0, places(panel));
+    }
+
+    @Test(timeout = 10000)
+    public void aSweepErasesAnObjectAndItsNet() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace inside = placeAt(panel, "P1", 300, 300);
+        frameWith(panel, "Obj", new Rectangle(200, 200, 300, 250), inside);
+
+        panel.setTool(CanvasTool.DELETE);
+        sweep(panel, 150, 150, 600, 600);
+
+        assertEquals("the frame went", 0, frames(panel));
+        assertEquals("and so did the net it held", 0, places(panel));
+    }
+
+    /** A nested object goes with the one that contains it, rather than being orphaned. */
+    @Test(timeout = 10000)
+    public void erasingAnObjectTakesTheObjectsNestedInsideIt() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace deep = placeAt(panel, "P1", 320, 300);
+        GraphObjectFrame outer = frameWith(panel, "Outer", new Rectangle(200, 200, 400, 300), null);
+        GraphObjectFrame inner = frameWith(panel, "Inner", new Rectangle(280, 260, 200, 160), deep);
+        panel.getCanvasModel().nest(inner, outer);
+
+        panel.setTool(CanvasTool.DELETE);
+        click(panel, 215, 210);
+
+        assertEquals("both frames went", 0, frames(panel));
+        assertEquals("and the net nested two levels down went with them", 0, places(panel));
+    }
+
+    /**
+     * A sweep that catches an object and some loose elements takes both, and still comes back
+     * on one undo.
+     */
+    @Test(timeout = 10000)
+    public void anObjectAndLooseElementsComeBackTogetherOnOneUndo() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace inside = placeAt(panel, "P1", 300, 300);
+        frameWith(panel, "Obj", new Rectangle(200, 200, 250, 200), inside);
+        placeAt(panel, "P2", 600, 300);
+        javax.swing.undo.UndoManager undo = new javax.swing.undo.UndoManager();
+        PetriNetsFrame.getUndoSupport().addUndoableEditListener(undo);
+
+        panel.setTool(CanvasTool.DELETE);
+        sweep(panel, 150, 150, 700, 500);
+
+        assertEquals("the object went", 0, frames(panel));
+        assertEquals("and both places with it", 0, places(panel));
+
+        undo.undo();
+
+        assertEquals("the object came back", 1, frames(panel));
+        assertEquals("with both places", 2, places(panel));
+    }
+
+    /** A sweep that misses an object leaves it alone. */
+    @Test(timeout = 10000)
+    public void aSweepThatMissesAnObjectLeavesItAlone() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace inside = placeAt(panel, "P1", 300, 300);
+        frameWith(panel, "Obj", new Rectangle(200, 200, 250, 200), inside);
+        placeAt(panel, "P2", 900, 900);
+
+        panel.setTool(CanvasTool.DELETE);
+        sweep(panel, 850, 850, 950, 950);
+
+        assertEquals("the object stayed", 1, frames(panel));
+        assertEquals("and only the loose place outside it went", 1, places(panel));
     }
 }

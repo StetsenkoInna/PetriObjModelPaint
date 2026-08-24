@@ -52,15 +52,17 @@ The Delete tool removes things two ways:
 | Gesture | Effect |
 |---|---|
 | Click | Removes whatever is under the pointer — a place, a transition, an arc, or a shared-place link |
-| Click a Petri-object frame | Removes the frame, asking first; the net inside stays on the canvas |
-| Drag out a rectangle | Removes every element it encloses and every arc it crosses, in one undoable step |
+| Click a Petri-object | Removes the object whole: its frame, the net inside it, and any objects nested within |
+| Drag out a rectangle | Removes everything it catches — loose elements, arcs it crosses, and whole Petri-objects — in one undoable step |
 
 A click does not have to be exact: the eraser reaches a few pixels past the pointer, and does so
 by the same margin at every zoom level. An exact hit always wins over something merely nearby.
 
-A sweep leaves Petri-object frames alone even when it encloses them — stripping the frame off an
-object changes what the model is composed of, which is a larger act than the sweep was asking
-for, so it stays a deliberate click.
+The eraser never asks. It is a tool picked up in order to remove things, and a prompt on every
+stroke would turn a sweep across a canvas into a sequence of dialogs; undo takes back a whole
+gesture in one step. To drop an object's frame but **keep** its net on the canvas, use
+**Remove Petri-object frame** from the object's own right-click menu — that is a different act,
+and it still confirms.
 
 ### Keyboard shortcuts
 
