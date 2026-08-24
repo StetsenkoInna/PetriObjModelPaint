@@ -470,16 +470,56 @@ public class GraphCanvasModel implements Serializable {
     }
 
     /**
+     * Every reference link this place takes part in, in either role.
+     *
+     * <p>Returns a list rather than one link, and replaced a {@code fusionOf} that returned the
+     * first match, because a place may now be the source of any number of links. Answering with
+     * whichever one happened to be found first was correct only while a place could be in at
+     * most one, and would have silently ignored the rest the moment that stopped being true.
+     *
      * @param place a place of the drawing
-     * @return the fusion that joins it to a place of another object, or {@code null}
+     * @return its links, newest last; empty if it takes part in none
      */
-    public GraphPlaceFusion fusionOf(GraphPetriPlace place) {
+    public List<GraphPlaceFusion> fusionsOf(GraphPetriPlace place) {
+        List<GraphPlaceFusion> found = new ArrayList<>();
         for (GraphPlaceFusion fusion : fusions) {
             if (fusion.involves(place)) {
+                found.add(fusion);
+            }
+        }
+        return found;
+    }
+
+    /**
+     * The link this place copies from, if any.
+     *
+     * <p>At most one, and that is enforced rather than assumed: a place that copied two sources
+     * would have no answer to what its marking is. See {@link #joinPlaces}.
+     *
+     * @param place a place of the drawing
+     * @return the link in which it is the target, or {@code null} if it copies nothing
+     */
+    public GraphPlaceFusion sourceFusionOf(GraphPetriPlace place) {
+        for (GraphPlaceFusion fusion : fusions) {
+            if (fusion.getJoined() == place) {
                 return fusion;
             }
         }
         return null;
+    }
+
+    /**
+     * @param place a place of the drawing
+     * @return the links in which it is the source - the fan-out, empty if it has none
+     */
+    public List<GraphPlaceFusion> fusionsFrom(GraphPetriPlace place) {
+        List<GraphPlaceFusion> found = new ArrayList<>();
+        for (GraphPlaceFusion fusion : fusions) {
+            if (fusion.getMaster() == place) {
+                found.add(fusion);
+            }
+        }
+        return found;
     }
 
     // ------------------------------------------------------------------ ports
@@ -657,20 +697,36 @@ public class GraphCanvasModel implements Serializable {
      *         the same Petri-object, where a shared place would mean nothing
      */
     public GraphPlaceFusion joinPlaces(GraphPetriPlace master, GraphPetriPlace joined) {
-        if (fusionOf(master) != null || fusionOf(joined) != null) {
-            throw new IllegalArgumentException("This place is already shared with another Petri-object");
+        if (master == joined) {
+            throw new IllegalArgumentException("A place cannot be linked to itself");
+        }
+        // One source, any number of targets - but each of the four ways that could go wrong is
+        // refused on its own terms, rather than by the blanket "this place is already shared"
+        // that used to stand here and was what limited the whole feature to one link per place.
+        if (linkBetween(master, joined) != null) {
+            throw new IllegalArgumentException(
+                    "These two places are already linked; a link in the opposite direction is not"
+                            + " allowed either");
+        }
+        if (sourceFusionOf(joined) != null) {
+            throw new IllegalArgumentException(
+                    "That place already copies another one. A place can repeat a single source,"
+                            + " otherwise there is no saying which marking it holds");
+        }
+        if (copiesFrom(master, joined)) {
+            throw new IllegalArgumentException(
+                    "That would make a loop of links, where each place copies the next");
         }
         GraphObjectFrame masterOwner = ownerOf(master);
         GraphObjectFrame joinedOwner = ownerOf(joined);
-        if (masterOwner == joinedOwner) {
-            // Both-null and both-the-same land here, and they are different mistakes: two
-            // free places used to get the "same Petri-object" message, which reads as
-            // nonsense when neither place is in any object at all.
-            throw new IllegalArgumentException(masterOwner == null
-                    ? "A shared place joins two different Petri-objects, but neither of these"
-                            + " places is inside one yet"
-                    : "Both places belong to the same Petri-object, a shared place joins two"
-                            + " different objects");
+        if (masterOwner != null && masterOwner == joinedOwner) {
+            // Two places of one object still make no sense to link - the object would be
+            // repeating itself. Two places that belong to no object at all are a different
+            // matter and are now allowed: they used to land here as well, since both owners
+            // read null, and got refused for a reason that did not apply to them.
+            throw new IllegalArgumentException(
+                    "Both places belong to the same Petri-object, so linking them would have it"
+                            + " repeat itself");
         }
         // Places keep whatever position they already have — the two owners are always
         // different by this point, so moving one onto the other would displace it out of its
@@ -684,6 +740,42 @@ public class GraphCanvasModel implements Serializable {
         // built simulation would keep anyway.
         fusion.syncMarking();
         return fusion;
+    }
+
+    /**
+     * @return the link between these two places whichever way round it runs, or {@code null}
+     */
+    private GraphPlaceFusion linkBetween(GraphPetriPlace one, GraphPetriPlace other) {
+        for (GraphPlaceFusion fusion : fusions) {
+            if ((fusion.getMaster() == one && fusion.getJoined() == other)
+                    || (fusion.getMaster() == other && fusion.getJoined() == one)) {
+                return fusion;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whether {@code place} already copies {@code candidateSource}, directly or through a chain
+     * of links.
+     *
+     * <p>Links may be chained - a place that copies another may itself be copied - so the check
+     * that a new link does not close a loop has to walk the whole chain, not just look one step
+     * up. PNML requires this too: a reference place must not refer to a cycle of reference
+     * places, which is exactly what a loop here would be written as.
+     */
+    private boolean copiesFrom(GraphPetriPlace place, GraphPetriPlace candidateSource) {
+        GraphPetriPlace walker = place;
+        // Bounded by the number of links: every step moves strictly up a chain that has no loop
+        // in it yet, so it cannot run longer than that even if the model is somehow corrupt.
+        for (int step = 0; step <= fusions.size() && walker != null; step++) {
+            if (walker == candidateSource) {
+                return true;
+            }
+            GraphPlaceFusion source = sourceFusionOf(walker);
+            walker = source == null ? null : source.getMaster();
+        }
+        return false;
     }
 
     /**

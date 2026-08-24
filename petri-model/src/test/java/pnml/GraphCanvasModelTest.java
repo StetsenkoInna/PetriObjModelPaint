@@ -205,17 +205,26 @@ public class GraphCanvasModelTest {
         assertEquals(beforeSink, inputOfSink.getGraphElementCenter());
     }
 
+    /**
+     * Two places that belong to no object may be linked.
+     *
+     * <p>They used to be refused, on the reasoning that both belong to the same implicit "free
+     * elements" object and so linking them is as meaningless as linking two places of one frame.
+     * That reasoning was retired deliberately: a reference link is now a way of saying one place
+     * repeats another wherever they are drawn, not solely a way of composing two objects. Two
+     * places of the same real object are still refused - see the test below.
+     */
     @Test
-    public void twoFreePlacesCannotBeSharedEither() {
-        // Both belong to the same implicit "free elements" object once the canvas is split,
-        // exactly like two places drawn inside the same frame — joining them would be just as
-        // meaningless.
+    public void twoFreePlacesCanBeLinked() {
         resetCounters();
         GraphCanvasModel canvas = new GraphCanvasModel("Simple", new GraphPetriNet());
         GraphPetriPlace first = place(canvas, "A", 1, 40, 40);
         GraphPetriPlace second = place(canvas, "B", 0, 400, 400);
 
-        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(first, second));
+        GraphPlaceFusion link = canvas.joinPlaces(first, second);
+
+        assertSame(first, link.getMaster());
+        assertSame(second, link.getJoined());
     }
 
     @Test

@@ -79,7 +79,11 @@ public class PlaceFusionLifecycleTest {
                 ua.stetsenkoinna.graphnet.GraphElement.class);
         link.setAccessible(true);
         link.invoke(panel, masterPlace, joinedPlace);
-        return panel.getCanvasModel().fusionOf(masterPlace);
+        // The link just made is the last one added, and a place may now be the source of
+        // several, so the newest is the one this call produced.
+        java.util.List<GraphPlaceFusion> links =
+                panel.getCanvasModel().fusionsOf(masterPlace);
+        return links.isEmpty() ? null : links.getLast();
     }
 
     // ------------------------------------------------------------------ undo
