@@ -75,9 +75,11 @@ import ua.stetsenkoinna.theme.CanvasPalette;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddGraphElementEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.AddObjectFrameEdit;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.CanvasLayoutSnapshot;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteArcEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.DeleteGraphElementsEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.JoinPlacesEdit;
+import ua.stetsenkoinna.graphpresentation.undoable_edits.MoveCanvasItemsEdit;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.NeighborNudge;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.ObjectFrameSnapshot;
 import ua.stetsenkoinna.graphpresentation.undoable_edits.PasteElementsEdit;
@@ -229,6 +231,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     /** Set while a multi-selection is being dragged, so its release can reparent what moved. */
     private boolean selectionDragged;
 
+    /**
+     * Where everything was when the drag now in progress began, so its release can post one undo
+     * step for the whole gesture. Taken on the first drag event rather than on the press, since a
+     * press that never turns into a drag is a click and must leave no edit behind; cleared by the
+     * release that consumes it. Null while no drag is in progress.
+     */
+    private CanvasLayoutSnapshot layoutBeforeDrag;
+
     private static final Cursor ERASER_CURSOR = buildEraserCursor();
 
     /**
@@ -306,11 +316,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     deleteSelection();
                 }
 
-                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_A) {
-
-                    selectAll();
-                    repaint();
-                }
+                // Ctrl+A is not here: it activates the Select tool before it selects anything,
+                // which means going through the toolbar button so its highlight keeps up, and
+                // this canvas has no way to reach that. It lives in
+                // PetriNetsFrame.installCanvasToolShortcuts alongside the other bindings that
+                // drive a toolbar button, and reaches the canvas on exactly the same focus
+                // terms these listeners do.
 
                 if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_C) {
                     copySelection();
@@ -443,6 +454,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             copiedFrames = pasted;
             recentlyPasted.clear();
+
+            // What the paste put down is what is selected afterwards, so the drag that usually
+            // follows a paste moves the whole paste. Every recreated object went through
+            // addObjectFrame, which selects the one frame it just added, so a paste carrying
+            // several Petri-objects came out with only the last of them selected: dragging it
+            // pulled that single object out of the group it had just arrived with, leaving the
+            // rest exactly on top of the originals they were copied from.
+            for (GraphObjectFrame frame : pasted) {
+                selection.add(frame);
+            }
         } finally {
             PetriNetsFrame.getUndoSupport().endUpdate();
         }
@@ -630,7 +651,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         g2.scale(scale, scale);
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                 RenderingHints.VALUE_ANTIALIAS_ON);
-        this.requestFocusInWindow(); //added 1.06.2013
+        // Focus is not taken here. It used to be, on every single paint, which made the canvas
+        // pull focus back from whatever the user had just opened over it: a drop-down beside
+        // the header opened and shut again within the frame, because showing its popup repaints
+        // the canvas behind it and the repaint stole the focus the popup needs to stay up.
+        // Painting is not a gesture and must not move focus; the gestures that do mean "the
+        // user is working on the canvas" ask for it themselves - a press on it, and picking a
+        // tool for it.
         //додано 3.12.2012
         if (graphNet == null) {
             setCanvasNet(new GraphPetriNet());
@@ -647,9 +674,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         // exactly what collapsing an object means on a shared canvas.
         paintObjectFrames(g2, false);
         graphNet.paintGraphPetriNet(g2, g, hiddenElements());
+        // Built once for this paint and used by both fusion passes below: which elements the
+        // selection carries is a walk over every selected object's subtree, and asking that
+        // per shared place per repaint would be the same walk over and over.
+        java.util.Set<GraphElement> selectedElements = selectedElements();
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
             if (isFusionDrawnOnThisCanvas(fusion)) {
-                fusion.draw(g2, fusion.isAnimationLit() || fusion == choosenFusion);
+                fusion.draw(g2, fusionHighlight(fusion, selectedElements));
             }
         }
         paintObjectFrames(g2, true);
@@ -664,7 +695,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     fusion.drawBetweenPorts(g2,
                             new Point((int) line.getX1(), (int) line.getY1()),
                             new Point((int) line.getX2(), (int) line.getY2()),
-                            fusion.isAnimationLit() || fusion == choosenFusion);
+                            fusionHighlight(fusion, selectedElements));
                 }
             }
         }
@@ -696,9 +727,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (choosen != null) {
             choosen.drawGraphElement(g2);
         }
-        for (GraphElement graphElement : selection.elements()) {
-
-            graphElement.drawGraphElement(g2);
+        // Everything the selection carries, redrawn on top in the selection colour: the places
+        // and transitions selected in their own right, which already hold that colour, and the
+        // net inside every selected Petri-object, which does not. Selecting an object selects
+        // its net for every purpose that matters - it moves, copies and is deleted with the
+        // object - and leaving it drawn plain inside a highlighted frame was the one place that
+        // said otherwise, so Ctrl+A on a canvas of objects looked like it had selected only the
+        // boxes. The colour is put back straight away: it belongs to the element, and a
+        // selection is not something an element carries.
+        for (GraphElement element : selectedElements) {
+            if (!isDrawnOnThisCanvas(element)) {
+                continue;
+            }
+            Color own = element.getColor();
+            element.setColor(CanvasSelection.SELECTED);
+            element.drawGraphElement(g2);
+            element.setColor(own);
         }
 
         //  printPointLocation(currentDragMouseLocation,"current");
@@ -1547,23 +1591,86 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param dy vertical offset in canvas units
      */
     public void moveSelectionBy(int dx, int dy) {
-        // An element has no subtree, so moving it is exactly CanvasItem#moveBy. A frame does -
-        // its own nested frames and members, which only GraphCanvasModel can find - so it still
-        // goes through moveFrame, which now performs that cascade with the same moveBy underneath.
-        for (GraphElement element : selection.elements()) {
-            element.moveBy(dx, dy);
-        }
         // A frame reaches selection.allFrames() by being merely drawn here, the same as a click
         // or a marquee selects it by (see isFrameOnThisCanvas) - an element in the same selection
         // never does, since a click always resolves to the owning frame before it ever reaches a
         // locked element and selectIn's own element half already checks isOnThisCanvas. Filtering
         // here is what stops a marquee that happened to catch a deeper object's frame from moving
         // it right along with whatever the drag was actually meant to move.
-        for (GraphObjectFrame frame : framesOnThisCanvas(selection.allFrames())) {
-            moveFrame(frame, frame.getBounds().x + dx, frame.getBounds().y + dy);
+        List<GraphObjectFrame> movedFrames = framesOnThisCanvas(selection.allFrames());
+
+        // One clamp for the whole selection, decided before anything moves. GraphObjectFrame
+        // keeps a frame on the canvas by refusing to take it past the origin, and that refusal
+        // used to be applied per frame in the middle of the drag: a selection dragged towards
+        // the top-left corner stopped whichever object reached the edge first while the rest
+        // kept travelling, so the objects sheared apart from one another - and any element
+        // selected alongside them, which is not clamped at all, slid straight out of its own
+        // frame and was then read as having been dropped into a different Petri-object.
+        // Measuring how much room the tightest frame has left and moving everything by that
+        // keeps the selection rigid, which is the one thing a multi-drag must not break.
+        int clampedDx = dx;
+        int clampedDy = dy;
+        for (GraphObjectFrame frame : movedFrames) {
+            clampedDx = Math.max(clampedDx, -frame.getBounds().x);
+            clampedDy = Math.max(clampedDy, -frame.getBounds().y);
+        }
+        if (clampedDx == 0 && clampedDy == 0) {
+            return;
+        }
+
+        // An element has no subtree, so moving it is exactly CanvasItem#moveBy. A frame does -
+        // its own nested frames and members, which only GraphCanvasModel can find - so it still
+        // goes through moveFrame, which now performs that cascade with the same moveBy underneath.
+        for (GraphElement element : selection.elements()) {
+            element.moveBy(clampedDx, clampedDy);
+        }
+        for (GraphObjectFrame frame : movedFrames) {
+            moveFrame(frame, frame.getBounds().x + clampedDx, frame.getBounds().y + clampedDy);
         }
         canvasModel.syncFusions();
         updateArcCoordinates();
+    }
+
+    /**
+     * @return every place and transition the selection carries: the ones selected in their own
+     *         right, plus everything held by a selected Petri-object at any depth. Ctrl+A on a
+     *         canvas of objects selects the objects, not their nets, so "is this element part of
+     *         what is selected" is not a question {@link CanvasSelection#contains} can answer on
+     *         its own.
+     */
+    private java.util.Set<GraphElement> selectedElements() {
+        java.util.Set<GraphElement> selected =
+                java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        selected.addAll(selection.elements());
+        for (GraphObjectFrame frame : selection.allFrames()) {
+            selected.addAll(canvasModel.membersOfSubtree(frame));
+        }
+        return selected;
+    }
+
+    /**
+     * A shared place is drawn as a line between two Petri-objects rather than as anything that
+     * can be clicked, so it has no place in the selection itself - but leaving it plain while
+     * everything around it was highlighted made Ctrl+A read as having missed it, and it is the
+     * one thing on such a canvas that visibly connects the objects. It counts as selected when
+     * both of its halves are, which is what a selection wide enough to move the link as a whole
+     * means; one half alone means the link is being stretched between a moving object and a
+     * standing one, which is not the link being selected.
+     *
+     * @param fusion the shared place
+     * @param selected what {@link #selectedElements()} answered with, for this repaint
+     * @return the colour to draw it highlighted in, or {@code null} to draw it plain: its own
+     *         accent while the user has picked it out or the animation lights it, and the
+     *         canvas's selection colour while it is merely part of a wider selection
+     */
+    private Color fusionHighlight(GraphPlaceFusion fusion, java.util.Set<GraphElement> selected) {
+        if (fusion.isAnimationLit() || fusion == choosenFusion) {
+            return CanvasPalette.current().get(CanvasColor.FUSION_RING_SELECTED);
+        }
+        if (selected.contains(fusion.getMaster()) && selected.contains(fusion.getJoined())) {
+            return CanvasSelection.SELECTED;
+        }
+        return null;
     }
 
     /**
@@ -3111,6 +3218,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mousePressed(MouseEvent ev) {
+            // Where the canvas takes focus: the user is demonstrably working on it, so its
+            // keyboard shortcuts should reach it from here on.
+            requestFocusInWindow();
             dragCompleted = false;
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
             if (maybeShowContextMenu(ev, scaledCurrentMousePoint)) {
@@ -3191,6 +3301,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 if (!isFrameOnThisCanvas(draggedFrame)) {
                     draggedFrame = null;
                 }
+                // An object caught in a wider selection is not grabbed by its header as a
+                // single object: the press means "drag all of this". Declining here lets it
+                // fall through to the body-drag path below, which moves the whole selection -
+                // the header used to pull that one object out of the group it was selected
+                // with, leaving the rest standing. A resize handle keeps its own meaning,
+                // since pulling a corner is about one object's size either way.
+                if (draggedFrame != null && multiSelectionFrameAt(scaledCurrentMousePoint) != null) {
+                    draggedFrame = null;
+                }
             }
             if (resizedFrame != null || draggedFrame != null) {
                 GraphObjectFrame grabbed = resizedFrame != null ? resizedFrame : draggedFrame;
@@ -3206,8 +3325,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // A port — or, while its object is shown, the real element it stands in for —
             // always starts a link next; no tool needs to be active first, since making
             // cross-object connections is the one thing a port is for.
+            // Except inside a multi-selection, where the press means "drag all of this" the
+            // same way it does on the object's header or its floor. An element of a shown
+            // object doubles as its own port, so after Ctrl+A every element on the canvas
+            // started a link instead of moving anything: the only spot that moved the drawing
+            // at all was an empty patch of some object's floor. Starting a link needs nothing
+            // more than clicking elsewhere first to drop the selection.
             FramePort port = portOnCanvasAt(scaledCurrentMousePoint);
-            if (port != null && SwingUtilities.isLeftMouseButton(ev)) {
+            if (port != null && SwingUtilities.isLeftMouseButton(ev)
+                    && multiSelectionFrameAt(scaledCurrentMousePoint) == null) {
                 draggedFromPort = port;
                 draggedPortCurrentPoint = scaledCurrentMousePoint;
                 repaint();
@@ -3546,6 +3672,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseReleased(MouseEvent ev) {
+            // Whichever of the many ways below this release ends - and several of them return
+            // early - a gesture that moved anything leaves exactly one undo step behind it.
+            try {
+                handleRelease(ev);
+            } finally {
+                postDragEdit();
+            }
+        }
+
+        private void handleRelease(MouseEvent ev) {
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
 
             // Whatever this release ends, the next gesture starts from its own press: a
@@ -3658,7 +3794,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             confirmMoveBetweenObjects();
             if (selectionDragged) {
                 selectionDragged = false;
-                confirmBulkMoveBetweenObjects();
+                applyBulkMoveBetweenObjects();
                 // A frame dragged as part of the selection - grabbed by its body, or caught
                 // in a marquee - moved without the header-drag path, so it never got its
                 // re-nest check: it could sit visibly outside its parent while the model
@@ -3850,6 +3986,31 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
+     * Closes off the drag that has just ended: if it left the canvas laid out differently from
+     * how it found it, that becomes one undo step.
+     *
+     * <p>Called from the release regardless of how the gesture ended, and deliberately after
+     * everything the release itself does - the reparenting a drop decides, the re-nesting, the
+     * ancestors grown to keep their margin - so all of it is inside the same step rather than
+     * stranded outside it.
+     *
+     * <p>A gesture that moved nothing posts nothing: drawing an arc, pulling out a marquee and
+     * a drag that ended exactly where it began all leave the layout untouched, and an undo stack
+     * that filled up with steps undoing nothing would be worse than no move undo at all.
+     */
+    private void postDragEdit() {
+        CanvasLayoutSnapshot before = layoutBeforeDrag;
+        layoutBeforeDrag = null;
+        if (before == null) {
+            return;
+        }
+        CanvasLayoutSnapshot after = new CanvasLayoutSnapshot(canvasModel);
+        if (after.differsFrom(before)) {
+            PetriNetsFrame.getUndoSupport().postEdit(new MoveCanvasItemsEdit(this, before, after));
+        }
+    }
+
+    /**
      * Checks whether the element that was just dragged ended up over another Petri-object's
      * frame, and if so, offers to actually join it.
      *
@@ -4008,28 +4169,31 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Moves every element of a multi-selection into whatever Petri-object each one landed in, with
-     * one confirmation for the whole drag.
+     * Moves every element of a multi-selection into whatever Petri-object each one landed in.
+     *
+     * <p>Silently: where the user dropped a selection is the answer, not a question. It used to
+     * ask "N element(s) landed in a different Petri-object. Move them there?" at the end of every
+     * such drag, and answering anything but yes left the elements drawn inside an object that did
+     * not own them - the very inconsistency the dialog was interrupting to avoid. Dragging a whole
+     * document across the canvas asked it too, because rigidly moving elements and their frames
+     * together still counts each element as having "landed" somewhere.
      *
      * <p>A bulk drag used to change no membership at all: the confirmation read a single
      * {@code draggedElement} that only a one-element drag ever set, so a rubber-band selection
      * dragged into an object ended up drawn inside it while still belonging to whoever held it
      * before - usually nobody.
      */
-    private void confirmBulkMoveBetweenObjects() {
+    private void applyBulkMoveBetweenObjects() {
         Map<GraphElement, GraphObjectFrame> reparented = pendingReparenting();
         if (reparented.isEmpty()) {
             return;
         }
         GraphArcIn crossing = crossingInputArcAfter(reparented);
         if (crossing != null) {
-            // Same refusal a single element's drop gets, for the whole drag at once.
+            // The one thing still worth interrupting for, and not a confirmation: the drop would
+            // build the single structure the Arc tool refuses to draw, so it is refused outright
+            // rather than offered. Same refusal a single element's drop gets, for the whole drag.
             reportRefusal(crossingInputArcMoveMessage(crossing));
-            return;
-        }
-        String question = reparented.size() + " element(s) landed in a different Petri-object. "
-                + "Move them there?";
-        if (!MessageHelper.showConfirmation(dialogOwner(), question)) {
             return;
         }
         applyReparenting(reparented);
@@ -4385,6 +4549,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
 
             dragCompleted = true;
+            // The canvas as it stands before this gesture changes anything, for the one undo
+            // step its release posts. Cheap enough to take on any drag - drawing an arc or
+            // pulling out a marquee moves nothing, so the release finds no difference and
+            // posts no edit.
+            if (layoutBeforeDrag == null) {
+                layoutBeforeDrag = new CanvasLayoutSnapshot(canvasModel);
+            }
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
 
             if (draggedFromPort != null) {
@@ -4638,6 +4809,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         tool = newTool;
         armedTemplate = template;
         setCursor(cursorFor(newTool));
+        // Picking a tool is picking the canvas, so its own keyboard shortcuts follow the tool
+        // over from the toolbar without needing a click on the canvas first.
+        requestFocusInWindow();
         repaint();
     }
 
@@ -5002,21 +5176,36 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param model the canvas document to add, with its frames and shared places
      */
     public void addCanvasModel(GraphCanvasModel model) {
-        addGraphNet(model.getNet());
-        canvasModel.getFrames().addAll(model.getFrames());
-        canvasModel.getFusions().addAll(model.getFusions());
-        canvasModel.syncFusions();
+        // The frames and the shared places are rebuilt against whatever addGraphNet actually
+        // put on the canvas, which is a copy of every element when there was already a net
+        // here. Adding the incoming frames and fusions as they stand instead left all of them
+        // pointing at the originals, so the document arrived with an unowned net inside empty
+        // objects - see GraphCanvasModel.absorbStructureOf.
+        canvasModel.absorbStructureOf(model, addGraphNet(model.getNet()));
         updateArcCoordinates();
         repaint();
     }
 
-    public void addGraphNet(GraphPetriNet net) {
+    /**
+     * @param net the net to add to the canvas
+     * @return every element of {@code net} mapped to the instance the canvas now draws for it -
+     *         a copy of it when the net was merged into an existing drawing, the element itself
+     *         when there was nothing here and the net was adopted whole
+     */
+    public Map<GraphElement, GraphElement> addGraphNet(GraphPetriNet net) {
+        Map<GraphElement, GraphElement> oldToNew = new IdentityHashMap<>();
         // If there's no existing net, just set the new one
         if (graphNet == null) {
             setCanvasNet(net);
+            for (GraphElement element : net.getGraphPetriPlaceList()) {
+                oldToNew.put(element, element);
+            }
+            for (GraphElement element : net.getGraphPetriTransitionList()) {
+                oldToNew.put(element, element);
+            }
         } else {
             // Merge the new net into the existing one
-            graphNet.mergeGraphNet(net);
+            oldToNew = graphNet.mergeGraphNet(net);
         }
         protectPetriNumbering();
 
@@ -5039,6 +5228,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         GraphElementIdGenerator.ensureAtLeast(id);
 
         repaint();
+        return oldToNew;
     }
 
     public void deletePetriNet() {
@@ -5226,6 +5416,27 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private GraphObjectFrame frameAt(Point2D point) {
         return topmostFrame(point, GraphObjectFrame::contains);
+    }
+
+    /**
+     * Whether a press at this point is a press on the current multi-selection rather than on one
+     * particular Petri-object - which decides between "drag everything selected" and the
+     * single-object gestures the same press would otherwise start.
+     *
+     * <p>Only above one selected thing: with a single object selected, its header still drags it
+     * alone and its elements still start links, which is what those gestures are for. It is the
+     * moment a selection spans several objects that a press on any of them stops plausibly
+     * meaning "act on this one".
+     *
+     * @param point where the press landed
+     * @return the selected Petri-object the press landed inside, or {@code null}
+     */
+    private GraphObjectFrame multiSelectionFrameAt(Point2D point) {
+        if (selection.size() <= 1) {
+            return null;
+        }
+        GraphObjectFrame frame = frameAt(point);
+        return frame != null && selection.contains(frame) ? frame : null;
     }
 
     /**
@@ -5641,6 +5852,49 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         repaint();
     }
 
+    /**
+     * How fast the animation is meant to play, so the pulse that lights a firing up can be
+     * scaled to fit the time that firing has. Null outside a run, and while the canvas is used
+     * without a frame around it (the tests, the read-only views), where the pulse simply keeps
+     * the delays written into it.
+     */
+    private AnimationSpeedControl animationPace;
+
+    /**
+     * @param pace the speed control the header shows, or {@code null} to animate at the frame
+     *        delays the calls below ask for
+     */
+    public void setAnimationPace(AnimationSpeedControl pace) {
+        this.animationPace = pace;
+    }
+
+    /**
+     * One frame of a pulse, scaled to the chosen speed.
+     *
+     * <p>Every animation call below names the delay it wants, and those numbers are the shape
+     * of the pulse - which phase is held longer than which. What that shape costs in real time
+     * is the speed control's business, and it is asked here rather than at each of the twenty-odd
+     * call sites, which go on saying what they mean.
+     *
+     * @param nominalMillis the delay the animation asks for
+     * @return what to actually wait
+     */
+    private long pulseFrame(long nominalMillis) {
+        return animationPace == null ? nominalMillis : animationPace.pulseFrameMillis(nominalMillis);
+    }
+
+    /**
+     * Waits out one frame of a pulse. Zero is not a sleep at all: at the fastest speeds the
+     * scaled delay rounds to nothing, and {@code Thread.sleep(0)} still yields the animation
+     * thread, which at a hundred events a second is a hundred needless handovers a second.
+     */
+    private void pulseSleep(long nominalMillis) throws InterruptedException {
+        long millis = pulseFrame(nominalMillis);
+        if (millis > 0) {
+            Thread.sleep(millis);
+        }
+    }
+
     private void animArcIn(ArrayList<GraphArcIn> list, long sleepDelay, int lineWidth, Color color) {
         try {
             for (GraphArcIn a : list) {
@@ -5648,7 +5902,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 a.setColor(color);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5660,7 +5914,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 a.setLineWidth(lineWidth);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5673,7 +5927,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 a.setColor(color);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5685,7 +5939,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 a.setLineWidth(lineWidth);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5698,7 +5952,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 p.setColor(color);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5710,7 +5964,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 p.setLineWidth(lineWidth);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5723,7 +5977,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 tr.setColor(color);
                 this.repaint();
             }
-            Thread.sleep(sleepDelay);
+            pulseSleep(sleepDelay);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }
@@ -5735,7 +5989,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 tr.setLineWidth(lineWidth);
                 this.repaint();
             }
-            Thread.sleep(sleepInterval);
+            pulseSleep(sleepInterval);
         } catch (InterruptedException ex) {
             LOGGER.error("Unexpected error", ex);
         }

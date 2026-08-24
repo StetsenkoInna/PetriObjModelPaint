@@ -13,7 +13,6 @@ public class RunOneEventAction extends AbstractAction {
 
     public RunOneEventAction(AnimationControls animationControls) {
         this.animationControls = animationControls;
-        putValue(SHORT_DESCRIPTION, "Step forward");
     }
 
     @Override

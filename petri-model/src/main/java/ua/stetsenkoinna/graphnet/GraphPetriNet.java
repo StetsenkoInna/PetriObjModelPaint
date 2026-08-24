@@ -550,11 +550,20 @@ public class GraphPetriNet implements Cloneable, Serializable {
      * Merges another GraphPetriNet into this one by adding all its elements.
      * The elements from the other net will be copied with new IDs to avoid conflicts, and
      * keep the coordinates they already carry — position them before merging.
+     *
+     * <p>The mapping is returned rather than discarded because copying is exactly what makes
+     * it necessary: anything outside the net that referred to {@code other}'s elements — a
+     * Petri-object frame's membership, a shared place's two halves — refers to instances this
+     * net does not hold, and has to be rebuilt against the copies. See
+     * {@link GraphCanvasModel#absorbStructureOf}.
+     *
      * @param other The GraphPetriNet to merge into this one
+     * @return every element of {@code other} mapped to the copy of it now in this net; empty
+     *         when there was nothing to merge
      */
-    public void mergeGraphNet(GraphPetriNet other) {
+    public Map<GraphElement, GraphElement> mergeGraphNet(GraphPetriNet other) {
         if (other == null) {
-            return;
+            return new java.util.IdentityHashMap<>();
         }
 
         // Create lists of all elements to copy
@@ -595,6 +604,7 @@ public class GraphPetriNet implements Cloneable, Serializable {
         for (GraphArcOut arcOut : fragment.outArcs) {
             arcOut.updateCoordinates();
         }
+        return fragment.oldToNew;
     }
 
     public void printStatistics(Consumer<String> output) {

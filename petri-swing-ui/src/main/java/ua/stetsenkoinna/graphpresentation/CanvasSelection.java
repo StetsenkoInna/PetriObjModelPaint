@@ -37,8 +37,12 @@ import ua.stetsenkoinna.graphnet.GraphObjectFrame;
  */
 public class CanvasSelection {
 
-    /** The colour a selected place or transition is drawn in. */
-    private static final Color SELECTED = Color.GREEN;
+    /**
+     * The colour a selected place or transition is drawn in. Public because a selected
+     * Petri-object's own net is drawn in it too without ever entering the selection - see
+     * {@code PetriNetsPanel.selectedElements()}, which is where that happens.
+     */
+    public static final Color SELECTED = Color.GREEN;
 
     private final List<GraphElement> elements = new ArrayList<>();
     private final List<GraphObjectFrame> frames = new ArrayList<>();

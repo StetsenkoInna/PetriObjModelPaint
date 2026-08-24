@@ -211,6 +211,22 @@ public class GraphPlaceFusion implements Serializable {
      * @param selected whether the fusion is the current selection
      */
     public void draw(Graphics2D g2, boolean selected) {
+        draw(g2, selected ? CanvasPalette.current().get(CanvasColor.FUSION_RING_SELECTED) : null);
+    }
+
+    /**
+     * The same drawing, told which colour to highlight in rather than only whether to.
+     *
+     * <p>A shared place is picked out for two different reasons that should not look alike: the
+     * user clicked it, or the animation lit it, which is the link's own accent colour; or it
+     * came along inside a wider selection, which is the canvas's selection colour, the same one
+     * the elements and frames around it are wearing. Drawing the second in the first's colour
+     * made a selected link read as a separate, differently-selected thing.
+     *
+     * @param g2 canvas graphics
+     * @param highlight the colour to draw it highlighted in, or {@code null} for its plain form
+     */
+    public void draw(Graphics2D g2, Color highlight) {
         if (isAnchoredToAFrame()) {
             return;
         }
@@ -223,8 +239,8 @@ public class GraphPlaceFusion implements Serializable {
 
         int radius = master.getBorder() + RING_MARGIN;
         CanvasPalette palette = CanvasPalette.current();
-        g2.setColor(selected ? palette.get(CanvasColor.FUSION_RING_SELECTED) : palette.get(CanvasColor.FUSION_RING));
-        g2.setStroke(new BasicStroke(selected ? 2.4f : 1.6f));
+        g2.setColor(highlight != null ? highlight : palette.get(CanvasColor.FUSION_RING));
+        g2.setStroke(new BasicStroke(highlight != null ? 2.4f : 1.6f));
         g2.drawOval((int) centre.getX() - radius, (int) centre.getY() - radius, radius * 2, radius * 2);
 
         g2.setStroke(previousStroke);
@@ -249,11 +265,26 @@ public class GraphPlaceFusion implements Serializable {
      * @param selected whether the fusion is the current selection or lit by the animation
      */
     public void drawBetweenPorts(Graphics2D g2, Point masterPoint, Point joinedPoint, boolean selected) {
+        drawBetweenPorts(g2, masterPoint, joinedPoint,
+                selected ? CanvasPalette.current().get(CanvasColor.FUSION_RING_SELECTED) : null);
+    }
+
+    /**
+     * The same line, told which colour to highlight in rather than only whether to - see
+     * {@link #draw(Graphics2D, Color)} for why the two highlights are not the same colour.
+     *
+     * @param g2 canvas graphics
+     * @param masterPoint where the master half is drawn
+     * @param joinedPoint the same for the joined half
+     * @param highlight the colour to draw it highlighted in, or {@code null} for its plain form
+     */
+    public void drawBetweenPorts(Graphics2D g2, Point masterPoint, Point joinedPoint, Color highlight) {
         Stroke previousStroke = g2.getStroke();
         Color previousColor = g2.getColor();
 
         CanvasPalette palette = CanvasPalette.current();
-        g2.setColor(selected ? palette.get(CanvasColor.FUSION_RING_SELECTED) : palette.get(CanvasColor.ELEMENT_STROKE));
+        boolean selected = highlight != null;
+        g2.setColor(selected ? highlight : palette.get(CanvasColor.ELEMENT_STROKE));
         g2.setStroke(new BasicStroke(selected ? 2.2f : 1.4f, BasicStroke.CAP_BUTT,
                 BasicStroke.JOIN_MITER, 10f, new float[] {6f, 6f}, 0f));
         g2.drawLine(masterPoint.x, masterPoint.y, joinedPoint.x, joinedPoint.y);

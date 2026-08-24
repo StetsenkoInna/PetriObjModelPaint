@@ -158,6 +158,61 @@ public class GraphCanvasModel implements Serializable {
     }
 
     /**
+     * Takes on another canvas's structure - its Petri-objects, the nest between them and the
+     * places they share - after that canvas's drawing has already been merged into this one's.
+     *
+     * <p>Merging a net copies every element rather than adopting the instances, so that two
+     * documents opened one after the other cannot collide over an id. Everything that pointed
+     * at the originals therefore has to be rebuilt against the copies, and this is where that
+     * happens: a frame's membership, a fusion's two halves and the frames it is anchored to.
+     * Appending {@code other}'s own frames and fusions instead - which is what this used to be
+     * - left them referring to instances that were never put on the canvas. The visible result
+     * was a document whose every element came out unowned: the objects were drawn as empty
+     * rooms around a net that belonged to nobody, Ctrl+A picked up all of it as free elements,
+     * dragging that selection asked to move every element into "a different Petri-object", and
+     * the shared-place links stayed behind at their old coordinates because both of their ends
+     * were off-canvas ghosts.
+     *
+     * @param other the canvas whose structure to take on
+     * @param oldToNew that canvas's elements mapped to the copies this canvas's net now holds,
+     *        as {@code GraphPetriNet.mergeGraphNet} reports it; an element missing from the map
+     *        is one the merge did not copy, and whatever referred to it is dropped rather than
+     *        left dangling
+     */
+    public void absorbStructureOf(GraphCanvasModel other, Map<GraphElement, GraphElement> oldToNew) {
+        if (other == null || other == this) {
+            return;
+        }
+        Map<GraphObjectFrame, GraphObjectFrame> frameMap = new IdentityHashMap<>();
+        for (GraphObjectFrame oldFrame : other.frames) {
+            GraphObjectFrame copy = new GraphObjectFrame(oldFrame, oldToNew);
+            frameMap.put(oldFrame, copy);
+            frames.add(copy);
+        }
+        // Nesting in a second pass, for the same reason the deep-copy constructor does it that
+        // way: a child can precede its parent in the list, so the parent's copy need not exist
+        // yet while the child's is being made.
+        for (GraphObjectFrame oldFrame : other.frames) {
+            GraphObjectFrame oldParent = oldFrame.getEnclosing();
+            if (oldParent != null && frameMap.containsKey(oldParent)) {
+                frameMap.get(oldFrame).setEnclosing(frameMap.get(oldParent));
+            }
+        }
+        for (GraphPlaceFusion oldFusion : other.fusions) {
+            GraphElement master = oldToNew.get(oldFusion.getMaster());
+            GraphElement joined = oldToNew.get(oldFusion.getJoined());
+            if (!(master instanceof GraphPetriPlace) || !(joined instanceof GraphPetriPlace)) {
+                continue;
+            }
+            GraphPlaceFusion copy = new GraphPlaceFusion((GraphPetriPlace) master, (GraphPetriPlace) joined,
+                    frameMap.get(oldFusion.getMasterOwner()), frameMap.get(oldFusion.getJoinedOwner()));
+            copy.setBoundaryStubOffset(oldFusion.getBoundaryStubOffset());
+            fusions.add(copy);
+        }
+        syncFusions();
+    }
+
+    /**
      * @param point a point on the canvas
      * @return the innermost frame whose rectangle contains the point, or {@code null}. The
      *         deepest nesting level wins, and among frames at the same level the later one in

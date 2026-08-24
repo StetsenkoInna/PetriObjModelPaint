@@ -1,12 +1,39 @@
+<div align="center">
+
 # PetriObjModelPaint
 
-**Просто хочете скористатися застосунком?** Завантажте готовий редактор з
-[останнього релізу](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/latest):
-візьміть zip для своєї ОС (`petri-swing-ui-<версія>-windows.zip` / `-linux.zip` / `-macos.zip`),
-розпакуйте і запустіть лаунчер усередині (`.bat` / `.sh` / `.command`): він перевіряє
-наявність Java 23+ і підкаже, звідки її завантажити, якщо її немає.
+**Графічний редактор і симулятор мереж Петрі та Петрі-об'єктних моделей.**
 
-Графічний редактор та симулятор мереж Петрі (скорочено **POMP**). Багатомодульний Maven-проєкт:
+Малюйте мережу або обведіть частини рисунка рамками Петрі-об'єктів, щоб скласти з них більшу
+модель, запускайте з живою анімацією, дивіться статистику та обмінюйтесь моделлю як PNML.
+
+[![License](https://img.shields.io/badge/license-MIT_%2F_PolyForm_NC-1f6feb?style=flat-square)](#ліцензія)
+[![PNML](https://img.shields.io/badge/PNML-ISO%2FIEC_15909--2-2ea043?style=flat-square)](docs/petri-object-models.md)
+[![petri-net-sim](https://img.shields.io/badge/petri--net--sim-web_app-2563eb?style=flat-square&logo=data:image/svg%2Bxml%3Bbase64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTEiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzI1NjNlYiIgc3Ryb2tlLXdpZHRoPSI0Ii8+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iNC41IiBmaWxsPSIjMjU2M2ViIi8+PC9zdmc+&logoColor=white)](https://github.com/sergiorbk/petri-net-sim)
+
+![Java 23](https://img.shields.io/badge/Java_23-ED8B00?style=flat-square&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white)
+![Maven](https://img.shields.io/badge/Maven-C71A36?style=flat-square&logo=apachemaven&logoColor=white)
+
+![Малювання та симуляція мережі Петрі](docs/media/demo-petri-model.gif)
+
+</div>
+
+---
+
+> [!TIP]
+> **Просто хочете скористатися застосунком?** Завантажте готовий редактор з
+> [останнього релізу](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/latest):
+> візьміть zip для своєї ОС (`petri-swing-ui-<версія>-windows.zip` / `-linux.zip` / `-macos.zip`),
+> розпакуйте і запустіть лаунчер усередині (`.bat` / `.sh` / `.command`): він перевіряє
+> наявність Java 23+ і підкаже, звідки її завантажити, якщо її немає.
+
+> [!NOTE]
+> **Хочете допомогти проєкту?** Спершу відкрийте issue, щоб обговорити зміну, потім
+> створіть гілку, оформіть pull request у `master` і дотримуйтесь кроків з
+> [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Це багатомодульний Maven-проєкт:
 
 | Модуль | Призначення |
 |--------|------------|
@@ -16,13 +43,58 @@
 | `petri-swing-ui` | Десктопний редактор (Swing, fat JAR) |
 | `petri-server` | Spring Boot REST + WebSocket сервер |
 
+---
+
+## Два способи запуску
+
+| | |
+|---|---|
+| **Десктопний UI (Swing)** | Повністю самодостатній візуальний редактор і симулятор, сервер не потрібен |
+| **Сервер (Spring Boot)** | REST + SSE + WebSocket API для запуску симуляцій із зовнішніх систем |
+
+Обидва працюють з тією самою моделлю під капотом: чи це одна мережа, чи кілька, складених у
+Петрі-об'єктну модель.
+
+**Десктопний UI.**
+
+```bash
+mvn package -DskipTests
+```
+
+```bash
+java -jar petri-swing-ui/target/petri-swing-ui.jar
+```
+
+Малюєте мережу, запускаєте з живою анімацією, дивитесь графіки статистики, зберігаєте мережі в
+бібліотеку та робите імпорт/експорт PNML. Частини рисунка обводяться рамками Петрі-об'єктів,
+зв'язуються дугами через межі рамок, і вся композиція анімується на одному полотні.
+
+![Композиція та запуск Петрі-об'єктної моделі](docs/media/demo-petri-object-model.gif)
+
+**Сервер.**
+
+```bash
+mvn package -DskipTests
+```
+
+```bash
+java -jar petri-server/target/petri-server.jar
+# або: mvn spring-boot:run -pl petri-server
+```
+
+Стартує на `http://localhost:8080`, інтерактивна документація на `http://localhost:8080/docs`.
+`/api/v1` виконує одну мережу, `/api/v2` виконує Петрі-об'єктну модель зі статистикою по кожному
+об'єкту.
+
+---
+
 ## Технологія Петрі-об'єктного моделювання
 
 PetriObjModelPaint є реалізацією техніки Петрі-об'єктного моделювання (Petri-object simulation technique). Її основна ідея: швидко і гнучко компонувати код моделі складної дискретно-подієвої системи, одночасно забезпечуючи швидке виконання симуляції. Опис поведінки моделі ґрунтується на стохастичній багатоканальній мережі Петрі, а композиція моделі ґрунтується на об'єктно-орієнтованій технології. Програмне забезпечення Петрі-об'єктного моделювання надає масштабовний алгоритм симуляції, графічний редактор, коректне перетворення графічних зображень у модель та коректні результати симуляції.
 
 У коді ця техніка реалізована в модулі `petri-math` (`PetriObjModel`, `PetriSim`, `PetriP`, `PetriT`, `NetLibrary`): окремий Петрі-об'єкт будується класом `PetriSim` з мережі Петрі, причому одна мережа, розроблена в графічному редакторі та збережена в бібліотеці мереж, використовується для створення цілої групи Петрі-об'єктів, як з одними й тими ж параметрами, так і з іншими, переданими в конструкторі Петрі-об'єкта. Далі кілька Петрі-об'єктів компонуються в модель через оголошення зв'язків між ними: спільна позиція двох об'єктів або перехід одного об'єкта, що подає токени в позицію іншого. Коли список Петрі-об'єктів підготовлено, а зв'язки визначено, модель збирається класом `PetriObjModel`, метод `go(double time)` якого запускає симуляцію. Модуль `petri-model` тримає ту саму модель на рівні графа, тому композицію можна намалювати в редакторі, зберегти одним PNML-документом і відтворити на сервері.
 
-**[docs/petri-object-models.md](docs/petri-object-models.md)** (англійською), повний посібник: об'єкти та зв'язки, композиція моделі в редакторі, формат PNML, запуск із коду або через HTTP.
+---
 
 ## Вимоги
 
@@ -43,38 +115,13 @@ mvn package -DskipTests
 
 ---
 
-## Десктопний UI (Swing)
+## Документація
 
-```bash
-java -jar petri-swing-ui/target/petri-swing-ui.jar
-```
-
-Повністю самодостатній візуальний редактор і симулятор, сервер не потрібен: малюєте мережу,
-запускаєте з живою анімацією, дивитесь графіки статистики, зберігаєте мережі в бібліотеку та
-робите імпорт/експорт PNML. Частини рисунка обводяться рамками Петрі-об'єктів,
-зв'язуються дугами через межі рамок, і вся композиція анімується на одному полотні.
-
-**[docs/desktop-ui.md](docs/desktop-ui.md)** (англійською), повний посібник: редактор,
-керування анімацією, модуль статистики, Петрі-об'єкти на полотні, бібліотека мереж,
-імпорт/експорт PNML.
-
----
-
-## Сервер (Spring Boot)
-
-```bash
-java -jar petri-server/target/petri-server.jar
-# або: mvn spring-boot:run -pl petri-server
-```
-
-REST + SSE + WebSocket API для запуску симуляцій із зовнішніх систем (веб-фронтенди,
-Python-бекенди, мікросервіси). Стартує на `http://localhost:8080`, інтерактивна документація
-на `http://localhost:8080/docs`. `/api/v1` виконує одну мережу, `/api/v2` виконує Петрі-об'єктну
-модель зі статистикою по кожному об'єкту.
-
-**[docs/petri-server-integration.md](docs/petri-server-integration.md)** (англійською),
-повний посібник: REST API, SSE-стрімінг, WebSocket/STOMP, керування сесією, вимоги до PNML,
-API Петрі-об'єктних моделей.
+| Посібник | Що охоплює |
+|----------|------------|
+| [Desktop UI](docs/desktop-ui.md) (англійською) | Редактор, керування анімацією, модуль статистики, Петрі-об'єкти на полотні, бібліотека мереж, імпорт/експорт PNML |
+| [Petri-object models](docs/petri-object-models.md) (англійською) | Об'єкти та зв'язки, композиція моделі в редакторі, формат PNML, запуск із коду або через HTTP |
+| [Server integration](docs/petri-server-integration.md) (англійською) | REST API, SSE-стрімінг, WebSocket/STOMP, керування сесією, вимоги до PNML, API Петрі-об'єктних моделей |
 
 ---
 

@@ -323,8 +323,22 @@ public class AnimationControls {
                 }
                 break;
             default:
-                // SAVED_STATE_EXISTS — nothing is running, so nothing to wait for.
-                clearSavedState();
+                // SAVED_STATE_EXISTS — the run is over, so there is nothing to wait for and
+                // the button is wearing its reset icon. It used to drop the snapshot and leave
+                // the net wherever the run had left it, which is the one thing the icon must
+                // not do: a button that says "put it back" has to put it back. Straight to the
+                // pre-run snapshot rather than one step at a time, which is what step-back is
+                // for.
+                if (GraphPetriNetBackupHolder.getInstance().isEmpty()) {
+                    // Should not happen - both ways into this state leave the pre-run snapshot
+                    // in place - but a missing snapshot is not worth an exception on the event
+                    // thread when there is an obvious answer: there is nothing to go back to,
+                    // so the button has simply finished its job.
+                    setState(State.NO_SAVED_STATE);
+                    break;
+                }
+                restoreSavedState();
+                stepHistory.clear();
                 setState(State.NO_SAVED_STATE);
                 break;
         }
@@ -391,6 +405,7 @@ public class AnimationControls {
                 playPauseAction.setEnabled(true);
                 playPauseAction.switchToPlayButton();
                 stopSimulationAction.setEnabled(false);
+                stopSimulationAction.switchToStopButton();
                 runOneEventAction.setEnabled(true);
                 runNetAction.setEnabled(true);
             }
@@ -401,7 +416,10 @@ public class AnimationControls {
                 // run attached (see stepBackButtonPressed()).
                 playPauseAction.setEnabled(true);
                 playPauseAction.switchToPlayButton();
+                // Nothing is running any more, so all this button still does is put the net
+                // back, and it says so.
                 stopSimulationAction.setEnabled(true);
+                stopSimulationAction.switchToResetButton();
                 runOneEventAction.setEnabled(true);
                 runNetAction.setEnabled(false);
             }
@@ -412,6 +430,7 @@ public class AnimationControls {
                 playPauseAction.setEnabled(true);
                 playPauseAction.switchToPauseButton();
                 stopSimulationAction.setEnabled(true);
+                stopSimulationAction.switchToStopButton();
                 // Widened: steps the live run forward in place instead of starting a new one.
                 runOneEventAction.setEnabled(true);
                 runNetAction.setEnabled(false);
@@ -421,6 +440,7 @@ public class AnimationControls {
                 playPauseAction.setEnabled(true);
                 playPauseAction.switchToPlayButton();
                 stopSimulationAction.setEnabled(true);
+                stopSimulationAction.switchToStopButton();
                 // Widened: steps the live run forward in place instead of starting a new one.
                 runOneEventAction.setEnabled(true);
                 runNetAction.setEnabled(false);
@@ -431,6 +451,7 @@ public class AnimationControls {
                 // The one control Run Net doesn't lock out — it's the only way to interrupt
                 // a run once it's started, since there's no pause step to fall back on.
                 stopSimulationAction.setEnabled(true);
+                stopSimulationAction.switchToStopButton();
                 runOneEventAction.setEnabled(false);
                 runNetAction.setEnabled(false);
             }

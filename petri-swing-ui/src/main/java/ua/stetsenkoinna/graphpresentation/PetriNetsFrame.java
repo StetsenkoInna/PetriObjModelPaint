@@ -339,6 +339,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timer = new Timer(250, ae -> getPetriNetsPanel().repaint());
 
         petriNetsPanel = new PetriNetsPanel(netNameTextField);
+        // The canvas scales the pulse that lights up a firing to whatever speed is chosen, and
+        // cannot ask the header for that on its own. Here rather than in initComponents, where
+        // the header is built: the canvas does not exist yet at that point.
+        petriNetsPanel.setAnimationPace(speedControl);
         petriNetPanelScrollPane.setViewportView(petriNetsPanel);
         buildCanvasTabsBar();
 
@@ -346,6 +350,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetsPanel.enableDragAndDrop(this);
 
         installCanvasToolShortcuts();
+        // The canvas no longer takes focus while painting, so it takes it once when the window
+        // opens instead: its shortcuts work on a freshly started editor without a click first.
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowOpened(java.awt.event.WindowEvent e) {
+                petriNetsPanel.requestFocusInWindow();
+            }
+        });
         applyWindowGeometry();
         installUndoTracking();
         petriNetsFrameMenuBar.add(new HelpMenu(this));
@@ -445,6 +457,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             petriNetsPanel.applyTheme();
         }
 
+        if (timeUnitControl != null) {
+            timeUnitControl.applyTheme();
+            refreshHorizonReading();
+        }
+
+        if (speedControl != null) {
+            // Its buttons are painted by hand rather than by the look and feel, so a theme
+            // change reaches them only by being told about it.
+            speedControl.applyTheme();
+        }
+
         javax.swing.JRadioButtonMenuItem selected = themeMenuItems.get(ThemeManager.currentMode());
         if (selected != null) {
             selected.setSelected(true);
@@ -507,6 +530,48 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 runOneEventButton.doClick();
+            }
+        });
+
+        // Ctrl+A selects everything, and switches to the Select tool to do it. Everything the
+        // selection is for - dragging it, copying it, deleting it - is a Select-tool gesture,
+        // so selecting the whole canvas while some other tool was active picked things out that
+        // the very next click would then throw away. Switching through the toolbar button
+        // rather than calling setTool keeps the toolbar's own highlight in step, the same way
+        // every binding here does; the switch comes first, since setTool keeps a selection only
+        // when it is switching to Select.
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, InputEvent.CTRL_DOWN_MASK), "selectAll");
+        actionMap.put("selectAll", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                selectToolButton.doClick();
+                getPetriNetsPanel().selectAll();
+                getPetriNetsPanel().repaint();
+            }
+        });
+
+        // Undo and redo are bound on the canvas as well as being menu accelerators. The
+        // accelerator alone left Ctrl+Z doing nothing at all while the canvas held focus -
+        // which is exactly where the user is standing after a drag they want to take back -
+        // so the one thing every editor promises about a mistake was unreachable from the
+        // keyboard. doClick() rather than calling the undo manager, so a key press does
+        // precisely what the menu item does, including being inert when there is nothing to
+        // undo. Ctrl+Y is here as well: it is what a Windows user reaches for to redo.
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK), "undoEdit");
+        actionMap.put("undoEdit", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                undoMenuItem.doClick();
+            }
+        });
+
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z,
+                InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), "redoEdit");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputEvent.CTRL_DOWN_MASK), "redoEdit");
+        actionMap.put("redoEdit", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                redoMenuItem.doClick();
             }
         });
 
@@ -625,7 +690,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * while a run is in progress, and a disabled button that looks pixel-identical to an
      * enabled one just reads as unresponsive — hence people mashing the button several times
      * waiting for a click to "take". Also hides any Action's text label: these are strictly
-     * icon buttons (the label still surfaces as the tooltip via SHORT_DESCRIPTION).
+     * icon buttons, and they carry no tooltip either - a row of five, sitting eight pixels
+     * apart and hovered over constantly during a run, was a row of five popups appearing over
+     * whichever button was about to be clicked next.
      */
     private void styleTransportButton(AbstractButton button) {
         button.setFocusable(false);
@@ -640,20 +707,28 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
 
     /**
-     * Creates a transport-row button whose tooltip always renders in a fixed spot just below
-     * the whole header row, instead of Swing's cursor-relative default. At {@link
-     * #HEADER_BUTTON_SIZE} with only 8px between neighbors, that default placement (offset
-     * down-and-right from the mouse) can land the tooltip's popup window on top of the very
-     * button — or an adjacent one — the user is about to click, and the popup then eats the
-     * click instead of it reaching the button underneath.
+     * Keeps a button's greyed-out icon following its normal one.
+     *
+     * <p>Two of these buttons swap their icon while the window is up: play becomes pause, and
+     * stop becomes reset once a run has finished. Swing copies the new icon across from the
+     * action but never touches the disabled one, so a button that had swapped and then went
+     * disabled showed the greyed-out form of the icon it used to have.
+     *
+     * @param button a transport button already bound to its action
+     */
+    private static void keepDisabledIconInStep(AbstractButton button) {
+        button.setDisabledIcon(CanvasToolIcons.dimmed(button.getIcon()));
+        button.addPropertyChangeListener("icon", evt ->
+                button.setDisabledIcon(CanvasToolIcons.dimmed(button.getIcon())));
+    }
+
+    /**
+     * Creates a transport-row button. Plain now that these carry no tooltip: it used to place
+     * one in a fixed spot below the header, because Swing's cursor-relative default landed the
+     * popup on top of the very button about to be clicked.
      */
     private static JButton transportButton() {
-        return new JButton() {
-            @Override
-            public Point getToolTipLocation(MouseEvent event) {
-                return new Point(0, getHeight() + 4);
-            }
-        };
+        return new JButton();
     }
 
     /**
@@ -894,8 +969,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeStartField = new javax.swing.JTextField();
         timeModelingLabel = new javax.swing.JLabel();
         timeModelingTextField = new javax.swing.JTextField();
+        timeUnitControl = new TimeUnitControl();
         speedLabel = new javax.swing.JLabel();
-        speedSlider = new javax.swing.JSlider();
+        speedControl = new AnimationSpeedControl();
         runProgressBar = new javax.swing.JProgressBar();
         playPauseAnimationButton = transportButton();
         stopAnimationButton = transportButton();
@@ -966,13 +1042,36 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeModelingTextField.setCaretPosition(1);
         timeModelingTextField.setMinimumSize(new java.awt.Dimension(0, 0));
 
+        // What the horizon beside it, and every delay in the net, are counted in. It changes no
+        // number the simulator sees - see TimeUnitScale - so it sits next to the number it
+        // explains rather than anywhere a setting would, and its whole visible effect is the
+        // reading after it.
+        horizonReadingLabel.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
+        timeUnitControl.addChangeListener(scale -> refreshHorizonReading());
+        timeModelingTextField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                refreshHorizonReading();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                refreshHorizonReading();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                refreshHorizonReading();
+            }
+        });
+
         speedLabel.setFont(new java.awt.Font("Arial", Font.PLAIN, 11)); // NOI18N
         speedLabel.setText("Animation speed");
 
-        speedSlider.setMaximum(1000);
-        speedSlider.setValue(1000);
-        speedSlider.setInverted(true);
-        speedSlider.addChangeListener(this::speedSliderStateChanged);
+        // The canvas repaint interval follows the chosen pace, the way it followed the
+        // slider: a fast animation repainting four times a second is a slideshow, and a slow
+        // one repainting sixty times a second is that much work for nothing having changed.
+        speedControl.addChangeListener(() -> timer.setDelay(speedControl.repaintIntervalMillis()));
 
         styleTransportButton(playPauseAnimationButton);
         playPauseAnimationButton.setAction(playPauseAction);
@@ -980,11 +1079,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // "disabled" variant for Swing to fall back on — under Nimbus that renders as nothing
         // at all rather than the plain icon, so every transport button needs its disabled
         // state pointed at an explicit (dimmed) icon.
-        playPauseAnimationButton.setDisabledIcon(CanvasToolIcons.dimmed(playPauseAnimationButton.getIcon()));
+        keepDisabledIconInStep(playPauseAnimationButton);
+        keepDisabledIconInStep(stopAnimationButton);
 
         stopAnimationButton.setAction(stopSimulationAction);
-        stopAnimationButton.setIcon(CanvasToolIcons.stop(TOOL_ICON_SIZE));
-        stopAnimationButton.setDisabledIcon(CanvasToolIcons.dimmed(stopAnimationButton.getIcon()));
         styleTransportButton(stopAnimationButton);
 
         stepBackButton.setAction(stepBackAction);
@@ -1013,13 +1111,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         timeModelingTextField.setPreferredSize(new java.awt.Dimension(60, timeModelingTextField.getPreferredSize().height));
         timeModelingTextField.setMaximumSize(new java.awt.Dimension(80, timeModelingTextField.getPreferredSize().height));
 
+
         speedLabel.setMaximumSize(new java.awt.Dimension(speedLabel.getPreferredSize().width, Short.MAX_VALUE));
-        speedSlider.setPreferredSize(new java.awt.Dimension(130, speedSlider.getPreferredSize().height));
-        speedSlider.setMaximumSize(new java.awt.Dimension(170, speedSlider.getPreferredSize().height));
 
         for (java.awt.Component field : new java.awt.Component[]{netNameTextField,
                 timeStartLabel, timeStartField, timeModelingLabel, timeModelingTextField,
-                speedLabel, speedSlider}) {
+                timeUnitControl, horizonReadingLabel, speedLabel, speedControl}) {
             ((javax.swing.JComponent) field).setAlignmentY(java.awt.Component.CENTER_ALIGNMENT);
         }
 
@@ -1038,9 +1135,14 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         headerSimulationGroup.add(timeStartField);
         headerSimulationGroup.add(timeModelingLabel);
         headerSimulationGroup.add(timeModelingTextField);
+        headerSimulationGroup.add(timeUnitControl);
+        headerSimulationGroup.add(horizonReadingLabel);
         headerSimulationGroup.add(headerSeparator());
         headerSimulationGroup.add(speedLabel);
-        headerSimulationGroup.add(speedSlider);
+        headerSimulationGroup.add(speedControl);
+        // Last in the row, so it reads as being about the whole row rather than about the one
+        // control it happens to stand beside.
+        headerSimulationGroup.add(SimulationTimeHelp.button(this));
 
         // Only Run Net (no animation) shows this — it has no per-event visual feedback of
         // its own the way animation does, so this is the one indication of how far along a
@@ -1541,10 +1643,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         refreshUndoRedoMenuState();
     }//GEN-LAST:event_redoMenuItemActionPerformed
 
-    private void speedSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_speedSliderStateChanged
-        timer.setDelay(speedSlider.getValue() / 3);
-    }//GEN-LAST:event_speedSliderStateChanged
-
     private void timeStartFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_timeStartFieldActionPerformed
     }//GEN-LAST:event_timeStartFieldActionPerformed
 
@@ -1783,6 +1881,21 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }
     }
 
+    /**
+     * Says what the horizon amounts to under the chosen units, which is the whole visible effect
+     * of choosing them. Blank while the units stand for nothing, or while the field holds
+     * something that is not a number - a half-typed value is not worth an error beside it.
+     */
+    private void refreshHorizonReading() {
+        String reading;
+        try {
+            reading = timeUnitControl.getScale().formatDuration(modelingTime());
+        } catch (NumberFormatException notANumberYet) {
+            reading = "";
+        }
+        horizonReadingLabel.setText(reading.isEmpty() ? " " : "= " + reading);
+    }
+
     /** The simulation horizon and the clock it starts from, as the header fields spell them. */
     private double modelingTime() {
         return Double.parseDouble(timeModelingTextField.getText());
@@ -1893,7 +2006,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             // local number instead of ever finding both of them at once.
             AnimRunPetriSim petriSim = new AnimRunPetriSim(
                     object.getGraphNet().getPetriNet(), clock,
-                    protocolTextArea, getPetriNetsPanel(), speedSlider, null, object.getGraphNet());
+                    protocolTextArea, getPetriNetsPanel(), speedControl, null, object.getGraphNet());
             petriSim.setName(object.getName());
             petriSim.setPriority(object.getPriority());
             petriSim.setSimulationTime(modelingTime());
@@ -2475,6 +2588,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         netNameTextField.setEnabled(enabled);
         timeStartField.setEnabled(enabled);
         timeModelingTextField.setEnabled(enabled);
+        timeUnitControl.setEnabled(enabled);
 
         protocolTextArea.setEnabled(enabled);
         statisticsTextArea.setEnabled(enabled);
@@ -2530,13 +2644,15 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private javax.swing.JButton stepBackButton;
     private javax.swing.JButton skipForwardAnimationButton;
     private javax.swing.JLabel speedLabel;
-    private javax.swing.JSlider speedSlider;
+    private AnimationSpeedControl speedControl;
     private javax.swing.JMenu statisticMenu;
     private javax.swing.JScrollPane statisticsScrollPane;
     private javax.swing.JTextArea statisticsTextArea;
     private javax.swing.JButton stopAnimationButton;
     private javax.swing.JLabel timeModelingLabel;
     private javax.swing.JTextField timeModelingTextField;
+    private TimeUnitControl timeUnitControl;
+    private final javax.swing.JLabel horizonReadingLabel = new javax.swing.JLabel();
     private javax.swing.JTextField timeStartField;
     private javax.swing.JLabel timeStartLabel;
     private javax.swing.JMenuItem undoMenuItem;
