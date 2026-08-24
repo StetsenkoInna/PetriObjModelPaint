@@ -5317,25 +5317,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * are caught by crossing the band at all: an arc is a line, it has no centre worth speaking
      * of, and sweeping across one plainly means erasing it.
      *
-     * <p>Petri-object frames are deliberately <em>not</em> caught. Their centre can sit inside a
-     * band drawn to catch a couple of places, and a sweep that silently strips the frame off an
-     * object - changing what the model is composed of - is a far larger act than the one the
-     * user was making. Erasing a frame stays a deliberate click on it, which asks first.
+     * <p>A Petri-object caught by the band goes whole - its frame and the net inside it - the
+     * same as one the eraser is clicked on. The eraser removes what it is pointed at, and
+     * leaving an object's contents scattered loose on the canvas after erasing the object is
+     * not what anyone means by erasing it.
      */
     private void eraseWithin(Rectangle band) {
-        List<GraphElement> caught = new ArrayList<>();
-        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
-            if (isOnThisCanvas(place) && band.contains(place.getGraphElementCenter())) {
-                caught.add(place);
-            }
-        }
-        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
-            if (isOnThisCanvas(transition) && band.contains(transition.getGraphElementCenter())) {
-                caught.add(transition);
-            }
-        }
-        List<GraphArc> sweptArcs = arcsSweptBy(band, caught);
-        if (caught.isEmpty() && sweptArcs.isEmpty()) {
+        List<GraphObjectFrame> caughtObjects = objectsCaughtBy(band);
+        if (caughtObjects.isEmpty() && elementsCaughtBy(band).isEmpty()
+                && arcsSweptBy(band, List.of()).isEmpty()) {
             return;
         }
 
@@ -5343,7 +5333,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         // making the user press it a dozen times to undo a single gesture.
         PetriNetsFrame.getUndoSupport().beginUpdate();
         try {
-            for (GraphArc arc : sweptArcs) {
+            // Objects first, and everything else re-read from the canvas afterwards: an element
+            // or an arc that belonged to one of them is already gone, and asking the canvas
+            // again is cheaper and far safer than predicting what the object took with it.
+            eraseObjects(caughtObjects);
+
+            List<GraphElement> caught = elementsCaughtBy(band);
+            for (GraphArc arc : arcsSweptBy(band, caught)) {
                 removeArc(arc);
                 PetriNetsFrame.getUndoSupport().postEdit(new DeleteArcEdit(this, arc));
             }
@@ -5366,6 +5362,66 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         choosenArc = null;
         currentArc = null;
         repaint();
+    }
+
+    /**
+     * Removes whole Petri-objects - each frame together with the net inside it, nested objects
+     * and all - without asking.
+     *
+     * <p>No confirmation, deliberately. The eraser is a tool the user picked up in order to
+     * remove things, and a prompt on every stroke turns a sweep across a canvas into a sequence
+     * of dialogs. Undo covers it, and covers the whole gesture in one step.
+     *
+     * @param frames the objects to remove
+     */
+    private void eraseObjects(List<GraphObjectFrame> frames) {
+        if (frames.isEmpty()) {
+            return;
+        }
+        selection.clear();
+        for (GraphObjectFrame frame : frames) {
+            selection.add(frame);
+        }
+        // Collects each object's subtree and its members before removing the frames, so nothing
+        // that belonged to one is left orphaned on the canvas.
+        deleteSelectedObjects();
+    }
+
+    /**
+     * @param band the eraser's rectangle
+     * @return the Petri-objects it caught, by their centre - the same rule the marquee uses, so
+     *         a sweep takes exactly what a selection band of that shape would have picked out
+     */
+    private List<GraphObjectFrame> objectsCaughtBy(Rectangle band) {
+        List<GraphObjectFrame> caught = new ArrayList<>();
+        for (GraphObjectFrame frame : canvasModel.getFrames()) {
+            if (frame == focusedFrame || !isFrameDrawnOnThisCanvas(frame)) {
+                continue;
+            }
+            if (band.contains(frame.getBounds().getCenterX(), frame.getBounds().getCenterY())) {
+                caught.add(frame);
+            }
+        }
+        return caught;
+    }
+
+    /**
+     * @param band the eraser's rectangle
+     * @return the loose elements it encloses, by their centre
+     */
+    private List<GraphElement> elementsCaughtBy(Rectangle band) {
+        List<GraphElement> caught = new ArrayList<>();
+        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
+            if (isOnThisCanvas(place) && band.contains(place.getGraphElementCenter())) {
+                caught.add(place);
+            }
+        }
+        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
+            if (isOnThisCanvas(transition) && band.contains(transition.getGraphElementCenter())) {
+                caught.add(transition);
+            }
+        }
+        return caught;
     }
 
     /**
@@ -5417,7 +5473,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private boolean eraseAt(Point scaledPoint, int reach) {
         GraphObjectFrame frame = frameAt(scaledPoint);
         if (frame != null && isFrameOnThisCanvas(frame)) {
-            confirmRemoveObjectFrame(frame);
+            eraseObjects(List.of(frame));
             return true;
         }
         GraphElement element = findErasableElement(scaledPoint, reach);
