@@ -6,6 +6,7 @@ import ua.stetsenkoinna.petriobj.PetriT;
 
 import javax.swing.JViewport;
 import java.awt.Point;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 
@@ -139,5 +140,97 @@ public class CanvasPanTest {
 
         assertEquals(new Point(afterFirstDrag.x - 10, afterFirstDrag.y - 5),
                 viewport.getViewPosition());
+    }
+
+    // ---------------------------------------------------- double-click pan, latched
+
+    private MouseEvent atViewportPoint(int id, int viewportX, int viewportY, int clickCount) {
+        Point view = viewport.getViewPosition();
+        return new MouseEvent(panel, id, System.currentTimeMillis(), 0,
+                viewportX + view.x, viewportY + view.y, clickCount, false, MouseEvent.BUTTON1);
+    }
+
+    private void doubleClickPanOn(int viewportX, int viewportY) {
+        mouseHandler().mousePressed(atViewportPoint(MouseEvent.MOUSE_PRESSED, viewportX, viewportY, 2));
+        mouseHandler().mouseReleased(atViewportPoint(MouseEvent.MOUSE_RELEASED, viewportX, viewportY, 2));
+    }
+
+    private void moveTo(int viewportX, int viewportY) {
+        motionHandler().mouseMoved(atViewportPoint(MouseEvent.MOUSE_MOVED, viewportX, viewportY, 0));
+    }
+
+    /**
+     * The macOS trackpad case. Tap-to-click lifts the finger at the end of the second tap, so
+     * the press that starts the pan is followed straight away by a release and then by plain
+     * moves - never drags. Ending the pan on that release, which is right for a held mouse,
+     * killed the gesture before the user had moved at all: it worked on Windows and did nothing
+     * on a Mac.
+     */
+    @Test
+    public void aDoubleClickPanKeepsFollowingThePointerWithNoButtonHeld() {
+        canvasInAViewportAt(500, 400);
+        panel.setTool(CanvasTool.SELECT);
+
+        doubleClickPanOn(100, 100);
+        moveTo(150, 130);
+
+        assertEquals("the view followed the bare pointer", new Point(450, 370),
+                viewport.getViewPosition());
+
+        moveTo(200, 160);
+        assertEquals("and kept following it", new Point(400, 340), viewport.getViewPosition());
+    }
+
+    /** The next click lets go, and is spent doing only that. */
+    @Test
+    public void aClickEndsALatchedPan() {
+        canvasInAViewportAt(500, 400);
+        panel.setTool(CanvasTool.SELECT);
+
+        doubleClickPanOn(100, 100);
+        moveTo(150, 130);
+        mouseHandler().mousePressed(atViewportPoint(MouseEvent.MOUSE_PRESSED, 150, 130, 1));
+        Point whereItStopped = viewport.getViewPosition();
+
+        moveTo(400, 400);
+
+        assertEquals("the view stayed put once the pan was released",
+                whereItStopped, viewport.getViewPosition());
+    }
+
+    @Test
+    public void escapeEndsALatchedPan() {
+        canvasInAViewportAt(500, 400);
+        panel.setTool(CanvasTool.SELECT);
+
+        doubleClickPanOn(100, 100);
+        moveTo(150, 130);
+        Point whereItStopped = viewport.getViewPosition();
+
+        panel.getKeyListeners()[0].keyPressed(new KeyEvent(panel, KeyEvent.KEY_PRESSED,
+                System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, KeyEvent.CHAR_UNDEFINED));
+        moveTo(400, 400);
+
+        assertEquals("Escape let go of the view", whereItStopped, viewport.getViewPosition());
+    }
+
+    /**
+     * Nothing changes for a held mouse. A gesture that produced a real drag ends on its release
+     * the way it always has, so this fix costs Windows behaviour nothing.
+     */
+    @Test
+    public void aHeldDragStillEndsOnItsRelease() {
+        canvasInAViewportAt(500, 400);
+        panel.setTool(CanvasTool.SELECT);
+
+        mouseHandler().mousePressed(atViewportPoint(MouseEvent.MOUSE_PRESSED, 100, 100, 2));
+        motionHandler().mouseDragged(atViewportPoint(MouseEvent.MOUSE_DRAGGED, 150, 130, 2));
+        mouseHandler().mouseReleased(atViewportPoint(MouseEvent.MOUSE_RELEASED, 150, 130, 2));
+        Point afterTheDrag = viewport.getViewPosition();
+
+        moveTo(400, 400);
+
+        assertEquals("moving the pointer after the release does nothing",
+                afterTheDrag, viewport.getViewPosition());
     }
 }

@@ -257,8 +257,9 @@ public class FrameGeometryScopeTest {
         panel.getGraphNet().getGraphArcInList().add(arc);
 
         panel.setTool(CanvasTool.DELETE);
-        // Click the middle of the arc's line from the ROOT canvas, where Inner is locked.
-        mouseHandlerOf(panel).mousePressed(event(panel, MouseEvent.MOUSE_PRESSED, 375, 250));
+        // Click the middle of the arc's line from the ROOT canvas, where Inner is locked. Press
+        // and release both: the eraser waits for the release to tell a click from a sweep.
+        eraserClick(panel, 375, 250);
 
         assertEquals("the locked object's internal arc survives the Delete tool",
                 1, panel.getGraphNet().getGraphArcInList().size());
@@ -266,9 +267,19 @@ public class FrameGeometryScopeTest {
         // From the object's own canvas the same click deletes it.
         panel.openObjectCanvas(inner);
         panel.setTool(CanvasTool.DELETE);
-        mouseHandlerOf(panel).mousePressed(event(panel, MouseEvent.MOUSE_PRESSED, 375, 250));
+        eraserClick(panel, 375, 250);
         assertEquals("on its own canvas the arc is the user's to delete",
                 0, panel.getGraphNet().getGraphArcInList().size());
+    }
+
+    /**
+     * A full eraser click: press and release on the same point. The Delete tool decides on the
+     * release, since the press it starts from may still turn out to be the corner of a sweep.
+     */
+    private static void eraserClick(PetriNetsPanel panel, int x, int y) {
+        PetriNetsPanel.MouseHandler handler = mouseHandlerOf(panel);
+        handler.mousePressed(event(panel, MouseEvent.MOUSE_PRESSED, x, y));
+        handler.mouseReleased(event(panel, MouseEvent.MOUSE_RELEASED, x, y));
     }
 
     // ------------------------------------------------------------------ click-tool gating

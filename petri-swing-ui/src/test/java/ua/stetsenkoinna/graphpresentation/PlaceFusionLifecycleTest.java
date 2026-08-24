@@ -312,8 +312,13 @@ public class PlaceFusionLifecycleTest {
         panel.setTool(CanvasTool.DELETE);
         for (java.awt.event.MouseListener listener : panel.getMouseListeners()) {
             if (listener instanceof PetriNetsPanel.MouseHandler handler) {
+                // Press and release both: the eraser decides on the release, since the press
+                // it starts from may still turn out to be the corner of a sweep.
                 handler.mousePressed(new java.awt.event.MouseEvent(panel,
                         java.awt.event.MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(),
+                        0, 470, 150, 1, false, java.awt.event.MouseEvent.BUTTON1));
+                handler.mouseReleased(new java.awt.event.MouseEvent(panel,
+                        java.awt.event.MouseEvent.MOUSE_RELEASED, System.currentTimeMillis(),
                         0, 470, 150, 1, false, java.awt.event.MouseEvent.BUTTON1));
             }
         }

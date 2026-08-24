@@ -224,6 +224,28 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private boolean selectToolPanning;
 
     /**
+     * True once the double-click pan has latched: the view follows the bare pointer, with no
+     * button held, until the next click or Escape.
+     *
+     * <p>This is what makes the gesture work on a trackpad. Tap-to-click lifts the finger at
+     * the end of the second tap, so the press that starts the pan is followed immediately by a
+     * release and then by {@code MOUSE_MOVED} - never {@code MOUSE_DRAGGED}. Ending the pan on
+     * that release, which is what a mouse gesture wants, killed it before the user had moved at
+     * all, and the whole gesture did nothing on macOS while working on Windows.
+     *
+     * <p>Latching only happens when the release arrives with no drag in between, so a held
+     * mouse drag still ends the way it always did and nothing changes for that case.
+     */
+    private boolean panLatched;
+
+    /** Whether the current pan gesture has seen a real drag - see {@link #panLatched}. */
+    private boolean panGestureDragged;
+
+    /** Where an eraser press landed, held until the release decides it was a click and not a
+     *  sweep - see the Delete branch of {@code mouseReleased}. */
+    private Point eraserPressPoint;
+
+    /**
      * Set the moment a drag is seen, cleared on the next press and by the click that follows the
      * drag. It stops {@code mouseClicked} from reading the tail of a drag gesture as a click on
      * nothing and clearing the selection the drag just made - a selection that outlives its own
@@ -310,6 +332,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         this.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE && panLatched) {
+                    endLatchedPan();
+                    return;
+                }
                 if (e.getKeyCode() == KeyEvent.VK_ESCAPE && isPlacingNet()) {
                     // The way out of placement mode without dropping the net somewhere the
                     // user then has to undo.
@@ -761,7 +787,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (currentDragMouseLocation != null && startDragMouseLocation != null && leftMouseButtonPressed) {
             // Set explicitly rather than inherited from whatever was drawn last: on an empty
             // canvas nothing has been, and the graphics' default black is invisible in dark.
-            if (tool == CanvasTool.OBJECT_BAND) {
+            if (tool == CanvasTool.DELETE) {
+                // Its own look again: this band is about to remove things, which a selection
+                // band never does, so it should not be dressed as one.
+                g2.setColor(CanvasPalette.current().get(CanvasColor.ACCENT));
+                g2.setStroke(new BasicStroke(1.4f,
+                        BasicStroke.CAP_BUTT,
+                        BasicStroke.JOIN_MITER,
+                        10.0f,
+                        new float[]{6.0f, 4.0f}, 0.0f));
+            } else if (tool == CanvasTool.OBJECT_BAND) {
                 // A solid accent line rather than the plain dashed marquee, so the band that is
                 // about to build a Petri-object reads as its own gesture, not a selection.
                 g2.setColor(CanvasPalette.current().get(CanvasColor.ACCENT));
@@ -3322,6 +3357,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // Where the canvas takes focus: the user is demonstrably working on it, so its
             // keyboard shortcuts should reach it from here on.
             requestFocusInWindow();
+            // A latched pan swallows the click that ends it, rather than also selecting or
+            // deselecting whatever happens to be under the pointer when the user stops panning.
+            if (panLatched) {
+                endLatchedPan();
+                dragCompleted = false;
+                return;
+            }
             dragCompleted = false;
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
             if (maybeShowContextMenu(ev, scaledCurrentMousePoint)) {
@@ -3341,7 +3383,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
             if (tool == CanvasTool.DELETE) {
                 if (SwingUtilities.isLeftMouseButton(ev)) {
-                    handleDeleteClick(scaledCurrentMousePoint);
+                    // Nothing is erased yet. This press may still become a sweep, and erasing
+                    // here would mean whatever sat under its first pixel always went, whether
+                    // the user meant a click or the corner of a band. The release decides.
+                    eraserPressPoint = scaledCurrentMousePoint;
+                    startDragMouseLocation = scaledCurrentMousePoint;
+                    currentDragMouseLocation = null;
+                    leftMouseButtonPressed = true;
                 }
                 return;
             }
@@ -3501,6 +3549,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     && findArc(scaledCurrentMousePoint) == null) {
                 beginPan(ev);
                 selectToolPanning = true;
+                panGestureDragged = false;
                 setCursor(new Cursor(Cursor.HAND_CURSOR));
                 return;
             }
@@ -3818,13 +3867,39 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
 
             if (selectToolPanning) {
-                endPan();
-                selectToolPanning = false;
-                setCursor(Cursor.getDefaultCursor());
+                if (panGestureDragged) {
+                    // A held mouse drag: it ends where it always did, on the release.
+                    endLatchedPan();
+                } else {
+                    // Nothing moved between the double-click and this release, which is what a
+                    // trackpad's tap-to-click produces. Rather than end a pan the user has not
+                    // had a chance to make yet, hold the view to the pointer as though the
+                    // button were still down; the next click, or Escape, lets go.
+                    panLatched = true;
+                }
                 return;
             }
 
-            if (tool == CanvasTool.DELETE || tool == CanvasTool.ADD_PLACE
+            if (tool == CanvasTool.DELETE) {
+                boolean swept = leftMouseButtonPressed
+                        && startDragMouseLocation != null && currentDragMouseLocation != null
+                        && isEraserSweep(marqueeRectangle());
+                if (swept) {
+                    eraseWithin(marqueeRectangle());
+                } else if (eraserPressPoint != null) {
+                    handleDeleteClick(eraserPressPoint);
+                }
+                startDragMouseLocation = null;
+                currentDragMouseLocation = null;
+                eraserPressPoint = null;
+                leftMouseButtonPressed = false;
+                // The tool stays armed for the next stroke, so it keeps its own cursor.
+                setCursor(cursorFor(tool));
+                repaint();
+                return;
+            }
+
+            if (tool == CanvasTool.ADD_PLACE
                     || tool == CanvasTool.ADD_TRANSITION || tool == CanvasTool.ADD_PETRI_OBJECT
                     || tool == CanvasTool.PLACE_LOADED_NET) {
                 return;
@@ -4640,10 +4715,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         @Override
         public void mouseDragged(MouseEvent ev) {
             if (tool == CanvasTool.PAN || selectToolPanning) {
+                panGestureDragged = true;
                 updatePan(ev);
                 return;
             }
-            if (tool == CanvasTool.DELETE || tool == CanvasTool.ADD_PLACE
+            if (tool == CanvasTool.DELETE) {
+                if (leftMouseButtonPressed && startDragMouseLocation != null) {
+                    currentDragMouseLocation =
+                            new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+                    // So the click trailing this drag is not read as a click on nothing.
+                    dragCompleted = true;
+                    repaint();
+                }
+                return;
+            }
+
+            if (tool == CanvasTool.ADD_PLACE
                     || tool == CanvasTool.ADD_TRANSITION || tool == CanvasTool.ADD_PETRI_OBJECT
                     || tool == CanvasTool.PLACE_LOADED_NET) {
                 return;
@@ -4751,6 +4838,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseMoved(MouseEvent ev) {
+            if (panLatched) {
+                // The point of latching: no button is held, so this is the only event the
+                // gesture still receives.
+                updatePan(ev);
+                return;
+            }
             if (tool == CanvasTool.PLACE_LOADED_NET) {
                 // The one tool that does care where the pointer is without a button held: the
                 // outline has to follow it, so this cannot take the early return below.
@@ -5126,17 +5219,209 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         return beginOwner == focusedFrame;
     }
 
+    /**
+     * How far past the exact pointer position the eraser still reaches, in screen pixels.
+     *
+     * <p>In screen pixels, not canvas units, which is the point. The underlying hit tests are
+     * written in canvas units - an arc counts as hit within 3 of them, an element only if the
+     * point is literally inside its shape - and those units shrink on screen as the view zooms
+     * out. At half zoom an arc's 3 units are a pixel and a half, so erasing one meant landing
+     * the pointer inside a two-pixel ribbon, and the tool "sometimes did nothing" for no reason
+     * the user could see. Converting a fixed pixel reach back through the scale makes the
+     * eraser feel the same at every zoom level.
+     */
+    private static final int ERASER_REACH_PIXELS = 6;
+
+    /** The eight directions the eraser probes around the pointer. */
+    private static final int[][] ERASER_PROBE_DIRECTIONS = {
+        {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
+    };
+
+    /**
+     * The points an eraser click considers, nearest first.
+     *
+     * @param centre the click point in canvas coordinates
+     * @param reach how far to spread, in canvas units; 0 means the exact point only
+     */
+    private List<Point> eraserProbes(Point centre, int reach) {
+        List<Point> probes = new ArrayList<>();
+        probes.add(centre);
+        if (reach <= 0) {
+            return probes;
+        }
+        for (int ring : new int[]{Math.max(1, reach / 2), reach}) {
+            for (int[] direction : ERASER_PROBE_DIRECTIONS) {
+                probes.add(new Point(centre.x + direction[0] * ring, centre.y + direction[1] * ring));
+            }
+        }
+        return probes;
+    }
+
+    /** {@link #ERASER_REACH_PIXELS} in canvas units at the current zoom. */
+    private int eraserReach() {
+        return (int) Math.max(1, Math.round(ERASER_REACH_PIXELS / scale));
+    }
+
+    private GraphElement findErasableElement(Point centre, int reach) {
+        for (Point probe : eraserProbes(centre, reach)) {
+            GraphElement element = find(probe);
+            if (element != null && isOnThisCanvas(element)) {
+                return element;
+            }
+        }
+        return null;
+    }
+
+    private GraphPlaceFusion findErasableSharedPlace(Point centre, int reach) {
+        for (Point probe : eraserProbes(centre, reach)) {
+            GraphPlaceFusion fusion = findSharedPlace(probe);
+            if (fusion != null) {
+                return fusion;
+            }
+        }
+        return null;
+    }
+
+    private GraphArc findErasableArc(Point centre, int reach) {
+        for (Point probe : eraserProbes(centre, reach)) {
+            GraphArc arc = findArc(probe);
+            if (arc != null) {
+                return arc;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * How far a press has to travel, in screen pixels, before it counts as a sweep rather than
+     * a click. Without a threshold the hand-shake in any real click would draw a band a pixel
+     * across, which encloses nothing, and the eraser would answer an ordinary click by deleting
+     * nothing at all - the opposite of the complaint this is meant to fix.
+     */
+    private static final int ERASER_SWEEP_MIN_PIXELS = 6;
+
+    /**
+     * @param band the rectangle drawn between press and release, in canvas units
+     * @return true if it is big enough to have been meant as a sweep
+     */
+    private boolean isEraserSweep(Rectangle band) {
+        int threshold = (int) Math.max(2, Math.round(ERASER_SWEEP_MIN_PIXELS / scale));
+        return band.width >= threshold || band.height >= threshold;
+    }
+
+    /**
+     * Erases everything the eraser's band caught, in one undoable step.
+     *
+     * <p>Elements are caught by their centre, the same rule the marquee uses, so what the
+     * eraser takes matches what a selection band of the same shape would have picked out. Arcs
+     * are caught by crossing the band at all: an arc is a line, it has no centre worth speaking
+     * of, and sweeping across one plainly means erasing it.
+     *
+     * <p>Petri-object frames are deliberately <em>not</em> caught. Their centre can sit inside a
+     * band drawn to catch a couple of places, and a sweep that silently strips the frame off an
+     * object - changing what the model is composed of - is a far larger act than the one the
+     * user was making. Erasing a frame stays a deliberate click on it, which asks first.
+     */
+    private void eraseWithin(Rectangle band) {
+        List<GraphElement> caught = new ArrayList<>();
+        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
+            if (isOnThisCanvas(place) && band.contains(place.getGraphElementCenter())) {
+                caught.add(place);
+            }
+        }
+        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
+            if (isOnThisCanvas(transition) && band.contains(transition.getGraphElementCenter())) {
+                caught.add(transition);
+            }
+        }
+        List<GraphArc> sweptArcs = arcsSweptBy(band, caught);
+        if (caught.isEmpty() && sweptArcs.isEmpty()) {
+            return;
+        }
+
+        // One update, so a sweep that took a dozen things comes back on one Ctrl+Z rather than
+        // making the user press it a dozen times to undo a single gesture.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            for (GraphArc arc : sweptArcs) {
+                removeArc(arc);
+                PetriNetsFrame.getUndoSupport().postEdit(new DeleteArcEdit(this, arc));
+            }
+            if (!caught.isEmpty()) {
+                selection.clear();
+                for (GraphElement element : caught) {
+                    selection.add(element);
+                }
+                // Takes the elements' own arcs with them and posts its own edit, which is why
+                // the arcs above are only the ones nothing else would have removed.
+                deleteSelectedElements();
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+
+        selection.clear();
+        choosen = null;
+        current = null;
+        choosenArc = null;
+        currentArc = null;
+        repaint();
+    }
+
+    /**
+     * @param band the eraser's rectangle
+     * @param goingAnyway elements already being deleted, whose own arcs go with them
+     * @return arcs the band crosses that nothing else is about to remove
+     */
+    private List<GraphArc> arcsSweptBy(Rectangle band, List<GraphElement> goingAnyway) {
+        List<GraphArc> swept = new ArrayList<>();
+        List<GraphArc> candidates = new ArrayList<>();
+        candidates.addAll(graphNet.getGraphArcInList());
+        candidates.addAll(graphNet.getGraphArcOutList());
+        for (GraphArc arc : candidates) {
+            if (goingAnyway.contains(arc.getBeginElement()) || goingAnyway.contains(arc.getEndElement())) {
+                continue;
+            }
+            if (!isDrawnOnThisCanvas(arc.getBeginElement()) || !isDrawnOnThisCanvas(arc.getEndElement())) {
+                continue;
+            }
+            if (isArcEditableHere(arc) && arc.getGraphElement().intersects(band)) {
+                swept.add(arc);
+            }
+        }
+        return swept;
+    }
+
+    /**
+     * Erases whatever one thing the pointer picked out.
+     *
+     * <p>Two passes: everything is offered the exact point first, and only if nothing at all is
+     * there does the eraser widen its reach. Widening in one pass instead would let a place six
+     * pixels away beat an arc lying directly under the pointer, purely because places are
+     * checked first - the forgiveness is meant to catch near misses, never to overrule a hit.
+     */
     private void handleDeleteClick(Point scaledPoint) {
         if (portOnCanvasAt(scaledPoint) != null) {
             return;
         }
+        if (eraseAt(scaledPoint, 0)) {
+            return;
+        }
+        eraseAt(scaledPoint, eraserReach());
+    }
+
+    /**
+     * @param reach how far past the point to look, in canvas units
+     * @return true if the click resolved to something, whether or not it could be removed
+     */
+    private boolean eraseAt(Point scaledPoint, int reach) {
         GraphObjectFrame frame = frameAt(scaledPoint);
         if (frame != null && isFrameOnThisCanvas(frame)) {
             confirmRemoveObjectFrame(frame);
-            return;
+            return true;
         }
-        GraphElement element = find(scaledPoint);
-        if (element != null && isOnThisCanvas(element)) {
+        GraphElement element = findErasableElement(scaledPoint, reach);
+        if (element != null) {
             deleteElement(element);
             if (choosen == element) {
                 choosen = null;
@@ -5145,36 +5430,40 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 current = null;
             }
             repaint();
-            return;
+            return true;
         }
         // A shared place's drawn line is erasable like any arc: splitting the link leaves
         // both places where they are. A link is deletable wherever it is drawn, the same
         // rule a crossing arc follows.
-        GraphPlaceFusion sharedPlace = findSharedPlace(scaledPoint);
+        GraphPlaceFusion sharedPlace = findErasableSharedPlace(scaledPoint, reach);
         if (sharedPlace != null) {
             splitSharedPlace(sharedPlace);
-            return;
+            return true;
         }
-        GraphArc arc = findArc(scaledPoint);
-        if (arc != null && !isArcEditableHere(arc)) {
-            return;
+        GraphArc arc = findErasableArc(scaledPoint, reach);
+        if (arc == null) {
+            return false;
         }
-        if (arc != null) {
-            removeArc(arc);
-            DeleteArcEdit edit = new DeleteArcEdit(this, arc);
-            PetriNetsFrame.getUndoSupport().postEdit(edit);
-            if (choosenArc == arc) {
-                choosenArc = null;
-            }
-            repaint();
+        if (!isArcEditableHere(arc)) {
+            // Found, and deliberately left alone - so the caller stops rather than widening
+            // its reach and erasing some other arc the user was not pointing at.
+            return true;
         }
+        removeArc(arc);
+        DeleteArcEdit edit = new DeleteArcEdit(this, arc);
+        PetriNetsFrame.getUndoSupport().postEdit(edit);
+        if (choosenArc == arc) {
+            choosenArc = null;
+        }
+        repaint();
+        return true;
     }
 
     /**
      * Starts panning: remembers the drag's origin and the viewport's scroll position so
      * {@link #updatePan} can compute an absolute offset rather than drifting on rounding.
      *
-     * @param screenPoint the raw (unscaled) point the drag started at
+     * @param ev the press that started the drag
      */
     private void beginPan(MouseEvent ev) {
         panViewport = viewport();
@@ -5201,6 +5490,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private Point pointInViewport(MouseEvent ev) {
         return SwingUtilities.convertPoint(this, ev.getPoint(), panViewport);
+    }
+
+    /**
+     * Ends a double-click pan, latched or not, and hands the pointer back.
+     */
+    private void endLatchedPan() {
+        endPan();
+        selectToolPanning = false;
+        panLatched = false;
+        panGestureDragged = false;
+        setCursor(Cursor.getDefaultCursor());
     }
 
     /** Moves the view to follow a pan drag - see {@link #pointInViewport}. */
