@@ -1,3 +1,208 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:053d421cf6dc9c0b23c4bf67bff61c1ecbcd240050ce24028545471d0a061dc4
-size 6551
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  The same model as composed_conformant_v21.pnml, written the way this tool wrote composed
+  models before reference nodes existed: pages carry only their own elements, and the whole
+  inter-object structure lives in the net-level tool-specific block, addressed by index.
+
+  Documents in exactly this shape are sitting in users' folders and are still produced by
+  other tools in this family, so it is pinned here verbatim: it must keep parsing into
+  exactly the model it always did, which is the same model the conformant document describes.
+-->
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="net1" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <name>
+      <text>PipelineDemo</text>
+    </name>
+    <page id="object0">
+      <name>
+        <text>Generator</text>
+      </name>
+      <toolspecific tool="PetriObjModel" version="2.0">
+        <petriObject index="0" name="Generator" priority="1" x="40" y="60"/>
+      </toolspecific>
+      <place id="p_pool">
+        <name>
+          <text>Pool</text>
+        </name>
+        <initialMarking>
+          <text>5</text>
+        </initialMarking>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <coordinates x="60" y="80"/>
+        </toolspecific>
+        <graphics>
+          <position x="60" y="80"/>
+        </graphics>
+      </place>
+      <place id="p_ready">
+        <name>
+          <text>Ready</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <coordinates x="200" y="80"/>
+        </toolspecific>
+        <graphics>
+          <position x="200" y="80"/>
+        </graphics>
+      </place>
+      <place id="p_log">
+        <name>
+          <text>Log</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <coordinates x="200" y="200"/>
+        </toolspecific>
+        <graphics>
+          <position x="200" y="200"/>
+        </graphics>
+      </place>
+      <transition id="t_gen">
+        <name>
+          <text>Generate</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <coordinates x="130" y="80"/>
+          <timeDelay>1.0</timeDelay>
+          <delayMeanValue>1.0</delayMeanValue>
+          <distribution>det</distribution>
+          <priority>0</priority>
+        </toolspecific>
+        <graphics>
+          <position x="130" y="80"/>
+        </graphics>
+      </transition>
+      <arc id="a_g1" source="p_pool" target="t_gen">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="a_g2" source="t_gen" target="p_ready">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="a_g3" source="t_gen" target="p_log">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+    </page>
+    <page id="object1">
+      <name>
+        <text>Server</text>
+      </name>
+      <toolspecific tool="PetriObjModel" version="2.0">
+        <petriObject index="1" name="Server" priority="0" x="360" y="60"/>
+      </toolspecific>
+      <place id="p_in">
+        <name>
+          <text>In</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <coordinates x="60" y="80"/>
+        </toolspecific>
+        <graphics>
+          <position x="60" y="80"/>
+        </graphics>
+      </place>
+      <place id="p_busy">
+        <name>
+          <text>Busy</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <coordinates x="200" y="80"/>
+        </toolspecific>
+        <graphics>
+          <position x="200" y="80"/>
+        </graphics>
+      </place>
+      <place id="p_done">
+        <name>
+          <text>Done</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <coordinates x="340" y="80"/>
+        </toolspecific>
+        <graphics>
+          <position x="340" y="80"/>
+        </graphics>
+      </place>
+      <place id="p_watch">
+        <name>
+          <text>Watch</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <coordinates x="270" y="200"/>
+        </toolspecific>
+        <graphics>
+          <position x="270" y="200"/>
+        </graphics>
+      </place>
+      <transition id="t_start">
+        <name>
+          <text>Start</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <coordinates x="130" y="80"/>
+          <timeDelay>2.0</timeDelay>
+          <delayMeanValue>2.0</delayMeanValue>
+          <distribution>exp</distribution>
+          <priority>0</priority>
+        </toolspecific>
+        <graphics>
+          <position x="130" y="80"/>
+        </graphics>
+      </transition>
+      <transition id="t_end">
+        <name>
+          <text>End</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <coordinates x="270" y="80"/>
+          <timeDelay>3.0</timeDelay>
+          <delayMeanValue>3.0</delayMeanValue>
+          <distribution>det</distribution>
+          <priority>0</priority>
+        </toolspecific>
+        <graphics>
+          <position x="270" y="80"/>
+        </graphics>
+      </transition>
+      <arc id="a_s1" source="p_in" target="t_start">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="a_s2" source="t_start" target="p_busy">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="a_s3" source="p_busy" target="t_end">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="a_s4" source="t_end" target="p_done">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="a_s5" source="p_watch" target="t_end">
+        <inscription>
+          <text>1</text>
+        </inscription>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <informational>true</informational>
+        </toolspecific>
+      </arc>
+    </page>
+    <toolspecific tool="PetriObjModel" version="2.0">
+      <petriObjectLinks>
+        <link type="placeFusion" sourceObject="0" sourceElement="1" targetObject="1" targetElement="0"/>
+        <link type="transitionToPlace" sourceObject="1" sourceElement="0" targetObject="0" targetElement="2" quantity="2"/>
+        <link type="placeFusion" sourceObject="1" sourceElement="3" targetObject="0" targetElement="2"/>
+      </petriObjectLinks>
+    </toolspecific>
+  </net>
+</pnml>

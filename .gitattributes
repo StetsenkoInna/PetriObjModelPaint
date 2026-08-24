@@ -1,10 +1,23 @@
-*.ico filter=lfs diff=lfs merge=lfs -text
-*.png filter=lfs diff=lfs merge=lfs -text
-*.PNG filter=lfs diff=lfs merge=lfs -text
-*.jpg filter=lfs diff=lfs merge=lfs -text
-*.jpeg filter=lfs diff=lfs merge=lfs -text
-*.gif filter=lfs diff=lfs merge=lfs -text
-*.pnml filter=lfs diff=lfs merge=lfs -text
+# Binary, or byte-exact on purpose: no end-of-line translation in either direction. The .pnml
+# fixtures are CRLF as committed and several tests compare them byte for byte.
+*.ico -text
+*.png -text
+*.PNG -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.pnml -text
+
+# Git LFS is reserved for assets big enough to be worth the indirection - in practice just the
+# demo recordings under docs/, which are ~500 KB each. Everything else stays a plain Git blob.
+# Listed last so this filter wins over the bare patterns above.
+#
+# The app's own assets were in LFS until 2.2.2, and that release shipped broken because of it:
+# `actions/checkout` does not fetch LFS unless asked, so the release build packaged 128-byte
+# pointer stubs named hand_icon.png, pl.png, trans.png and friends. They loaded as resources,
+# decoded as nothing, and the toolbar came up with blank buttons. An icon that costs 400 bytes
+# to store outright should never depend on a second fetch protocol going right.
+docs/media/*.gif filter=lfs diff=lfs merge=lfs -text
 
 *.sh text eol=lf
 *.command text eol=lf

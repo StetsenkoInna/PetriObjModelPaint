@@ -1,3 +1,232 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:1b549768d8a16304fdf496bf9d144c064c1529b876972d40c0918230acea8a3d
-size 8917
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="New PetriNet" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <name>
+      <text>New PetriNet</text>
+    </name>
+    <page id="object2">
+      <name>
+        <text>Object 3</text>
+      </name>
+      <toolspecific tool="PetriObjModel" version="2.2.2">
+        <petriObject height="305" index="2" name="Object 3" priority="0" width="387" x="304" y="32"/>
+      </toolspecific>
+      <toolspecific tool="PetriNetSim" version="0.1.0">
+        <petriObject height="305" index="2" name="Object 3" priority="0" width="387" x="304" y="32"/>
+      </toolspecific>
+      <page id="object1">
+        <name>
+          <text>Object 2</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="2.2.2">
+          <petriObject height="235" index="1" name="Object 2" priority="0" width="339" x="328" y="78"/>
+        </toolspecific>
+        <toolspecific tool="PetriNetSim" version="0.1.0">
+          <petriObject height="235" index="1" name="Object 2" priority="0" width="339" x="328" y="78"/>
+        </toolspecific>
+        <page id="object0">
+          <name>
+            <text>Object 1</text>
+          </name>
+          <toolspecific tool="PetriObjModel" version="2.2.2">
+            <petriObject height="165" index="0" name="Object 1" priority="0" width="291" x="352" y="124"/>
+          </toolspecific>
+          <toolspecific tool="PetriNetSim" version="0.1.0">
+            <petriObject height="165" index="0" name="Object 1" priority="0" width="291" x="352" y="124"/>
+          </toolspecific>
+          <referencePlace id="p-p1-ec3eda7c" ref="p-p2-6a033dc2">
+            <name>
+              <text>P1</text>
+            </name>
+            <toolspecific tool="PetriObjModel" version="2.2.2">
+              <referenceRole>fusion</referenceRole>
+              <coordinates x="420.0" y="221.0"/>
+            </toolspecific>
+            <toolspecific tool="PetriNetSim" version="0.1.0">
+              <referenceRole>fusion</referenceRole>
+              <coordinates x="420.0" y="221.0"/>
+            </toolspecific>
+            <graphics>
+              <position x="420" y="221"/>
+            </graphics>
+          </referencePlace>
+          <place id="p-p3-91569318">
+            <name>
+              <text>P3</text>
+            </name>
+            <toolspecific tool="PetriObjModel" version="2.2.2">
+              <coordinates x="575.0" y="214.0"/>
+            </toolspecific>
+            <toolspecific tool="PetriNetSim" version="0.1.0">
+              <coordinates x="575.0" y="214.0"/>
+            </toolspecific>
+            <graphics>
+              <position x="575" y="214"/>
+            </graphics>
+          </place>
+          <transition id="t-t2-7d188d05">
+            <name>
+              <text>T2</text>
+            </name>
+            <toolspecific tool="PetriObjModel" version="2.2.2">
+              <coordinates x="507.0" y="214.0"/>
+            </toolspecific>
+            <toolspecific tool="PetriNetSim" version="0.1.0">
+              <coordinates x="507.0" y="214.0"/>
+            </toolspecific>
+            <graphics>
+              <position x="507" y="214"/>
+            </graphics>
+          </transition>
+          <arc id="arc-3a887514" source="p-p1-ec3eda7c" target="t-t2-7d188d05">
+            <inscription>
+              <text>1</text>
+            </inscription>
+          </arc>
+          <arc id="arc-7cc75b95" source="t-t2-7d188d05" target="p-p3-91569318">
+            <inscription>
+              <text>1</text>
+            </inscription>
+          </arc>
+        </page>
+      </page>
+    </page>
+    <page id="object3">
+      <name>
+        <text>Free elements</text>
+      </name>
+      <toolspecific tool="PetriObjModel" version="2.2.2">
+        <petriObject index="3" name="Free elements" priority="0" x="0" y="0"/>
+      </toolspecific>
+      <toolspecific tool="PetriNetSim" version="0.1.0">
+        <petriObject index="3" name="Free elements" priority="0" x="0" y="0"/>
+      </toolspecific>
+      <place id="p-p1-2b462d12">
+        <name>
+          <text>P1</text>
+        </name>
+        <initialMarking>
+          <text>1</text>
+        </initialMarking>
+        <toolspecific tool="PetriObjModel" version="2.2.2">
+          <coordinates x="82.0" y="225.0"/>
+        </toolspecific>
+        <toolspecific tool="PetriNetSim" version="0.1.0">
+          <coordinates x="82.0" y="225.0"/>
+        </toolspecific>
+        <graphics>
+          <position x="82" y="225"/>
+        </graphics>
+      </place>
+      <referencePlace id="p-p2-826b107f" ref="p-p3-91569318">
+        <name>
+          <text>P2</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="2.2.2">
+          <referenceRole>fusion</referenceRole>
+          <coordinates x="784.0" y="205.0"/>
+        </toolspecific>
+        <toolspecific tool="PetriNetSim" version="0.1.0">
+          <referenceRole>fusion</referenceRole>
+          <coordinates x="784.0" y="205.0"/>
+        </toolspecific>
+        <graphics>
+          <position x="784" y="205"/>
+        </graphics>
+      </referencePlace>
+      <place id="p-p3-020cc671">
+        <name>
+          <text>P3</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="2.2.2">
+          <coordinates x="942.0" y="193.0"/>
+        </toolspecific>
+        <toolspecific tool="PetriNetSim" version="0.1.0">
+          <coordinates x="942.0" y="193.0"/>
+        </toolspecific>
+        <graphics>
+          <position x="942" y="193"/>
+        </graphics>
+      </place>
+      <place id="p-p2-6a033dc2">
+        <name>
+          <text>P2</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="2.2.2">
+          <coordinates x="226.0" y="218.0"/>
+        </toolspecific>
+        <toolspecific tool="PetriNetSim" version="0.1.0">
+          <coordinates x="226.0" y="218.0"/>
+        </toolspecific>
+        <graphics>
+          <position x="226" y="218"/>
+        </graphics>
+      </place>
+      <transition id="t-t1-7d7272c9">
+        <name>
+          <text>T1</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="2.2.2">
+          <coordinates x="863.0" y="202.0"/>
+        </toolspecific>
+        <toolspecific tool="PetriNetSim" version="0.1.0">
+          <coordinates x="863.0" y="202.0"/>
+        </toolspecific>
+        <graphics>
+          <position x="863" y="202"/>
+        </graphics>
+      </transition>
+      <transition id="t-t1-e6eea659">
+        <name>
+          <text>T1</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="2.2.2">
+          <coordinates x="164.0" y="220.0"/>
+        </toolspecific>
+        <toolspecific tool="PetriNetSim" version="0.1.0">
+          <coordinates x="164.0" y="220.0"/>
+        </toolspecific>
+        <graphics>
+          <position x="164" y="220"/>
+        </graphics>
+      </transition>
+      <arc id="arc-f7189c5c" source="p-p2-826b107f" target="t-t1-7d7272c9">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="arc-8c7ee67b" source="p-p1-2b462d12" target="t-t1-e6eea659">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="arc-47e29700" source="t-t1-7d7272c9" target="p-p3-020cc671">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="arc-5cc26b25" source="t-t1-e6eea659" target="p-p1-2b462d12">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="arc-5b05d111" source="t-t1-e6eea659" target="p-p2-6a033dc2">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+    </page>
+    <toolspecific tool="PetriObjModel" version="2.2.2">
+      <petriObjectLinks>
+        <link sourceElement="0" sourceElementId="p-p1-ec3eda7c" sourceObject="0" targetElement="3" targetElementId="p-p2-6a033dc2" targetObject="3" type="placeFusion"/>
+        <link sourceElement="1" sourceElementId="p-p2-826b107f" sourceObject="3" targetElement="1" targetElementId="p-p3-91569318" targetObject="0" type="placeFusion"/>
+      </petriObjectLinks>
+    </toolspecific>
+    <toolspecific tool="PetriNetSim" version="0.1.0">
+      <petriObjectLinks>
+        <link sourceElement="0" sourceElementId="p-p1-ec3eda7c" sourceObject="0" targetElement="3" targetElementId="p-p2-6a033dc2" targetObject="3" type="placeFusion"/>
+        <link sourceElement="1" sourceElementId="p-p2-826b107f" sourceObject="3" targetElement="1" targetElementId="p-p3-91569318" targetObject="0" type="placeFusion"/>
+      </petriObjectLinks>
+    </toolspecific>
+  </net>
+</pnml>
