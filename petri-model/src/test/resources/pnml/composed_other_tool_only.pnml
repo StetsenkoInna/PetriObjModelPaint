@@ -1,3 +1,89 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:618fc61bb00b3e67d1981a98c744ac276f71cd7a7804e2d0ee192838c5777a05
-size 3161
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  A document carrying only the web application's toolspecific identity, tool="PetriNetSim",
+  nowhere paired with this project's own PetriObjModel block. This is the shape the reader's
+  own-identity-first, other-identity-fallback rule exists for, see XmlHelper.toolSpecificBlocks.
+
+  Deliberately exercises every kind of thing that rule has to carry across: a page's
+  <petriObject> marker (Alpha's priority and position), a reference node's <referenceRole>
+  (Shared, a fusion), a transition's timed parameters (Run's delay, distribution and priority),
+  an arc's <arcType> (the flat-dialect inhibitor marker this tool reads as informational), and
+  the tool-specific <coordinates> fallback: place "Pool" carries no standard <graphics> at all,
+  only the toolspecific coordinates, which is what a reader falls back to when the standard
+  position is entirely absent.
+-->
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="other-tool-only" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <name>
+      <text>OtherToolOnly</text>
+    </name>
+    <page id="object0">
+      <name>
+        <text>Alpha</text>
+      </name>
+      <toolspecific tool="PetriNetSim" version="1.0.0">
+        <petriObject index="0" name="Alpha" priority="2" x="10" y="20"/>
+      </toolspecific>
+      <place id="alpha_pool">
+        <name>
+          <text>Pool</text>
+        </name>
+        <initialMarking>
+          <text>3</text>
+        </initialMarking>
+        <toolspecific tool="PetriNetSim" version="1.0.0">
+          <coordinates x="15" y="25"/>
+        </toolspecific>
+      </place>
+      <referencePlace id="alpha_shared" ref="beta_target">
+        <name>
+          <text>Shared</text>
+        </name>
+        <toolspecific tool="PetriNetSim" version="1.0.0">
+          <referenceRole>fusion</referenceRole>
+        </toolspecific>
+        <graphics>
+          <position x="55" y="25"/>
+        </graphics>
+      </referencePlace>
+      <transition id="alpha_run">
+        <name>
+          <text>Run</text>
+        </name>
+        <toolspecific tool="PetriNetSim" version="1.0.0">
+          <timeDelay>1.5</timeDelay>
+          <delayMeanValue>1.5</delayMeanValue>
+          <distribution>det</distribution>
+          <priority>3</priority>
+        </toolspecific>
+        <graphics>
+          <position x="35" y="25"/>
+        </graphics>
+      </transition>
+      <arc id="alpha_a0" source="alpha_pool" target="alpha_run">
+        <inscription>
+          <text>1</text>
+        </inscription>
+        <toolspecific tool="PetriNetSim" version="1.0.0">
+          <arcType>inhibitor</arcType>
+        </toolspecific>
+      </arc>
+    </page>
+    <page id="object1">
+      <name>
+        <text>Beta</text>
+      </name>
+      <toolspecific tool="PetriNetSim" version="1.0.0">
+        <petriObject index="1" name="Beta" priority="0" x="120" y="20"/>
+      </toolspecific>
+      <place id="beta_target">
+        <name>
+          <text>Target</text>
+        </name>
+        <graphics>
+          <position x="15" y="25"/>
+        </graphics>
+      </place>
+    </page>
+  </net>
+</pnml>

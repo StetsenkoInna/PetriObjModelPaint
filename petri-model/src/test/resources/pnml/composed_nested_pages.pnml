@@ -1,3 +1,162 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:09020e380de5392a3744b8cb0dc3ca8377169c95f9e6d9afaf9d1d4b2dcf3c7a
-size 5556
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Three Petri-objects, each one nested inside the one before it, with the hierarchy stated
+  the way ISO/IEC 15909-2 states a page hierarchy: a <page> written inside a <page>. Nothing
+  tool-specific says anything about the nesting, and no page carries a parentObject
+  attribute.
+
+  composed_legacy_parent_object.pnml describes the same objects, nets and links in the shape
+  this tool wrote before the pages were nested. It parses into the same model except for the
+  hierarchy, which it states only in an attribute that is no longer read.
+-->
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="net1" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <name>
+      <text>NestedDemo</text>
+    </name>
+    <page id="object0">
+      <name>
+        <text>Outer</text>
+      </name>
+      <toolspecific tool="PetriObjModel" version="2.2.2">
+        <petriObject index="0" name="Outer" priority="1" x="40" y="40" width="600" height="400"/>
+      </toolspecific>
+      <place id="p0_a">
+        <name>
+          <text>OuterIn</text>
+        </name>
+        <initialMarking>
+          <text>3</text>
+        </initialMarking>
+        <toolspecific tool="PetriObjModel" version="2.2.2">
+          <coordinates x="80" y="120"/>
+        </toolspecific>
+      </place>
+      <place id="p0_b">
+        <name>
+          <text>OuterOut</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="2.2.2">
+          <coordinates x="240" y="120"/>
+        </toolspecific>
+      </place>
+      <transition id="t0">
+        <name>
+          <text>OuterStep</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="2.2.2">
+          <coordinates x="160" y="120"/>
+          <timeDelay>1.0</timeDelay>
+          <delayMeanValue>1.0</delayMeanValue>
+          <distribution>det</distribution>
+        </toolspecific>
+      </transition>
+      <arc id="a0_1" source="p0_a" target="t0">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="a0_2" source="t0" target="p0_b">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <page id="object1">
+        <name>
+          <text>Middle</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="2.2.2">
+          <petriObject index="1" name="Middle" priority="2" x="80" y="140" width="400" height="260"/>
+        </toolspecific>
+        <place id="p1_a">
+          <name>
+            <text>MiddleIn</text>
+          </name>
+          <toolspecific tool="PetriObjModel" version="2.2.2">
+            <coordinates x="120" y="220"/>
+          </toolspecific>
+        </place>
+        <place id="p1_b">
+          <name>
+            <text>MiddleOut</text>
+          </name>
+          <toolspecific tool="PetriObjModel" version="2.2.2">
+            <coordinates x="280" y="220"/>
+          </toolspecific>
+        </place>
+        <transition id="t1">
+          <name>
+            <text>MiddleStep</text>
+          </name>
+          <toolspecific tool="PetriObjModel" version="2.2.2">
+            <coordinates x="200" y="220"/>
+            <timeDelay>2.0</timeDelay>
+            <delayMeanValue>2.0</delayMeanValue>
+            <distribution>exp</distribution>
+          </toolspecific>
+        </transition>
+        <arc id="a1_1" source="p1_a" target="t1">
+          <inscription>
+            <text>1</text>
+          </inscription>
+        </arc>
+        <arc id="a1_2" source="t1" target="p1_b">
+          <inscription>
+            <text>1</text>
+          </inscription>
+        </arc>
+        <page id="object2">
+          <name>
+            <text>Inner</text>
+          </name>
+          <toolspecific tool="PetriObjModel" version="2.2.2">
+            <petriObject index="2" name="Inner" priority="3" x="120" y="240" width="200" height="120"/>
+          </toolspecific>
+          <place id="p2_a">
+            <name>
+              <text>InnerIn</text>
+            </name>
+            <toolspecific tool="PetriObjModel" version="2.2.2">
+              <coordinates x="160" y="300"/>
+            </toolspecific>
+          </place>
+          <place id="p2_b">
+            <name>
+              <text>InnerOut</text>
+            </name>
+            <toolspecific tool="PetriObjModel" version="2.2.2">
+              <coordinates x="280" y="300"/>
+            </toolspecific>
+          </place>
+          <transition id="t2">
+            <name>
+              <text>InnerStep</text>
+            </name>
+            <toolspecific tool="PetriObjModel" version="2.2.2">
+              <coordinates x="220" y="300"/>
+              <timeDelay>3.0</timeDelay>
+              <delayMeanValue>3.0</delayMeanValue>
+              <distribution>det</distribution>
+            </toolspecific>
+          </transition>
+          <arc id="a2_1" source="p2_a" target="t2">
+            <inscription>
+              <text>1</text>
+            </inscription>
+          </arc>
+          <arc id="a2_2" source="t2" target="p2_b">
+            <inscription>
+              <text>1</text>
+            </inscription>
+          </arc>
+        </page>
+      </page>
+    </page>
+    <toolspecific tool="PetriObjModel" version="2.2.2">
+      <petriObjectLinks>
+        <link type="transitionToPlace" sourceObject="1" sourceElement="0" targetObject="0" targetElement="0" quantity="2"/>
+        <link type="placeFusion" sourceObject="2" sourceElement="0" targetObject="1" targetElement="1"/>
+      </petriObjectLinks>
+    </toolspecific>
+  </net>
+</pnml>

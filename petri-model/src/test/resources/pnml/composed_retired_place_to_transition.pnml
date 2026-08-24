@@ -1,3 +1,106 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:6fb0b4386d439cecdce5a22efddbe6530d9676e834e3aeace222f486b352d3d7
-size 3369
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  A document that still declares the retired link type: a place of one Petri-object used as an
+  extra input of a transition of another. Such files exist, they were written while the type
+  was supported, and the reader has to refuse them rather than guess.
+
+  Refusing is the point. Converting the declaration into its canonical form, a shared place
+  plus an ordinary arc inside the object that owns the transition, would silently rewrite what
+  the stored document states, so the refusal names that canonical form instead.
+-->
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="net1" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <name>
+      <text>RetiredLinkDemo</text>
+    </name>
+    <page id="object0">
+      <name>
+        <text>Generator</text>
+      </name>
+      <toolspecific tool="PetriObjModel" version="2.0">
+        <petriObject index="0" name="Generator" priority="0" x="40" y="60"/>
+      </toolspecific>
+      <place id="p_pool">
+        <name>
+          <text>Pool</text>
+        </name>
+        <initialMarking>
+          <text>5</text>
+        </initialMarking>
+      </place>
+      <place id="p_log">
+        <name>
+          <text>Log</text>
+        </name>
+      </place>
+      <transition id="t_gen">
+        <name>
+          <text>Generate</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <timeDelay>1.0</timeDelay>
+        </toolspecific>
+      </transition>
+      <arc id="a_g1" source="p_pool" target="t_gen">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="a_g2" source="t_gen" target="p_log">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+    </page>
+    <page id="object1">
+      <name>
+        <text>Server</text>
+      </name>
+      <toolspecific tool="PetriObjModel" version="2.0">
+        <petriObject index="1" name="Server" priority="0" x="360" y="60"/>
+      </toolspecific>
+      <place id="p_in">
+        <name>
+          <text>In</text>
+        </name>
+      </place>
+      <place id="p_done">
+        <name>
+          <text>Done</text>
+        </name>
+      </place>
+      <transition id="t_start">
+        <name>
+          <text>Start</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <timeDelay>2.0</timeDelay>
+        </toolspecific>
+      </transition>
+      <transition id="t_end">
+        <name>
+          <text>End</text>
+        </name>
+        <toolspecific tool="PetriObjModel" version="1.0">
+          <timeDelay>3.0</timeDelay>
+        </toolspecific>
+      </transition>
+      <arc id="a_s1" source="p_in" target="t_start">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="a_s2" source="t_end" target="p_done">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+    </page>
+    <toolspecific tool="PetriObjModel" version="2.0">
+      <petriObjectLinks>
+        <link type="placeFusion" sourceObject="0" sourceElement="0" targetObject="1" targetElement="0"/>
+        <link type="placeToTransition" sourceObject="0" sourceElement="1" targetObject="1" targetElement="1" quantity="1" informational="true"/>
+      </petriObjectLinks>
+    </toolspecific>
+  </net>
+</pnml>
