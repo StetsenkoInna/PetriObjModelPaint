@@ -12,7 +12,9 @@ start "" javaw -jar "%~dp0petri-swing-ui-windows.jar"
 exit /b
 
 :needjava
+echo.
 echo This app needs Java 23 or newer.
 echo Download it here: https://www.oracle.com/java/technologies/downloads/
+echo.
 start https://www.oracle.com/java/technologies/downloads/
 pause
