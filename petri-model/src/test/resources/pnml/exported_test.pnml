@@ -1,3 +1,47 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:5e0a12db200e9d77a640892e081a5e31d299bed8e98caf1feeb04ffc2243de61
-size 1482
+<?xml version="1.0" encoding="UTF-8"?>
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+   <net id="Test-Export-Net"
+        type="http://www.pnml.org/version-2009/grammar/ptnet">
+      <name>
+         <text>Test Export Net</text>
+      </name>
+      <page id="page1">
+         <place id="p-testplace1-3e78ffc8">
+            <name>
+               <text>TestPlace1</text>
+            </name>
+            <initialMarking>
+               <text>1</text>
+            </initialMarking>
+         </place>
+         <place id="p-testplace2-12cc6ae3">
+            <name>
+               <text>TestPlace2</text>
+            </name>
+         </place>
+         <transition id="t-testtransition1-d4ef8c48">
+            <name>
+               <text>TestTransition1</text>
+            </name>
+            <toolspecific tool="PetriObjModel" version="2.2.2">
+               <timeDelay>2.0</timeDelay>
+               <delayMeanValue>2.0</delayMeanValue>
+            </toolspecific>
+         </transition>
+         <arc id="arc-17ccb6f8"
+              source="p-testplace1-3e78ffc8"
+              target="t-testtransition1-d4ef8c48">
+            <inscription>
+               <text>1</text>
+            </inscription>
+         </arc>
+         <arc id="arc-3ce81050"
+              source="t-testtransition1-d4ef8c48"
+              target="p-testplace2-12cc6ae3">
+            <inscription>
+               <text>1</text>
+            </inscription>
+         </arc>
+      </page>
+   </net>
+</pnml>

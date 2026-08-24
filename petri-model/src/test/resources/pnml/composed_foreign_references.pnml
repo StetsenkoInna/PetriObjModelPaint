@@ -1,3 +1,78 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:ce928aea206081175fee813c5778f29c8f614e60343b0d540a3c2ca17dd94c4a
-size 2301
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  A composed document written by something that is not this tool: reference nodes and nothing
+  else. No <toolspecific> anywhere, so no object metadata, no link block, and no declared
+  reference role.
+
+  This is the case the whole exercise is about. The structure alone has to be enough, and the
+  role of each reference node has to be inferred: alpha_share is drawn by no arc, so the page
+  can only be showing a place it shares with the page that owns it, a fusion. alpha_rep has
+  an arc into it, so it is a stand-in the arc needed something to attach to.
+-->
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="foreign1" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <name>
+      <text>ForeignComposed</text>
+    </name>
+    <page id="alpha">
+      <name>
+        <text>Alpha</text>
+      </name>
+      <place id="alpha_p0">
+        <name>
+          <text>Ready</text>
+        </name>
+        <initialMarking>
+          <text>2</text>
+        </initialMarking>
+      </place>
+      <referencePlace id="alpha_share" ref="beta_p1"/>
+      <transition id="alpha_t0">
+        <name>
+          <text>Emit</text>
+        </name>
+      </transition>
+      <referencePlace id="alpha_rep" ref="beta_p0"/>
+      <arc id="alpha_a0" source="alpha_p0" target="alpha_t0">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="alpha_a1" source="alpha_t0" target="alpha_rep">
+        <inscription>
+          <text>3</text>
+        </inscription>
+      </arc>
+    </page>
+    <page id="beta">
+      <name>
+        <text>Beta</text>
+      </name>
+      <place id="beta_p0">
+        <name>
+          <text>Inbox</text>
+        </name>
+      </place>
+      <place id="beta_p1">
+        <name>
+          <text>Done</text>
+        </name>
+      </place>
+      <transition id="beta_t0">
+        <name>
+          <text>Consume</text>
+        </name>
+      </transition>
+      <arc id="beta_a0" source="beta_p0" target="beta_t0">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+      <arc id="beta_a1" source="beta_t0" target="beta_p1">
+        <inscription>
+          <text>1</text>
+        </inscription>
+      </arc>
+    </page>
+  </net>
+</pnml>

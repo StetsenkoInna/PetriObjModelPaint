@@ -658,11 +658,37 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     private Icon scaledIcon(String iconFileName) {
         java.net.URL url = ResourcePathConfig.getResource(getClass(), ResourcePathConfig.getIconPath(iconFileName));
         if (url == null) {
-            return null;
+            return unloadableIcon(iconFileName, "not on the classpath");
         }
-        java.awt.Image image = new javax.swing.ImageIcon(url).getImage()
+        javax.swing.ImageIcon loaded = new javax.swing.ImageIcon(url);
+        // ImageIcon pulls the bytes through a MediaTracker, so by this line the image is either
+        // fully decoded or permanently broken, and a broken one reports -1 for both dimensions.
+        // Checking is not paranoia: a resource can be present and still undecodable. Release 2.2.2
+        // shipped every icon as a 128-byte Git LFS pointer file, because the release workflow
+        // checked out without lfs:true - the URL was non-null, so the null guard above passed, and
+        // the app came up with five blank toolbar buttons and nothing in the log to say why.
+        if (loaded.getIconWidth() <= 0 || loaded.getIconHeight() <= 0) {
+            return unloadableIcon(iconFileName, "present but not a decodable image");
+        }
+        java.awt.Image image = loaded.getImage()
                 .getScaledInstance(TOOL_ICON_SIZE, TOOL_ICON_SIZE, java.awt.Image.SCALE_SMOOTH);
         return new javax.swing.ImageIcon(image);
+    }
+
+    /**
+     * What a toolbar button shows when its icon file cannot be loaded. Whatever it returns, the
+     * failure is on the record first: a packaging fault that reaches a user is worth a log line.
+     *
+     * @param iconFileName the icon that could not be loaded
+     * @param reason       why it could not be loaded, for the log
+     * @return the icon to put on the button in place of the missing one
+     */
+    private Icon unloadableIcon(String iconFileName, String reason) {
+        LOGGER.warn("Toolbar icon {} could not be loaded ({}) - this build is packaged wrong",
+                iconFileName, reason);
+        // TODO(policy): decide what the user sees here. Returning null leaves a bare button that
+        // is still clickable and still has its tooltip, but gives no hint that anything is wrong.
+        return null;
     }
 
     /**
