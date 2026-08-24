@@ -24,6 +24,47 @@ Draw a net directly on the canvas: places, transitions, arcs, drag-and-drop layo
 | `ua.stetsenkoinna.graphpresentation.PetriNetsPanel` | Drawing canvas |
 | `ua.stetsenkoinna.graphpresentation.SetPosition` / `SetTransition` / `SetArc` | Element property dialogs |
 
+### Moving around the canvas
+
+The canvas is far larger than the window, and it has no scrollbars — navigation is by gesture:
+
+| Gesture | Effect |
+|---|---|
+| Wheel, or two-finger scroll | Scrolls the view |
+| `Shift` + wheel | Scrolls sideways |
+| `Ctrl` + wheel | Zooms, anchored on the pointer, so whatever is under the cursor stays there |
+| Pan tool, drag | Moves the view; nothing under the pointer is touched |
+| Select tool, double-click empty canvas and drag | Pans without leaving the Select tool |
+
+Trackpads are read at sub-notch precision, so a slow two-finger drag moves the view smoothly
+rather than waiting to jump a whole notch at a time. Scroll direction follows the system
+setting, including macOS "natural" scrolling.
+
+### Keyboard shortcuts
+
+**`Ctrl` here means `Command` (⌘) on macOS** — the editor binds whichever modifier the platform
+uses for application commands, so the menus show the right one and the right one works.
+
+| | |
+|---|---|
+| `Ctrl+N` | New document |
+| `Ctrl+O` | Open… |
+| `Ctrl+S` / `Ctrl+Shift+S` | Save / Save As… |
+| `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / Redo — Redo also answers to `Ctrl+Y` off macOS |
+| `Ctrl+A` | Select everything on the active canvas |
+| `Ctrl+C` / `Ctrl+V` | Copy / paste the selection |
+| `Ctrl+D` | Duplicate the selection |
+| `Ctrl+L` | Centre the view on the net |
+| `Ctrl+E` | Edit net parameters |
+| `Ctrl+Alt+M` | Open the statistics monitor |
+| `Delete` or `Backspace` | Delete the selection |
+| `A` / `P` / `T` | Arc, Place and Transition tools |
+| `←` / `→` | Step the simulation back and forward |
+| `Esc` | Cancel placing a loaded net |
+
+The single-letter tool shortcuts reach the canvas only, so typing into the net name or the time
+fields still types a letter.
+
 ---
 
 ## Running a Simulation
@@ -65,7 +106,8 @@ place or transition itself does nothing: only double-click opens it, and only a 
 selects it.
 
 The canvas has one notion of the things it holds, so an operation is written once and reaches
-both kinds. `Ctrl+A` selects every object on the active canvas along with every element of it;
+both kinds — and as everywhere in this guide, `Ctrl` means `Command` on macOS.
+`Ctrl+A` selects every object on the active canvas along with every element of it;
 `Delete`, `Ctrl+C`/`Ctrl+V`, `Ctrl+D`, `Ctrl+L`, the rubber band and the eraser all act on
 whatever objects are selected the same way they act on elements. The rubber band catches an
 object by its centre, exactly like a place. `Ctrl+Z` reaches object creation and removal too.
@@ -166,8 +208,8 @@ This is the desktop-side entry point into the same `NetLibrary` /
 
 Supports import/export in PNML format (ISO/IEC 15909):
 
-- **Import**: `File → Import PNML` (`Ctrl+I`)
-- **Export**: `Save → Export to PNML` (`Ctrl+P`)
+- **Import**: `File → Open...` (`Ctrl+O`)
+- **Export**: `File → Save As...` (`Ctrl+Shift+S`)
 
 Import reads a whole Petri-object model too: every page of the document becomes a framed
 object on the canvas, with the links between them restored as crossing arcs and shared

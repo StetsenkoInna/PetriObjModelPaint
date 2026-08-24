@@ -75,7 +75,8 @@ does not move them; either way an element's own position only ever changes one a
 the object's own editor. The small eye icon in the header shows or hides the object's
 own drawing without changing the frame's size at all — a purely visual choice, for a model with
 more objects than screen space; the object's places and transitions still exist and still hold
-their marking either way, they are just not painted while the eye is closed. `Ctrl+A` selects
+their marking either way, they are just not painted while the eye is closed. `Ctrl` below means
+`Command` on macOS, as in the [desktop UI guide](desktop-ui.md#keyboard-shortcuts). `Ctrl+A` selects
 every frame along with every place and transition; `Delete` removes whatever frames are
 selected (their nets stay on the canvas), `Ctrl+D` duplicates the current one — the same
 actions the elements on the canvas already respond to, extended to objects too. Rename,
