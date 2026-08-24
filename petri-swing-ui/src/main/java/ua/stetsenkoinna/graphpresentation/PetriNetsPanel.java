@@ -11,6 +11,7 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -58,6 +59,9 @@ import ua.stetsenkoinna.graphnet.NetTemplateRef;
 import ua.stetsenkoinna.graphnet.PortAnchor;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
+import ua.stetsenkoinna.graphpresentation.input.CanvasNavigation;
+import ua.stetsenkoinna.graphpresentation.input.CursorImages;
+import ua.stetsenkoinna.graphpresentation.input.InputShortcuts;
 import ua.stetsenkoinna.graphnet.GraphArc;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
@@ -323,18 +327,24 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 // drive a toolbar button, and reaches the canvas on exactly the same focus
                 // terms these listeners do.
 
-                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_C) {
+                // The platform's shortcut modifier, not literally Control. These three
+                // commands have no menu item anywhere, so this listener is the only way to
+                // reach them at all - and testing isControlDown() put them out of reach of
+                // every Mac user, whose Copy is Command+C and never Control+C.
+                boolean shortcut = InputShortcuts.hasMenuMask(e.getModifiersEx());
+
+                if (shortcut && e.getKeyCode() == KeyEvent.VK_C) {
                     copySelection();
                 }
 
-                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_V) {
+                if (shortcut && e.getKeyCode() == KeyEvent.VK_V) {
                     pasteAction();
                 }
 
                 // Duplicating a Petri-object is a distinct gesture from copy/paste of plain
                 // elements, since it also carries the object's name, priority and template —
-                // Ctrl+D matches what the frame's own context menu offers.
-                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_D) {
+                // shortcut+D matches what the frame's own context menu offers.
+                if (shortcut && e.getKeyCode() == KeyEvent.VK_D) {
                     duplicateSelection();
                 }
             }
@@ -1472,20 +1482,111 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         repaint();
     }
 
+    /**
+     * Wheel and trackpad navigation: scroll by default, zoom while the platform's shortcut
+     * modifier is held, and scroll sideways while Shift is.
+     *
+     * <p>Plain wheel scrolls rather than zooms because it has to. The canvas is a fixed
+     * 20000x20000 panel inside a scroll pane with both scrollbars set to NEVER and the pane's
+     * own wheel scrolling switched off, so before this the only way to reach anything off-screen
+     * was the Pan tool. On a laptop trackpad, where there is no middle button either, that left
+     * a two-finger scroll - the one gesture every user reaches for first - changing the zoom at
+     * random instead of moving the view.
+     *
+     * <p>Everything reads {@link MouseWheelEvent#getPreciseWheelRotation()} rather than
+     * {@code getWheelRotation()}. The latter is an int, and a trackpad reports fractions of a
+     * notch: rounded to an int, a slow drag is a stream of zeroes and nothing happens at all
+     * until the gesture is fast enough to round to one, which then arrives as a jump. The
+     * leftovers are carried in {@link #scrollRemainderX} and friends so that many small
+     * fractional events add up to real movement instead of each truncating away to nothing.
+     */
     public class MouseWheelHendler implements MouseWheelListener {
+
+        /** How far one full wheel notch scrolls, in device pixels. */
+        private static final int PIXELS_PER_NOTCH = 48;
+
+        /** Sub-pixel scroll carried between events, so fine trackpad movement is not lost. */
+        private double scrollRemainderX;
+        private double scrollRemainderY;
 
         @Override
         public void mouseWheelMoved(MouseWheelEvent e) {
-            // A fast spin delivers several notches in one event, so guarding a single -1
-            // step used to let the scale blow straight through the floor and turn zero or
-            // negative - at which point the whole drawing silently disappears and every
-            // hit test divides by a non-positive scale. Clamping the result holds at any
-            // spin speed, and the ceiling keeps a runaway zoom-in from doing the same in
-            // the other direction.
-            scale = Math.min(5.0, Math.max(0.1, scale + (double) e.getWheelRotation() / 10));
+            double rotation = e.getPreciseWheelRotation();
+            if (rotation == 0) {
+                return;
+            }
+            if (InputShortcuts.hasMenuMask(e.getModifiersEx())) {
+                zoom(e, rotation);
+            } else {
+                scroll(e.isShiftDown(), rotation);
+            }
+        }
+
+        /**
+         * Zooms about the pointer, so the element being aimed at stays put instead of sliding
+         * off as the drawing grows around the viewport's top-left corner.
+         */
+        private void zoom(MouseWheelEvent e, double rotation) {
+            double newScale = CanvasNavigation.zoomStep(scale, rotation);
+            if (newScale == scale) {
+                return;
+            }
+            JViewport viewport = viewport();
+            if (viewport != null) {
+                // The pointer relative to the viewport, not to this panel: the panel's own
+                // origin moves with the scroll position, and the anchor has to be a point the
+                // zoom itself does not move.
+                Point pointerInView = SwingUtilities.convertPoint(
+                        PetriNetsPanel.this, e.getPoint(), viewport);
+                Point target = CanvasNavigation.zoomAbout(
+                        viewport.getViewPosition(), pointerInView, scale, newScale,
+                        maxViewX(viewport), maxViewY(viewport));
+                scale = newScale;
+                viewport.setViewPosition(target);
+            } else {
+                scale = newScale;
+            }
             repaint();
         }
 
+        /**
+         * @param horizontal true to scroll sideways - Shift+wheel on a mouse, and also how the
+         *        macOS JDK reports a two-finger horizontal trackpad swipe
+         */
+        private void scroll(boolean horizontal, double rotation) {
+            JViewport viewport = viewport();
+            if (viewport == null) {
+                return;
+            }
+            double moved = rotation * PIXELS_PER_NOTCH;
+            Point position = viewport.getViewPosition();
+            if (horizontal) {
+                scrollRemainderX += moved;
+                int step = (int) scrollRemainderX;
+                scrollRemainderX -= step;
+                position.x += step;
+            } else {
+                scrollRemainderY += moved;
+                int step = (int) scrollRemainderY;
+                scrollRemainderY -= step;
+                position.y += step;
+            }
+            position.x = Math.max(0, Math.min(position.x, maxViewX(viewport)));
+            position.y = Math.max(0, Math.min(position.y, maxViewY(viewport)));
+            viewport.setViewPosition(position);
+        }
+    }
+
+    private JViewport viewport() {
+        return (JViewport) SwingUtilities.getAncestorOfClass(JViewport.class, this);
+    }
+
+    private static int maxViewX(JViewport viewport) {
+        return Math.max(0, viewport.getViewSize().width - viewport.getExtentSize().width);
+    }
+
+    private static int maxViewY(JViewport viewport) {
+        return Math.max(0, viewport.getViewSize().height - viewport.getExtentSize().height);
     }
 
     /**
@@ -3233,7 +3334,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // whatever is clicked is the whole point of picking either tool in the first place.
             if (tool == CanvasTool.PAN) {
                 if (SwingUtilities.isLeftMouseButton(ev)) {
-                    beginPan(ev.getPoint());
+                    beginPan(ev);
                 }
                 return;
             }
@@ -3398,7 +3499,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     && SwingUtilities.isLeftMouseButton(ev)
                     && find(scaledCurrentMousePoint) == null
                     && findArc(scaledCurrentMousePoint) == null) {
-                beginPan(ev.getPoint());
+                beginPan(ev);
                 selectToolPanning = true;
                 setCursor(new Cursor(Cursor.HAND_CURSOR));
                 return;
@@ -4539,7 +4640,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         @Override
         public void mouseDragged(MouseEvent ev) {
             if (tool == CanvasTool.PAN || selectToolPanning) {
-                updatePan(ev.getPoint());
+                updatePan(ev);
                 return;
             }
             if (tool == CanvasTool.DELETE || tool == CanvasTool.ADD_PLACE
@@ -4863,6 +4964,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
     }
 
+    /**
+     * The Delete tool's eraser pointer, or a crosshair if this platform cannot give us one.
+     *
+     * <p>Loaded through {@link javax.swing.ImageIcon}, which blocks on a {@code MediaTracker},
+     * rather than {@code Toolkit.getImage}, which returns immediately with an image that has not
+     * been read yet. An unloaded image measures -1 by -1, which puts the (0, 0) hotspot outside
+     * its bounds, and {@code createCustomCursor} then throws - caught below, so the tool quietly
+     * showed a crosshair instead of the eraser depending on nothing but load timing.
+     *
+     * <p>And resized to whatever {@code getBestCursorSize} asks for. The asset is 64x64 while
+     * Windows wants 32x32; left to the toolkit, each platform pads or scales it its own way,
+     * which is exactly the sort of difference this is meant not to have.
+     */
     private static Cursor buildEraserCursor() {
         try {
             URL url = ResourcePathConfig.getResource(PetriNetsPanel.class,
@@ -4870,13 +4984,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (url == null) {
                 return new Cursor(Cursor.CROSSHAIR_CURSOR);
             }
-            Image image = Toolkit.getDefaultToolkit().getImage(url);
-            return Toolkit.getDefaultToolkit().createCustomCursor(
-                    image, new Point(0, 0), "eraser");
+            Image loaded = new javax.swing.ImageIcon(url).getImage();
+            Toolkit toolkit = Toolkit.getDefaultToolkit();
+            Dimension best = toolkit.getBestCursorSize(CURSOR_SIZE, CURSOR_SIZE);
+            Image fitted = CursorImages.fitToCursor(loaded, best);
+            if (fitted == null) {
+                return new Cursor(Cursor.CROSSHAIR_CURSOR);
+            }
+            return toolkit.createCustomCursor(
+                    fitted, CursorImages.clampHotspot(new Point(0, 0), best), "eraser");
         } catch (RuntimeException problem) {
             return new Cursor(Cursor.CROSSHAIR_CURSOR);
         }
     }
+
+    /** The cursor size asked of the toolkit; it answers with the nearest it actually supports. */
+    private static final int CURSOR_SIZE = 32;
 
     /**
      * Drops a new place or transition at the click point — what the Add Place / Add Transition
@@ -5053,26 +5176,41 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *
      * @param screenPoint the raw (unscaled) point the drag started at
      */
-    private void beginPan(Point screenPoint) {
-        panViewport = (JViewport) SwingUtilities.getAncestorOfClass(JViewport.class, this);
+    private void beginPan(MouseEvent ev) {
+        panViewport = viewport();
         if (panViewport == null) {
             return;
         }
-        panDragOrigin = screenPoint;
+        panDragOrigin = pointInViewport(ev);
         panViewportOrigin = panViewport.getViewPosition();
     }
 
-    private void updatePan(Point screenPoint) {
+    /**
+     * The pointer in the viewport's own coordinates - the frame of reference a pan has to be
+     * measured in.
+     *
+     * <p>Not {@code ev.getPoint()}, which is relative to this panel, and this panel is the thing
+     * being scrolled: move the view and the panel slides under a motionless pointer, so the same
+     * physical position reports a different point and the drag delta is fed back into itself.
+     * The viewport does not move - only its child does - so converting into it cancels the
+     * scroll offset exactly.
+     *
+     * <p>{@code ev.getLocationOnScreen()} would also be stable and is the obvious alternative,
+     * but on an event synthesised for a component that is not showing it silently returns
+     * (0, 0), which would make every pan a no-op under test rather than a visible failure.
+     */
+    private Point pointInViewport(MouseEvent ev) {
+        return SwingUtilities.convertPoint(this, ev.getPoint(), panViewport);
+    }
+
+    /** Moves the view to follow a pan drag - see {@link #pointInViewport}. */
+    private void updatePan(MouseEvent ev) {
         if (panViewport == null || panDragOrigin == null) {
             return;
         }
-        int maxX = Math.max(0, panViewport.getViewSize().width - panViewport.getExtentSize().width);
-        int maxY = Math.max(0, panViewport.getViewSize().height - panViewport.getExtentSize().height);
-        int newX = panViewportOrigin.x - (screenPoint.x - panDragOrigin.x);
-        int newY = panViewportOrigin.y - (screenPoint.y - panDragOrigin.y);
-        panViewport.setViewPosition(new Point(
-                Math.max(0, Math.min(newX, maxX)),
-                Math.max(0, Math.min(newY, maxY))));
+        panViewport.setViewPosition(CanvasNavigation.panTo(
+                panViewportOrigin, panDragOrigin, pointInViewport(ev),
+                maxViewX(panViewport), maxViewY(panViewport)));
     }
 
     private void endPan() {

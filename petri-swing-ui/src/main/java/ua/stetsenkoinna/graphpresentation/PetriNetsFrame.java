@@ -32,6 +32,7 @@ import ua.stetsenkoinna.graphpresentation.actions.RunNetAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunOneEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.StepBackAction;
 import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
+import ua.stetsenkoinna.graphpresentation.input.InputShortcuts;
 import ua.stetsenkoinna.graphpresentation.objmodel.CanvasTabsBar;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectManagerDialog;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectPalette;
@@ -350,6 +351,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetsPanel.enableDragAndDrop(this);
 
         installCanvasToolShortcuts();
+        installMenuAccelerators();
         // The canvas no longer takes focus while painting, so it takes it once when the window
         // opens instead: its shortcuts work on a freshly started editor without a click first.
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -477,6 +479,37 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
 
     /**
+     * Re-states every menu accelerator in terms of the platform's shortcut modifier.
+     *
+     * <p>Done here, after {@code initComponents}, rather than by editing the accelerators where
+     * the form editor writes them. Two reasons. The generated block belongs to
+     * {@code PetriNetsFrame.form}: anyone who opens the Design tab and moves a component gets
+     * it rewritten, and a fix made inside it would vanish without trace. And the form editor
+     * cannot express "Command on macOS, Control elsewhere" in the first place - it only stores a
+     * literal modifier - so the choice has to be made in code wherever it lives.
+     *
+     * <p>Without this the whole menu reads Control on a Mac, and the Command presses a Mac user
+     * actually makes fall through to nothing.
+     */
+    private void installMenuAccelerators() {
+        int menu = InputShortcuts.menuMask();
+        int menuShift = InputShortcuts.shiftMenuMask();
+
+        newMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, menu));
+        importPnmlMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, menu));
+        savePnmlMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, menu));
+        exportPnmlMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, menuShift));
+        undoMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, menu));
+        redoMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, menuShift));
+        editNetParametersMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_E, menu));
+        centerOnNetMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, menu));
+        // Alt is Option on macOS, which makes this Command+Option+M there and Ctrl+Alt+M
+        // elsewhere - the same two-modifier shape on both.
+        openMonitor.setAccelerator(
+                KeyStroke.getKeyStroke(KeyEvent.VK_M, menu | InputEvent.ALT_DOWN_MASK));
+    }
+
+    /**
      * Keyboard shortcuts for the three "drop an element" tools — A(rc), P(lace), T(ransition)
      * — so switching tools doesn't always require reaching for the mouse. Registered on the
      * canvas itself via WHEN_ANCESTOR_OF_FOCUSED_COMPONENT rather than the whole window, so
@@ -540,7 +573,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // rather than calling setTool keeps the toolbar's own highlight in step, the same way
         // every binding here does; the switch comes first, since setTool keeps a selection only
         // when it is switching to Select.
-        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, InputEvent.CTRL_DOWN_MASK), "selectAll");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, InputShortcuts.menuMask()), "selectAll");
         actionMap.put("selectAll", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -556,8 +589,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // so the one thing every editor promises about a mistake was unreachable from the
         // keyboard. doClick() rather than calling the undo manager, so a key press does
         // precisely what the menu item does, including being inert when there is nothing to
-        // undo. Ctrl+Y is here as well: it is what a Windows user reaches for to redo.
-        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK), "undoEdit");
+        // undo. Shortcut+Y is here as well on the platforms that use it - see below.
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputShortcuts.menuMask()), "undoEdit");
         actionMap.put("undoEdit", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -565,9 +598,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         });
 
-        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z,
-                InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), "redoEdit");
-        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputEvent.CTRL_DOWN_MASK), "redoEdit");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputShortcuts.shiftMenuMask()), "redoEdit");
+        if (InputShortcuts.bindsRedoToY()) {
+            // What a Windows user reaches for to redo. Not bound on macOS, where Redo is
+            // Command+Shift+Z and Command+Y is spoken for elsewhere.
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputShortcuts.menuMask()), "redoEdit");
+        }
         actionMap.put("redoEdit", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
