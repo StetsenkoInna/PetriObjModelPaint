@@ -29,12 +29,17 @@ public class DeleteArcEdit extends AbstractUndoableEdit {
             panel.getGraphNet().getGraphArcInList().add(in);
         }
 
+        // The arc goes straight back into the list, carrying whatever pairing flags it had when
+        // it was removed - which is to say, the wrong ones. Without this a restored arc and the
+        // one running the other way drew down the same centre line, one hidden under the other.
+        panel.getGraphNet().fixOverlappingArcs();
         panel.repaint();
     }
 
     @Override
     public void redo() {
         super.redo();
+        // removeArc re-derives the pairing for what is left behind.
         panel.removeArc(arc);
         panel.setChoosenArc(null);
     }

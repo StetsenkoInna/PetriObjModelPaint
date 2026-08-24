@@ -169,21 +169,14 @@ public class DeleteGraphElementsEdit extends AbstractUndoableEdit {
      * Reconnects each restored in-arc with the out-arc that runs the opposite way between the
      * same place and transition, and refreshes every arc's drawn geometry now that its
      * endpoints are back on the canvas.
+     *
+     * <p>The net answers this itself, and answers it better: this used to pair arcs up without
+     * ever un-pairing one, so an arc restored beside a partner that is no longer there kept an
+     * offset it had no business keeping. It also cast both ends to a place and a transition,
+     * which is an assumption the shared method does not need to make.
      */
     private void relinkRestoredArcs() {
-        for (GraphArcOut arcOut : panel.getGraphNet().getGraphArcOutList()) {
-            for (GraphArcIn arcIn : panel.getGraphNet().getGraphArcInList()) {
-                int placeIdOnIn = ((GraphPetriPlace) arcIn.getBeginElement()).getId();
-                int transitionIdOnIn = ((GraphPetriTransition) arcIn.getEndElement()).getId();
-                int transitionIdOnOut = ((GraphPetriTransition) arcOut.getBeginElement()).getId();
-                int placeIdOnOut = ((GraphPetriPlace) arcOut.getEndElement()).getId();
-                if (placeIdOnIn == placeIdOnOut && transitionIdOnIn == transitionIdOnOut) {
-                    arcIn.twoArcs(arcOut);
-                }
-                arcIn.updateCoordinates();
-                arcOut.updateCoordinates();
-            }
-        }
+        panel.getGraphNet().fixOverlappingArcs();
     }
 
     @Override

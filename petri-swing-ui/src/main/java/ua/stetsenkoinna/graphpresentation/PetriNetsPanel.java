@@ -676,6 +676,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             graphNet.getGraphArcInList().remove((GraphArcIn) s); //added by Inna 4.12.2012
         }
 
+        // Whatever this arc was paired with is now alone and has to come back to the centre
+        // line, rather than keeping the offset it was given for a partner that has gone.
+        graphNet.fixOverlappingArcs();
         repaint();
     }
 
@@ -2016,6 +2019,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 remove(graphElement);
                 PetriNetsPanel.this.setDefaultColorGraphElements(); //27.07.2018
             }
+            // The deleted elements took their arcs with them, which can leave an arc that was
+            // half of a two-way pair standing on its own.
+            graphNet.fixOverlappingArcs();
             /* save this action into undo manager so that it can be undone */
             PetriNetsFrame.getUndoSupport().postEdit(edit);
         } catch (ExceptionInvalidNetStructure ex) {
