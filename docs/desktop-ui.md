@@ -34,11 +34,33 @@ The canvas is far larger than the window, and it has no scrollbars — navigatio
 | `Shift` + wheel | Scrolls sideways |
 | `Ctrl` + wheel | Zooms, anchored on the pointer, so whatever is under the cursor stays there |
 | Pan tool, drag | Moves the view; nothing under the pointer is touched |
-| Select tool, double-click empty canvas and drag | Pans without leaving the Select tool |
+| Select tool, double-click empty canvas | Pans without leaving the Select tool |
+
+The double-click pan holds on. Drag while the button is down and it ends when you let go, as a
+mouse gesture should; let go without having moved and the view stays attached to the pointer,
+with no button held, until the next click or `Esc`. That second form is what makes the gesture
+usable on a trackpad, where tap-to-click lifts the finger before you have moved at all.
 
 Trackpads are read at sub-notch precision, so a slow two-finger drag moves the view smoothly
 rather than waiting to jump a whole notch at a time. Scroll direction follows the system
 setting, including macOS "natural" scrolling.
+
+### Erasing
+
+The Delete tool removes things two ways:
+
+| Gesture | Effect |
+|---|---|
+| Click | Removes whatever is under the pointer — a place, a transition, an arc, or a shared-place link |
+| Click a Petri-object frame | Removes the frame, asking first; the net inside stays on the canvas |
+| Drag out a rectangle | Removes every element it encloses and every arc it crosses, in one undoable step |
+
+A click does not have to be exact: the eraser reaches a few pixels past the pointer, and does so
+by the same margin at every zoom level. An exact hit always wins over something merely nearby.
+
+A sweep leaves Petri-object frames alone even when it encloses them — stripping the frame off an
+object changes what the model is composed of, which is a larger act than the sweep was asking
+for, so it stays a deliberate click.
 
 ### Keyboard shortcuts
 
