@@ -11,6 +11,7 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -59,6 +60,7 @@ import ua.stetsenkoinna.graphnet.PortAnchor;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphpresentation.input.CanvasNavigation;
+import ua.stetsenkoinna.graphpresentation.input.CursorImages;
 import ua.stetsenkoinna.graphpresentation.input.InputShortcuts;
 import ua.stetsenkoinna.graphnet.GraphArc;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
@@ -4962,6 +4964,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
     }
 
+    /**
+     * The Delete tool's eraser pointer, or a crosshair if this platform cannot give us one.
+     *
+     * <p>Loaded through {@link javax.swing.ImageIcon}, which blocks on a {@code MediaTracker},
+     * rather than {@code Toolkit.getImage}, which returns immediately with an image that has not
+     * been read yet. An unloaded image measures -1 by -1, which puts the (0, 0) hotspot outside
+     * its bounds, and {@code createCustomCursor} then throws - caught below, so the tool quietly
+     * showed a crosshair instead of the eraser depending on nothing but load timing.
+     *
+     * <p>And resized to whatever {@code getBestCursorSize} asks for. The asset is 64x64 while
+     * Windows wants 32x32; left to the toolkit, each platform pads or scales it its own way,
+     * which is exactly the sort of difference this is meant not to have.
+     */
     private static Cursor buildEraserCursor() {
         try {
             URL url = ResourcePathConfig.getResource(PetriNetsPanel.class,
@@ -4969,13 +4984,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (url == null) {
                 return new Cursor(Cursor.CROSSHAIR_CURSOR);
             }
-            Image image = Toolkit.getDefaultToolkit().getImage(url);
-            return Toolkit.getDefaultToolkit().createCustomCursor(
-                    image, new Point(0, 0), "eraser");
+            Image loaded = new javax.swing.ImageIcon(url).getImage();
+            Toolkit toolkit = Toolkit.getDefaultToolkit();
+            Dimension best = toolkit.getBestCursorSize(CURSOR_SIZE, CURSOR_SIZE);
+            Image fitted = CursorImages.fitToCursor(loaded, best);
+            if (fitted == null) {
+                return new Cursor(Cursor.CROSSHAIR_CURSOR);
+            }
+            return toolkit.createCustomCursor(
+                    fitted, CursorImages.clampHotspot(new Point(0, 0), best), "eraser");
         } catch (RuntimeException problem) {
             return new Cursor(Cursor.CROSSHAIR_CURSOR);
         }
     }
+
+    /** The cursor size asked of the toolkit; it answers with the nearest it actually supports. */
+    private static final int CURSOR_SIZE = 32;
 
     /**
      * Drops a new place or transition at the click point — what the Add Place / Add Transition
