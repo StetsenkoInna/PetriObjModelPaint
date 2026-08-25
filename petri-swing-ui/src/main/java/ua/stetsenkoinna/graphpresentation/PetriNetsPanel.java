@@ -4134,6 +4134,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            // A click on a group's band is a click on the group, not on nothing. The press has
+            // already selected every member; the branch further down treats a click that hit no
+            // frame and no element as "clicked empty canvas" and clears the selection, which
+            // threw the group away the instant the button came back up.
+            if (groupBandAt(scaledCurrentMousePoint) != null) {
+                repaint();
+                return;
+            }
+
             // A frame — its header or its locked interior alike — selects the object on a
             // single click; a double click opens that object's own canvas, where its net can
             // actually be changed.

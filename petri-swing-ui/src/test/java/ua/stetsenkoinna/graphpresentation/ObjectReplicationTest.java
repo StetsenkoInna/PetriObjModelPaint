@@ -355,6 +355,46 @@ public class ObjectReplicationTest {
         }
     }
 
+    /**
+     * The selection has to survive the button coming back up.
+     *
+     * <p>A plain click is a press, a release and a click event, and the last of those treats a
+     * point that hit no frame and no element as empty canvas - which the band is, geometrically.
+     * Selecting on the press and clearing on the click meant the group flashed selected and went
+     * back to normal before the user had let go.
+     */
+    @Test
+    public void theSelectionSurvivesAPlainClickOnTheBand() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+
+        java.awt.Point point = onTheBand(group);
+        fullClickOn(point);
+
+        for (GraphObjectFrame member : group.getMembers()) {
+            assertTrue(member.getName() + " is still selected after the release",
+                    panel.getSelection().contains(member));
+        }
+    }
+
+    /** Press, release and the click event that follows - what a real click actually is. */
+    private void fullClickOn(java.awt.Point point) {
+        for (java.awt.event.MouseListener listener : panel.getMouseListeners()) {
+            if (listener instanceof PetriNetsPanel.MouseHandler handler) {
+                handler.mousePressed(mouseEvent(java.awt.event.MouseEvent.MOUSE_PRESSED, point));
+                handler.mouseReleased(mouseEvent(java.awt.event.MouseEvent.MOUSE_RELEASED, point));
+                handler.mouseClicked(mouseEvent(java.awt.event.MouseEvent.MOUSE_CLICKED, point));
+            }
+        }
+    }
+
+    private java.awt.event.MouseEvent mouseEvent(int id, java.awt.Point point) {
+        return new java.awt.event.MouseEvent(panel, id, System.currentTimeMillis(), 0,
+                point.x, point.y, 1, false, java.awt.event.MouseEvent.BUTTON1);
+    }
+
     /** Dragging the band moves every member by the same amount. */
     @Test
     public void draggingTheBandMovesTheWholeGroup() {
