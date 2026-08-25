@@ -22,11 +22,13 @@ with live animation, watch the statistics, and exchange it as PNML.
 ---
 
 > [!TIP]
-> **Just want to use the app?** Download the ready-made editor from the
-> [latest release](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/latest): grab the
-> zip for your OS (`petri-swing-ui-<version>-windows.zip` / `-linux.zip` / `-macos.zip`), unzip it
-> and run the launcher inside (`.bat` / `.sh` / `.command`): it checks for Java 23+ and points you
-> to the official download if it's missing.
+> **Just want to use the app?** Grab the ready-made editor, no source build required:
+> [Windows](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.3.0/petri-swing-ui-2.3.0-windows.zip) ·
+> [Linux](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.3.0/petri-swing-ui-2.3.0-linux.zip) ·
+> [macOS](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.3.0/petri-swing-ui-2.3.0-macos.zip)
+> (or browse the [latest release](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/latest) page for other
+> versions). Unzip it and run the launcher inside (`.bat` / `.sh` / `.command`): it checks for
+> Java 23+ and points you to the official download if it's missing.
 
 > [!NOTE]
 > **Want to contribute?** Open an issue to discuss the change first, then create a
