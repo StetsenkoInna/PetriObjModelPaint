@@ -527,6 +527,73 @@ public class GraphCanvasModel implements Serializable {
     }
 
     /**
+     * The connector a link belongs to: every link joining the same two Petri-objects.
+     *
+     * <p>A connector is the technique's own name for the whole set of shared places between one
+     * pair of objects, written {@code connector(o_u, o_v) = {(o_u.net.p_b, o_v.net.p_a)}}. Two
+     * objects sharing three places are joined by one connector of three place identifications,
+     * not by three unrelated links, and treating it as one thing is what lets the pair be
+     * reasoned about - and detached - as a unit.
+     *
+     * <p>Derived, never stored. A connector is entirely determined by which objects the existing
+     * links run between, so keeping a second record of it could only ever be a record that
+     * disagrees; this is the same reason the two-way arc pairing and the linked-place mark are
+     * both re-derived rather than maintained.
+     *
+     * <p>A link with an end belonging to no object is a connector of its own. The concept joins
+     * two Petri-objects, and loose places are not one - bundling every loose link into a single
+     * enormous "no-object" connector would be an artefact of saying null equals null.
+     *
+     * @param link one of this canvas's links
+     * @return the links of its connector, in declaration order, including {@code link} itself;
+     *         a single-element list when nothing else joins the same pair
+     */
+    public List<GraphPlaceFusion> connectorOf(GraphPlaceFusion link) {
+        GraphObjectFrame one = ownerOf(link.getMaster());
+        GraphObjectFrame other = ownerOf(link.getJoined());
+        if (one == null || other == null) {
+            return List.of(link);
+        }
+        List<GraphPlaceFusion> connector = new ArrayList<>();
+        for (GraphPlaceFusion candidate : fusions) {
+            if (joinsTheSamePair(candidate, one, other)) {
+                connector.add(candidate);
+            }
+        }
+        return connector;
+    }
+
+    /**
+     * @return true if this link runs between these two objects, whichever way round it was drawn
+     */
+    private boolean joinsTheSamePair(GraphPlaceFusion link,
+                                     GraphObjectFrame one, GraphObjectFrame other) {
+        GraphObjectFrame master = ownerOf(link.getMaster());
+        GraphObjectFrame joined = ownerOf(link.getJoined());
+        return (master == one && joined == other) || (master == other && joined == one);
+    }
+
+    /**
+     * Every connector on this canvas, each as the list of links that make it up.
+     *
+     * @return one entry per pair of objects that share at least one place, plus one entry per
+     *         link that has an end outside any object; declaration order throughout
+     */
+    public List<List<GraphPlaceFusion>> connectors() {
+        List<List<GraphPlaceFusion>> found = new ArrayList<>();
+        List<GraphPlaceFusion> accountedFor = new ArrayList<>();
+        for (GraphPlaceFusion link : fusions) {
+            if (accountedFor.contains(link)) {
+                continue;
+            }
+            List<GraphPlaceFusion> connector = connectorOf(link);
+            accountedFor.addAll(connector);
+            found.add(connector);
+        }
+        return found;
+    }
+
+    /**
      * @param place a place of the drawing
      * @return the links in which it is the source - the fan-out, empty if it has none
      */

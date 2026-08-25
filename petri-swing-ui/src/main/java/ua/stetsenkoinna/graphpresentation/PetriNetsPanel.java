@@ -1800,7 +1800,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *         canvas's selection colour while it is merely part of a wider selection
      */
     private Color fusionHighlight(GraphPlaceFusion fusion, java.util.Set<GraphElement> selected) {
-        if (fusion.isAnimationLit() || fusion == choosenFusion) {
+        // The whole connector lights, not the one line clicked. Several places shared between
+        // the same two objects are one connector in the technique's own terms, and picking out
+        // a single strand of it would draw the eye to something that is not a thing on its own.
+        if (fusion.isAnimationLit()
+                || (choosenFusion != null && canvasModel.connectorOf(choosenFusion).contains(fusion))) {
             return CanvasPalette.current().get(CanvasColor.FUSION_RING_SELECTED);
         }
         if (selected.contains(fusion.getMaster()) && selected.contains(fusion.getJoined())) {
@@ -2138,7 +2142,42 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 + fusion.getJoined().getName() + "' become two separate places again");
         split.addActionListener(e -> splitSharedPlace(fusion));
         menu.add(split);
+
+        // Offered only when there is a connector to speak of. On a pair of objects sharing one
+        // place the two commands would do exactly the same thing under two different names.
+        List<GraphPlaceFusion> connector = canvasModel.connectorOf(fusion);
+        if (connector.size() > 1) {
+            JMenuItem splitAll = new JMenuItem(
+                    "Split the whole connector (" + connector.size() + " shared places)");
+            splitAll.setToolTipText("These two Petri-objects share " + connector.size()
+                    + " places; this separates all of them at once");
+            splitAll.addActionListener(e -> splitConnector(connector));
+            menu.add(splitAll);
+        }
         menu.show(this, ev.getX(), ev.getY());
+    }
+
+    /**
+     * Separates every shared place between one pair of Petri-objects.
+     *
+     * <p>One undoable step for the whole connector, not one per place: detaching two objects is
+     * a single act however many places it took to join them, and having to press undo three
+     * times to take back one command would say otherwise.
+     *
+     * @param connector the links to split, as {@code GraphCanvasModel.connectorOf} reported them
+     */
+    private void splitConnector(List<GraphPlaceFusion> connector) {
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            // Over a copy: splitting removes links from the model, and the list handed in is
+            // derived from that same collection.
+            for (GraphPlaceFusion link : new ArrayList<>(connector)) {
+                splitSharedPlace(link);
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+        repaint();
     }
 
     private void showGroupSelectionMenu(MouseEvent ev, List<GraphElement> chunk) {

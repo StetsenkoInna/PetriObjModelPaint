@@ -334,6 +334,127 @@ public class GraphCanvasModelTest {
         assertTrue(reopened.getLoadWarnings().isEmpty());
     }
 
+    // ---------------------------------------------------- connectors
+
+    /** An object with {@code places} places of its own, framed and claimed. */
+    private static GraphObjectFrame objectWith(GraphCanvasModel canvas, String name,
+                                               int x, GraphPetriPlace[] out, int places) {
+        GraphObjectFrame frame = new GraphObjectFrame(name, new Rectangle(x, 0, 300, 400));
+        canvas.getFrames().add(frame);
+        for (int i = 0; i < places; i++) {
+            GraphPetriPlace place = place(canvas, name + i, 0, x + 40, 60 + i * 60);
+            canvas.claim(frame, place);
+            out[i] = place;
+        }
+        return frame;
+    }
+
+    /**
+     * Three places shared between the same two objects are one connector, not three unrelated
+     * links. This is the technique's own unit: {@code connector(o_u, o_v)} is the whole set of
+     * place identifications between one pair of objects.
+     */
+    @Test
+    public void everyLinkBetweenOnePairOfObjectsBelongsToOneConnector() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Pipeline", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[3];
+        GraphPetriPlace[] b = new GraphPetriPlace[3];
+        objectWith(canvas, "A", 0, a, 3);
+        objectWith(canvas, "B", 400, b, 3);
+
+        GraphPlaceFusion first = canvas.joinPlaces(a[0], b[0]);
+        canvas.joinPlaces(a[1], b[1]);
+        canvas.joinPlaces(a[2], b[2]);
+
+        assertEquals("all three are one connector", 3, canvas.connectorOf(first).size());
+        assertEquals("which is the only connector on the canvas", 1, canvas.connectors().size());
+    }
+
+    /** Asked from any of its strands, a connector answers the same. */
+    @Test
+    public void aConnectorIsTheSameWhicheverOfItsLinksIsAsked() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Pipeline", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[2];
+        GraphPetriPlace[] b = new GraphPetriPlace[2];
+        objectWith(canvas, "A", 0, a, 2);
+        objectWith(canvas, "B", 400, b, 2);
+
+        GraphPlaceFusion first = canvas.joinPlaces(a[0], b[0]);
+        // Drawn the other way round: B's place repeats A's this time. Same pair of objects, so
+        // the same connector - which way a link was dragged is not what a connector is about.
+        GraphPlaceFusion second = canvas.joinPlaces(b[1], a[1]);
+
+        assertEquals(2, canvas.connectorOf(first).size());
+        assertEquals(2, canvas.connectorOf(second).size());
+        assertTrue(canvas.connectorOf(first).contains(second));
+    }
+
+    /** A different pair of objects is a different connector. */
+    @Test
+    public void linksToADifferentObjectFormTheirOwnConnector() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Pipeline", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[2];
+        GraphPetriPlace[] b = new GraphPetriPlace[2];
+        GraphPetriPlace[] c = new GraphPetriPlace[2];
+        objectWith(canvas, "A", 0, a, 2);
+        objectWith(canvas, "B", 400, b, 2);
+        objectWith(canvas, "C", 800, c, 2);
+
+        GraphPlaceFusion toB = canvas.joinPlaces(a[0], b[0]);
+        GraphPlaceFusion toC = canvas.joinPlaces(a[1], c[0]);
+
+        assertEquals(1, canvas.connectorOf(toB).size());
+        assertEquals(1, canvas.connectorOf(toC).size());
+        assertEquals("two pairs of objects, two connectors", 2, canvas.connectors().size());
+    }
+
+    /**
+     * A link with an end outside any object stands alone. A connector joins two Petri-objects,
+     * and loose places are not one; bundling every loose link together would only be an artefact
+     * of one null owner matching another.
+     */
+    @Test
+    public void aLinkWithALoosePlaceIsAConnectorOfItsOwn() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Pipeline", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[1];
+        objectWith(canvas, "A", 0, a, 1);
+        GraphPetriPlace loose = place(canvas, "Loose", 0, 700, 60);
+        GraphPetriPlace alsoLoose = place(canvas, "AlsoLoose", 0, 700, 200);
+
+        GraphPlaceFusion framed = canvas.joinPlaces(a[0], loose);
+        GraphPlaceFusion free = canvas.joinPlaces(loose, alsoLoose);
+
+        assertEquals(1, canvas.connectorOf(framed).size());
+        assertEquals(1, canvas.connectorOf(free).size());
+        assertEquals("neither was bundled with the other", 2, canvas.connectors().size());
+    }
+
+    /** Every link belongs to exactly one connector, and none is counted twice. */
+    @Test
+    public void theConnectorsAccountForEveryLinkOnce() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Pipeline", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[3];
+        GraphPetriPlace[] b = new GraphPetriPlace[3];
+        GraphPetriPlace[] c = new GraphPetriPlace[3];
+        objectWith(canvas, "A", 0, a, 3);
+        objectWith(canvas, "B", 400, b, 3);
+        objectWith(canvas, "C", 800, c, 3);
+
+        canvas.joinPlaces(a[0], b[0]);
+        canvas.joinPlaces(a[1], b[1]);
+        canvas.joinPlaces(b[2], c[0]);
+
+        int counted = canvas.connectors().stream().mapToInt(java.util.List::size).sum();
+        assertEquals("every link is in a connector, and in only one",
+                canvas.getFusions().size(), counted);
+        assertEquals(2, canvas.connectors().size());
+    }
+
     /** Links of this kind are one-way: a link back the other way is refused. */
     @Test
     public void aLinkBackTheOtherWayIsRefused() {
