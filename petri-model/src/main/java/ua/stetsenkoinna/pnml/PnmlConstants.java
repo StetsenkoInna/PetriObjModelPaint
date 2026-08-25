@@ -77,7 +77,7 @@ public final class PnmlConstants {
      * it; see {@link #TOOL_VERSION_OBJECT_MODEL_CONFORMANT}. That is what makes it safe for
      * the value to move with the project.
      */
-    public static final String TOOL_VERSION_PETRI_OBJ_MODEL = "2.2.2";
+    public static final String TOOL_VERSION_PETRI_OBJ_MODEL = "2.3.0";
 
     /**
      * The element-level version of the first format, stamped on the block of a place, a
