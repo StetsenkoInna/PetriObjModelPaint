@@ -2002,16 +2002,33 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             choosenFusion = null;
             return;
         }
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            deleteSelectionWithin();
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+        repaint();
+    }
+
+    /**
+     * The body of {@link #deleteSelection}, wrapped by it in one update so that a selection
+     * holding objects, elements and an arc at once comes back on a single undo rather than on
+     * one per kind.
+     */
+    private void deleteSelectionWithin() {
+        // Objects go whole, and without asking. Delete now means what the eraser means: the
+        // selected Petri-objects and the nets inside them, in one undoable step. It used to ask
+        // twice over - once about the objects and again about whatever elements were selected -
+        // and a user who answered the first question and not the second was left with a model
+        // half taken apart. Undo covers the whole thing either way, which is what makes the
+        // question worth dropping rather than repeating.
+        //
+        // Dropping a frame while keeping its net is still available and still confirms: it is
+        // Remove Petri-object frame, in the object's own right-click menu.
         List<GraphObjectFrame> frames = framesOnThisCanvas(selection.allFrames());
         if (!frames.isEmpty() && choosenArc == null && choosen == null) {
-            String what = frames.size() == 1
-                    ? "the Petri-object '" + frames.getFirst().getName() + "'"
-                    : frames.size() + " Petri-objects";
-            if (MessageHelper.showConfirmation(dialogOwner(),
-                    "Delete " + what + " and the net inside? To keep the net and drop only the "
-                            + "frame, use the object's own Remove Petri-object frame.")) {
-                deleteSelectedObjects();
-            }
+            deleteSelectedObjects();
         }
         if (choosenArc != null) {
             removeArc(choosenArc);
@@ -2029,12 +2046,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             current = null;
         }
         if (!selection.elements().isEmpty()) {
-            int result = JOptionPane.showConfirmDialog((Component) null,
-                    "Are you sure you want to delete selected elements?",
-                    "Delete", JOptionPane.OK_CANCEL_OPTION);
-            if (result == JOptionPane.OK_OPTION) {
-                deleteSelectedElements();
-            }
+            deleteSelectedElements();
         }
     }
 

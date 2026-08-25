@@ -395,6 +395,53 @@ public class ObjectReplicationTest {
                 point.x, point.y, 1, false, java.awt.event.MouseEvent.BUTTON1);
     }
 
+    /**
+     * Delete takes the whole group - frames and nets - and asks nothing.
+     *
+     * <p>It used to put up a confirmation, and a second one about the elements after it, so a
+     * user who answered one and not the other was left with a model half taken apart. The
+     * eraser already removes an object whole without asking; the key now means the same thing.
+     *
+     * <p>The timeout is the assertion that no dialog appears: a modal one here would hang the
+     * test rather than fail it.
+     */
+    @Test(timeout = 10000)
+    public void deleteRemovesTheWholeGroupWithoutAsking() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+
+        pressOn(onTheBand(group));
+        panel.deleteSelection();
+
+        assertEquals("every frame went", 0, panel.getCanvasModel().getFrames().size());
+        assertEquals("and the nets inside them", 0,
+                panel.getGraphNet().getGraphPetriPlaceList().size());
+        panel.getCanvasModel().syncFusions();
+        assertTrue("and the group with them", panel.getCanvasModel().getGroups().isEmpty());
+    }
+
+    /** And it all comes back on one undo, however many objects it was. */
+    @Test(timeout = 10000)
+    public void deletingAGroupComesBackOnOneUndo() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+        javax.swing.undo.UndoManager undo = new javax.swing.undo.UndoManager();
+        PetriNetsFrame.getUndoSupport().addUndoableEditListener(undo);
+
+        pressOn(onTheBand(group));
+        panel.deleteSelection();
+        assertEquals(0, panel.getCanvasModel().getFrames().size());
+
+        undo.undo();
+
+        assertEquals("all three objects came back together",
+                3, panel.getCanvasModel().getFrames().size());
+    }
+
     /** Dragging the band moves every member by the same amount. */
     @Test
     public void draggingTheBandMovesTheWholeGroup() {
