@@ -13,6 +13,9 @@ import java.awt.geom.Point2D;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -101,5 +104,42 @@ public class PlaceFusionRenderingTest {
         Point2D framedCentre = framedPlace.getGraphElementCenter();
         assertTrue("neither end may land on the hidden place's own centre",
                 Math.min(line.getP1().distance(framedCentre), line.getP2().distance(framedCentre)) > 1);
+    }
+
+    /**
+     * A link between two places that belong to no object is drawn, and clickable, as a line.
+     *
+     * <p>Such a link could not be made at all until one-to-many arrived, and the drawing code
+     * had a dormant second form waiting for it: two free places were to be stacked on one point
+     * and ringed. That form is retired, because a source repeated by several places would have
+     * piled every copy onto the same spot. This pins the replacement - a line between them,
+     * both places left where they were.
+     */
+    @Test
+    public void aLinkBetweenTwoFreePlacesIsALineAndBothPlacesStayPut() {
+        PetriNetsPanel panel = freshPanel();
+        GraphPetriPlace source = new GraphPetriPlace(new PetriP("P0", 1), idCounter++);
+        source.setNewCoordinates(new Point2D.Double(120, 300));
+        panel.getGraphNet().getGraphPetriPlaceList().add(source);
+        GraphPetriPlace copy = new GraphPetriPlace(new PetriP("P1", 0), idCounter++);
+        copy.setNewCoordinates(new Point2D.Double(520, 300));
+        panel.getGraphNet().getGraphPetriPlaceList().add(copy);
+
+        GraphPlaceFusion link = panel.getCanvasModel().joinPlaces(source, copy);
+        panel.getCanvasModel().syncFusions();
+
+        assertEquals("the source stayed where it was drawn",
+                120.0, source.getGraphElementCenter().getX(), 0.001);
+        assertEquals("and so did the copy - nothing is stacked",
+                520.0, copy.getGraphElementCenter().getX(), 0.001);
+
+        Line2D line = trimmedFusionLine(panel, link);
+        assertNotNull("a free-to-free link is drawn as a line", line);
+        assertTrue("which runs between the two places",
+                line.getX1() > 120 && line.getX2() < 520);
+
+        assertSame("and a click on that line picks the link out",
+                link, panel.findSharedPlace(new Point2D.Double(
+                        (line.getX1() + line.getX2()) / 2, 300)));
     }
 }

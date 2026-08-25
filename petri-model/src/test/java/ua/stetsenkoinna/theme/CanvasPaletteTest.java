@@ -33,7 +33,6 @@ public class CanvasPaletteTest {
         assertEquals(new Color(0x1E, 0x8E, 0x3E), light.get(CanvasColor.FRAME_BORDER_SELECTED));
         assertEquals(new Color(0xE4, 0xEC, 0xF7), light.get(CanvasColor.FRAME_HEADER));
         assertEquals(new Color(0x1C, 0x2B, 0x3A), light.get(CanvasColor.FRAME_TEXT));
-        assertEquals(new Color(0x1B, 0x7F, 0x3B), light.get(CanvasColor.FUSION_RING));
         assertEquals(new Color(0xD9, 0x7A, 0x00), light.get(CanvasColor.PORT_HIGHLIGHT));
         assertEquals(new Color(255, 77, 77), light.get(CanvasColor.ANIMATION_ACTIVE));
         assertEquals(new Color(60, 120, 220), light.get(CanvasColor.ANIMATION_CROSSING));

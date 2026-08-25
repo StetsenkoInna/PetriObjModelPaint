@@ -717,18 +717,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         // selection carries is a walk over every selected object's subtree, and asking that
         // per shared place per repaint would be the same walk over and over.
         java.util.Set<GraphElement> selectedElements = selectedElements();
-        for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            if (isFusionDrawnOnThisCanvas(fusion)) {
-                fusion.draw(g2, fusionHighlight(fusion, selectedElements));
-            }
-        }
         paintObjectFrames(g2, true);
         paintPorts(g2);
         // The boundary stubs of the object being edited: each connection to the rest of
         // the document ends in a short stub labelled with the outside element's name.
         paintBoundaryStubLabels(g2);
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            if (fusion.isAnchoredToAFrame() && isFusionDrawnOnThisCanvas(fusion)) {
+            // Every link, not only the ones touching a frame: two places that belong to no
+            // object can be linked now, and the line is the only form there is.
+            if (isFusionDrawnOnThisCanvas(fusion)) {
                 Line2D line = trimmedFusionLine(fusion);
                 if (line != null) {
                     fusion.drawBetweenPorts(g2,
@@ -2013,8 +2010,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 // the answer exists, and undo needs it to put the element back into its object.
                 edit.rememberOwner(graphElement, canvasModel.ownerOf(graphElement));
                 if (graphElement instanceof GraphPetriPlace place) {
-                    // Same timing for the shared place a deleted half drags down with it.
-                    edit.rememberFusion(canvasModel.fusionOf(place));
+                    // Same timing for the reference links a deleted place drags down with it -
+                    // every one of them, since a place can now be the source of several.
+                    for (GraphPlaceFusion doomed : canvasModel.fusionsOf(place)) {
+                        edit.rememberFusion(doomed);
+                    }
                 }
                 remove(graphElement);
                 PetriNetsPanel.this.setDefaultColorGraphElements(); //27.07.2018
@@ -4653,10 +4653,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param place the place that was just edited
      */
     public void placeMarkingEdited(GraphPetriPlace place) {
-        GraphPlaceFusion fusion = canvasModel.fusionOf(place);
-        if (fusion != null) {
+        // Every link the place takes part in, in either role: one place may now be repeated by
+        // several others, and editing the marking of the one they copy has to reach all of them.
+        for (GraphPlaceFusion fusion : canvasModel.fusionsOf(place)) {
             fusion.adoptMarkingFrom(place);
         }
+    }
+
+    /**
+     * @param fusion a reference link
+     * @param end one of its two places
+     * @return the place at its other end
+     */
+    private static GraphPetriPlace partnerOf(GraphPlaceFusion fusion, GraphPetriPlace end) {
+        return fusion.getMaster() == end ? fusion.getJoined() : fusion.getMaster();
     }
 
     /**
@@ -4672,14 +4682,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (!isFusionDrawnOnThisCanvas(fusion)) {
                 continue;
             }
-            if (fusion.isOnRing(point)) {
+            Line2D line = trimmedFusionLine(fusion);
+            if (line != null && line.ptSegDist(point) <= 4) {
                 return fusion;
-            }
-            if (fusion.isAnchoredToAFrame()) {
-                Line2D line = trimmedFusionLine(fusion);
-                if (line != null && line.ptSegDist(point) <= 4) {
-                    return fusion;
-                }
             }
         }
         return null;
@@ -5177,8 +5182,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // answer exists, and undo needs it to put the element back into its own object.
             edit.rememberOwner(element, canvasModel.ownerOf(element));
             if (element instanceof GraphPetriPlace place) {
-                // Same timing for the shared place a deleted half drags down with it.
-                edit.rememberFusion(canvasModel.fusionOf(place));
+                // Same timing for the reference links a deleted place drags down with it -
+                // every one of them, since a place can now be the source of several.
+                for (GraphPlaceFusion doomed : canvasModel.fusionsOf(place)) {
+                    edit.rememberFusion(doomed);
+                }
             }
             remove(element);
             PetriNetsFrame.getUndoSupport().postEdit(edit);
@@ -6198,24 +6206,28 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         List<GraphPlaceFusion> litFusions = new ArrayList<>();
         for (GraphPetriPlace p : searchList) {
             for (Integer inp : inP) {
-                GraphPlaceFusion fusion = canvasModel.fusionOf(p);
-                GraphPetriPlace other = fusion == null ? null
-                        : fusion.getMaster() == p ? fusion.getJoined() : fusion.getMaster();
-                // A shared place's half answers to either half's number: the built model
-                // replaced the joined half's instance with the master's, so a firing in
-                // the joined half's own object reports the master's number - which its own
-                // scope's list never contained, and the token arriving there animated
-                // nothing at all.
-                boolean matches = p.getPetriPlace().getNumber() == inp
-                        || (other != null && other.getPetriPlace().getNumber() == inp);
+                List<GraphPlaceFusion> linked = canvasModel.fusionsOf(p);
+                // A linked place answers to any of its partners' numbers: the built model
+                // replaced each target's instance with its source's, so a firing in a target's
+                // own object reports the source's number - which that object's own scope list
+                // never contained, and the token arriving there animated nothing at all. With a
+                // source repeated by several places there is more than one partner to ask.
+                boolean matches = p.getPetriPlace().getNumber() == inp;
+                for (GraphPlaceFusion fusion : linked) {
+                    if (partnerOf(fusion, p).getPetriPlace().getNumber() == inp) {
+                        matches = true;
+                        break;
+                    }
+                }
                 if (!matches || list.contains(p)) {
                     continue;
                 }
                 list.add(p);
-                if (fusion != null) {
-                    // One place, both drawings: the new count lands on both halves, both
-                    // pulse, the reference line lights, and the other half's object joins
-                    // the animation spotlight like any crossing's far end.
+                // One place, every drawing of it: the new count lands on all of them, they all
+                // pulse, each reference line lights, and every partner's object joins the
+                // animation spotlight like any crossing's far end.
+                for (GraphPlaceFusion fusion : linked) {
+                    GraphPetriPlace other = partnerOf(fusion, p);
                     fusion.syncMarking();
                     if (!list.contains(other)) {
                         list.add(other);
