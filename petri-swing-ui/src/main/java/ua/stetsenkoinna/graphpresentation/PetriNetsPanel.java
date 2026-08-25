@@ -246,6 +246,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *  sweep - see the Delete branch of {@code mouseReleased}. */
     private Point eraserPressPoint;
 
+    /** The group being dragged by its band, or {@code null}. */
+    private GraphObjectGroup draggedGroup;
+
+    /** Where the group drag last was, in canvas coordinates - see the drag handler for why the
+     *  step rather than the whole delta is what moves the members. */
+    private Point groupDragPoint;
+
     /**
      * Set the moment a drag is seen, cleared on the next press and by the click that follows the
      * drag. It stops {@code mouseClicked} from reading the tail of a drag gesture as a click on
@@ -887,25 +894,21 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private void paintObjectGroups(Graphics2D g2) {
         for (GraphObjectGroup group : canvasModel.getGroups()) {
-            java.awt.Rectangle band = null;
-            for (GraphObjectFrame member : group.getMembers()) {
-                if (!isFrameDrawnOnThisCanvas(member) || member == focusedFrame) {
-                    continue;
-                }
-                java.awt.Rectangle bounds = member.getBounds();
-                band = band == null ? new java.awt.Rectangle(bounds) : band.union(bounds);
-            }
+            java.awt.Rectangle band = groupBandBounds(group);
             if (band == null) {
                 continue;
             }
-            band.grow(GROUP_BAND_MARGIN, GROUP_BAND_MARGIN);
 
             Stroke previousStroke = g2.getStroke();
             Color previousColor = g2.getColor();
             // Heavier and darker than a guide line. The band says several objects are one
             // thing, which has to survive being read across a whole canvas; drawn as faintly as
             // a snapping guide it was there and nobody saw it.
-            g2.setColor(CanvasPalette.current().get(CanvasColor.ELEMENT_STROKE));
+            boolean whole = !group.getMembers().isEmpty()
+                    && group.getMembers().stream().allMatch(selection::contains);
+            g2.setColor(whole
+                    ? CanvasSelection.SELECTED
+                    : CanvasPalette.current().get(CanvasColor.ELEMENT_STROKE));
             g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
                     10f, new float[]{6f, 6f}, 0f));
             g2.drawRoundRect(band.x, band.y, band.width, band.height, 18, 18);
@@ -922,6 +925,66 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
     /** How far a group's band stands clear of the objects it encloses. */
     private static final int GROUP_BAND_MARGIN = 16;
+
+    /**
+     * The rectangle a group's band occupies, or {@code null} if this canvas draws none of it.
+     *
+     * <p>Stated once and used by both the drawing and the hit test. Two copies of the same
+     * arithmetic would be two chances for the band a user clicks to be somewhere other than the
+     * band they can see.
+     */
+    private java.awt.Rectangle groupBandBounds(GraphObjectGroup group) {
+        java.awt.Rectangle band = null;
+        for (GraphObjectFrame member : group.getMembers()) {
+            if (!isFrameDrawnOnThisCanvas(member) || member == focusedFrame) {
+                continue;
+            }
+            java.awt.Rectangle bounds = member.getBounds();
+            band = band == null ? new java.awt.Rectangle(bounds) : band.union(bounds);
+        }
+        if (band != null) {
+            band.grow(GROUP_BAND_MARGIN, GROUP_BAND_MARGIN);
+        }
+        return band;
+    }
+
+    /**
+     * The group whose band is under the point, if any.
+     *
+     * <p>Only where the band itself is: inside the band but outside every object it encloses.
+     * A click that lands on a member is that member's - grabbing the whole group instead would
+     * make the individual objects unreachable, and they are ordinary objects that have to stay
+     * editable one at a time.
+     *
+     * @param point a point in canvas coordinates
+     * @return the group, or {@code null}
+     */
+    private GraphObjectGroup groupBandAt(Point2D point) {
+        if (frameAt(point) != null) {
+            return null;
+        }
+        for (GraphObjectGroup group : canvasModel.getGroups()) {
+            java.awt.Rectangle band = groupBandBounds(group);
+            if (band != null && band.contains(point)) {
+                return group;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Selects every object of a group.
+     *
+     * @param group the group to select
+     */
+    private void selectGroup(GraphObjectGroup group) {
+        selection.clear();
+        for (GraphObjectFrame member : group.getMembers()) {
+            if (isFrameDrawnOnThisCanvas(member)) {
+                selection.add(member);
+            }
+        }
+    }
 
     private void paintObjectFrames(Graphics2D g2, boolean collapsedOnes) {
         List<GraphObjectFrame> flat = canvasModel.getFrames();
@@ -3747,6 +3810,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // but an element's full body, now also reachable the same way while shown, can.
             // Gated on the left button: a right-click on a header used to start a frame drag,
             // which then had to be undone in mouseReleased once the popup trigger arrived there.
+            // The band belongs to the group as a whole: clicking it takes all of it, and
+            // dragging from there moves all of it. Checked before the frame paths below, which
+            // is only a question of order because the band never overlaps a member - see
+            // groupBandAt.
+            GraphObjectGroup bandGroup = SwingUtilities.isLeftMouseButton(ev)
+                    ? groupBandAt(scaledCurrentMousePoint) : null;
+            if (bandGroup != null) {
+                selectGroup(bandGroup);
+                draggedGroup = bandGroup;
+                groupDragPoint = scaledCurrentMousePoint;
+                // The snapshot the release turns into one undo step, taken here for the same
+                // reason every other drag takes it at its start.
+                if (layoutBeforeDrag == null) {
+                    layoutBeforeDrag = new CanvasLayoutSnapshot(canvasModel);
+                }
+                setCursor(new Cursor(Cursor.MOVE_CURSOR));
+                repaint();
+                return;
+            }
+
             if (SwingUtilities.isLeftMouseButton(ev)) {
                 resizedFrame = frameHandleAt(scaledCurrentMousePoint);
                 draggedFrame = resizedFrame == null ? frameHeaderAt(scaledCurrentMousePoint) : null;
@@ -4176,6 +4259,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (tool == CanvasTool.PAN) {
                 endPan();
                 return;
+            }
+
+            if (draggedGroup != null) {
+                draggedGroup = null;
+                groupDragPoint = null;
+                setCursor(Cursor.getDefaultCursor());
+                // postDragEdit runs at the end of the release like it does for every drag, so
+                // the whole group's move is one step.
             }
 
             if (selectToolPanning) {
@@ -5062,6 +5153,23 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 layoutBeforeDrag = new CanvasLayoutSnapshot(canvasModel);
             }
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+
+            if (draggedGroup != null) {
+                // By the step just taken rather than from where the drag began: moveFrame
+                // clamps a frame to the canvas, so a member stopped at an edge would otherwise
+                // keep receiving the whole accumulated delta and shoot away once it was free.
+                int dx = scaledCurrentMousePoint.x - groupDragPoint.x;
+                int dy = scaledCurrentMousePoint.y - groupDragPoint.y;
+                groupDragPoint = scaledCurrentMousePoint;
+                for (GraphObjectFrame member : draggedGroup.getMembers()) {
+                    if (isFrameOnThisCanvas(member)) {
+                        java.awt.Rectangle bounds = member.getBounds();
+                        moveFrame(member, bounds.x + dx, bounds.y + dy);
+                    }
+                }
+                repaint();
+                return;
+            }
 
             if (draggedFromPort != null) {
                 draggedPortCurrentPoint = scaledCurrentMousePoint;

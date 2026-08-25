@@ -51,9 +51,13 @@ public final class ImportedGroupScreenshot {
         System.out.println("links:      " + panel.getCanvasModel().getFusions().size());
         System.out.println("connectors: " + panel.getCanvasModel().connectors().size());
 
-        // Pick one strand, so the two-colour connector highlight is in the picture: the strand
-        // itself in the accent, the rest of its connector held back.
-        if (!panel.getCanvasModel().getFusions().isEmpty()) {
+        if (args.length > 2 && "select-group".equals(args[2])) {
+            // The group picked out as a whole, so the band's selected colour is in the picture.
+            panel.getCanvasModel().getGroups().forEach(group ->
+                    group.getMembers().forEach(panel.getSelection()::add));
+        } else if (!panel.getCanvasModel().getFusions().isEmpty()) {
+            // Pick one strand, so the two-colour connector highlight is in the picture: the
+            // strand itself in the accent, the rest of its connector held back.
             select(panel, panel.getCanvasModel().getFusions().getFirst());
         }
 

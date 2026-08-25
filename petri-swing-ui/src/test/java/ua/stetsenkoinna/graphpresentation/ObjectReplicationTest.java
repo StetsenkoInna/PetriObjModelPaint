@@ -315,6 +315,83 @@ public class ObjectReplicationTest {
         panel.getCanvasModel().syncFusions();
     }
 
+    // ------------------------------------------------------------------ the group as one thing
+
+    /** A point on the band: inside it, clear of every member. */
+    private java.awt.Point onTheBand(GraphObjectGroup group) {
+        java.awt.Rectangle first = group.getMembers().getFirst().getBounds();
+        // The margin the band is drawn with is 16; half of it sits clear of any frame.
+        return new java.awt.Point(first.x - 8, first.y + first.height / 2);
+    }
+
+    private void pressOn(java.awt.Point point) {
+        for (java.awt.event.MouseListener listener : panel.getMouseListeners()) {
+            if (listener instanceof PetriNetsPanel.MouseHandler handler) {
+                handler.mousePressed(new java.awt.event.MouseEvent(panel,
+                        java.awt.event.MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0,
+                        point.x, point.y, 1, false, java.awt.event.MouseEvent.BUTTON1));
+            }
+        }
+    }
+
+    private void dragTo(java.awt.Point point) {
+        panel.getMouseMotionListeners()[0].mouseDragged(new java.awt.event.MouseEvent(panel,
+                java.awt.event.MouseEvent.MOUSE_DRAGGED, System.currentTimeMillis(), 0,
+                point.x, point.y, 1, false, java.awt.event.MouseEvent.BUTTON1));
+    }
+
+    /** Clicking the band takes the whole group, not one object of it. */
+    @Test
+    public void clickingTheBandSelectsEveryMember() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+
+        pressOn(onTheBand(group));
+
+        for (GraphObjectFrame member : group.getMembers()) {
+            assertTrue(member.getName() + " is selected", panel.getSelection().contains(member));
+        }
+    }
+
+    /** Dragging the band moves every member by the same amount. */
+    @Test
+    public void draggingTheBandMovesTheWholeGroup() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+        List<Integer> before = group.getMembers().stream().map(m -> m.getBounds().x).toList();
+
+        java.awt.Point from = onTheBand(group);
+        pressOn(from);
+        dragTo(new java.awt.Point(from.x + 60, from.y + 40));
+
+        List<Integer> after = group.getMembers().stream().map(m -> m.getBounds().x).toList();
+        for (int i = 0; i < before.size(); i++) {
+            assertEquals("member " + i + " moved with the rest",
+                    before.get(i) + 60, (int) after.get(i));
+        }
+    }
+
+    /** A click on a member is still that member's - the group does not swallow it. */
+    @Test
+    public void clickingOneMemberStillSelectsOnlyThatMember() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+        GraphObjectFrame second = group.getMembers().get(1);
+
+        java.awt.Rectangle bounds = second.getBounds();
+        pressOn(new java.awt.Point(bounds.x + 6, bounds.y + 6));
+
+        assertTrue(panel.getSelection().contains(second));
+        assertTrue("and not the one beside it",
+                !panel.getSelection().contains(group.getMembers().getFirst()));
+    }
+
     // ------------------------------------------------------------------ connector to a group
 
     /**
