@@ -22,11 +22,13 @@
 ---
 
 > [!TIP]
-> **Просто хочете скористатися застосунком?** Завантажте готовий редактор з
-> [останнього релізу](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/latest):
-> візьміть zip для своєї ОС (`petri-swing-ui-<версія>-windows.zip` / `-linux.zip` / `-macos.zip`),
-> розпакуйте і запустіть лаунчер усередині (`.bat` / `.sh` / `.command`): він перевіряє
-> наявність Java 23+ і підкаже, звідки її завантажити, якщо її немає.
+> **Просто хочете скористатися застосунком?** Завантажте готовий редактор без збірки з джерел:
+> [Windows](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.3.0/petri-swing-ui-2.3.0-windows.zip) ·
+> [Linux](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.3.0/petri-swing-ui-2.3.0-linux.zip) ·
+> [macOS](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.3.0/petri-swing-ui-2.3.0-macos.zip)
+> (або перегляньте сторінку [останнього релізу](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/latest)
+> для інших версій). Розпакуйте і запустіть лаунчер усередині (`.bat` / `.sh` / `.command`): він
+> перевіряє наявність Java 23+ і підкаже, звідки її завантажити, якщо її немає.
 
 > [!NOTE]
 > **Хочете допомогти проєкту?** Спершу відкрийте issue, щоб обговорити зміну, потім
