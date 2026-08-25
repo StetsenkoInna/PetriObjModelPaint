@@ -2182,7 +2182,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         .recordOpened(file.toPath(), objModel.getName());
         ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared().setActiveProjectId(entry.getId());
 
-        MessageHelper.showImportWarnings(this, parser.getWarnings());
+        // The parser's own warnings and whatever the canvas had to drop, in one dialog: to the
+        // user they are the same thing - what this file could not be opened exactly as written.
+        java.util.List<String> warnings = new java.util.ArrayList<>(parser.getWarnings());
+        warnings.addAll(canvas.getLoadWarnings());
+        MessageHelper.showImportWarnings(this, warnings);
     }
 
     /**

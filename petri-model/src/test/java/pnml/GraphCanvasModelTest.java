@@ -290,6 +290,50 @@ public class GraphCanvasModelTest {
         assertFalse(p[1].isLinkedToAnotherPlace());
     }
 
+    /**
+     * A document can carry links the editor would never have let anyone draw - written by hand,
+     * by another writer, or by an older version of this tool, none of which consulted these
+     * rules. Those links are dropped on the way in and named, rather than drawn: this is how a
+     * pair linked both ways round came to be seen on a canvas at all.
+     *
+     * <p>Document order decides which of a contradictory group survives: the first stated. It is
+     * also the one that had already taken effect by the time the later ones were declared, so
+     * keeping it is what the document already meant.
+     */
+    @Test
+    public void aDocumentCarryingLinksTheEditorWouldRefuseLosesThemAndSaysSo() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphPetriPlace first = canvas.getNet().getGraphPetriPlaceList().get(1);
+        GraphPetriPlace second = canvas.getNet().getGraphPetriPlaceList().get(2);
+        canvas.joinPlaces(first, second);
+
+        GraphPetriObjModel model = canvas.toObjModel();
+        // The same pair again, the other way round - meaningless, since the first link already
+        // made the two one place.
+        model.addLink(ua.stetsenkoinna.petriobj.PetriObjLink.placeFusion(0, 1, 1, 0));
+
+        GraphCanvasModel reopened = GraphCanvasModel.fromObjModel(model);
+
+        assertEquals("only the first of the pair survived", 1, reopened.getFusions().size());
+        assertEquals("and the user is told what went", 1, reopened.getLoadWarnings().size());
+        assertTrue("naming the reason rather than just the fact",
+                reopened.getLoadWarnings().getFirst().contains("opposite direction"));
+    }
+
+    /** A document whose links are all sound is read without complaint. */
+    @Test
+    public void asoundDocumentProducesNoWarnings() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphPetriPlace first = canvas.getNet().getGraphPetriPlaceList().get(1);
+        GraphPetriPlace second = canvas.getNet().getGraphPetriPlaceList().get(2);
+        canvas.joinPlaces(first, second);
+
+        GraphCanvasModel reopened = GraphCanvasModel.fromObjModel(canvas.toObjModel());
+
+        assertEquals(1, reopened.getFusions().size());
+        assertTrue(reopened.getLoadWarnings().isEmpty());
+    }
+
     /** Links of this kind are one-way: a link back the other way is refused. */
     @Test
     public void aLinkBackTheOtherWayIsRefused() {
