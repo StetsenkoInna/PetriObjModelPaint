@@ -53,6 +53,7 @@ import ua.stetsenkoinna.graphnet.GraphCanvasModel;
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphElementIdGenerator;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
+import ua.stetsenkoinna.graphnet.GraphObjectGroup;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPlaceFusion;
 import ua.stetsenkoinna.graphnet.NetTemplateRef;
@@ -1513,6 +1514,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         canvasModel.release(s);
         graphNet.delGraphElement(s); //added by Inna 4.12.2012
         canvasModel.removeDanglingFusions();
+        canvasModel.removeDanglingGroupMembers();
 
         repaint();
     }
@@ -2143,6 +2145,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         split.addActionListener(e -> splitSharedPlace(fusion));
         menu.add(split);
 
+        // The group's members are the copies, never the source - see replicateLinkAcrossGroup.
+        GraphObjectGroup group = canvasModel.groupOf(canvasModel.ownerOf(fusion.getJoined()));
+        if (group != null && group.size() > 1) {
+            JMenuItem across = new JMenuItem(
+                    "Replicate across '" + group.getName() + "' (" + group.size() + " objects)");
+            across.setToolTipText("Give every object of the group the same shared place, the way"
+                    + " a connector to a group is replicated to each of its members");
+            across.addActionListener(e -> replicateLinkAcrossGroup(fusion, group));
+            menu.add(across);
+        }
+
         // Offered only when there is a connector to speak of. On a pair of objects sharing one
         // place the two commands would do exactly the same thing under two different names.
         List<GraphPlaceFusion> connector = canvasModel.connectorOf(fusion);
@@ -2155,6 +2168,78 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             menu.add(splitAll);
         }
         menu.show(this, ev.getX(), ev.getY());
+    }
+
+    /**
+     * Gives every object of a group the same shared place, from one link to one of them.
+     *
+     * <p>This is the technique's connector-to-a-group:
+     * {@code g.net.p_b = o.net.p_a ⟺ ∀o_i ∈ g: o_i.net.p_b = o.net.p_a}. One declaration, and
+     * every member of the group shares that place with the single object - which is the point of
+     * groups, and the thing that made describing a hundred like nodes worth doing.
+     *
+     * <p>Note which side the group is on. The rule assigns <em>to</em> each member <em>from</em>
+     * the lone object, so the members are the copies and the object is the source. It cannot be
+     * the other way round: a place that copied a hundred sources would have no answer to what
+     * its marking is, and the editor refuses that link individually for the same reason. So the
+     * command is offered only from a link whose group end is the copy, which is why the menu
+     * looks at the owner of {@code getJoined()} and not of either end.
+     *
+     * <p>Members whose corresponding place is already linked are stepped over rather than
+     * treated as failures: replicating twice, or replicating after wiring one member by hand,
+     * should finish the job rather than refuse it.
+     *
+     * @param link  the link already made to one member of the group
+     * @param group the group to spread it across
+     */
+    private void replicateLinkAcrossGroup(GraphPlaceFusion link, GraphObjectGroup group) {
+        GraphObjectFrame linkedMember = canvasModel.ownerOf(link.getJoined());
+        int placeIndex = canvasModel.placesOf(linkedMember).indexOf(link.getJoined());
+        if (placeIndex < 0) {
+            MessageHelper.showError(dialogOwner(), "That place is not one of the group member's");
+            return;
+        }
+        GraphPetriPlace source = link.getMaster();
+
+        List<String> refused = new ArrayList<>();
+        int made = 0;
+        // One replication is one Ctrl+Z, the same bargain the stamping itself offers.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            for (GraphObjectFrame member : group.getMembers()) {
+                if (member == linkedMember) {
+                    continue;
+                }
+                List<GraphPetriPlace> places = canvasModel.placesOf(member);
+                if (placeIndex >= places.size()) {
+                    refused.add(member.getName() + ": it has no place in that position");
+                    continue;
+                }
+                GraphPetriPlace target = places.get(placeIndex);
+                if (canvasModel.sourceFusionOf(target) != null) {
+                    // Already wired, by an earlier replication or by hand. Nothing to do.
+                    continue;
+                }
+                try {
+                    GraphPlaceFusion made0 = canvasModel.joinPlaces(source, target);
+                    PetriNetsFrame.getUndoSupport().postEdit(new JoinPlacesEdit(this, made0));
+                    made++;
+                } catch (IllegalArgumentException rejected) {
+                    refused.add(member.getName() + ": " + rejected.getMessage());
+                }
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+
+        repaint();
+        if (!refused.isEmpty()) {
+            // Said out loud rather than swallowed: a replication that quietly covered part of a
+            // group would leave a model the user believes is uniform and is not.
+            MessageHelper.showWarnings(dialogOwner(),
+                    "Shared the place with " + made + " of " + (group.size() - 1)
+                            + " other objects", refused);
+        }
     }
 
     /**
@@ -2221,6 +2306,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         duplicate.setToolTipText("Copy the object together with its net — the way to get N alike");
         duplicate.addActionListener(e -> duplicateObject(frame));
         menu.add(duplicate);
+
+        JMenuItem replicate = new JMenuItem("Replicate into a group...");
+        replicate.setToolTipText(
+                "Stamp this object N times and keep the copies together as one group");
+        replicate.addActionListener(e -> replicateObject(frame));
+        menu.add(replicate);
 
         JMenuItem saveAsTemplate = new JMenuItem("Save as Petri-object...");
         saveAsTemplate.setToolTipText(
@@ -3095,6 +3186,129 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         } finally {
             PetriNetsFrame.getUndoSupport().endUpdate();
         }
+    }
+
+    /**
+     * The largest group the editor will stamp in one go.
+     *
+     * <p>There is nothing in the technique that stops at any number - its whole point is
+     * hundreds of like nodes. The limit is this editor's: every object here carries its own full
+     * copy of the net, drawn element by element on every repaint, so a four-figure group would
+     * make the canvas unusable long before the model became wrong. A refusal that says so is
+     * better than a stamp that appears to work and leaves the editor unresponsive.
+     */
+    private static final int MAX_GROUP_SIZE = 200;
+
+    /** Gap left between the members of a group when they are laid out. */
+    private static final int GROUP_MEMBER_GAP = 40;
+
+    /**
+     * Stamps a Petri-object N times and keeps the copies together as a group.
+     *
+     * <p>This is the technique's {@code multiply(net, lists, k)}: one net described once and
+     * instantiated k times. The members are ordinary Petri-objects - a group <em>is</em> its
+     * objects, by definition - so the simulation and the saved document are the same as if the
+     * user had duplicated by hand k times. What the group adds is that the editor now knows they
+     * belong together.
+     *
+     * @param frame the object to stamp
+     */
+    private void replicateObject(GraphObjectFrame frame) {
+        GraphObjectGroup existing = canvasModel.groupOf(frame);
+        String prompt = existing == null
+                ? "Replicate '" + frame.getName() + "' into a group of how many?"
+                : "'" + existing.getName() + "' holds " + existing.size()
+                        + " objects. How many should it hold?";
+        String answer = JOptionPane.showInputDialog(dialogOwner(), prompt,
+                existing == null ? "10" : Integer.toString(existing.size()));
+        if (answer == null) {
+            return;
+        }
+        int wanted;
+        try {
+            wanted = Integer.parseInt(answer.trim());
+        } catch (NumberFormatException notANumber) {
+            MessageHelper.showError(dialogOwner(), "'" + answer.trim() + "' is not a number");
+            return;
+        }
+        int already = existing == null ? 1 : existing.size();
+        if (wanted < 2) {
+            MessageHelper.showError(dialogOwner(), "A group holds at least two objects");
+            return;
+        }
+        if (wanted > MAX_GROUP_SIZE) {
+            MessageHelper.showError(dialogOwner(), "The editor stamps at most " + MAX_GROUP_SIZE
+                    + " objects in one group; every one of them carries a full copy of the net"
+                    + " and is drawn on every repaint");
+            return;
+        }
+        if (wanted <= already) {
+            MessageHelper.showError(dialogOwner(), existing == null
+                    ? "The group would hold nothing new"
+                    : "The group already holds " + already
+                            + " objects; removing members is done by erasing them");
+            return;
+        }
+
+        replicateObjectInto(frame, wanted);
+    }
+
+    /**
+     * Stamps {@code frame} until its group holds {@code wanted} objects.
+     *
+     * <p>The count is a parameter rather than something this asks for, the same reason
+     * {@link #duplicateObject(GraphObjectFrame, String)} takes its name that way: it makes the
+     * operation reachable - and testable - without a dialog standing in front of it.
+     *
+     * @param frame the object to stamp
+     * @param wanted how many objects the group should hold when this is done
+     */
+    private void replicateObjectInto(GraphObjectFrame frame, int wanted) {
+        GraphObjectGroup existing = canvasModel.groupOf(frame);
+        int already = existing == null ? 1 : existing.size();
+
+        // One replication is one Ctrl+Z. Stamping fifty objects and taking them back fifty times
+        // would be a worse bargain than not having the command at all.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            GraphObjectGroup group = existing;
+            if (group == null) {
+                group = new GraphObjectGroup(frame.getName(), frame.getTemplate());
+                canvasModel.getGroups().add(group);
+                group.add(frame);
+                // The first member is renamed too, so the group reads 1..n throughout rather
+                // than as one object with some numbered copies stuck to it.
+                frame.setName(group.getName() + " 1");
+            }
+            for (int index = already; index < wanted; index++) {
+                GraphObjectFrame copy =
+                        duplicateObject(frame, group.getName() + " " + (index + 1));
+                if (copy == null) {
+                    // duplicateObject has already said why; stop rather than leave a half group.
+                    break;
+                }
+                placeGroupMember(group, copy, index);
+                group.add(copy);
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+        canvasStack.notifyChanged();
+        repaint();
+    }
+
+    /**
+     * Puts the {@code index}-th member of a group beside the first one.
+     *
+     * <p>Needed because {@code duplicateObject} always offsets its copy from the object it was
+     * given by the same amount: told to copy the same object k times it would stack every copy
+     * on the same spot. Laying them out here keeps that method's own behaviour - one copy, one
+     * step to the right - untouched.
+     */
+    private void placeGroupMember(GraphObjectGroup group, GraphObjectFrame member, int index) {
+        GraphObjectFrame first = group.getMembers().getFirst();
+        java.awt.Rectangle bounds = first.getBounds();
+        moveFrame(member, bounds.x + index * (bounds.width + GROUP_MEMBER_GAP), bounds.y);
     }
 
     private void renameObject(GraphObjectFrame frame) {

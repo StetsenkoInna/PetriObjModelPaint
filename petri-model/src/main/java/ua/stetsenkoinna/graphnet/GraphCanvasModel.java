@@ -58,6 +58,15 @@ public class GraphCanvasModel implements Serializable {
     private String name;
     private GraphPetriNet net;
     private final List<GraphObjectFrame> frames = new ArrayList<>();
+
+    /**
+     * Petri-objects stamped together from one net - see {@link GraphObjectGroup}.
+     *
+     * <p>Held beside the frames rather than instead of them. A group's members are ordinary
+     * objects on this canvas and stay in {@link #frames}; this list only records which of them
+     * were made together, which is all a group is.
+     */
+    private final List<GraphObjectGroup> groups = new ArrayList<>();
     private final List<GraphPlaceFusion> fusions = new ArrayList<>();
 
     /**
@@ -162,6 +171,69 @@ public class GraphCanvasModel implements Serializable {
      */
     public List<GraphObjectFrame> getFrames() {
         return frames;
+    }
+
+    /**
+     * @return the object groups on this canvas, live - the same treatment {@link #getFrames}
+     *         gets, so a caller that has to add one can
+     */
+    public List<GraphObjectGroup> getGroups() {
+        return groups;
+    }
+
+    /**
+     * The places belonging to one Petri-object, in the order the model addresses them by.
+     *
+     * <p>The same order links are written and read in - "the n-th place of the object's page" -
+     * so an index into this list means the same thing here, in a saved document, and across two
+     * objects stamped from one net. That is what lets a link be replicated across a group: the
+     * place at index i of one member is the place at index i of every other.
+     *
+     * @param frame the object, which may be null for the places belonging to no object
+     * @return its places, in canvas order
+     */
+    public List<GraphPetriPlace> placesOf(GraphObjectFrame frame) {
+        List<GraphPetriPlace> owned = new ArrayList<>();
+        for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
+            if (ownerOf(place) == frame) {
+                owned.add(place);
+            }
+        }
+        return owned;
+    }
+
+    /**
+     * @param frame any Petri-object
+     * @return the group it was stamped as part of, or {@code null} if it stands alone
+     */
+    public GraphObjectGroup groupOf(GraphObjectFrame frame) {
+        for (GraphObjectGroup group : groups) {
+            if (group.contains(frame)) {
+                return group;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Drops members that are no longer on the canvas, and groups that no longer hold enough
+     * objects to be one.
+     *
+     * <p>Called wherever {@link #removeDanglingFusions} is, and for the same reason: deleting an
+     * object cannot be expected to know every record that mentioned it. A group that has fallen
+     * to a single member is dissolved rather than kept - one object stamped from a template is
+     * just an object, and leaving a group of one would draw a stack around it and offer to
+     * replicate a connector across a group of one.
+     */
+    public void removeDanglingGroupMembers() {
+        for (GraphObjectGroup group : groups) {
+            for (GraphObjectFrame member : new ArrayList<>(group.getMembers())) {
+                if (!frames.contains(member)) {
+                    group.remove(member);
+                }
+            }
+        }
+        groups.removeIf(group -> group.size() < 2);
     }
 
     public List<GraphPlaceFusion> getFusions() {
