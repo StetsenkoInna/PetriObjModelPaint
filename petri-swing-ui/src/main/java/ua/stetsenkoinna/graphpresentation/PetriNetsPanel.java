@@ -979,6 +979,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private void selectGroup(GraphObjectGroup group) {
         selection.clear();
+        // What was picked out before is not picked out any more. These three hold whatever was
+        // last clicked on its own, and Delete consults them before it looks at the selection -
+        // so an element clicked earlier, still sitting in `choosen`, quietly turned "delete this
+        // group" into "delete that one element" and left every frame standing.
+        choosen = null;
+        choosenArc = null;
+        choosenFusion = null;
+        current = null;
+        currentArc = null;
         for (GraphObjectFrame member : group.getMembers()) {
             if (isFrameDrawnOnThisCanvas(member)) {
                 selection.add(member);

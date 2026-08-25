@@ -422,6 +422,103 @@ public class ObjectReplicationTest {
         assertTrue("and the group with them", panel.getCanvasModel().getGroups().isEmpty());
     }
 
+    /**
+     * The same, after having clicked an element first.
+     *
+     * <p>This is the case the previous test missed by starting from a clean panel. Delete looks
+     * at what was last clicked on its own before it looks at the selection, so an element
+     * clicked earlier and never cleared turned "delete this group" into "delete that element" -
+     * the nets went, every frame stayed, and undo brought back only what had gone.
+     */
+    @Test(timeout = 10000)
+    public void deletingAGroupWorksEvenAfterAnElementWasClickedFirst() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+
+        // A click on a place of the first member, the way any real session starts.
+        GraphPetriPlace place = panel.getCanvasModel().placesOf(group.getMembers().getFirst()).getFirst();
+        java.awt.Point at = new java.awt.Point(
+                (int) place.getGraphElementCenter().getX(),
+                (int) place.getGraphElementCenter().getY());
+        fullClickOn(at);
+
+        fullClickOn(onTheBand(group));
+        panel.deleteSelection();
+
+        assertEquals("every frame went", 0, panel.getCanvasModel().getFrames().size());
+        assertEquals("and every net with them", 0,
+                panel.getGraphNet().getGraphPetriPlaceList().size());
+    }
+
+    /**
+     * What a real session does: pick the group up, move it, let go, then press Delete.
+     */
+    @Test(timeout = 10000)
+    public void deletingAGroupWorksAfterItHasBeenDragged() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+
+        java.awt.Point from = onTheBand(group);
+        pressOn(from);
+        dragTo(new java.awt.Point(from.x + 40, from.y + 30));
+        releaseAt(new java.awt.Point(from.x + 40, from.y + 30));
+
+        assertEquals("the group is still what is selected",
+                3, panel.getSelection().allFrames().size());
+
+        panel.deleteSelection();
+
+        assertEquals("every frame went", 0, panel.getCanvasModel().getFrames().size());
+        assertEquals("and every net with them", 0,
+                panel.getGraphNet().getGraphPetriPlaceList().size());
+    }
+
+    private void releaseAt(java.awt.Point point) {
+        for (java.awt.event.MouseListener listener : panel.getMouseListeners()) {
+            if (listener instanceof PetriNetsPanel.MouseHandler handler) {
+                handler.mouseReleased(mouseEvent(java.awt.event.MouseEvent.MOUSE_RELEASED, point));
+            }
+        }
+    }
+
+    /**
+     * The reported case, on the document it was reported against.
+     *
+     * <p>The synthetic panels above have no links between their objects; this one does, which is
+     * the difference worth reproducing rather than assuming away.
+     */
+    @Test(timeout = 15000)
+    public void deletingAGroupOfLinkedObjectsTakesTheFramesToo() throws Exception {
+        java.io.File demo = new java.io.File("../petri-model/target/demo/release-2.3.0-demo.pnml");
+        org.junit.Assume.assumeTrue("demo document present", demo.isFile());
+
+        PetriP.initNext();
+        PetriT.initNext();
+        panel = new PetriNetsPanel(null, true);
+        panel.setCanvasModel(ua.stetsenkoinna.graphnet.GraphCanvasModel.fromObjModel(
+                new ua.stetsenkoinna.pnml.PnmlModelParser().parse(demo)));
+
+        assertEquals("the document's group is here", 1, panel.getCanvasModel().getGroups().size());
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+        int framesBefore = panel.getCanvasModel().getFrames().size();
+
+        fullClickOn(onTheBand(group));
+        assertEquals("the whole group is selected", 4, panel.getSelection().allFrames().size());
+
+        panel.deleteSelection();
+
+        assertEquals("the four members went, the dispatcher stayed",
+                framesBefore - 4, panel.getCanvasModel().getFrames().size());
+        for (GraphObjectFrame member : group.getMembers()) {
+            assertTrue("no member is left on the canvas",
+                    !panel.getCanvasModel().getFrames().contains(member));
+        }
+    }
+
     /** And it all comes back on one undo, however many objects it was. */
     @Test(timeout = 10000)
     public void deletingAGroupComesBackOnOneUndo() {
