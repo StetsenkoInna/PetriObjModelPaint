@@ -75,6 +75,46 @@ public class ReleaseDemoModelTest {
     }
 
     /**
+     * The group has to survive the file, not just the model.
+     *
+     * <p>The round trip already covered canvas to model and back; this covers the half that
+     * actually reaches a user - written to XML and read again by the parser. They are different
+     * code paths, and only one of them was being exercised.
+     */
+    @Test
+    public void theGroupSurvivesBeingWrittenAndParsed() throws Exception {
+        String xml = new PnmlModelGenerator().generateXml(demoModel());
+        java.io.File file = DEMO.getParent().resolve("round-trip.pnml").toFile();
+        Files.createDirectories(DEMO.getParent());
+        Files.writeString(file.toPath(), xml, StandardCharsets.UTF_8);
+
+        GraphPetriObjModel reparsed = new ua.stetsenkoinna.pnml.PnmlModelParser().parse(file);
+
+        assertEquals("the group came back", 1, reparsed.getGroups().size());
+        assertEquals("Server", reparsed.getGroups().getFirst().name());
+        assertEquals("with all four members",
+                List.of(1, 2, 3, 4), reparsed.getGroups().getFirst().memberObjects());
+    }
+
+    /**
+     * And the whole way to the canvas the editor actually draws — the step after the parser.
+     */
+    @Test
+    public void theGroupReachesTheCanvasAfterOpeningTheFile() throws Exception {
+        String xml = new PnmlModelGenerator().generateXml(demoModel());
+        java.io.File file = DEMO.getParent().resolve("to-canvas.pnml").toFile();
+        Files.createDirectories(DEMO.getParent());
+        Files.writeString(file.toPath(), xml, StandardCharsets.UTF_8);
+
+        GraphPetriObjModel reparsed = new ua.stetsenkoinna.pnml.PnmlModelParser().parse(file);
+        ua.stetsenkoinna.graphnet.GraphCanvasModel canvas =
+                ua.stetsenkoinna.graphnet.GraphCanvasModel.fromObjModel(reparsed);
+
+        assertEquals("the canvas has the group", 1, canvas.getGroups().size());
+        assertEquals("with four members", 4, canvas.getGroups().getFirst().size());
+    }
+
+    /**
      * A dispatcher handing work to a group of four servers.
      *
      * <p>Object 0 is the dispatcher; objects 1..4 are the group. Each server repeats two of the
@@ -149,7 +189,9 @@ public class ReleaseDemoModelTest {
         int row = SERVER_Y + 110;
         Map<Integer, Point2D.Double> places = Map.of(
                 task.getNumber(), at(left + 70, row),
-                busy.getNumber(), at(left + 190, row + 80),
+                // Under Task rather than under Serve: the transition's own delay and
+                // probability labels are drawn below it, and a place there collides with them.
+                busy.getNumber(), at(left + 70, row + 90),
                 ack.getNumber(), at(left + 310, row));
         Map<Integer, Point2D.Double> transitions = Map.of(
                 serve.getNumber(), at(left + 190, row));

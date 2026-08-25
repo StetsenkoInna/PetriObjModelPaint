@@ -17,6 +17,7 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -215,6 +216,103 @@ public class ObjectReplicationTest {
         assertEquals(3, group.size());
         assertTrue("and the rest stayed", group.contains(group.getMembers().getFirst()));
         assertNull("the removed one is in no group", panel.getCanvasModel().groupOf(doomed));
+    }
+
+    /**
+     * The defect that made a group vanish the moment its document was opened.
+     *
+     * <p>Everything upstream was right - the file carried the group, the parser read it, the
+     * canvas built it - and then the panel replaced its own canvas with the loaded one by
+     * copying across the frames and the links, and left the groups behind. A collection added to
+     * the model has to be added to every path that copies one, and this is the path a user
+     * actually travels.
+     */
+    @Test
+    public void openingADocumentKeepsItsGroups() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+
+        ua.stetsenkoinna.graphnet.GraphCanvasModel loaded =
+                ua.stetsenkoinna.graphnet.GraphCanvasModel.fromObjModel(
+                        panel.getCanvasModel().toObjModel());
+        assertEquals("the loaded canvas has it", 1, loaded.getGroups().size());
+
+        PetriNetsPanel other = new PetriNetsPanel(null, true);
+        other.setCanvasModel(loaded);
+
+        assertEquals("and so does the panel it was put on", 1, other.getCanvasModel().getGroups().size());
+        assertEquals(3, other.getCanvasModel().getGroups().getFirst().size());
+    }
+
+    /** A copied canvas keeps its groups too - the other path that duplicates one. */
+    @Test
+    public void copyingACanvasKeepsItsGroups() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+
+        ua.stetsenkoinna.graphnet.GraphCanvasModel copy =
+                new ua.stetsenkoinna.graphnet.GraphCanvasModel(panel.getCanvasModel());
+
+        assertEquals(1, copy.getGroups().size());
+        assertEquals(3, copy.getGroups().getFirst().size());
+        assertNotSame("rebuilt around the copy's own frames, not the original's",
+                panel.getCanvasModel().getGroups().getFirst().getMembers().getFirst(),
+                copy.getGroups().getFirst().getMembers().getFirst());
+    }
+
+    /** Erasing a member with the Delete tool takes it out of its group. */
+    @Test(timeout = 10000)
+    public void erasingAMemberTakesItOutOfTheGroup() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 4);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+        GraphObjectFrame doomed = group.getMembers().get(1);
+
+        panel.setTool(CanvasTool.DELETE);
+        java.awt.Rectangle bounds = doomed.getBounds();
+        eraserClick(bounds.x + 6, bounds.y + 6);
+
+        assertEquals("the object went", 3, panel.getCanvasModel().getFrames().size());
+        assertEquals("and the group is down to three", 3,
+                panel.getCanvasModel().getGroups().getFirst().size());
+    }
+
+    /** Erased down to one, the group dissolves rather than lingering as a group of one. */
+    @Test(timeout = 10000)
+    public void erasingDownToOneMemberDissolvesTheGroup() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+
+        panel.setTool(CanvasTool.DELETE);
+        for (GraphObjectFrame member : List.copyOf(group.getMembers()).subList(1, 3)) {
+            java.awt.Rectangle bounds = member.getBounds();
+            eraserClick(bounds.x + 6, bounds.y + 6);
+        }
+
+        assertTrue("no group of one is left", panel.getCanvasModel().getGroups().isEmpty());
+    }
+
+    private void eraserClick(int x, int y) {
+        PetriNetsPanel.MouseHandler handler = null;
+        for (java.awt.event.MouseListener listener : panel.getMouseListeners()) {
+            if (listener instanceof PetriNetsPanel.MouseHandler found) {
+                handler = found;
+            }
+        }
+        assertNotNull(handler);
+        handler.mousePressed(new java.awt.event.MouseEvent(panel,
+                java.awt.event.MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0,
+                x, y, 1, false, java.awt.event.MouseEvent.BUTTON1));
+        handler.mouseReleased(new java.awt.event.MouseEvent(panel,
+                java.awt.event.MouseEvent.MOUSE_RELEASED, System.currentTimeMillis(), 0,
+                x, y, 1, false, java.awt.event.MouseEvent.BUTTON1));
+        // The cleanup rides on the same pass that redraws, so ask for one.
+        panel.getCanvasModel().syncFusions();
     }
 
     // ------------------------------------------------------------------ connector to a group

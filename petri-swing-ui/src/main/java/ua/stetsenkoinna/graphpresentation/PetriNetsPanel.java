@@ -902,11 +902,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
             Stroke previousStroke = g2.getStroke();
             Color previousColor = g2.getColor();
-            g2.setColor(CanvasPalette.current().get(CanvasColor.GUIDE));
-            g2.setStroke(new BasicStroke(1.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
-                    10f, new float[]{2f, 6f}, 0f));
+            // Heavier and darker than a guide line. The band says several objects are one
+            // thing, which has to survive being read across a whole canvas; drawn as faintly as
+            // a snapping guide it was there and nobody saw it.
+            g2.setColor(CanvasPalette.current().get(CanvasColor.ELEMENT_STROKE));
+            g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
+                    10f, new float[]{6f, 6f}, 0f));
             g2.drawRoundRect(band.x, band.y, band.width, band.height, 18, 18);
             g2.setStroke(new BasicStroke(1.0f));
+            g2.setFont(g2.getFont().deriveFont(java.awt.Font.BOLD));
             // "1...n", the way the notation labels a group, rather than just the count: it says
             // the members are numbered and which numbers they run through.
             g2.drawString(group.getName() + " 1..." + group.size(),
@@ -1561,7 +1565,6 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         canvasModel.release(s);
         graphNet.delGraphElement(s); //added by Inna 4.12.2012
         canvasModel.removeDanglingFusions();
-        canvasModel.removeDanglingGroupMembers();
 
         repaint();
     }
@@ -1849,12 +1852,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *         canvas's selection colour while it is merely part of a wider selection
      */
     private Color fusionHighlight(GraphPlaceFusion fusion, java.util.Set<GraphElement> selected) {
-        // The whole connector lights, not the one line clicked. Several places shared between
-        // the same two objects are one connector in the technique's own terms, and picking out
-        // a single strand of it would draw the eye to something that is not a thing on its own.
-        if (fusion.isAnimationLit()
-                || (choosenFusion != null && canvasModel.connectorOf(choosenFusion).contains(fusion))) {
+        if (fusion.isAnimationLit() || fusion == choosenFusion) {
             return CanvasPalette.current().get(CanvasColor.FUSION_RING_SELECTED);
+        }
+        // The rest of the connector lights too, but not in the same colour. The whole connector
+        // has to be visible - several places shared between two objects are one thing - while
+        // the strand actually clicked stays the one the eye lands on. One colour for both said
+        // "these are all equally what you picked", which is not true of any of them.
+        if (choosenFusion != null && canvasModel.connectorOf(choosenFusion).contains(fusion)) {
+            return CanvasPalette.current().get(CanvasColor.CONNECTOR_STRAND);
         }
         if (selected.contains(fusion.getMaster()) && selected.contains(fusion.getJoined())) {
             return CanvasSelection.SELECTED;
@@ -6082,6 +6088,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         canvasModel.getFrames().addAll(model.getFrames());
         canvasModel.getFusions().clear();
         canvasModel.getFusions().addAll(model.getFusions());
+        // The groups too. They are lists of the very frames just copied across, so leaving them
+        // behind is what made a document's groups vanish the moment it was opened: the model
+        // carried the group all the way here and this method dropped it.
+        canvasModel.getGroups().clear();
+        canvasModel.getGroups().addAll(model.getGroups());
         choosen = null;
         current = null;
         selection.clear();

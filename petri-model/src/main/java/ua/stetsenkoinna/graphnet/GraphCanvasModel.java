@@ -141,6 +141,8 @@ public class GraphCanvasModel implements Serializable {
             this.fusions.add(new GraphPlaceFusion(newMaster, newJoined,
                     frameMap.get(oldFusion.getMasterOwner()), frameMap.get(oldFusion.getJoinedOwner())));
         }
+        copyGroups(other, frameMap);
+
     }
 
     public String getName() {
@@ -299,6 +301,7 @@ public class GraphCanvasModel implements Serializable {
             copy.setBoundaryStubOffset(oldFusion.getBoundaryStubOffset());
             fusions.add(copy);
         }
+        copyGroups(other, frameMap);
         syncFusions();
     }
 
@@ -596,6 +599,34 @@ public class GraphCanvasModel implements Serializable {
             }
         }
         return null;
+    }
+
+    /**
+     * Brings another canvas's groups across, rebuilt around the frames that stand for its own.
+     *
+     * <p>Called from every path that copies a canvas rather than shares it. A group is a list of
+     * frames, so copying the frames without it leaves the copy's objects unrelated - which is
+     * exactly what happened to a group on the way through a file: the model carried it, the
+     * canvas built it, and then the panel copied the frames and the links into its own canvas
+     * and left the group behind.
+     *
+     * @param other    the canvas being copied
+     * @param frameMap old frame to the frame that replaces it
+     */
+    private void copyGroups(GraphCanvasModel other,
+                            Map<GraphObjectFrame, GraphObjectFrame> frameMap) {
+        for (GraphObjectGroup oldGroup : other.groups) {
+            GraphObjectGroup copy = new GraphObjectGroup(oldGroup.getName(), oldGroup.getTemplate());
+            for (GraphObjectFrame member : oldGroup.getMembers()) {
+                GraphObjectFrame replacement = frameMap.get(member);
+                if (replacement != null) {
+                    copy.add(replacement);
+                }
+            }
+            if (copy.size() >= 2) {
+                groups.add(copy);
+            }
+        }
     }
 
     /**
@@ -971,6 +1002,11 @@ public class GraphCanvasModel implements Serializable {
      */
     public void syncFusions() {
         refreshFusionOwners();
+        // Groups too, and here rather than beside each command that can remove an object. A
+        // member can go by the eraser, by Delete, by an undone paste, by its parent being
+        // removed; expecting every one of those paths to remember a collection added later is
+        // the mistake that made a group vanish on open. Run on every pass, it cannot be missed.
+        removeDanglingGroupMembers();
         // Stated afresh, not added to: a place that has just lost its last link has to stop
         // being drawn as linked, and only clearing first can say that.
         for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
