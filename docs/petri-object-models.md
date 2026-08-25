@@ -354,6 +354,48 @@ is the one which had already taken effect by the time the later ones were declar
 Two places that belong to **no** object may now be linked. Two places of the **same** object may
 not — an object repeating itself says nothing.
 
+## Groups: describing a hundred like nodes once
+
+A system of a hundred like nodes is the case the Petri-object approach exists for. Describing one
+node's net and stamping it a hundred times is the technique's `multiply(net, lists, k)`, and the
+editor does it from an object's right-click menu: **Replicate into a group…**, then how many.
+
+The copies are ordinary Petri-objects — each with its own net, its own position, editable and
+linkable like any other. A group *is* its objects, by definition, so nothing downstream knows or
+needs to know about groups: the simulation builds the model it always did, and a saved document is
+the same conformant PNML with `k` pages in it. What a group adds is the record that those objects
+were stamped together, which is what lets the editor keep treating them as one. Members are named
+`Name 1` … `Name k` and drawn inside a labelled band.
+
+### One connector, every member
+
+The point of a group is not the stamping; it is that a connection to it is declared once. Share a
+place with any one member, then use **Replicate across '…'** on that link, and every member of the
+group shares it — the technique's
+
+```
+g.net.p_b = o.net.p_a  ⟺  ∀o_i ∈ g: o_i.net.p_b = o.net.p_a
+```
+
+**Which side the group is on is fixed, and not by us.** The rule assigns *to* each member *from*
+the single object, so the members are the copies and the lone object is the source. It cannot be
+the other way round: a place copying a hundred sources would have no answer to what its marking
+is, which is the same reason a single such link is refused. So the command appears only on a link
+whose group end is the copy.
+
+Members already wired are stepped over, so replicating twice — or replicating after wiring one
+member by hand — finishes the job rather than refusing it. Any member that could not be reached is
+named afterwards; a replication that quietly covered part of a group would leave a model you
+believe is uniform and is not.
+
+### Limits and what is not here
+
+A group is capped at 200 objects. Nothing in the technique stops there — the limit is this
+editor's, where every object carries a full copy of the net and redraws it on every repaint.
+
+Groups of *collections* — replicating a whole linked fragment of the model rather than one object
+— are not implemented. The technique defines them; the editor does not have them yet.
+
 ### Connectors
 
 All the shared places between one pair of Petri-objects are one **connector**. Two objects

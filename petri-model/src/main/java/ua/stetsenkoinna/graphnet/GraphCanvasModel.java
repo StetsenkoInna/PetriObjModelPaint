@@ -58,6 +58,15 @@ public class GraphCanvasModel implements Serializable {
     private String name;
     private GraphPetriNet net;
     private final List<GraphObjectFrame> frames = new ArrayList<>();
+
+    /**
+     * Petri-objects stamped together from one net - see {@link GraphObjectGroup}.
+     *
+     * <p>Held beside the frames rather than instead of them. A group's members are ordinary
+     * objects on this canvas and stay in {@link #frames}; this list only records which of them
+     * were made together, which is all a group is.
+     */
+    private final List<GraphObjectGroup> groups = new ArrayList<>();
     private final List<GraphPlaceFusion> fusions = new ArrayList<>();
 
     /**
@@ -132,6 +141,8 @@ public class GraphCanvasModel implements Serializable {
             this.fusions.add(new GraphPlaceFusion(newMaster, newJoined,
                     frameMap.get(oldFusion.getMasterOwner()), frameMap.get(oldFusion.getJoinedOwner())));
         }
+        copyGroups(other, frameMap);
+
     }
 
     public String getName() {
@@ -162,6 +173,69 @@ public class GraphCanvasModel implements Serializable {
      */
     public List<GraphObjectFrame> getFrames() {
         return frames;
+    }
+
+    /**
+     * @return the object groups on this canvas, live - the same treatment {@link #getFrames}
+     *         gets, so a caller that has to add one can
+     */
+    public List<GraphObjectGroup> getGroups() {
+        return groups;
+    }
+
+    /**
+     * The places belonging to one Petri-object, in the order the model addresses them by.
+     *
+     * <p>The same order links are written and read in - "the n-th place of the object's page" -
+     * so an index into this list means the same thing here, in a saved document, and across two
+     * objects stamped from one net. That is what lets a link be replicated across a group: the
+     * place at index i of one member is the place at index i of every other.
+     *
+     * @param frame the object, which may be null for the places belonging to no object
+     * @return its places, in canvas order
+     */
+    public List<GraphPetriPlace> placesOf(GraphObjectFrame frame) {
+        List<GraphPetriPlace> owned = new ArrayList<>();
+        for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
+            if (ownerOf(place) == frame) {
+                owned.add(place);
+            }
+        }
+        return owned;
+    }
+
+    /**
+     * @param frame any Petri-object
+     * @return the group it was stamped as part of, or {@code null} if it stands alone
+     */
+    public GraphObjectGroup groupOf(GraphObjectFrame frame) {
+        for (GraphObjectGroup group : groups) {
+            if (group.contains(frame)) {
+                return group;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Drops members that are no longer on the canvas, and groups that no longer hold enough
+     * objects to be one.
+     *
+     * <p>Called wherever {@link #removeDanglingFusions} is, and for the same reason: deleting an
+     * object cannot be expected to know every record that mentioned it. A group that has fallen
+     * to a single member is dissolved rather than kept - one object stamped from a template is
+     * just an object, and leaving a group of one would draw a stack around it and offer to
+     * replicate a connector across a group of one.
+     */
+    public void removeDanglingGroupMembers() {
+        for (GraphObjectGroup group : groups) {
+            for (GraphObjectFrame member : new ArrayList<>(group.getMembers())) {
+                if (!frames.contains(member)) {
+                    group.remove(member);
+                }
+            }
+        }
+        groups.removeIf(group -> group.size() < 2);
     }
 
     public List<GraphPlaceFusion> getFusions() {
@@ -227,6 +301,7 @@ public class GraphCanvasModel implements Serializable {
             copy.setBoundaryStubOffset(oldFusion.getBoundaryStubOffset());
             fusions.add(copy);
         }
+        copyGroups(other, frameMap);
         syncFusions();
     }
 
@@ -524,6 +599,34 @@ public class GraphCanvasModel implements Serializable {
             }
         }
         return null;
+    }
+
+    /**
+     * Brings another canvas's groups across, rebuilt around the frames that stand for its own.
+     *
+     * <p>Called from every path that copies a canvas rather than shares it. A group is a list of
+     * frames, so copying the frames without it leaves the copy's objects unrelated - which is
+     * exactly what happened to a group on the way through a file: the model carried it, the
+     * canvas built it, and then the panel copied the frames and the links into its own canvas
+     * and left the group behind.
+     *
+     * @param other    the canvas being copied
+     * @param frameMap old frame to the frame that replaces it
+     */
+    private void copyGroups(GraphCanvasModel other,
+                            Map<GraphObjectFrame, GraphObjectFrame> frameMap) {
+        for (GraphObjectGroup oldGroup : other.groups) {
+            GraphObjectGroup copy = new GraphObjectGroup(oldGroup.getName(), oldGroup.getTemplate());
+            for (GraphObjectFrame member : oldGroup.getMembers()) {
+                GraphObjectFrame replacement = frameMap.get(member);
+                if (replacement != null) {
+                    copy.add(replacement);
+                }
+            }
+            if (copy.size() >= 2) {
+                groups.add(copy);
+            }
+        }
     }
 
     /**
@@ -899,6 +1002,11 @@ public class GraphCanvasModel implements Serializable {
      */
     public void syncFusions() {
         refreshFusionOwners();
+        // Groups too. Note that this is not "every repaint": syncFusions runs on drags and a
+        // handful of other events, not from paintComponent, so a group can hold a member that
+        // has already gone until one of them comes round. Nothing drawn may depend on this
+        // having run - see how the group band derives itself from the frames that exist.
+        removeDanglingGroupMembers();
         // Stated afresh, not added to: a place that has just lost its last link has to stop
         // being drawn as linked, and only clearing first can say that.
         for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
@@ -1084,6 +1192,23 @@ public class GraphCanvasModel implements Serializable {
         for (ua.stetsenkoinna.petriobj.PetriObjLink link : links) {
             model.addLink(link);
         }
+        // Which objects were stamped together, addressed by index like everything else a
+        // document says about an object. A group whose members no longer all exist is left out
+        // rather than written half-complete.
+        for (GraphObjectGroup group : groups) {
+            List<Integer> memberIndices = new ArrayList<>();
+            for (GraphObjectFrame member : group.getMembers()) {
+                int at = frames.indexOf(member);
+                if (at >= 0) {
+                    memberIndices.add(at);
+                }
+            }
+            if (memberIndices.size() >= 2) {
+                model.getGroups().add(new PetriObjectGroupRef(group.getName(), memberIndices,
+                        group.getTemplate() == null ? null : group.getTemplate().getMethodName()));
+            }
+        }
+
         return model;
     }
 
@@ -1207,6 +1332,7 @@ public class GraphCanvasModel implements Serializable {
         }
 
         canvas.restoreLinks(model);
+        canvas.restoreGroups(model);
         canvas.syncFusions();
         return canvas;
     }
@@ -1234,6 +1360,32 @@ public class GraphCanvasModel implements Serializable {
      * Turns the model's link declarations back into things drawn on the canvas: an output arc
      * from a transition of one object into a place of another, or a shared place.
      */
+    /**
+     * Puts back the record of which objects were stamped together.
+     *
+     * <p>After the frames exist, since a group is nothing but a list of them. A member index the
+     * document names but this canvas has no frame for is skipped, and a group left with fewer
+     * than two members is not restored at all - the same rule that dissolves a group on the
+     * canvas when it shrinks to one.
+     */
+    private void restoreGroups(GraphPetriObjModel model) {
+        for (PetriObjectGroupRef declared : model.getGroups()) {
+            GraphObjectGroup group = new GraphObjectGroup(declared.name(),
+                    declared.templateMethod() == null
+                            ? null
+                            : new NetTemplateRef(declared.templateMethod(), List.of()));
+            for (Integer index : declared.memberObjects()) {
+                GraphObjectFrame member = frameOfObject(index);
+                if (member != null) {
+                    group.add(member);
+                }
+            }
+            if (group.size() >= 2) {
+                groups.add(group);
+            }
+        }
+    }
+
     private void restoreLinks(GraphPetriObjModel model) {
         for (ua.stetsenkoinna.petriobj.PetriObjLink link : model.getLinks()) {
             GraphPetriObject source = model.getObject(link.getSourceObject());

@@ -18,6 +18,7 @@ import ua.stetsenkoinna.graphpresentation.statistic.services.FormulaBuilderServi
 import ua.stetsenkoinna.graphpresentation.statistic.services.FormulaBuilderServiceImpl;
 import ua.stetsenkoinna.api.statistic.StatisticMonitorService;
 import ua.stetsenkoinna.config.ResourcePathConfig;
+import ua.stetsenkoinna.graphpresentation.io.FileDialogs;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.chart.XYChart;
 
@@ -401,23 +402,16 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     }
 
     private void onChartDownloadPerformed(java.awt.event.ActionEvent evt) {
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        int option = fileChooser.showOpenDialog(this);
-        if (option == JFileChooser.APPROVE_OPTION) {
-            File file = fileChooser.getSelectedFile();
-            chartBuilderService.exportChartAsImage(file.getAbsolutePath());
+        File directory = FileDialogs.directory(this, "Save the chart image in...", null);
+        if (directory != null) {
+            chartBuilderService.exportChartAsImage(directory.getAbsolutePath());
         }
     }
 
     private void onExportCsvPerformed(java.awt.event.ActionEvent evt) {
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        int option = fileChooser.showOpenDialog(this);
-        if (option == JFileChooser.APPROVE_OPTION) {
-            File file = fileChooser.getSelectedFile();
-            String fileName = file.getAbsolutePath();
-            chartBuilderService.exportChartAsTable(fileName);
+        File directory = FileDialogs.directory(this, "Save the CSV in...", null);
+        if (directory != null) {
+            chartBuilderService.exportChartAsTable(directory.getAbsolutePath());
         }
     }
 

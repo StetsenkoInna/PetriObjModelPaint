@@ -60,6 +60,15 @@ public enum CanvasColor {
     LINKED_PLACE_FILL,
     FUSION_RING_SELECTED,
 
+    /**
+     * The other strands of the connector whose strand the user picked.
+     *
+     * <p>Distinct from {@link #FUSION_RING_SELECTED} on purpose: the whole connector has to be
+     * visible, but the link actually clicked is still the one being pointed at, and drawing both
+     * in one colour claims they are equally what was picked.
+     */
+    CONNECTOR_STRAND,
+
     /** What an element takes while it is the one firing in an animation. */
     ANIMATION_ACTIVE,
 

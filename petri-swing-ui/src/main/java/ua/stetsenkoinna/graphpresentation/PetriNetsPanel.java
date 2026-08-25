@@ -53,6 +53,7 @@ import ua.stetsenkoinna.graphnet.GraphCanvasModel;
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphElementIdGenerator;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
+import ua.stetsenkoinna.graphnet.GraphObjectGroup;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPlaceFusion;
 import ua.stetsenkoinna.graphnet.NetTemplateRef;
@@ -244,6 +245,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     /** Where an eraser press landed, held until the release decides it was a click and not a
      *  sweep - see the Delete branch of {@code mouseReleased}. */
     private Point eraserPressPoint;
+
+    /** The group being dragged by its band, or {@code null}. */
+    private GraphObjectGroup draggedGroup;
+
+    /** Where the group drag last was, in canvas coordinates - see the drag handler for why the
+     *  step rather than the whole delta is what moves the members. */
+    private Point groupDragPoint;
 
     /**
      * Set the moment a drag is seen, cleared on the next press and by the click that follows the
@@ -711,6 +719,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         // Expanded frames go under the drawing, collapsed ones over it: covering the net is
         // exactly what collapsing an object means on a shared canvas.
+        paintObjectGroups(g2);
         paintObjectFrames(g2, false);
         graphNet.paintGraphPetriNet(g2, g, hiddenElements());
         // Built once for this paint and used by both fusion passes below: which elements the
@@ -871,6 +880,141 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param collapsedOnes true to draw the collapsed frames, which hide their net and are
      *        therefore painted over it, false for the expanded ones painted under it
      */
+    /**
+     * Draws a band around each group of Petri-objects, labelled with its name and size.
+     *
+     * <p>The technique's own notation draws a group as a stack of cards, one card per member,
+     * because on paper the members are identical and only one needs showing. Here they are real
+     * objects the user positions, edits and links individually, so a stack would have to hide
+     * them to draw them - and hiding the thing the user is working on to say it is one of many
+     * is a poor trade. A band round them says the same and hides nothing.
+     *
+     * <p>Painted before the frames themselves, so it reads as ground the objects stand on rather
+     * than a box drawn over them.
+     */
+    private void paintObjectGroups(Graphics2D g2) {
+        for (GraphObjectGroup group : canvasModel.getGroups()) {
+            java.awt.Rectangle band = groupBandBounds(group);
+            if (band == null) {
+                continue;
+            }
+
+            Stroke previousStroke = g2.getStroke();
+            Color previousColor = g2.getColor();
+            // Heavier and darker than a guide line. The band says several objects are one
+            // thing, which has to survive being read across a whole canvas; drawn as faintly as
+            // a snapping guide it was there and nobody saw it.
+            boolean whole = !group.getMembers().isEmpty()
+                    && group.getMembers().stream().allMatch(selection::contains);
+            g2.setColor(whole
+                    ? CanvasSelection.SELECTED
+                    : CanvasPalette.current().get(CanvasColor.ELEMENT_STROKE));
+            g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
+                    10f, new float[]{6f, 6f}, 0f));
+            g2.drawRoundRect(band.x, band.y, band.width, band.height, 18, 18);
+            g2.setStroke(new BasicStroke(1.0f));
+            g2.setFont(g2.getFont().deriveFont(java.awt.Font.BOLD));
+            // "1...n", the way the notation labels a group, rather than just the count: it says
+            // the members are numbered and which numbers they run through.
+            g2.drawString(group.getName() + " 1..." + group.size(),
+                    band.x + 6, band.y - 4);
+            g2.setStroke(previousStroke);
+            g2.setColor(previousColor);
+        }
+    }
+
+    /** How far a group's band stands clear of the objects it encloses. */
+    private static final int GROUP_BAND_MARGIN = 16;
+
+    /**
+     * The rectangle a group's band occupies, or {@code null} if this canvas draws none of it.
+     *
+     * <p>Stated once and used by both the drawing and the hit test. Two copies of the same
+     * arithmetic would be two chances for the band a user clicks to be somewhere other than the
+     * band they can see.
+     */
+    private java.awt.Rectangle groupBandBounds(GraphObjectGroup group) {
+        java.awt.Rectangle band = null;
+        for (GraphObjectFrame member : group.getMembers()) {
+            // Still on the canvas, first of all. isFrameDrawnOnThisCanvas answers about nesting
+            // and visibility, not about existence, so a frame that has just been deleted still
+            // reports that it would be drawn here - and the band went on being painted around
+            // objects that were no longer there until something else happened to tidy the group
+            // up. What is drawn has to be derived from what exists, on every paint.
+            if (!canvasModel.getFrames().contains(member)) {
+                continue;
+            }
+            if (!isFrameDrawnOnThisCanvas(member) || member == focusedFrame) {
+                continue;
+            }
+            java.awt.Rectangle bounds = member.getBounds();
+            band = band == null ? new java.awt.Rectangle(bounds) : band.union(bounds);
+        }
+        if (band != null) {
+            band.grow(GROUP_BAND_MARGIN, GROUP_BAND_MARGIN);
+        }
+        return band;
+    }
+
+    /**
+     * The group whose band is under the point, if any.
+     *
+     * <p>Only where the band itself is: inside the band but outside every object it encloses.
+     * A click that lands on a member is that member's - grabbing the whole group instead would
+     * make the individual objects unreachable, and they are ordinary objects that have to stay
+     * editable one at a time.
+     *
+     * @param point a point in canvas coordinates
+     * @return the group, or {@code null}
+     */
+    private GraphObjectGroup groupBandAt(Point2D point) {
+        if (frameAt(point) != null) {
+            return null;
+        }
+        for (GraphObjectGroup group : canvasModel.getGroups()) {
+            java.awt.Rectangle band = groupBandBounds(group);
+            if (band == null) {
+                continue;
+            }
+            // Grown by a few units before testing, so the drawn line itself is clickable rather
+            // than being the one part of the band that is not. A stroked outline straddles the
+            // rectangle it is drawn from, so half of what the user aims at lies outside it, and
+            // aiming at a line is what anyone does who wants the thing the line encloses.
+            java.awt.Rectangle reachable = new java.awt.Rectangle(band);
+            reachable.grow(GROUP_BAND_REACH, GROUP_BAND_REACH);
+            if (reachable.contains(point)) {
+                return group;
+            }
+        }
+        return null;
+    }
+
+    /** How far outside its own rectangle a group's band still answers to a click. */
+    private static final int GROUP_BAND_REACH = 4;
+
+    /**
+     * Selects every object of a group.
+     *
+     * @param group the group to select
+     */
+    private void selectGroup(GraphObjectGroup group) {
+        selection.clear();
+        // What was picked out before is not picked out any more. These three hold whatever was
+        // last clicked on its own, and Delete consults them before it looks at the selection -
+        // so an element clicked earlier, still sitting in `choosen`, quietly turned "delete this
+        // group" into "delete that one element" and left every frame standing.
+        choosen = null;
+        choosenArc = null;
+        choosenFusion = null;
+        current = null;
+        currentArc = null;
+        for (GraphObjectFrame member : group.getMembers()) {
+            if (isFrameDrawnOnThisCanvas(member)) {
+                selection.add(member);
+            }
+        }
+    }
+
     private void paintObjectFrames(Graphics2D g2, boolean collapsedOnes) {
         List<GraphObjectFrame> flat = canvasModel.getFrames();
         for (GraphObjectFrame frame : canvasModel.framesParentFirst()) {
@@ -1513,6 +1657,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         canvasModel.release(s);
         graphNet.delGraphElement(s); //added by Inna 4.12.2012
         canvasModel.removeDanglingFusions();
+        canvasModel.removeDanglingGroupMembers();
 
         repaint();
     }
@@ -1800,12 +1945,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *         canvas's selection colour while it is merely part of a wider selection
      */
     private Color fusionHighlight(GraphPlaceFusion fusion, java.util.Set<GraphElement> selected) {
-        // The whole connector lights, not the one line clicked. Several places shared between
-        // the same two objects are one connector in the technique's own terms, and picking out
-        // a single strand of it would draw the eye to something that is not a thing on its own.
-        if (fusion.isAnimationLit()
-                || (choosenFusion != null && canvasModel.connectorOf(choosenFusion).contains(fusion))) {
+        if (fusion.isAnimationLit() || fusion == choosenFusion) {
             return CanvasPalette.current().get(CanvasColor.FUSION_RING_SELECTED);
+        }
+        // The rest of the connector lights too, but not in the same colour. The whole connector
+        // has to be visible - several places shared between two objects are one thing - while
+        // the strand actually clicked stays the one the eye lands on. One colour for both said
+        // "these are all equally what you picked", which is not true of any of them.
+        if (choosenFusion != null && canvasModel.connectorOf(choosenFusion).contains(fusion)) {
+            return CanvasPalette.current().get(CanvasColor.CONNECTOR_STRAND);
         }
         if (selected.contains(fusion.getMaster()) && selected.contains(fusion.getJoined())) {
             return CanvasSelection.SELECTED;
@@ -1884,16 +2032,33 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             choosenFusion = null;
             return;
         }
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            deleteSelectionWithin();
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+        repaint();
+    }
+
+    /**
+     * The body of {@link #deleteSelection}, wrapped by it in one update so that a selection
+     * holding objects, elements and an arc at once comes back on a single undo rather than on
+     * one per kind.
+     */
+    private void deleteSelectionWithin() {
+        // Objects go whole, and without asking. Delete now means what the eraser means: the
+        // selected Petri-objects and the nets inside them, in one undoable step. It used to ask
+        // twice over - once about the objects and again about whatever elements were selected -
+        // and a user who answered the first question and not the second was left with a model
+        // half taken apart. Undo covers the whole thing either way, which is what makes the
+        // question worth dropping rather than repeating.
+        //
+        // Dropping a frame while keeping its net is still available and still confirms: it is
+        // Remove Petri-object frame, in the object's own right-click menu.
         List<GraphObjectFrame> frames = framesOnThisCanvas(selection.allFrames());
         if (!frames.isEmpty() && choosenArc == null && choosen == null) {
-            String what = frames.size() == 1
-                    ? "the Petri-object '" + frames.getFirst().getName() + "'"
-                    : frames.size() + " Petri-objects";
-            if (MessageHelper.showConfirmation(dialogOwner(),
-                    "Delete " + what + " and the net inside? To keep the net and drop only the "
-                            + "frame, use the object's own Remove Petri-object frame.")) {
-                deleteSelectedObjects();
-            }
+            deleteSelectedObjects();
         }
         if (choosenArc != null) {
             removeArc(choosenArc);
@@ -1911,12 +2076,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             current = null;
         }
         if (!selection.elements().isEmpty()) {
-            int result = JOptionPane.showConfirmDialog((Component) null,
-                    "Are you sure you want to delete selected elements?",
-                    "Delete", JOptionPane.OK_CANCEL_OPTION);
-            if (result == JOptionPane.OK_OPTION) {
-                deleteSelectedElements();
-            }
+            deleteSelectedElements();
         }
     }
 
@@ -2143,6 +2303,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         split.addActionListener(e -> splitSharedPlace(fusion));
         menu.add(split);
 
+        // The group's members are the copies, never the source - see replicateLinkAcrossGroup.
+        GraphObjectGroup group = canvasModel.groupOf(canvasModel.ownerOf(fusion.getJoined()));
+        if (group != null && group.size() > 1) {
+            JMenuItem across = new JMenuItem(
+                    "Replicate across '" + group.getName() + "' (" + group.size() + " objects)");
+            across.setToolTipText("Give every object of the group the same shared place, the way"
+                    + " a connector to a group is replicated to each of its members");
+            across.addActionListener(e -> replicateLinkAcrossGroup(fusion, group));
+            menu.add(across);
+        }
+
         // Offered only when there is a connector to speak of. On a pair of objects sharing one
         // place the two commands would do exactly the same thing under two different names.
         List<GraphPlaceFusion> connector = canvasModel.connectorOf(fusion);
@@ -2155,6 +2326,78 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             menu.add(splitAll);
         }
         menu.show(this, ev.getX(), ev.getY());
+    }
+
+    /**
+     * Gives every object of a group the same shared place, from one link to one of them.
+     *
+     * <p>This is the technique's connector-to-a-group:
+     * {@code g.net.p_b = o.net.p_a ⟺ ∀o_i ∈ g: o_i.net.p_b = o.net.p_a}. One declaration, and
+     * every member of the group shares that place with the single object - which is the point of
+     * groups, and the thing that made describing a hundred like nodes worth doing.
+     *
+     * <p>Note which side the group is on. The rule assigns <em>to</em> each member <em>from</em>
+     * the lone object, so the members are the copies and the object is the source. It cannot be
+     * the other way round: a place that copied a hundred sources would have no answer to what
+     * its marking is, and the editor refuses that link individually for the same reason. So the
+     * command is offered only from a link whose group end is the copy, which is why the menu
+     * looks at the owner of {@code getJoined()} and not of either end.
+     *
+     * <p>Members whose corresponding place is already linked are stepped over rather than
+     * treated as failures: replicating twice, or replicating after wiring one member by hand,
+     * should finish the job rather than refuse it.
+     *
+     * @param link  the link already made to one member of the group
+     * @param group the group to spread it across
+     */
+    private void replicateLinkAcrossGroup(GraphPlaceFusion link, GraphObjectGroup group) {
+        GraphObjectFrame linkedMember = canvasModel.ownerOf(link.getJoined());
+        int placeIndex = canvasModel.placesOf(linkedMember).indexOf(link.getJoined());
+        if (placeIndex < 0) {
+            MessageHelper.showError(dialogOwner(), "That place is not one of the group member's");
+            return;
+        }
+        GraphPetriPlace source = link.getMaster();
+
+        List<String> refused = new ArrayList<>();
+        int made = 0;
+        // One replication is one Ctrl+Z, the same bargain the stamping itself offers.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            for (GraphObjectFrame member : group.getMembers()) {
+                if (member == linkedMember) {
+                    continue;
+                }
+                List<GraphPetriPlace> places = canvasModel.placesOf(member);
+                if (placeIndex >= places.size()) {
+                    refused.add(member.getName() + ": it has no place in that position");
+                    continue;
+                }
+                GraphPetriPlace target = places.get(placeIndex);
+                if (canvasModel.sourceFusionOf(target) != null) {
+                    // Already wired, by an earlier replication or by hand. Nothing to do.
+                    continue;
+                }
+                try {
+                    GraphPlaceFusion made0 = canvasModel.joinPlaces(source, target);
+                    PetriNetsFrame.getUndoSupport().postEdit(new JoinPlacesEdit(this, made0));
+                    made++;
+                } catch (IllegalArgumentException rejected) {
+                    refused.add(member.getName() + ": " + rejected.getMessage());
+                }
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+
+        repaint();
+        if (!refused.isEmpty()) {
+            // Said out loud rather than swallowed: a replication that quietly covered part of a
+            // group would leave a model the user believes is uniform and is not.
+            MessageHelper.showWarnings(dialogOwner(),
+                    "Shared the place with " + made + " of " + (group.size() - 1)
+                            + " other objects", refused);
+        }
     }
 
     /**
@@ -2221,6 +2464,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         duplicate.setToolTipText("Copy the object together with its net — the way to get N alike");
         duplicate.addActionListener(e -> duplicateObject(frame));
         menu.add(duplicate);
+
+        JMenuItem replicate = new JMenuItem("Replicate into a group...");
+        replicate.setToolTipText(
+                "Stamp this object N times and keep the copies together as one group");
+        replicate.addActionListener(e -> replicateObject(frame));
+        menu.add(replicate);
 
         JMenuItem saveAsTemplate = new JMenuItem("Save as Petri-object...");
         saveAsTemplate.setToolTipText(
@@ -3097,6 +3346,129 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
     }
 
+    /**
+     * The largest group the editor will stamp in one go.
+     *
+     * <p>There is nothing in the technique that stops at any number - its whole point is
+     * hundreds of like nodes. The limit is this editor's: every object here carries its own full
+     * copy of the net, drawn element by element on every repaint, so a four-figure group would
+     * make the canvas unusable long before the model became wrong. A refusal that says so is
+     * better than a stamp that appears to work and leaves the editor unresponsive.
+     */
+    private static final int MAX_GROUP_SIZE = 200;
+
+    /** Gap left between the members of a group when they are laid out. */
+    private static final int GROUP_MEMBER_GAP = 40;
+
+    /**
+     * Stamps a Petri-object N times and keeps the copies together as a group.
+     *
+     * <p>This is the technique's {@code multiply(net, lists, k)}: one net described once and
+     * instantiated k times. The members are ordinary Petri-objects - a group <em>is</em> its
+     * objects, by definition - so the simulation and the saved document are the same as if the
+     * user had duplicated by hand k times. What the group adds is that the editor now knows they
+     * belong together.
+     *
+     * @param frame the object to stamp
+     */
+    private void replicateObject(GraphObjectFrame frame) {
+        GraphObjectGroup existing = canvasModel.groupOf(frame);
+        String prompt = existing == null
+                ? "Replicate '" + frame.getName() + "' into a group of how many?"
+                : "'" + existing.getName() + "' holds " + existing.size()
+                        + " objects. How many should it hold?";
+        String answer = JOptionPane.showInputDialog(dialogOwner(), prompt,
+                existing == null ? "10" : Integer.toString(existing.size()));
+        if (answer == null) {
+            return;
+        }
+        int wanted;
+        try {
+            wanted = Integer.parseInt(answer.trim());
+        } catch (NumberFormatException notANumber) {
+            MessageHelper.showError(dialogOwner(), "'" + answer.trim() + "' is not a number");
+            return;
+        }
+        int already = existing == null ? 1 : existing.size();
+        if (wanted < 2) {
+            MessageHelper.showError(dialogOwner(), "A group holds at least two objects");
+            return;
+        }
+        if (wanted > MAX_GROUP_SIZE) {
+            MessageHelper.showError(dialogOwner(), "The editor stamps at most " + MAX_GROUP_SIZE
+                    + " objects in one group; every one of them carries a full copy of the net"
+                    + " and is drawn on every repaint");
+            return;
+        }
+        if (wanted <= already) {
+            MessageHelper.showError(dialogOwner(), existing == null
+                    ? "The group would hold nothing new"
+                    : "The group already holds " + already
+                            + " objects; removing members is done by erasing them");
+            return;
+        }
+
+        replicateObjectInto(frame, wanted);
+    }
+
+    /**
+     * Stamps {@code frame} until its group holds {@code wanted} objects.
+     *
+     * <p>The count is a parameter rather than something this asks for, the same reason
+     * {@link #duplicateObject(GraphObjectFrame, String)} takes its name that way: it makes the
+     * operation reachable - and testable - without a dialog standing in front of it.
+     *
+     * @param frame the object to stamp
+     * @param wanted how many objects the group should hold when this is done
+     */
+    private void replicateObjectInto(GraphObjectFrame frame, int wanted) {
+        GraphObjectGroup existing = canvasModel.groupOf(frame);
+        int already = existing == null ? 1 : existing.size();
+
+        // One replication is one Ctrl+Z. Stamping fifty objects and taking them back fifty times
+        // would be a worse bargain than not having the command at all.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            GraphObjectGroup group = existing;
+            if (group == null) {
+                group = new GraphObjectGroup(frame.getName(), frame.getTemplate());
+                canvasModel.getGroups().add(group);
+                group.add(frame);
+                // The first member is renamed too, so the group reads 1..n throughout rather
+                // than as one object with some numbered copies stuck to it.
+                frame.setName(group.getName() + " 1");
+            }
+            for (int index = already; index < wanted; index++) {
+                GraphObjectFrame copy =
+                        duplicateObject(frame, group.getName() + " " + (index + 1));
+                if (copy == null) {
+                    // duplicateObject has already said why; stop rather than leave a half group.
+                    break;
+                }
+                placeGroupMember(group, copy, index);
+                group.add(copy);
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+        canvasStack.notifyChanged();
+        repaint();
+    }
+
+    /**
+     * Puts the {@code index}-th member of a group beside the first one.
+     *
+     * <p>Needed because {@code duplicateObject} always offsets its copy from the object it was
+     * given by the same amount: told to copy the same object k times it would stack every copy
+     * on the same spot. Laying them out here keeps that method's own behaviour - one copy, one
+     * step to the right - untouched.
+     */
+    private void placeGroupMember(GraphObjectGroup group, GraphObjectFrame member, int index) {
+        GraphObjectFrame first = group.getMembers().getFirst();
+        java.awt.Rectangle bounds = first.getBounds();
+        moveFrame(member, bounds.x + index * (bounds.width + GROUP_MEMBER_GAP), bounds.y);
+    }
+
     private void renameObject(GraphObjectFrame frame) {
         String name = JOptionPane.showInputDialog(dialogOwner(), "Name of the Petri-object", frame.getName());
         if (name != null && !name.isBlank()) {
@@ -3480,6 +3852,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // but an element's full body, now also reachable the same way while shown, can.
             // Gated on the left button: a right-click on a header used to start a frame drag,
             // which then had to be undone in mouseReleased once the popup trigger arrived there.
+            // The band belongs to the group as a whole: clicking it takes all of it, and
+            // dragging from there moves all of it. Checked before the frame paths below, which
+            // is only a question of order because the band never overlaps a member - see
+            // groupBandAt.
+            GraphObjectGroup bandGroup = SwingUtilities.isLeftMouseButton(ev)
+                    ? groupBandAt(scaledCurrentMousePoint) : null;
+            if (bandGroup != null) {
+                selectGroup(bandGroup);
+                draggedGroup = bandGroup;
+                groupDragPoint = scaledCurrentMousePoint;
+                // The snapshot the release turns into one undo step, taken here for the same
+                // reason every other drag takes it at its start.
+                if (layoutBeforeDrag == null) {
+                    layoutBeforeDrag = new CanvasLayoutSnapshot(canvasModel);
+                }
+                setCursor(new Cursor(Cursor.MOVE_CURSOR));
+                repaint();
+                return;
+            }
+
             if (SwingUtilities.isLeftMouseButton(ev)) {
                 resizedFrame = frameHandleAt(scaledCurrentMousePoint);
                 draggedFrame = resizedFrame == null ? frameHeaderAt(scaledCurrentMousePoint) : null;
@@ -3784,6 +4176,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            // A click on a group's band is a click on the group, not on nothing. The press has
+            // already selected every member; the branch further down treats a click that hit no
+            // frame and no element as "clicked empty canvas" and clears the selection, which
+            // threw the group away the instant the button came back up.
+            if (groupBandAt(scaledCurrentMousePoint) != null) {
+                repaint();
+                return;
+            }
+
             // A frame — its header or its locked interior alike — selects the object on a
             // single click; a double click opens that object's own canvas, where its net can
             // actually be changed.
@@ -3909,6 +4310,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (tool == CanvasTool.PAN) {
                 endPan();
                 return;
+            }
+
+            if (draggedGroup != null) {
+                draggedGroup = null;
+                groupDragPoint = null;
+                setCursor(Cursor.getDefaultCursor());
+                // postDragEdit runs at the end of the release like it does for every drag, so
+                // the whole group's move is one step.
             }
 
             if (selectToolPanning) {
@@ -4795,6 +5204,23 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 layoutBeforeDrag = new CanvasLayoutSnapshot(canvasModel);
             }
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+
+            if (draggedGroup != null) {
+                // By the step just taken rather than from where the drag began: moveFrame
+                // clamps a frame to the canvas, so a member stopped at an edge would otherwise
+                // keep receiving the whole accumulated delta and shoot away once it was free.
+                int dx = scaledCurrentMousePoint.x - groupDragPoint.x;
+                int dy = scaledCurrentMousePoint.y - groupDragPoint.y;
+                groupDragPoint = scaledCurrentMousePoint;
+                for (GraphObjectFrame member : draggedGroup.getMembers()) {
+                    if (isFrameOnThisCanvas(member)) {
+                        java.awt.Rectangle bounds = member.getBounds();
+                        moveFrame(member, bounds.x + dx, bounds.y + dy);
+                    }
+                }
+                repaint();
+                return;
+            }
 
             if (draggedFromPort != null) {
                 draggedPortCurrentPoint = scaledCurrentMousePoint;
@@ -5821,6 +6247,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         canvasModel.getFrames().addAll(model.getFrames());
         canvasModel.getFusions().clear();
         canvasModel.getFusions().addAll(model.getFusions());
+        // The groups too. They are lists of the very frames just copied across, so leaving them
+        // behind is what made a document's groups vanish the moment it was opened: the model
+        // carried the group all the way here and this method dropped it.
+        canvasModel.getGroups().clear();
+        canvasModel.getGroups().addAll(model.getGroups());
         choosen = null;
         current = null;
         selection.clear();

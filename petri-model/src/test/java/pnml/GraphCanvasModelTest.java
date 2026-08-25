@@ -6,6 +6,7 @@ import ua.stetsenkoinna.graphnet.GraphArcFactory;
 import ua.stetsenkoinna.graphnet.GraphCanvasModel;
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
+import ua.stetsenkoinna.graphnet.GraphObjectGroup;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
@@ -332,6 +333,57 @@ public class GraphCanvasModelTest {
 
         assertEquals(1, reopened.getFusions().size());
         assertTrue(reopened.getLoadWarnings().isEmpty());
+    }
+
+    // ---------------------------------------------------- object groups
+
+    /**
+     * A group survives being written to a model and read back.
+     *
+     * <p>What it survives as is the point: the members come back as the same ordinary objects
+     * they would have been without a group, and the group is the record that they belong
+     * together. Nothing about the model they make up depends on it.
+     */
+    @Test
+    public void aGroupSurvivesTheRoundTripThroughTheModel() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Farm", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[1];
+        GraphPetriPlace[] b = new GraphPetriPlace[1];
+        GraphPetriPlace[] c = new GraphPetriPlace[1];
+        GraphObjectFrame one = objectWith(canvas, "Server 1", 0, a, 1);
+        GraphObjectFrame two = objectWith(canvas, "Server 2", 400, b, 1);
+        objectWith(canvas, "Hub", 800, c, 1);
+
+        GraphObjectGroup group = new GraphObjectGroup("Server", null);
+        group.add(one);
+        group.add(two);
+        canvas.getGroups().add(group);
+
+        GraphCanvasModel reopened = GraphCanvasModel.fromObjModel(canvas.toObjModel());
+
+        assertEquals("the group came back", 1, reopened.getGroups().size());
+        GraphObjectGroup restored = reopened.getGroups().getFirst();
+        assertEquals("Server", restored.getName());
+        assertEquals(2, restored.size());
+        assertEquals("its members are the objects it named",
+                "Server 1", restored.getMembers().get(0).getName());
+        assertEquals("Server 2", restored.getMembers().get(1).getName());
+        assertEquals("and the object outside it stayed outside",
+                3, reopened.getFrames().size());
+    }
+
+    /** A canvas with no groups produces a model with none, and reads back the same. */
+    @Test
+    public void aCanvasWithoutGroupsStaysThatWay() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Plain", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[1];
+        objectWith(canvas, "A", 0, a, 1);
+
+        GraphCanvasModel reopened = GraphCanvasModel.fromObjModel(canvas.toObjModel());
+
+        assertTrue(reopened.getGroups().isEmpty());
     }
 
     // ---------------------------------------------------- connectors
