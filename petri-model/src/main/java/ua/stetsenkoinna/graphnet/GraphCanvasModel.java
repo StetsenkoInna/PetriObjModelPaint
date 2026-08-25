@@ -60,6 +60,24 @@ public class GraphCanvasModel implements Serializable {
     private final List<GraphObjectFrame> frames = new ArrayList<>();
     private final List<GraphPlaceFusion> fusions = new ArrayList<>();
 
+    /**
+     * What had to be dropped from the document this canvas was read from, if anything.
+     *
+     * <p>A file can carry links the editor would never have allowed to be drawn - a pair linked
+     * both ways round, a place copying two sources, a loop - because a document is built by a
+     * writer, by hand, or by an older version of this tool, none of which consulted these rules.
+     * Such links are left out and named here rather than silently drawn, which is how one of them
+     * came to be noticed on screen in the first place.
+     */
+    private final List<String> loadWarnings = new ArrayList<>();
+
+    /**
+     * @return what was dropped while reading this canvas, in document order; empty if nothing was
+     */
+    public List<String> getLoadWarnings() {
+        return java.util.Collections.unmodifiableList(loadWarnings);
+    }
+
     public GraphCanvasModel() {
         this(GraphPetriObjModel.DEFAULT_NAME, new GraphPetriNet());
     }
@@ -697,37 +715,12 @@ public class GraphCanvasModel implements Serializable {
      *         the same Petri-object, where a shared place would mean nothing
      */
     public GraphPlaceFusion joinPlaces(GraphPetriPlace master, GraphPetriPlace joined) {
-        if (master == joined) {
-            throw new IllegalArgumentException("A place cannot be linked to itself");
-        }
-        // One source, any number of targets - but each of the four ways that could go wrong is
-        // refused on its own terms, rather than by the blanket "this place is already shared"
-        // that used to stand here and was what limited the whole feature to one link per place.
-        if (linkBetween(master, joined) != null) {
-            throw new IllegalArgumentException(
-                    "These two places are already linked; a link in the opposite direction is not"
-                            + " allowed either");
-        }
-        if (sourceFusionOf(joined) != null) {
-            throw new IllegalArgumentException(
-                    "That place already copies another one. A place can repeat a single source,"
-                            + " otherwise there is no saying which marking it holds");
-        }
-        if (copiesFrom(master, joined)) {
-            throw new IllegalArgumentException(
-                    "That would make a loop of links, where each place copies the next");
+        String rejection = rejectionFor(master, joined);
+        if (rejection != null) {
+            throw new IllegalArgumentException(rejection);
         }
         GraphObjectFrame masterOwner = ownerOf(master);
         GraphObjectFrame joinedOwner = ownerOf(joined);
-        if (masterOwner != null && masterOwner == joinedOwner) {
-            // Two places of one object still make no sense to link - the object would be
-            // repeating itself. Two places that belong to no object at all are a different
-            // matter and are now allowed: they used to land here as well, since both owners
-            // read null, and got refused for a reason that did not apply to them.
-            throw new IllegalArgumentException(
-                    "Both places belong to the same Petri-object, so linking them would have it"
-                            + " repeat itself");
-        }
         // Places keep whatever position they already have — the two owners are always
         // different by this point, so moving one onto the other would displace it out of its
         // own object's layout (or, for a free place, away from wherever it was drawn) for no
@@ -740,6 +733,49 @@ public class GraphCanvasModel implements Serializable {
         // built simulation would keep anyway.
         fusion.syncMarking();
         return fusion;
+    }
+
+    /**
+     * Why these two places may not be linked, if they may not be.
+     *
+     * <p>Stated once and consulted from both directions a link can arrive from: the editor,
+     * which turns it into a refusal the user reads, and a document being opened, which drops the
+     * link and says so afterwards. Two copies of these rules would be two chances to disagree,
+     * and the one that mattered would be the one nobody was looking at - a file can carry a link
+     * the editor would never have let anyone draw.
+     *
+     * @param master the place to be repeated
+     * @param joined the place that would repeat it
+     * @return a sentence saying what is wrong, or {@code null} if nothing is
+     */
+    private String rejectionFor(GraphPetriPlace master, GraphPetriPlace joined) {
+        if (master == joined) {
+            return "A place cannot be linked to itself";
+        }
+        // One source, any number of targets - but each of the four ways that could go wrong is
+        // refused on its own terms, rather than by the blanket "this place is already shared"
+        // that used to stand here and was what limited the whole feature to one link per place.
+        if (linkBetween(master, joined) != null) {
+            return "These two places are already linked; a link in the opposite direction is not"
+                    + " allowed either";
+        }
+        if (sourceFusionOf(joined) != null) {
+            return "That place already copies another one. A place can repeat a single source,"
+                    + " otherwise there is no saying which marking it holds";
+        }
+        if (copiesFrom(master, joined)) {
+            return "That would make a loop of links, where each place copies the next";
+        }
+        GraphObjectFrame masterOwner = ownerOf(master);
+        // Two places of one object still make no sense to link - the object would be repeating
+        // itself. Two places that belong to no object at all are a different matter and are
+        // allowed: they used to land here as well, since both owners read null, and got refused
+        // for a reason that did not apply to them.
+        if (masterOwner != null && masterOwner == ownerOf(joined)) {
+            return "Both places belong to the same Petri-object, so linking them would have it"
+                    + " repeat itself";
+        }
+        return null;
     }
 
     /**
@@ -1140,9 +1176,19 @@ public class GraphCanvasModel implements Serializable {
                     GraphPetriPlace joined = placeAt(source, link.getSourceElement());
                     GraphPetriPlace master = placeAt(target, link.getTargetElement());
                     if (joined != null && master != null) {
-                        fusions.add(new GraphPlaceFusion(master, joined,
-                                frameOfObject(link.getTargetObject()),
-                                frameOfObject(link.getSourceObject())));
+                        // The same rules the editor applies. Links are restored in document
+                        // order, so of a contradictory group the first one stated is the one
+                        // that stands - which is also the one that already took effect by the
+                        // time the later ones were declared.
+                        String rejection = rejectionFor(master, joined);
+                        if (rejection != null) {
+                            loadWarnings.add("Dropped the link " + master.getName() + " = "
+                                    + joined.getName() + ": " + rejection);
+                        } else {
+                            fusions.add(new GraphPlaceFusion(master, joined,
+                                    frameOfObject(link.getTargetObject()),
+                                    frameOfObject(link.getSourceObject())));
+                        }
                     }
                 }
                 case TRANSITION_TO_PLACE -> {

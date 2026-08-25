@@ -344,6 +344,13 @@ Four things are refused, each for its own reason:
 
 Chains themselves are fine: a place that copies another may in turn be copied.
 
+The same rules apply to a document being opened, not only to a link being drawn. A file is
+written by a tool, by hand, or by an older version of this one, none of which consulted them, so
+it may well carry a link the editor would have refused. Such links are left out and reported
+alongside the parser's own import warnings — the document still opens. Where several links
+contradict each other, the first stated survives: links are restored in document order, and that
+is the one which had already taken effect by the time the later ones were declared.
+
 Two places that belong to **no** object may now be linked. Two places of the **same** object may
 not — an object repeating itself says nothing.
 
