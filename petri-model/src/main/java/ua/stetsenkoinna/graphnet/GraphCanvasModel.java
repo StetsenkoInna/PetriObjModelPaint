@@ -58,7 +58,34 @@ public class GraphCanvasModel implements Serializable {
     private String name;
     private GraphPetriNet net;
     private final List<GraphObjectFrame> frames = new ArrayList<>();
+
+    /**
+     * Petri-objects stamped together from one net - see {@link GraphObjectGroup}.
+     *
+     * <p>Held beside the frames rather than instead of them. A group's members are ordinary
+     * objects on this canvas and stay in {@link #frames}; this list only records which of them
+     * were made together, which is all a group is.
+     */
+    private final List<GraphObjectGroup> groups = new ArrayList<>();
     private final List<GraphPlaceFusion> fusions = new ArrayList<>();
+
+    /**
+     * What had to be dropped from the document this canvas was read from, if anything.
+     *
+     * <p>A file can carry links the editor would never have allowed to be drawn - a pair linked
+     * both ways round, a place copying two sources, a loop - because a document is built by a
+     * writer, by hand, or by an older version of this tool, none of which consulted these rules.
+     * Such links are left out and named here rather than silently drawn, which is how one of them
+     * came to be noticed on screen in the first place.
+     */
+    private final List<String> loadWarnings = new ArrayList<>();
+
+    /**
+     * @return what was dropped while reading this canvas, in document order; empty if nothing was
+     */
+    public List<String> getLoadWarnings() {
+        return java.util.Collections.unmodifiableList(loadWarnings);
+    }
 
     public GraphCanvasModel() {
         this(GraphPetriObjModel.DEFAULT_NAME, new GraphPetriNet());
@@ -114,6 +141,8 @@ public class GraphCanvasModel implements Serializable {
             this.fusions.add(new GraphPlaceFusion(newMaster, newJoined,
                     frameMap.get(oldFusion.getMasterOwner()), frameMap.get(oldFusion.getJoinedOwner())));
         }
+        copyGroups(other, frameMap);
+
     }
 
     public String getName() {
@@ -144,6 +173,69 @@ public class GraphCanvasModel implements Serializable {
      */
     public List<GraphObjectFrame> getFrames() {
         return frames;
+    }
+
+    /**
+     * @return the object groups on this canvas, live - the same treatment {@link #getFrames}
+     *         gets, so a caller that has to add one can
+     */
+    public List<GraphObjectGroup> getGroups() {
+        return groups;
+    }
+
+    /**
+     * The places belonging to one Petri-object, in the order the model addresses them by.
+     *
+     * <p>The same order links are written and read in - "the n-th place of the object's page" -
+     * so an index into this list means the same thing here, in a saved document, and across two
+     * objects stamped from one net. That is what lets a link be replicated across a group: the
+     * place at index i of one member is the place at index i of every other.
+     *
+     * @param frame the object, which may be null for the places belonging to no object
+     * @return its places, in canvas order
+     */
+    public List<GraphPetriPlace> placesOf(GraphObjectFrame frame) {
+        List<GraphPetriPlace> owned = new ArrayList<>();
+        for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
+            if (ownerOf(place) == frame) {
+                owned.add(place);
+            }
+        }
+        return owned;
+    }
+
+    /**
+     * @param frame any Petri-object
+     * @return the group it was stamped as part of, or {@code null} if it stands alone
+     */
+    public GraphObjectGroup groupOf(GraphObjectFrame frame) {
+        for (GraphObjectGroup group : groups) {
+            if (group.contains(frame)) {
+                return group;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Drops members that are no longer on the canvas, and groups that no longer hold enough
+     * objects to be one.
+     *
+     * <p>Called wherever {@link #removeDanglingFusions} is, and for the same reason: deleting an
+     * object cannot be expected to know every record that mentioned it. A group that has fallen
+     * to a single member is dissolved rather than kept - one object stamped from a template is
+     * just an object, and leaving a group of one would draw a stack around it and offer to
+     * replicate a connector across a group of one.
+     */
+    public void removeDanglingGroupMembers() {
+        for (GraphObjectGroup group : groups) {
+            for (GraphObjectFrame member : new ArrayList<>(group.getMembers())) {
+                if (!frames.contains(member)) {
+                    group.remove(member);
+                }
+            }
+        }
+        groups.removeIf(group -> group.size() < 2);
     }
 
     public List<GraphPlaceFusion> getFusions() {
@@ -209,6 +301,7 @@ public class GraphCanvasModel implements Serializable {
             copy.setBoundaryStubOffset(oldFusion.getBoundaryStubOffset());
             fusions.add(copy);
         }
+        copyGroups(other, frameMap);
         syncFusions();
     }
 
@@ -470,16 +563,151 @@ public class GraphCanvasModel implements Serializable {
     }
 
     /**
+     * Every reference link this place takes part in, in either role.
+     *
+     * <p>Returns a list rather than one link, and replaced a {@code fusionOf} that returned the
+     * first match, because a place may now be the source of any number of links. Answering with
+     * whichever one happened to be found first was correct only while a place could be in at
+     * most one, and would have silently ignored the rest the moment that stopped being true.
+     *
      * @param place a place of the drawing
-     * @return the fusion that joins it to a place of another object, or {@code null}
+     * @return its links, newest last; empty if it takes part in none
      */
-    public GraphPlaceFusion fusionOf(GraphPetriPlace place) {
+    public List<GraphPlaceFusion> fusionsOf(GraphPetriPlace place) {
+        List<GraphPlaceFusion> found = new ArrayList<>();
         for (GraphPlaceFusion fusion : fusions) {
             if (fusion.involves(place)) {
+                found.add(fusion);
+            }
+        }
+        return found;
+    }
+
+    /**
+     * The link this place copies from, if any.
+     *
+     * <p>At most one, and that is enforced rather than assumed: a place that copied two sources
+     * would have no answer to what its marking is. See {@link #joinPlaces}.
+     *
+     * @param place a place of the drawing
+     * @return the link in which it is the target, or {@code null} if it copies nothing
+     */
+    public GraphPlaceFusion sourceFusionOf(GraphPetriPlace place) {
+        for (GraphPlaceFusion fusion : fusions) {
+            if (fusion.getJoined() == place) {
                 return fusion;
             }
         }
         return null;
+    }
+
+    /**
+     * Brings another canvas's groups across, rebuilt around the frames that stand for its own.
+     *
+     * <p>Called from every path that copies a canvas rather than shares it. A group is a list of
+     * frames, so copying the frames without it leaves the copy's objects unrelated - which is
+     * exactly what happened to a group on the way through a file: the model carried it, the
+     * canvas built it, and then the panel copied the frames and the links into its own canvas
+     * and left the group behind.
+     *
+     * @param other    the canvas being copied
+     * @param frameMap old frame to the frame that replaces it
+     */
+    private void copyGroups(GraphCanvasModel other,
+                            Map<GraphObjectFrame, GraphObjectFrame> frameMap) {
+        for (GraphObjectGroup oldGroup : other.groups) {
+            GraphObjectGroup copy = new GraphObjectGroup(oldGroup.getName(), oldGroup.getTemplate());
+            for (GraphObjectFrame member : oldGroup.getMembers()) {
+                GraphObjectFrame replacement = frameMap.get(member);
+                if (replacement != null) {
+                    copy.add(replacement);
+                }
+            }
+            if (copy.size() >= 2) {
+                groups.add(copy);
+            }
+        }
+    }
+
+    /**
+     * The connector a link belongs to: every link joining the same two Petri-objects.
+     *
+     * <p>A connector is the technique's own name for the whole set of shared places between one
+     * pair of objects, written {@code connector(o_u, o_v) = {(o_u.net.p_b, o_v.net.p_a)}}. Two
+     * objects sharing three places are joined by one connector of three place identifications,
+     * not by three unrelated links, and treating it as one thing is what lets the pair be
+     * reasoned about - and detached - as a unit.
+     *
+     * <p>Derived, never stored. A connector is entirely determined by which objects the existing
+     * links run between, so keeping a second record of it could only ever be a record that
+     * disagrees; this is the same reason the two-way arc pairing and the linked-place mark are
+     * both re-derived rather than maintained.
+     *
+     * <p>A link with an end belonging to no object is a connector of its own. The concept joins
+     * two Petri-objects, and loose places are not one - bundling every loose link into a single
+     * enormous "no-object" connector would be an artefact of saying null equals null.
+     *
+     * @param link one of this canvas's links
+     * @return the links of its connector, in declaration order, including {@code link} itself;
+     *         a single-element list when nothing else joins the same pair
+     */
+    public List<GraphPlaceFusion> connectorOf(GraphPlaceFusion link) {
+        GraphObjectFrame one = ownerOf(link.getMaster());
+        GraphObjectFrame other = ownerOf(link.getJoined());
+        if (one == null || other == null) {
+            return List.of(link);
+        }
+        List<GraphPlaceFusion> connector = new ArrayList<>();
+        for (GraphPlaceFusion candidate : fusions) {
+            if (joinsTheSamePair(candidate, one, other)) {
+                connector.add(candidate);
+            }
+        }
+        return connector;
+    }
+
+    /**
+     * @return true if this link runs between these two objects, whichever way round it was drawn
+     */
+    private boolean joinsTheSamePair(GraphPlaceFusion link,
+                                     GraphObjectFrame one, GraphObjectFrame other) {
+        GraphObjectFrame master = ownerOf(link.getMaster());
+        GraphObjectFrame joined = ownerOf(link.getJoined());
+        return (master == one && joined == other) || (master == other && joined == one);
+    }
+
+    /**
+     * Every connector on this canvas, each as the list of links that make it up.
+     *
+     * @return one entry per pair of objects that share at least one place, plus one entry per
+     *         link that has an end outside any object; declaration order throughout
+     */
+    public List<List<GraphPlaceFusion>> connectors() {
+        List<List<GraphPlaceFusion>> found = new ArrayList<>();
+        List<GraphPlaceFusion> accountedFor = new ArrayList<>();
+        for (GraphPlaceFusion link : fusions) {
+            if (accountedFor.contains(link)) {
+                continue;
+            }
+            List<GraphPlaceFusion> connector = connectorOf(link);
+            accountedFor.addAll(connector);
+            found.add(connector);
+        }
+        return found;
+    }
+
+    /**
+     * @param place a place of the drawing
+     * @return the links in which it is the source - the fan-out, empty if it has none
+     */
+    public List<GraphPlaceFusion> fusionsFrom(GraphPetriPlace place) {
+        List<GraphPlaceFusion> found = new ArrayList<>();
+        for (GraphPlaceFusion fusion : fusions) {
+            if (fusion.getMaster() == place) {
+                found.add(fusion);
+            }
+        }
+        return found;
     }
 
     // ------------------------------------------------------------------ ports
@@ -657,21 +885,12 @@ public class GraphCanvasModel implements Serializable {
      *         the same Petri-object, where a shared place would mean nothing
      */
     public GraphPlaceFusion joinPlaces(GraphPetriPlace master, GraphPetriPlace joined) {
-        if (fusionOf(master) != null || fusionOf(joined) != null) {
-            throw new IllegalArgumentException("This place is already shared with another Petri-object");
+        String rejection = rejectionFor(master, joined);
+        if (rejection != null) {
+            throw new IllegalArgumentException(rejection);
         }
         GraphObjectFrame masterOwner = ownerOf(master);
         GraphObjectFrame joinedOwner = ownerOf(joined);
-        if (masterOwner == joinedOwner) {
-            // Both-null and both-the-same land here, and they are different mistakes: two
-            // free places used to get the "same Petri-object" message, which reads as
-            // nonsense when neither place is in any object at all.
-            throw new IllegalArgumentException(masterOwner == null
-                    ? "A shared place joins two different Petri-objects, but neither of these"
-                            + " places is inside one yet"
-                    : "Both places belong to the same Petri-object, a shared place joins two"
-                            + " different objects");
-        }
         // Places keep whatever position they already have — the two owners are always
         // different by this point, so moving one onto the other would displace it out of its
         // own object's layout (or, for a free place, away from wherever it was drawn) for no
@@ -687,6 +906,85 @@ public class GraphCanvasModel implements Serializable {
     }
 
     /**
+     * Why these two places may not be linked, if they may not be.
+     *
+     * <p>Stated once and consulted from both directions a link can arrive from: the editor,
+     * which turns it into a refusal the user reads, and a document being opened, which drops the
+     * link and says so afterwards. Two copies of these rules would be two chances to disagree,
+     * and the one that mattered would be the one nobody was looking at - a file can carry a link
+     * the editor would never have let anyone draw.
+     *
+     * @param master the place to be repeated
+     * @param joined the place that would repeat it
+     * @return a sentence saying what is wrong, or {@code null} if nothing is
+     */
+    private String rejectionFor(GraphPetriPlace master, GraphPetriPlace joined) {
+        if (master == joined) {
+            return "A place cannot be linked to itself";
+        }
+        // One source, any number of targets - but each of the four ways that could go wrong is
+        // refused on its own terms, rather than by the blanket "this place is already shared"
+        // that used to stand here and was what limited the whole feature to one link per place.
+        if (linkBetween(master, joined) != null) {
+            return "These two places are already linked; a link in the opposite direction is not"
+                    + " allowed either";
+        }
+        if (sourceFusionOf(joined) != null) {
+            return "That place already copies another one. A place can repeat a single source,"
+                    + " otherwise there is no saying which marking it holds";
+        }
+        if (copiesFrom(master, joined)) {
+            return "That would make a loop of links, where each place copies the next";
+        }
+        GraphObjectFrame masterOwner = ownerOf(master);
+        // Two places of one object still make no sense to link - the object would be repeating
+        // itself. Two places that belong to no object at all are a different matter and are
+        // allowed: they used to land here as well, since both owners read null, and got refused
+        // for a reason that did not apply to them.
+        if (masterOwner != null && masterOwner == ownerOf(joined)) {
+            return "Both places belong to the same Petri-object, so linking them would have it"
+                    + " repeat itself";
+        }
+        return null;
+    }
+
+    /**
+     * @return the link between these two places whichever way round it runs, or {@code null}
+     */
+    private GraphPlaceFusion linkBetween(GraphPetriPlace one, GraphPetriPlace other) {
+        for (GraphPlaceFusion fusion : fusions) {
+            if ((fusion.getMaster() == one && fusion.getJoined() == other)
+                    || (fusion.getMaster() == other && fusion.getJoined() == one)) {
+                return fusion;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whether {@code place} already copies {@code candidateSource}, directly or through a chain
+     * of links.
+     *
+     * <p>Links may be chained - a place that copies another may itself be copied - so the check
+     * that a new link does not close a loop has to walk the whole chain, not just look one step
+     * up. PNML requires this too: a reference place must not refer to a cycle of reference
+     * places, which is exactly what a loop here would be written as.
+     */
+    private boolean copiesFrom(GraphPetriPlace place, GraphPetriPlace candidateSource) {
+        GraphPetriPlace walker = place;
+        // Bounded by the number of links: every step moves strictly up a chain that has no loop
+        // in it yet, so it cannot run longer than that even if the model is somehow corrupt.
+        for (int step = 0; step <= fusions.size() && walker != null; step++) {
+            if (walker == candidateSource) {
+                return true;
+            }
+            GraphPlaceFusion source = sourceFusionOf(walker);
+            walker = source == null ? null : source.getMaster();
+        }
+        return false;
+    }
+
+    /**
      * Drops fusions and frames that no longer refer to anything on the canvas — called after
      * elements were deleted.
      */
@@ -696,12 +994,29 @@ public class GraphCanvasModel implements Serializable {
     }
 
     /**
-     * Keeps every shared place drawn as one circle after elements were moved.
+     * Keeps every linked place holding its source's marking after elements were moved.
+     *
+     * <p>No longer moves anything. It used to pull a free target onto its source so the two
+     * could be drawn as one circle; a link now leaves both places exactly where they are, which
+     * is the only thing that makes sense once one source can be repeated by several places.
      */
     public void syncFusions() {
         refreshFusionOwners();
+        // Groups too. Note that this is not "every repaint": syncFusions runs on drags and a
+        // handful of other events, not from paintComponent, so a group can hold a member that
+        // has already gone until one of them comes round. Nothing drawn may depend on this
+        // having run - see how the group band derives itself from the frames that exist.
+        removeDanglingGroupMembers();
+        // Stated afresh, not added to: a place that has just lost its last link has to stop
+        // being drawn as linked, and only clearing first can say that.
+        for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
+            place.setLinkedToAnotherPlace(false);
+        }
         for (GraphPlaceFusion fusion : fusions) {
-            fusion.syncPosition();
+            // Both ends: the source's marking is no more its own than the copy's once they are
+            // one instance, so marking only the copies would say something untrue about it.
+            fusion.getMaster().setLinkedToAnotherPlace(true);
+            fusion.getJoined().setLinkedToAnotherPlace(true);
             // Self-healing for the one-marking rule: any path that changed a marking
             // without going through the properties dialog converges back to the master's.
             fusion.syncMarking();
@@ -877,6 +1192,23 @@ public class GraphCanvasModel implements Serializable {
         for (ua.stetsenkoinna.petriobj.PetriObjLink link : links) {
             model.addLink(link);
         }
+        // Which objects were stamped together, addressed by index like everything else a
+        // document says about an object. A group whose members no longer all exist is left out
+        // rather than written half-complete.
+        for (GraphObjectGroup group : groups) {
+            List<Integer> memberIndices = new ArrayList<>();
+            for (GraphObjectFrame member : group.getMembers()) {
+                int at = frames.indexOf(member);
+                if (at >= 0) {
+                    memberIndices.add(at);
+                }
+            }
+            if (memberIndices.size() >= 2) {
+                model.getGroups().add(new PetriObjectGroupRef(group.getName(), memberIndices,
+                        group.getTemplate() == null ? null : group.getTemplate().getMethodName()));
+            }
+        }
+
         return model;
     }
 
@@ -1000,6 +1332,7 @@ public class GraphCanvasModel implements Serializable {
         }
 
         canvas.restoreLinks(model);
+        canvas.restoreGroups(model);
         canvas.syncFusions();
         return canvas;
     }
@@ -1027,6 +1360,32 @@ public class GraphCanvasModel implements Serializable {
      * Turns the model's link declarations back into things drawn on the canvas: an output arc
      * from a transition of one object into a place of another, or a shared place.
      */
+    /**
+     * Puts back the record of which objects were stamped together.
+     *
+     * <p>After the frames exist, since a group is nothing but a list of them. A member index the
+     * document names but this canvas has no frame for is skipped, and a group left with fewer
+     * than two members is not restored at all - the same rule that dissolves a group on the
+     * canvas when it shrinks to one.
+     */
+    private void restoreGroups(GraphPetriObjModel model) {
+        for (PetriObjectGroupRef declared : model.getGroups()) {
+            GraphObjectGroup group = new GraphObjectGroup(declared.name(),
+                    declared.templateMethod() == null
+                            ? null
+                            : new NetTemplateRef(declared.templateMethod(), List.of()));
+            for (Integer index : declared.memberObjects()) {
+                GraphObjectFrame member = frameOfObject(index);
+                if (member != null) {
+                    group.add(member);
+                }
+            }
+            if (group.size() >= 2) {
+                groups.add(group);
+            }
+        }
+    }
+
     private void restoreLinks(GraphPetriObjModel model) {
         for (ua.stetsenkoinna.petriobj.PetriObjLink link : model.getLinks()) {
             GraphPetriObject source = model.getObject(link.getSourceObject());
@@ -1036,9 +1395,19 @@ public class GraphCanvasModel implements Serializable {
                     GraphPetriPlace joined = placeAt(source, link.getSourceElement());
                     GraphPetriPlace master = placeAt(target, link.getTargetElement());
                     if (joined != null && master != null) {
-                        fusions.add(new GraphPlaceFusion(master, joined,
-                                frameOfObject(link.getTargetObject()),
-                                frameOfObject(link.getSourceObject())));
+                        // The same rules the editor applies. Links are restored in document
+                        // order, so of a contradictory group the first one stated is the one
+                        // that stands - which is also the one that already took effect by the
+                        // time the later ones were declared.
+                        String rejection = rejectionFor(master, joined);
+                        if (rejection != null) {
+                            loadWarnings.add("Dropped the link " + master.getName() + " = "
+                                    + joined.getName() + ": " + rejection);
+                        } else {
+                            fusions.add(new GraphPlaceFusion(master, joined,
+                                    frameOfObject(link.getTargetObject()),
+                                    frameOfObject(link.getSourceObject())));
+                        }
                     }
                 }
                 case TRANSITION_TO_PLACE -> {

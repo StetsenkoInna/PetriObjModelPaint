@@ -32,6 +32,8 @@ import ua.stetsenkoinna.graphpresentation.actions.RunNetAction;
 import ua.stetsenkoinna.graphpresentation.actions.RunOneEventAction;
 import ua.stetsenkoinna.graphpresentation.actions.StepBackAction;
 import ua.stetsenkoinna.graphpresentation.actions.StopSimulationAction;
+import ua.stetsenkoinna.graphpresentation.input.InputShortcuts;
+import ua.stetsenkoinna.graphpresentation.io.FileDialogs;
 import ua.stetsenkoinna.graphpresentation.objmodel.CanvasTabsBar;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectManagerDialog;
 import ua.stetsenkoinna.graphpresentation.objmodel.PetriObjectPalette;
@@ -350,6 +352,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         petriNetsPanel.enableDragAndDrop(this);
 
         installCanvasToolShortcuts();
+        installMenuAccelerators();
         // The canvas no longer takes focus while painting, so it takes it once when the window
         // opens instead: its shortcuts work on a freshly started editor without a click first.
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -477,6 +480,37 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
 
     /**
+     * Re-states every menu accelerator in terms of the platform's shortcut modifier.
+     *
+     * <p>Done here, after {@code initComponents}, rather than by editing the accelerators where
+     * the form editor writes them. Two reasons. The generated block belongs to
+     * {@code PetriNetsFrame.form}: anyone who opens the Design tab and moves a component gets
+     * it rewritten, and a fix made inside it would vanish without trace. And the form editor
+     * cannot express "Command on macOS, Control elsewhere" in the first place - it only stores a
+     * literal modifier - so the choice has to be made in code wherever it lives.
+     *
+     * <p>Without this the whole menu reads Control on a Mac, and the Command presses a Mac user
+     * actually makes fall through to nothing.
+     */
+    private void installMenuAccelerators() {
+        int menu = InputShortcuts.menuMask();
+        int menuShift = InputShortcuts.shiftMenuMask();
+
+        newMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, menu));
+        importPnmlMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, menu));
+        savePnmlMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, menu));
+        exportPnmlMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, menuShift));
+        undoMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, menu));
+        redoMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, menuShift));
+        editNetParametersMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_E, menu));
+        centerOnNetMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, menu));
+        // Alt is Option on macOS, which makes this Command+Option+M there and Ctrl+Alt+M
+        // elsewhere - the same two-modifier shape on both.
+        openMonitor.setAccelerator(
+                KeyStroke.getKeyStroke(KeyEvent.VK_M, menu | InputEvent.ALT_DOWN_MASK));
+    }
+
+    /**
      * Keyboard shortcuts for the three "drop an element" tools — A(rc), P(lace), T(ransition)
      * — so switching tools doesn't always require reaching for the mouse. Registered on the
      * canvas itself via WHEN_ANCESTOR_OF_FOCUSED_COMPONENT rather than the whole window, so
@@ -540,7 +574,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // rather than calling setTool keeps the toolbar's own highlight in step, the same way
         // every binding here does; the switch comes first, since setTool keeps a selection only
         // when it is switching to Select.
-        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, InputEvent.CTRL_DOWN_MASK), "selectAll");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, InputShortcuts.menuMask()), "selectAll");
         actionMap.put("selectAll", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -556,8 +590,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // so the one thing every editor promises about a mistake was unreachable from the
         // keyboard. doClick() rather than calling the undo manager, so a key press does
         // precisely what the menu item does, including being inert when there is nothing to
-        // undo. Ctrl+Y is here as well: it is what a Windows user reaches for to redo.
-        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK), "undoEdit");
+        // undo. Shortcut+Y is here as well on the platforms that use it - see below.
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputShortcuts.menuMask()), "undoEdit");
         actionMap.put("undoEdit", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -565,9 +599,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
         });
 
-        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z,
-                InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), "redoEdit");
-        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputEvent.CTRL_DOWN_MASK), "redoEdit");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputShortcuts.shiftMenuMask()), "redoEdit");
+        if (InputShortcuts.bindsRedoToY()) {
+            // What a Windows user reaches for to redo. Not bound on macOS, where Redo is
+            // Command+Shift+Z and Command+Y is spoken for elsewhere.
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputShortcuts.menuMask()), "redoEdit");
+        }
         actionMap.put("redoEdit", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -2098,13 +2135,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }
         java.io.File selectedFile = null;
         try {
-            javax.swing.JFileChooser chooser = newDocumentChooser("Open");
-            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                    "PNML or XML model (*.pnml, *.xml)", "pnml", "xml"));
-            if (chooser.showOpenDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) {
+            selectedFile = FileDialogs.openAmong(this, "Open",
+                    java.util.List.of(FileDialogs.MODEL, FileDialogs.ANY), documentStartDirectory());
+            if (selectedFile == null) {
                 return;
             }
-            selectedFile = chooser.getSelectedFile();
             lastOpenDirectory = selectedFile.getParentFile();
 
             // Opening a document, so everything the old one left behind goes with it — the
@@ -2146,7 +2181,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                         .recordOpened(file.toPath(), objModel.getName());
         ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared().setActiveProjectId(entry.getId());
 
-        MessageHelper.showImportWarnings(this, parser.getWarnings());
+        // The parser's own warnings and whatever the canvas had to drop, in one dialog: to the
+        // user they are the same thing - what this file could not be opened exactly as written.
+        java.util.List<String> warnings = new java.util.ArrayList<>(parser.getWarnings());
+        warnings.addAll(canvas.getLoadWarnings());
+        MessageHelper.showImportWarnings(this, warnings);
     }
 
     /**
@@ -2340,7 +2379,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             }
             lastSaveAsDirectory = selectedFile.getParentFile();
 
-            // JFileChooser approves silently over an existing file; asking is on us.
+            // The native dialog warns about a name the user typed in full, but the extension
+            // is appended afterwards - so "model" over an existing "model.pnml" reaches here
+            // unremarked, and asking is on us.
             if (selectedFile.exists() && !MessageHelper.showConfirmation(this,
                     "'" + selectedFile.getName() + "' already exists. Overwrite it?")) {
                 return;
@@ -2353,22 +2394,16 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }
     }
 
-    /** One file type {@link #chooseSaveAsFile()} can offer: its extension and its label in the dialog's filter dropdown. */
-    private record SaveFormat(String extension, String description) {
-    }
 
     /**
-     * File types the Save As dialog offers, in order - the first is the default filter and
-     * what a typed name with none of these extensions gets appended. PNML and plain XML
-     * (the same PNML content, just a different suffix) today; adding another format later is
-     * exactly one more entry here, since both the dialog's filters and its fallback extension
-     * in {@link #chooseSaveAsFile()} are driven from this list rather than any extension being
-     * hardcoded elsewhere.
+     * File types the Save As dialog offers, in order - the first is what a typed name with
+     * neither extension gets appended. PNML and plain XML (the same PNML content under a
+     * different suffix) today; adding another format later is one more entry here, since both
+     * the pick the user is offered and the extension a bare name receives are driven from this
+     * list rather than any extension being hardcoded elsewhere.
      */
-    private static final SaveFormat[] SAVE_AS_FORMATS = {
-        new SaveFormat("pnml", "PNML model (*.pnml)"),
-        new SaveFormat("xml", "XML document (*.xml)"),
-    };
+    private static final java.util.List<FileDialogs.FileKind> SAVE_AS_KINDS =
+            java.util.List.of(FileDialogs.PNML, FileDialogs.XML);
 
     /**
      * The OS's own native Save dialog ({@link java.awt.FileDialog}) rather than
@@ -2382,118 +2417,35 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * anywhere and no earlier Save As in this session has landed anywhere else either.
      *
      * @return the chosen file, with the picked format's extension appended if the typed name
-     *         ended up with none of {@link #SAVE_AS_FORMATS}; {@code null} if either step was
+     *         ended up with none of {@link #SAVE_AS_KINDS}; {@code null} if either step was
      *         cancelled
      */
     private java.io.File chooseSaveAsFile() {
-        SaveFormat format = pickSaveFormat();
-        if (format == null) {
-            return null;
-        }
-
-        java.awt.FileDialog dialog = new java.awt.FileDialog(this, "Save As", java.awt.FileDialog.SAVE);
         java.io.File startDir = lastSaveAsDirectory != null
                 ? lastSaveAsDirectory
                 : currentPnmlFile != null ? currentPnmlFile.getParentFile() : petriNetsFolder();
-        dialog.setDirectory(startDir.getAbsolutePath());
         String baseName = currentPnmlFile != null
                 ? stripSaveAsExtension(currentPnmlFile.getName())
                 : netNameTextField.getText();
-        dialog.setFile(baseName + "." + format.extension());
-        // Best-effort: restricts which existing files are browsable, even though the native
-        // type box itself will not necessarily reflect it - that is exactly what the pick
-        // above is for.
-        dialog.setFilenameFilter((dir, name) -> hasSaveAsExtension(name));
-        dialog.setVisible(true); // modal - blocks until the user picks a file or cancels
-
-        String fileName = dialog.getFile();
-        if (fileName == null) {
-            return null;
-        }
-        java.io.File selected = new java.io.File(dialog.getDirectory(), fileName);
-        if (!hasSaveAsExtension(selected.getName())) {
-            selected = new java.io.File(selected.getAbsolutePath() + "." + format.extension());
-        }
-        return selected;
+        return FileDialogs.saveAmong(this, "Save As", SAVE_AS_KINDS, startDir, baseName);
     }
+
+
 
     /**
-     * A plain-button vertical list rather than {@code JOptionPane.showOptionDialog}'s default
-     * side-by-side row: one format per row reads better than a horizontal strip of buttons
-     * once their labels are full descriptions like "PNML model (*.pnml)" rather than "Yes"/
-     * "No".
-     *
-     * @return the format the user picked from {@link #SAVE_AS_FORMATS}, or {@code null} if
-     *         they closed the picker (Cancel, Escape, or the window's own close button)
-     *         without choosing one
-     */
-    private SaveFormat pickSaveFormat() {
-        javax.swing.JDialog dialog = new javax.swing.JDialog(this, "Save As", true);
-        dialog.setDefaultCloseOperation(javax.swing.JDialog.DISPOSE_ON_CLOSE);
-
-        javax.swing.JPanel panel = new javax.swing.JPanel();
-        panel.setLayout(new javax.swing.BoxLayout(panel, javax.swing.BoxLayout.Y_AXIS));
-        panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(14, 18, 14, 18));
-
-        javax.swing.JLabel prompt = new javax.swing.JLabel("Save as which format?");
-        prompt.setAlignmentX(java.awt.Component.CENTER_ALIGNMENT);
-        panel.add(prompt);
-        panel.add(javax.swing.Box.createVerticalStrut(10));
-
-        SaveFormat[] chosen = new SaveFormat[1];
-        for (SaveFormat format : SAVE_AS_FORMATS) {
-            javax.swing.JButton button = new javax.swing.JButton(format.description());
-            button.setAlignmentX(java.awt.Component.CENTER_ALIGNMENT);
-            button.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, button.getPreferredSize().height));
-            button.addActionListener(evt -> {
-                chosen[0] = format;
-                dialog.dispose();
-            });
-            panel.add(button);
-            panel.add(javax.swing.Box.createVerticalStrut(6));
-        }
-
-        javax.swing.JButton cancel = new javax.swing.JButton("Cancel");
-        cancel.setAlignmentX(java.awt.Component.CENTER_ALIGNMENT);
-        cancel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, cancel.getPreferredSize().height));
-        cancel.addActionListener(evt -> dialog.dispose());
-        panel.add(cancel);
-
-        dialog.getRootPane().registerKeyboardAction(evt -> dialog.dispose(),
-                javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
-                javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
-
-        dialog.setLayout(new java.awt.BorderLayout());
-        dialog.add(panel, java.awt.BorderLayout.CENTER);
-        dialog.pack();
-        dialog.setLocationRelativeTo(this);
-        dialog.setVisible(true); // modal - blocks until a button disposes it
-
-        return chosen[0];
-    }
-
-    private static boolean hasSaveAsExtension(String fileName) {
-        String lower = fileName.toLowerCase();
-        for (SaveFormat format : SAVE_AS_FORMATS) {
-            if (lower.endsWith("." + format.extension())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * @return {@code fileName} with a known {@link #SAVE_AS_FORMATS} extension removed, so
+     * @return {@code fileName} with a known {@link #SAVE_AS_KINDS} extension removed, so
      *         switching format on an already-saved document does not stack extensions (e.g.
      *         {@code "Net.pnml"} chosen as XML becomes {@code "Net.xml"}, not
      *         {@code "Net.pnml.xml"})
      */
     private static String stripSaveAsExtension(String fileName) {
         String lower = fileName.toLowerCase();
-        for (SaveFormat format : SAVE_AS_FORMATS) {
-            String suffix = "." + format.extension();
-            if (lower.endsWith(suffix)) {
-                return fileName.substring(0, fileName.length() - suffix.length());
+        for (FileDialogs.FileKind kind : SAVE_AS_KINDS) {
+            for (String extension : kind.extensions()) {
+                String suffix = "." + extension;
+                if (lower.endsWith(suffix)) {
+                    return fileName.substring(0, fileName.length() - suffix.length());
+                }
             }
         }
         return fileName;
@@ -2535,21 +2487,21 @@ public class PetriNetsFrame extends javax.swing.JFrame {
     }
 
     /**
-     * A file chooser for the document dialogs, replacing the native AWT FileDialog: on
-     * Windows that one cannot list file-type filters at all, so its type box misleadingly
-     * said "All Files" for a dialog that only ever meant PNML.
+     * Where a document dialog should open.
      *
-     * @param title the dialog title
-     * @return a chooser starting where the previous dialog ended up, or at the document's
-     *         own directory
+     * <p>This used to build a {@code JFileChooser}, put there because the native dialog on
+     * Windows cannot label more than one file-type filter and its type box therefore read "All
+     * Files" for a dialog that only ever meant PNML. The complaint was right and the fix has
+     * moved rather than gone: {@code FileDialogs} asks which kind first, so the choice is made
+     * and named before the native dialog opens, and every file dialog in the editor is the
+     * platform's own again.
+     *
+     * @return where the previous dialog ended up, or the document's own directory
      */
-    private javax.swing.JFileChooser newDocumentChooser(String title) {
-        java.io.File startAt = lastOpenDirectory != null
+    private java.io.File documentStartDirectory() {
+        return lastOpenDirectory != null
                 ? lastOpenDirectory
                 : currentPnmlFile != null ? currentPnmlFile.getParentFile() : null;
-        javax.swing.JFileChooser chooser = new javax.swing.JFileChooser(startAt);
-        chooser.setDialogTitle(title);
-        return chooser;
     }
 
     /**

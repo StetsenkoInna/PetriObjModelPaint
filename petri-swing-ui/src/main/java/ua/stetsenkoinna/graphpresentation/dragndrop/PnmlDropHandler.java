@@ -185,9 +185,12 @@ public class PnmlDropHandler implements DropTargetListener {
     ComposedImportResult mergeComposedDocument(File file) throws Exception {
         PnmlModelParser parser = new PnmlModelParser();
         GraphPetriObjModel objModel = parser.parse(file);
-        panel.addCanvasModel(GraphCanvasModel.fromObjModel(objModel));
+        GraphCanvasModel canvas = GraphCanvasModel.fromObjModel(objModel);
+        panel.addCanvasModel(canvas);
         panel.repaint();
-        return new ComposedImportResult(objModel, parser.getWarnings());
+        List<String> warnings = new java.util.ArrayList<>(parser.getWarnings());
+        warnings.addAll(canvas.getLoadWarnings());
+        return new ComposedImportResult(objModel, warnings);
     }
 
     /** What {@link #mergeComposedDocument} produced, for a caller to report or inspect. */

@@ -737,28 +737,60 @@ public class GraphPetriNet implements Cloneable, Serializable {
     }
 
     /**
-     * Detects and fixes overlapping arcs between the same elements going in opposite directions
-     * This method should be called after importing PNML or creating a net to prevent arc overlap
+     * Works out which arcs run in both directions between the same pair of elements, so each one
+     * is drawn to its own side instead of on top of its opposite number.
+     *
+     * <p>Call this after anything that changes which arcs exist: an import, an arc drawn or
+     * erased, an undo that puts one back. It states the whole answer rather than adding to it,
+     * so calling it twice costs nothing and calling it too often is impossible.
+     *
+     * <p>That is the point of the clearing pass, and its absence was a real defect. The flags
+     * used to be set and never unset, which broke a two-way pair in both directions. Erase one
+     * of the two and the survivor kept an offset it had only been given because the other one
+     * existed, so a lone arc drew itself off the centre line. Put the erased one back - undo
+     * does exactly that, straight into the list - and nothing paired them up again, so both
+     * drew down the middle, one hidden underneath the other.
      */
     public void fixOverlappingArcs() {
-        // Check for overlapping arcs and apply twoArcs logic to separate them
+        for (GraphArc arc : allArcs()) {
+            arc.setFirstArc(false);
+            arc.setSecondArc(false);
+        }
+
         for (GraphArcOut arcOut : graphArcOutList) {
             for (GraphArcIn arcIn : graphArcInList) {
-                // Check if arcs connect the same elements in opposite directions
-                int inBeginId = arcIn.getBeginElement().getId();
-                int inEndId = arcIn.getEndElement().getId();
-                int outBeginId = arcOut.getBeginElement().getId();
-                int outEndId = arcOut.getEndElement().getId();
-
-                // If input arc goes from place to transition and output arc goes from same transition to same place
-                if (inBeginId == outEndId && inEndId == outBeginId) {
-                    // Apply two arcs logic to separate them visually
+                if (isDangling(arcIn) || isDangling(arcOut)) {
+                    // An arc still being drawn has no far end yet.
+                    continue;
+                }
+                // Opposite directions between the same two elements: the in-arc runs place to
+                // transition, the out-arc runs that transition back to that place.
+                if (arcIn.getBeginElement().getId() == arcOut.getEndElement().getId()
+                        && arcIn.getEndElement().getId() == arcOut.getBeginElement().getId()) {
                     arcIn.twoArcs(arcOut);
-                    arcIn.updateCoordinates();
-                    arcOut.updateCoordinates();
                 }
             }
         }
+
+        // Every arc, not only the paired ones. An arc that has just lost its partner has to come
+        // back to the centre line, and it only does that when its geometry is recomputed.
+        for (GraphArc arc : allArcs()) {
+            if (!isDangling(arc)) {
+                arc.updateCoordinates();
+            }
+        }
+    }
+
+    /** Every arc on this net, of either direction. */
+    private List<GraphArc> allArcs() {
+        List<GraphArc> arcs = new ArrayList<>(graphArcInList.size() + graphArcOutList.size());
+        arcs.addAll(graphArcInList);
+        arcs.addAll(graphArcOutList);
+        return arcs;
+    }
+
+    private static boolean isDangling(GraphArc arc) {
+        return arc.getBeginElement() == null || arc.getEndElement() == null;
     }
 
     public void paintGraphPetriNet(Graphics2D g2, Graphics g) {

@@ -28,7 +28,7 @@ Two kinds of link connect them:
 
 | Link | Written | What happens |
 |------|---------|--------------|
-| **Shared place** | `O0.P2 = O1.P1` | The two places become one instance. Both objects read and change the same marking — the classic composition of the technique. |
+| **Shared place** | `O0.P2 = O1.P1` | The two places become one instance. Both objects read and change the same marking — the classic composition of the technique. One place may be repeated by any number of others; see [One source, many copies](#one-source-many-copies). |
 | **Transition → place** | `O1.T1 → O2.P1 ×k` | Whenever the transition fires, it delivers `k` tokens into a place of the other object, without owning an output place of its own. |
 
 A transition's firing condition is always made of input places drawn in its own net; there is
@@ -75,7 +75,8 @@ does not move them; either way an element's own position only ever changes one a
 the object's own editor. The small eye icon in the header shows or hides the object's
 own drawing without changing the frame's size at all — a purely visual choice, for a model with
 more objects than screen space; the object's places and transitions still exist and still hold
-their marking either way, they are just not painted while the eye is closed. `Ctrl+A` selects
+their marking either way, they are just not painted while the eye is closed. `Ctrl` below means
+`Command` on macOS, as in the [desktop UI guide](desktop-ui.md#keyboard-shortcuts). `Ctrl+A` selects
 every frame along with every place and transition; `Delete` removes whatever frames are
 selected (their nets stay on the canvas), `Ctrl+D` duplicates the current one — the same
 actions the elements on the canvas already respond to, extended to objects too. Rename,
@@ -106,7 +107,10 @@ another object's own element while that one is shown too:
 
 | Drag from a place (or its port) to | What you get |
 |-------------------------------------|---------------|
-| another place (or its port) | the two places become one shared place |
+| another place (or its port) | the second place becomes a copy of the first — the two are one instance |
+
+The drag runs **from the source to the copy**, and the direction is kept: the place you started
+from is the one whose marking the other repeats.
 
 | Drag from a transition (or its port) to | What you get |
 |-------------------------------------------|---------------|
@@ -316,16 +320,137 @@ curl -X POST http://localhost:8080/api/v2/model/parse \
 
 ---
 
+## One source, many copies
+
+A place may be repeated by any number of other places. Drag from the source onto each place that
+should repeat it, one link at a time; there is no separate gesture for a fan.
+
+The model keeps one pairwise link per copy rather than a single one-to-many object, because that
+is what the file format keeps too. PNML has no node meaning "shared with many": a
+`<referencePlace>` carries exactly one `ref`. What one-to-many is, in PNML, is several reference
+places naming the same target — which the standard's own grammar accepts, since its rules for a
+reference place are only that `ref` names a place or another reference place, that it does not
+name its own element, and that it does not close a cycle. `PnmlRngConformanceTest` validates a
+fan-out document against that grammar rather than taking anyone's word for it.
+
+Four things are refused, each for its own reason:
+
+| Refused | Why |
+|---|---|
+| Linking a place to itself | there is nothing to repeat |
+| Linking the same two places twice, or back the other way | these links are one-way; the reverse would make each place repeat the other |
+| A place copying two different sources | it would have no answer to whose marking it holds |
+| A chain of links closing into a loop | the same, spread over several places — and PNML forbids a cycle of reference places outright |
+
+Chains themselves are fine: a place that copies another may in turn be copied.
+
+The same rules apply to a document being opened, not only to a link being drawn. A file is
+written by a tool, by hand, or by an older version of this one, none of which consulted them, so
+it may well carry a link the editor would have refused. Such links are left out and reported
+alongside the parser's own import warnings — the document still opens. Where several links
+contradict each other, the first stated survives: links are restored in document order, and that
+is the one which had already taken effect by the time the later ones were declared.
+
+Two places that belong to **no** object may now be linked. Two places of the **same** object may
+not — an object repeating itself says nothing.
+
+## Groups: describing a hundred like nodes once
+
+A system of a hundred like nodes is the case the Petri-object approach exists for. Describing one
+node's net and stamping it a hundred times is the technique's `multiply(net, lists, k)`, and the
+editor does it from an object's right-click menu: **Replicate into a group…**, then how many.
+
+The copies are ordinary Petri-objects — each with its own net, its own position, editable and
+linkable like any other. A group *is* its objects, by definition, so nothing downstream knows or
+needs to know about groups: the simulation builds the model it always did, and a saved document is
+the same conformant PNML with `k` pages in it. What a group adds is the record that those objects
+were stamped together, which is what lets the editor keep treating them as one. Members are named
+`Name 1` … `Name k` and drawn inside a labelled band.
+
+### One connector, every member
+
+The point of a group is not the stamping; it is that a connection to it is declared once. Share a
+place with any one member, then use **Replicate across '…'** on that link, and every member of the
+group shares it — the technique's
+
+```
+g.net.p_b = o.net.p_a  ⟺  ∀o_i ∈ g: o_i.net.p_b = o.net.p_a
+```
+
+**Which side the group is on is fixed, and not by us.** The rule assigns *to* each member *from*
+the single object, so the members are the copies and the lone object is the source. It cannot be
+the other way round: a place copying a hundred sources would have no answer to what its marking
+is, which is the same reason a single such link is refused. So the command appears only on a link
+whose group end is the copy.
+
+Members already wired are stepped over, so replicating twice — or replicating after wiring one
+member by hand — finishes the job rather than refusing it. Any member that could not be reached is
+named afterwards; a replication that quietly covered part of a group would leave a model you
+believe is uniform and is not.
+
+### Limits and what is not here
+
+A group is capped at 200 objects. Nothing in the technique stops there — the limit is this
+editor's, where every object carries a full copy of the net and redraws it on every repaint.
+
+Groups of *collections* — replicating a whole linked fragment of the model rather than one object
+— are not implemented. The technique defines them; the editor does not have them yet.
+
+### Connectors
+
+All the shared places between one pair of Petri-objects are one **connector**. Two objects
+sharing three places are joined by a connector of three place identifications, not by three
+unrelated links — that is the unit the Petri-object technique itself reasons in, written
+`connector(o_u, o_v) = {(o_u.net.p_b, o_v.net.p_a)}`.
+
+The editor treats it as one thing where it matters. Selecting any one of its links highlights the
+whole connector, so what is actually joining the two objects is visible rather than one strand of
+it. A link's right-click menu offers **Split the whole connector** alongside splitting the single
+place, and does it in one undoable step: detaching two objects is a single act however many
+places it took to join them.
+
+A connector is derived from the links that exist, never stored, so it cannot disagree with them.
+A link with an end belonging to no object stands on its own — a connector joins two
+Petri-objects, and loose places are not one.
+
+### A linked place is drawn filled
+
+A place that takes part in a link is drawn with a grey interior instead of the plain element
+fill — both ends, since once two places are one instance neither one's marking is its own any
+more. It says so where the place stands, which matters most on a canvas that does not draw the
+other end of the link at all.
+
+### Telling a reference link from an informational arc
+
+Both are thin dashed lines, and they used to differ only in dash length and in whether the
+arrowhead was filled. Those are differences of degree, and they are the first thing to disappear
+when the canvas is zoomed out, printed or screenshotted.
+
+| | Line | End |
+|---|---|---|
+| Informational arc | even dash | filled arrowhead at the transition |
+| Reference link | dash-dot | filled **node** on the source, no arrowhead |
+
+The reference link has no arrowhead on purpose. An arrowhead promises a flow, and nothing flows
+along a reference link — the copy simply *is* the source. Direction still matters and is still
+visible, because the node sits on one end only: the end everything else is copying. Where one
+source is repeated by several places, their nodes coincide, so the fan reads as one origin
+rather than as several unrelated links.
+
+---
+
 ## Things to know
 
 - **Element indices are positions.** A link addresses the n-th place or transition of an
   object. Reordering the elements of a net reorders what its links point at; the editor
   rebuilds the net from its drawing before every run and every save, so the two stay in step.
 - **A shared place does not move either half.** The two places may sit deep inside two
-  different objects, or one inside an object and one nowhere in particular; joining them never
-  repositions either one, and the connection is drawn as a line — to a port for a half whose
-  object has its content hidden, to the place itself otherwise — rather than a ring around a
-  shared point.
+  different objects, one inside an object and one nowhere in particular, or both nowhere at all;
+  joining them never repositions either one, and the connection is always drawn as a line — to a
+  port for a half whose object has its content hidden, to the place itself otherwise. There used
+  to be a second form for two places belonging to no object, which stacked one on top of the
+  other and drew a ring around the pair. It is gone: with one place repeated by several, it
+  would have piled all the copies onto one point.
 - **A transition's inputs are always local.** A transition-to-place link only ever adds an
   output; the only way a foreign place reaches a transition's firing condition is by being
   fused into a place already drawn as that transition's input inside its own object's net.

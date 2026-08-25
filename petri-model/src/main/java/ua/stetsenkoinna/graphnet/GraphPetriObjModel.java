@@ -38,6 +38,15 @@ public class GraphPetriObjModel implements Serializable {
     private final List<GraphPetriObject> objects = new ArrayList<>();
     private final List<PetriObjLink> links = new ArrayList<>();
 
+    /**
+     * Which objects were stamped together - see {@link PetriObjectGroupRef}.
+     *
+     * <p>Carries no semantics: the model these objects make up is the same with or without it.
+     * It travels with the model so the editor can restore the grouping after a save and a
+     * reload, and so a reader that does not care may ignore it.
+     */
+    private final List<PetriObjectGroupRef> groups = new ArrayList<>();
+
     public GraphPetriObjModel() {
         this(DEFAULT_NAME);
     }
@@ -79,6 +88,13 @@ public class GraphPetriObjModel implements Serializable {
      */
     public List<PetriObjLink> getLinks() {
         return Collections.unmodifiableList(links);
+    }
+
+    /**
+     * @return the object groups, live, so a reader can add what it found
+     */
+    public List<PetriObjectGroupRef> getGroups() {
+        return groups;
     }
 
     public int getObjectCount() {

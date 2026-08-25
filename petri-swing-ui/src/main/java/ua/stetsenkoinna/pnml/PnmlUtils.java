@@ -2,10 +2,10 @@ package ua.stetsenkoinna.pnml;
 
 import ua.stetsenkoinna.petriobj.PetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
+import ua.stetsenkoinna.graphpresentation.io.FileDialogs;
 import ua.stetsenkoinna.utils.MessageHelper;
 
 import javax.swing.*;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import java.io.File;
 
 /**
@@ -22,16 +22,9 @@ public class PnmlUtils {
      * @return ImportResult containing PetriNet and coordinate data or null if cancelled/failed
      */
     public static ImportResult importFromFile(java.awt.Component parent) {
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setFileFilter(new FileNameExtensionFilter("PNML Files (*.pnml)", "pnml"));
-        fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
-
-        int result = fileChooser.showOpenDialog(parent);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File selectedFile = fileChooser.getSelectedFile();
-            return importFromFile(selectedFile, parent);
-        }
-        return null;
+        File selectedFile = FileDialogs.open(parent, "Import PNML", FileDialogs.PNML,
+                new File(System.getProperty("user.home")));
+        return selectedFile == null ? null : importFromFile(selectedFile, parent);
     }
 
     /**
@@ -85,28 +78,15 @@ public class PnmlUtils {
             return false;
         }
 
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setFileFilter(new FileNameExtensionFilter("PNML Files (*.pnml)", "pnml"));
-        fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
-
-        // Set default filename
         String defaultName = petriNet.getName() != null && !petriNet.getName().isEmpty()
                 ? petriNet.getName() + ".pnml"
                 : "petri_net.pnml";
-        fileChooser.setSelectedFile(new File(defaultName));
 
-        int result = fileChooser.showSaveDialog(parent);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File selectedFile = fileChooser.getSelectedFile();
-
-            // Add .pnml extension if not present
-            if (!selectedFile.getName().toLowerCase().endsWith(".pnml")) {
-                selectedFile = new File(selectedFile.getAbsolutePath() + ".pnml");
-            }
-
-            return exportToFile(petriNet, selectedFile, parent, graphPetriNet);
-        }
-        return false;
+        // The extension is appended by the dialog helper now, for every command rather than the
+        // ones whose author remembered to.
+        File selectedFile = FileDialogs.save(parent, "Export PNML", FileDialogs.PNML,
+                new File(System.getProperty("user.home")), defaultName);
+        return selectedFile != null && exportToFile(petriNet, selectedFile, parent, graphPetriNet);
     }
 
     /**

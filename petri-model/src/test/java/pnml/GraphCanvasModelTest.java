@@ -6,6 +6,7 @@ import ua.stetsenkoinna.graphnet.GraphArcFactory;
 import ua.stetsenkoinna.graphnet.GraphCanvasModel;
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
+import ua.stetsenkoinna.graphnet.GraphObjectGroup;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
@@ -205,17 +206,365 @@ public class GraphCanvasModelTest {
         assertEquals(beforeSink, inputOfSink.getGraphElementCenter());
     }
 
+    /**
+     * Two places that belong to no object may be linked.
+     *
+     * <p>They used to be refused, on the reasoning that both belong to the same implicit "free
+     * elements" object and so linking them is as meaningless as linking two places of one frame.
+     * That reasoning was retired deliberately: a reference link is now a way of saying one place
+     * repeats another wherever they are drawn, not solely a way of composing two objects. Two
+     * places of the same real object are still refused - see the test below.
+     */
     @Test
-    public void twoFreePlacesCannotBeSharedEither() {
-        // Both belong to the same implicit "free elements" object once the canvas is split,
-        // exactly like two places drawn inside the same frame — joining them would be just as
-        // meaningless.
+    public void twoFreePlacesCanBeLinked() {
         resetCounters();
         GraphCanvasModel canvas = new GraphCanvasModel("Simple", new GraphPetriNet());
         GraphPetriPlace first = place(canvas, "A", 1, 40, 40);
         GraphPetriPlace second = place(canvas, "B", 0, 400, 400);
 
-        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(first, second));
+        GraphPlaceFusion link = canvas.joinPlaces(first, second);
+
+        assertSame(first, link.getMaster());
+        assertSame(second, link.getJoined());
+    }
+
+    // ---------------------------------------------------- one source, many copies
+
+    /** A canvas holding {@code count} loose places named P0, P1, ... */
+    private static GraphPetriPlace[] loosePlaces(GraphCanvasModel canvas, int count) {
+        GraphPetriPlace[] places = new GraphPetriPlace[count];
+        for (int i = 0; i < count; i++) {
+            places[i] = place(canvas, "P" + i, i == 0 ? 1 : 0, 40 + i * 80, 40);
+        }
+        return places;
+    }
+
+    private static GraphCanvasModel emptyCanvas() {
+        resetCounters();
+        return new GraphCanvasModel("Simple", new GraphPetriNet());
+    }
+
+    /**
+     * The feature itself. One place may be repeated by as many others as wanted, which is the
+     * whole of one-to-many: the model stores it as that many pairwise links sharing a source,
+     * exactly as PNML stores it as that many reference places sharing a ref.
+     */
+    @Test
+    public void onePlaceCanBeRepeatedByManyOthers() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 4);
+
+        canvas.joinPlaces(p[0], p[1]);
+        canvas.joinPlaces(p[0], p[2]);
+        canvas.joinPlaces(p[0], p[3]);
+
+        assertEquals("three links out of the one source", 3, canvas.fusionsFrom(p[0]).size());
+        assertEquals("and the source takes part in all of them", 3, canvas.fusionsOf(p[0]).size());
+        assertEquals("while each copy takes part in only its own", 1, canvas.fusionsOf(p[1]).size());
+        assertSame(p[0], canvas.sourceFusionOf(p[3]).getMaster());
+    }
+
+    /**
+     * A linked place is drawn filled, so that a place whose marking is not its own says so where
+     * it stands - including on a canvas where the other end of the link is not visible at all.
+     *
+     * <p>The flag is derived on every pass rather than maintained, which is what the second half
+     * of this test is about: a place that has lost its last link has to stop being drawn as
+     * linked, and only clearing before setting can say that.
+     */
+    @Test
+    public void aLinkedPlaceIsMarkedAndUnmarkedAsItsLinksComeAndGo() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 3);
+
+        canvas.joinPlaces(p[0], p[1]);
+        canvas.syncFusions();
+
+        assertTrue("the source shares its marking too", p[0].isLinkedToAnotherPlace());
+        assertTrue("and so does the copy", p[1].isLinkedToAnotherPlace());
+        assertFalse("a place in no link is left alone", p[2].isLinkedToAnotherPlace());
+
+        canvas.getFusions().clear();
+        canvas.syncFusions();
+
+        assertFalse("the mark goes when the link does", p[0].isLinkedToAnotherPlace());
+        assertFalse(p[1].isLinkedToAnotherPlace());
+    }
+
+    /**
+     * A document can carry links the editor would never have let anyone draw - written by hand,
+     * by another writer, or by an older version of this tool, none of which consulted these
+     * rules. Those links are dropped on the way in and named, rather than drawn: this is how a
+     * pair linked both ways round came to be seen on a canvas at all.
+     *
+     * <p>Document order decides which of a contradictory group survives: the first stated. It is
+     * also the one that had already taken effect by the time the later ones were declared, so
+     * keeping it is what the document already meant.
+     */
+    @Test
+    public void aDocumentCarryingLinksTheEditorWouldRefuseLosesThemAndSaysSo() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphPetriPlace first = canvas.getNet().getGraphPetriPlaceList().get(1);
+        GraphPetriPlace second = canvas.getNet().getGraphPetriPlaceList().get(2);
+        canvas.joinPlaces(first, second);
+
+        GraphPetriObjModel model = canvas.toObjModel();
+        // The same pair again, the other way round - meaningless, since the first link already
+        // made the two one place.
+        model.addLink(ua.stetsenkoinna.petriobj.PetriObjLink.placeFusion(0, 1, 1, 0));
+
+        GraphCanvasModel reopened = GraphCanvasModel.fromObjModel(model);
+
+        assertEquals("only the first of the pair survived", 1, reopened.getFusions().size());
+        assertEquals("and the user is told what went", 1, reopened.getLoadWarnings().size());
+        assertTrue("naming the reason rather than just the fact",
+                reopened.getLoadWarnings().getFirst().contains("opposite direction"));
+    }
+
+    /** A document whose links are all sound is read without complaint. */
+    @Test
+    public void asoundDocumentProducesNoWarnings() {
+        GraphCanvasModel canvas = twoFramedObjects();
+        GraphPetriPlace first = canvas.getNet().getGraphPetriPlaceList().get(1);
+        GraphPetriPlace second = canvas.getNet().getGraphPetriPlaceList().get(2);
+        canvas.joinPlaces(first, second);
+
+        GraphCanvasModel reopened = GraphCanvasModel.fromObjModel(canvas.toObjModel());
+
+        assertEquals(1, reopened.getFusions().size());
+        assertTrue(reopened.getLoadWarnings().isEmpty());
+    }
+
+    // ---------------------------------------------------- object groups
+
+    /**
+     * A group survives being written to a model and read back.
+     *
+     * <p>What it survives as is the point: the members come back as the same ordinary objects
+     * they would have been without a group, and the group is the record that they belong
+     * together. Nothing about the model they make up depends on it.
+     */
+    @Test
+    public void aGroupSurvivesTheRoundTripThroughTheModel() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Farm", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[1];
+        GraphPetriPlace[] b = new GraphPetriPlace[1];
+        GraphPetriPlace[] c = new GraphPetriPlace[1];
+        GraphObjectFrame one = objectWith(canvas, "Server 1", 0, a, 1);
+        GraphObjectFrame two = objectWith(canvas, "Server 2", 400, b, 1);
+        objectWith(canvas, "Hub", 800, c, 1);
+
+        GraphObjectGroup group = new GraphObjectGroup("Server", null);
+        group.add(one);
+        group.add(two);
+        canvas.getGroups().add(group);
+
+        GraphCanvasModel reopened = GraphCanvasModel.fromObjModel(canvas.toObjModel());
+
+        assertEquals("the group came back", 1, reopened.getGroups().size());
+        GraphObjectGroup restored = reopened.getGroups().getFirst();
+        assertEquals("Server", restored.getName());
+        assertEquals(2, restored.size());
+        assertEquals("its members are the objects it named",
+                "Server 1", restored.getMembers().get(0).getName());
+        assertEquals("Server 2", restored.getMembers().get(1).getName());
+        assertEquals("and the object outside it stayed outside",
+                3, reopened.getFrames().size());
+    }
+
+    /** A canvas with no groups produces a model with none, and reads back the same. */
+    @Test
+    public void aCanvasWithoutGroupsStaysThatWay() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Plain", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[1];
+        objectWith(canvas, "A", 0, a, 1);
+
+        GraphCanvasModel reopened = GraphCanvasModel.fromObjModel(canvas.toObjModel());
+
+        assertTrue(reopened.getGroups().isEmpty());
+    }
+
+    // ---------------------------------------------------- connectors
+
+    /** An object with {@code places} places of its own, framed and claimed. */
+    private static GraphObjectFrame objectWith(GraphCanvasModel canvas, String name,
+                                               int x, GraphPetriPlace[] out, int places) {
+        GraphObjectFrame frame = new GraphObjectFrame(name, new Rectangle(x, 0, 300, 400));
+        canvas.getFrames().add(frame);
+        for (int i = 0; i < places; i++) {
+            GraphPetriPlace place = place(canvas, name + i, 0, x + 40, 60 + i * 60);
+            canvas.claim(frame, place);
+            out[i] = place;
+        }
+        return frame;
+    }
+
+    /**
+     * Three places shared between the same two objects are one connector, not three unrelated
+     * links. This is the technique's own unit: {@code connector(o_u, o_v)} is the whole set of
+     * place identifications between one pair of objects.
+     */
+    @Test
+    public void everyLinkBetweenOnePairOfObjectsBelongsToOneConnector() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Pipeline", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[3];
+        GraphPetriPlace[] b = new GraphPetriPlace[3];
+        objectWith(canvas, "A", 0, a, 3);
+        objectWith(canvas, "B", 400, b, 3);
+
+        GraphPlaceFusion first = canvas.joinPlaces(a[0], b[0]);
+        canvas.joinPlaces(a[1], b[1]);
+        canvas.joinPlaces(a[2], b[2]);
+
+        assertEquals("all three are one connector", 3, canvas.connectorOf(first).size());
+        assertEquals("which is the only connector on the canvas", 1, canvas.connectors().size());
+    }
+
+    /** Asked from any of its strands, a connector answers the same. */
+    @Test
+    public void aConnectorIsTheSameWhicheverOfItsLinksIsAsked() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Pipeline", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[2];
+        GraphPetriPlace[] b = new GraphPetriPlace[2];
+        objectWith(canvas, "A", 0, a, 2);
+        objectWith(canvas, "B", 400, b, 2);
+
+        GraphPlaceFusion first = canvas.joinPlaces(a[0], b[0]);
+        // Drawn the other way round: B's place repeats A's this time. Same pair of objects, so
+        // the same connector - which way a link was dragged is not what a connector is about.
+        GraphPlaceFusion second = canvas.joinPlaces(b[1], a[1]);
+
+        assertEquals(2, canvas.connectorOf(first).size());
+        assertEquals(2, canvas.connectorOf(second).size());
+        assertTrue(canvas.connectorOf(first).contains(second));
+    }
+
+    /** A different pair of objects is a different connector. */
+    @Test
+    public void linksToADifferentObjectFormTheirOwnConnector() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Pipeline", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[2];
+        GraphPetriPlace[] b = new GraphPetriPlace[2];
+        GraphPetriPlace[] c = new GraphPetriPlace[2];
+        objectWith(canvas, "A", 0, a, 2);
+        objectWith(canvas, "B", 400, b, 2);
+        objectWith(canvas, "C", 800, c, 2);
+
+        GraphPlaceFusion toB = canvas.joinPlaces(a[0], b[0]);
+        GraphPlaceFusion toC = canvas.joinPlaces(a[1], c[0]);
+
+        assertEquals(1, canvas.connectorOf(toB).size());
+        assertEquals(1, canvas.connectorOf(toC).size());
+        assertEquals("two pairs of objects, two connectors", 2, canvas.connectors().size());
+    }
+
+    /**
+     * A link with an end outside any object stands alone. A connector joins two Petri-objects,
+     * and loose places are not one; bundling every loose link together would only be an artefact
+     * of one null owner matching another.
+     */
+    @Test
+    public void aLinkWithALoosePlaceIsAConnectorOfItsOwn() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Pipeline", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[1];
+        objectWith(canvas, "A", 0, a, 1);
+        GraphPetriPlace loose = place(canvas, "Loose", 0, 700, 60);
+        GraphPetriPlace alsoLoose = place(canvas, "AlsoLoose", 0, 700, 200);
+
+        GraphPlaceFusion framed = canvas.joinPlaces(a[0], loose);
+        GraphPlaceFusion free = canvas.joinPlaces(loose, alsoLoose);
+
+        assertEquals(1, canvas.connectorOf(framed).size());
+        assertEquals(1, canvas.connectorOf(free).size());
+        assertEquals("neither was bundled with the other", 2, canvas.connectors().size());
+    }
+
+    /** Every link belongs to exactly one connector, and none is counted twice. */
+    @Test
+    public void theConnectorsAccountForEveryLinkOnce() {
+        resetCounters();
+        GraphCanvasModel canvas = new GraphCanvasModel("Pipeline", new GraphPetriNet());
+        GraphPetriPlace[] a = new GraphPetriPlace[3];
+        GraphPetriPlace[] b = new GraphPetriPlace[3];
+        GraphPetriPlace[] c = new GraphPetriPlace[3];
+        objectWith(canvas, "A", 0, a, 3);
+        objectWith(canvas, "B", 400, b, 3);
+        objectWith(canvas, "C", 800, c, 3);
+
+        canvas.joinPlaces(a[0], b[0]);
+        canvas.joinPlaces(a[1], b[1]);
+        canvas.joinPlaces(b[2], c[0]);
+
+        int counted = canvas.connectors().stream().mapToInt(java.util.List::size).sum();
+        assertEquals("every link is in a connector, and in only one",
+                canvas.getFusions().size(), counted);
+        assertEquals(2, canvas.connectors().size());
+    }
+
+    /** Links of this kind are one-way: a link back the other way is refused. */
+    @Test
+    public void aLinkBackTheOtherWayIsRefused() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 2);
+        canvas.joinPlaces(p[0], p[1]);
+
+        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(p[1], p[0]));
+    }
+
+    @Test
+    public void theSameTwoPlacesCannotBeLinkedTwice() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 2);
+        canvas.joinPlaces(p[0], p[1]);
+
+        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(p[0], p[1]));
+    }
+
+    /**
+     * Many copies of one source, yes; one copy of many sources, no. A place with two sources
+     * would have no answer to whose marking it holds, which is the one thing a copy is for.
+     */
+    @Test
+    public void aPlaceCannotCopyTwoDifferentSources() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 3);
+        canvas.joinPlaces(p[0], p[2]);
+
+        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(p[1], p[2]));
+    }
+
+    @Test
+    public void aPlaceCannotBeLinkedToItself() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 1);
+
+        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(p[0], p[0]));
+    }
+
+    /**
+     * A chain is legal - a place that copies another may itself be copied - so the loop check
+     * has to walk the whole chain rather than looking one step up. PNML says the same thing in
+     * its own words: a reference place may refer to another reference place, but never to a
+     * cycle of them.
+     */
+    @Test
+    public void linksMayBeChainedButNotClosedIntoALoop() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 3);
+
+        canvas.joinPlaces(p[0], p[1]);
+        canvas.joinPlaces(p[1], p[2]);
+        assertEquals("a chain of two links stands", 2, canvas.getFusions().size());
+
+        // Closing the ring: p0 would copy p2, which copies p1, which copies p0.
+        assertThrows(IllegalArgumentException.class, () -> canvas.joinPlaces(p[2], p[0]));
+        assertEquals("and the refused link left nothing behind", 2, canvas.getFusions().size());
     }
 
     @Test

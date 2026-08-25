@@ -49,8 +49,25 @@ public enum CanvasColor {
     /** Semi-opaque plate behind a port's label, so it stays readable over the net. */
     PORT_LABEL_BACKDROP,
 
-    FUSION_RING,
+    /**
+     * The inside of a place that is linked to another one, rather than the plain element fill.
+     *
+     * <p>Replaces the ring colour that used to mark a shared place, now that a link is always
+     * drawn as a line: the ring is gone, so a place carried nothing on it saying its marking is
+     * not its own. Filling it says that wherever it is drawn, including on a canvas where the
+     * other end is not visible at all.
+     */
+    LINKED_PLACE_FILL,
     FUSION_RING_SELECTED,
+
+    /**
+     * The other strands of the connector whose strand the user picked.
+     *
+     * <p>Distinct from {@link #FUSION_RING_SELECTED} on purpose: the whole connector has to be
+     * visible, but the link actually clicked is still the one being pointed at, and drawing both
+     * in one colour claims they are equally what was picked.
+     */
+    CONNECTOR_STRAND,
 
     /** What an element takes while it is the one firing in an animation. */
     ANIMATION_ACTIVE,

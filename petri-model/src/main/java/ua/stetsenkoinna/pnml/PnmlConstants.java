@@ -77,7 +77,7 @@ public final class PnmlConstants {
      * it; see {@link #TOOL_VERSION_OBJECT_MODEL_CONFORMANT}. That is what makes it safe for
      * the value to move with the project.
      */
-    public static final String TOOL_VERSION_PETRI_OBJ_MODEL = "2.2.2";
+    public static final String TOOL_VERSION_PETRI_OBJ_MODEL = "2.3.0";
 
     /**
      * The element-level version of the first format, stamped on the block of a place, a
@@ -118,6 +118,25 @@ public final class PnmlConstants {
     public static final String ELEMENT_NET_TEMPLATE = "netTemplate";
     public static final String ELEMENT_TEMPLATE_ARGUMENT = "argument";
     public static final String ELEMENT_PETRI_OBJECT_LINKS = "petriObjectLinks";
+
+    /**
+     * Net-level block recording which Petri-objects were stamped together as a group.
+     *
+     * <p>Tool-specific because the PNML grammar has nothing to say about it and should not be
+     * asked to: a group is a statement about how a model was built, not about what it means.
+     * The objects it names are ordinary pages, related to each other by nothing but this block,
+     * so a reader that skips it reads the same model.
+     */
+    public static final String ELEMENT_PETRI_OBJECT_GROUPS = "petriObjectGroups";
+
+    /** One group inside {@link #ELEMENT_PETRI_OBJECT_GROUPS}. */
+    public static final String ELEMENT_GROUP = "group";
+
+    /** Space-separated object indices of a group's members, in stamping order. */
+    public static final String ATTR_MEMBERS = "members";
+
+    /** The net library method a group's shared net came from, when it came from one. */
+    public static final String ATTR_TEMPLATE_METHOD = "template";
     public static final String ELEMENT_LINK = "link";
 
     /**

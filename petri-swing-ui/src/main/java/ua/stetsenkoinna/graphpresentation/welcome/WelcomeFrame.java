@@ -26,7 +26,6 @@ import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
-import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -38,8 +37,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import ua.stetsenkoinna.config.AppSettings;
+import ua.stetsenkoinna.graphpresentation.io.FileDialogs;
 import ua.stetsenkoinna.graphpresentation.theme.ThemeManager;
 import ua.stetsenkoinna.graphpresentation.theme.UiPalette;
 import ua.stetsenkoinna.recentprojects.RecentProjectEntry;
@@ -315,14 +314,10 @@ public class WelcomeFrame extends JFrame {
     }
 
     private void openViaChooser() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setFileFilter(new FileNameExtensionFilter("PNML or XML model (*.pnml, *.xml)",
-                "pnml", "xml"));
-        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            File selected = chooser.getSelectedFile();
-            if (onOpenProject.test(selected)) {
-                dispose();
-            }
+        File selected = FileDialogs.openAmong(this, "Open project",
+                java.util.List.of(FileDialogs.MODEL, FileDialogs.ANY), null);
+        if (selected != null && onOpenProject.test(selected)) {
+            dispose();
         }
     }
 

@@ -11,6 +11,7 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -52,12 +53,16 @@ import ua.stetsenkoinna.graphnet.GraphCanvasModel;
 import ua.stetsenkoinna.graphnet.GraphElement;
 import ua.stetsenkoinna.graphnet.GraphElementIdGenerator;
 import ua.stetsenkoinna.graphnet.GraphObjectFrame;
+import ua.stetsenkoinna.graphnet.GraphObjectGroup;
 import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPlaceFusion;
 import ua.stetsenkoinna.graphnet.NetTemplateRef;
 import ua.stetsenkoinna.graphnet.PortAnchor;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
+import ua.stetsenkoinna.graphpresentation.input.CanvasNavigation;
+import ua.stetsenkoinna.graphpresentation.input.CursorImages;
+import ua.stetsenkoinna.graphpresentation.input.InputShortcuts;
 import ua.stetsenkoinna.graphnet.GraphArc;
 import ua.stetsenkoinna.graphnet.GraphArcIn;
 import ua.stetsenkoinna.graphnet.GraphArcOut;
@@ -220,6 +225,35 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private boolean selectToolPanning;
 
     /**
+     * True once the double-click pan has latched: the view follows the bare pointer, with no
+     * button held, until the next click or Escape.
+     *
+     * <p>This is what makes the gesture work on a trackpad. Tap-to-click lifts the finger at
+     * the end of the second tap, so the press that starts the pan is followed immediately by a
+     * release and then by {@code MOUSE_MOVED} - never {@code MOUSE_DRAGGED}. Ending the pan on
+     * that release, which is what a mouse gesture wants, killed it before the user had moved at
+     * all, and the whole gesture did nothing on macOS while working on Windows.
+     *
+     * <p>Latching only happens when the release arrives with no drag in between, so a held
+     * mouse drag still ends the way it always did and nothing changes for that case.
+     */
+    private boolean panLatched;
+
+    /** Whether the current pan gesture has seen a real drag - see {@link #panLatched}. */
+    private boolean panGestureDragged;
+
+    /** Where an eraser press landed, held until the release decides it was a click and not a
+     *  sweep - see the Delete branch of {@code mouseReleased}. */
+    private Point eraserPressPoint;
+
+    /** The group being dragged by its band, or {@code null}. */
+    private GraphObjectGroup draggedGroup;
+
+    /** Where the group drag last was, in canvas coordinates - see the drag handler for why the
+     *  step rather than the whole delta is what moves the members. */
+    private Point groupDragPoint;
+
+    /**
      * Set the moment a drag is seen, cleared on the next press and by the click that follows the
      * drag. It stops {@code mouseClicked} from reading the tail of a drag gesture as a click on
      * nothing and clearing the selection the drag just made - a selection that outlives its own
@@ -306,6 +340,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         this.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE && panLatched) {
+                    endLatchedPan();
+                    return;
+                }
                 if (e.getKeyCode() == KeyEvent.VK_ESCAPE && isPlacingNet()) {
                     // The way out of placement mode without dropping the net somewhere the
                     // user then has to undo.
@@ -323,18 +361,24 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 // drive a toolbar button, and reaches the canvas on exactly the same focus
                 // terms these listeners do.
 
-                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_C) {
+                // The platform's shortcut modifier, not literally Control. These three
+                // commands have no menu item anywhere, so this listener is the only way to
+                // reach them at all - and testing isControlDown() put them out of reach of
+                // every Mac user, whose Copy is Command+C and never Control+C.
+                boolean shortcut = InputShortcuts.hasMenuMask(e.getModifiersEx());
+
+                if (shortcut && e.getKeyCode() == KeyEvent.VK_C) {
                     copySelection();
                 }
 
-                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_V) {
+                if (shortcut && e.getKeyCode() == KeyEvent.VK_V) {
                     pasteAction();
                 }
 
                 // Duplicating a Petri-object is a distinct gesture from copy/paste of plain
                 // elements, since it also carries the object's name, priority and template —
-                // Ctrl+D matches what the frame's own context menu offers.
-                if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_D) {
+                // shortcut+D matches what the frame's own context menu offers.
+                if (shortcut && e.getKeyCode() == KeyEvent.VK_D) {
                     duplicateSelection();
                 }
             }
@@ -640,6 +684,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             graphNet.getGraphArcInList().remove((GraphArcIn) s); //added by Inna 4.12.2012
         }
 
+        // Whatever this arc was paired with is now alone and has to come back to the centre
+        // line, rather than keeping the offset it was given for a partner that has gone.
+        graphNet.fixOverlappingArcs();
         repaint();
     }
 
@@ -672,24 +719,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         // Expanded frames go under the drawing, collapsed ones over it: covering the net is
         // exactly what collapsing an object means on a shared canvas.
+        paintObjectGroups(g2);
         paintObjectFrames(g2, false);
         graphNet.paintGraphPetriNet(g2, g, hiddenElements());
         // Built once for this paint and used by both fusion passes below: which elements the
         // selection carries is a walk over every selected object's subtree, and asking that
         // per shared place per repaint would be the same walk over and over.
         java.util.Set<GraphElement> selectedElements = selectedElements();
-        for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            if (isFusionDrawnOnThisCanvas(fusion)) {
-                fusion.draw(g2, fusionHighlight(fusion, selectedElements));
-            }
-        }
         paintObjectFrames(g2, true);
         paintPorts(g2);
         // The boundary stubs of the object being edited: each connection to the rest of
         // the document ends in a short stub labelled with the outside element's name.
         paintBoundaryStubLabels(g2);
         for (GraphPlaceFusion fusion : canvasModel.getFusions()) {
-            if (fusion.isAnchoredToAFrame() && isFusionDrawnOnThisCanvas(fusion)) {
+            // Every link, not only the ones touching a frame: two places that belong to no
+            // object can be linked now, and the line is the only form there is.
+            if (isFusionDrawnOnThisCanvas(fusion)) {
                 Line2D line = trimmedFusionLine(fusion);
                 if (line != null) {
                     fusion.drawBetweenPorts(g2,
@@ -751,7 +796,16 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (currentDragMouseLocation != null && startDragMouseLocation != null && leftMouseButtonPressed) {
             // Set explicitly rather than inherited from whatever was drawn last: on an empty
             // canvas nothing has been, and the graphics' default black is invisible in dark.
-            if (tool == CanvasTool.OBJECT_BAND) {
+            if (tool == CanvasTool.DELETE) {
+                // Its own look again: this band is about to remove things, which a selection
+                // band never does, so it should not be dressed as one.
+                g2.setColor(CanvasPalette.current().get(CanvasColor.ACCENT));
+                g2.setStroke(new BasicStroke(1.4f,
+                        BasicStroke.CAP_BUTT,
+                        BasicStroke.JOIN_MITER,
+                        10.0f,
+                        new float[]{6.0f, 4.0f}, 0.0f));
+            } else if (tool == CanvasTool.OBJECT_BAND) {
                 // A solid accent line rather than the plain dashed marquee, so the band that is
                 // about to build a Petri-object reads as its own gesture, not a selection.
                 g2.setColor(CanvasPalette.current().get(CanvasColor.ACCENT));
@@ -826,6 +880,141 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param collapsedOnes true to draw the collapsed frames, which hide their net and are
      *        therefore painted over it, false for the expanded ones painted under it
      */
+    /**
+     * Draws a band around each group of Petri-objects, labelled with its name and size.
+     *
+     * <p>The technique's own notation draws a group as a stack of cards, one card per member,
+     * because on paper the members are identical and only one needs showing. Here they are real
+     * objects the user positions, edits and links individually, so a stack would have to hide
+     * them to draw them - and hiding the thing the user is working on to say it is one of many
+     * is a poor trade. A band round them says the same and hides nothing.
+     *
+     * <p>Painted before the frames themselves, so it reads as ground the objects stand on rather
+     * than a box drawn over them.
+     */
+    private void paintObjectGroups(Graphics2D g2) {
+        for (GraphObjectGroup group : canvasModel.getGroups()) {
+            java.awt.Rectangle band = groupBandBounds(group);
+            if (band == null) {
+                continue;
+            }
+
+            Stroke previousStroke = g2.getStroke();
+            Color previousColor = g2.getColor();
+            // Heavier and darker than a guide line. The band says several objects are one
+            // thing, which has to survive being read across a whole canvas; drawn as faintly as
+            // a snapping guide it was there and nobody saw it.
+            boolean whole = !group.getMembers().isEmpty()
+                    && group.getMembers().stream().allMatch(selection::contains);
+            g2.setColor(whole
+                    ? CanvasSelection.SELECTED
+                    : CanvasPalette.current().get(CanvasColor.ELEMENT_STROKE));
+            g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
+                    10f, new float[]{6f, 6f}, 0f));
+            g2.drawRoundRect(band.x, band.y, band.width, band.height, 18, 18);
+            g2.setStroke(new BasicStroke(1.0f));
+            g2.setFont(g2.getFont().deriveFont(java.awt.Font.BOLD));
+            // "1...n", the way the notation labels a group, rather than just the count: it says
+            // the members are numbered and which numbers they run through.
+            g2.drawString(group.getName() + " 1..." + group.size(),
+                    band.x + 6, band.y - 4);
+            g2.setStroke(previousStroke);
+            g2.setColor(previousColor);
+        }
+    }
+
+    /** How far a group's band stands clear of the objects it encloses. */
+    private static final int GROUP_BAND_MARGIN = 16;
+
+    /**
+     * The rectangle a group's band occupies, or {@code null} if this canvas draws none of it.
+     *
+     * <p>Stated once and used by both the drawing and the hit test. Two copies of the same
+     * arithmetic would be two chances for the band a user clicks to be somewhere other than the
+     * band they can see.
+     */
+    private java.awt.Rectangle groupBandBounds(GraphObjectGroup group) {
+        java.awt.Rectangle band = null;
+        for (GraphObjectFrame member : group.getMembers()) {
+            // Still on the canvas, first of all. isFrameDrawnOnThisCanvas answers about nesting
+            // and visibility, not about existence, so a frame that has just been deleted still
+            // reports that it would be drawn here - and the band went on being painted around
+            // objects that were no longer there until something else happened to tidy the group
+            // up. What is drawn has to be derived from what exists, on every paint.
+            if (!canvasModel.getFrames().contains(member)) {
+                continue;
+            }
+            if (!isFrameDrawnOnThisCanvas(member) || member == focusedFrame) {
+                continue;
+            }
+            java.awt.Rectangle bounds = member.getBounds();
+            band = band == null ? new java.awt.Rectangle(bounds) : band.union(bounds);
+        }
+        if (band != null) {
+            band.grow(GROUP_BAND_MARGIN, GROUP_BAND_MARGIN);
+        }
+        return band;
+    }
+
+    /**
+     * The group whose band is under the point, if any.
+     *
+     * <p>Only where the band itself is: inside the band but outside every object it encloses.
+     * A click that lands on a member is that member's - grabbing the whole group instead would
+     * make the individual objects unreachable, and they are ordinary objects that have to stay
+     * editable one at a time.
+     *
+     * @param point a point in canvas coordinates
+     * @return the group, or {@code null}
+     */
+    private GraphObjectGroup groupBandAt(Point2D point) {
+        if (frameAt(point) != null) {
+            return null;
+        }
+        for (GraphObjectGroup group : canvasModel.getGroups()) {
+            java.awt.Rectangle band = groupBandBounds(group);
+            if (band == null) {
+                continue;
+            }
+            // Grown by a few units before testing, so the drawn line itself is clickable rather
+            // than being the one part of the band that is not. A stroked outline straddles the
+            // rectangle it is drawn from, so half of what the user aims at lies outside it, and
+            // aiming at a line is what anyone does who wants the thing the line encloses.
+            java.awt.Rectangle reachable = new java.awt.Rectangle(band);
+            reachable.grow(GROUP_BAND_REACH, GROUP_BAND_REACH);
+            if (reachable.contains(point)) {
+                return group;
+            }
+        }
+        return null;
+    }
+
+    /** How far outside its own rectangle a group's band still answers to a click. */
+    private static final int GROUP_BAND_REACH = 4;
+
+    /**
+     * Selects every object of a group.
+     *
+     * @param group the group to select
+     */
+    private void selectGroup(GraphObjectGroup group) {
+        selection.clear();
+        // What was picked out before is not picked out any more. These three hold whatever was
+        // last clicked on its own, and Delete consults them before it looks at the selection -
+        // so an element clicked earlier, still sitting in `choosen`, quietly turned "delete this
+        // group" into "delete that one element" and left every frame standing.
+        choosen = null;
+        choosenArc = null;
+        choosenFusion = null;
+        current = null;
+        currentArc = null;
+        for (GraphObjectFrame member : group.getMembers()) {
+            if (isFrameDrawnOnThisCanvas(member)) {
+                selection.add(member);
+            }
+        }
+    }
+
     private void paintObjectFrames(Graphics2D g2, boolean collapsedOnes) {
         List<GraphObjectFrame> flat = canvasModel.getFrames();
         for (GraphObjectFrame frame : canvasModel.framesParentFirst()) {
@@ -1468,24 +1657,116 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         canvasModel.release(s);
         graphNet.delGraphElement(s); //added by Inna 4.12.2012
         canvasModel.removeDanglingFusions();
+        canvasModel.removeDanglingGroupMembers();
 
         repaint();
     }
 
+    /**
+     * Wheel and trackpad navigation: scroll by default, zoom while the platform's shortcut
+     * modifier is held, and scroll sideways while Shift is.
+     *
+     * <p>Plain wheel scrolls rather than zooms because it has to. The canvas is a fixed
+     * 20000x20000 panel inside a scroll pane with both scrollbars set to NEVER and the pane's
+     * own wheel scrolling switched off, so before this the only way to reach anything off-screen
+     * was the Pan tool. On a laptop trackpad, where there is no middle button either, that left
+     * a two-finger scroll - the one gesture every user reaches for first - changing the zoom at
+     * random instead of moving the view.
+     *
+     * <p>Everything reads {@link MouseWheelEvent#getPreciseWheelRotation()} rather than
+     * {@code getWheelRotation()}. The latter is an int, and a trackpad reports fractions of a
+     * notch: rounded to an int, a slow drag is a stream of zeroes and nothing happens at all
+     * until the gesture is fast enough to round to one, which then arrives as a jump. The
+     * leftovers are carried in {@link #scrollRemainderX} and friends so that many small
+     * fractional events add up to real movement instead of each truncating away to nothing.
+     */
     public class MouseWheelHendler implements MouseWheelListener {
+
+        /** How far one full wheel notch scrolls, in device pixels. */
+        private static final int PIXELS_PER_NOTCH = 48;
+
+        /** Sub-pixel scroll carried between events, so fine trackpad movement is not lost. */
+        private double scrollRemainderX;
+        private double scrollRemainderY;
 
         @Override
         public void mouseWheelMoved(MouseWheelEvent e) {
-            // A fast spin delivers several notches in one event, so guarding a single -1
-            // step used to let the scale blow straight through the floor and turn zero or
-            // negative - at which point the whole drawing silently disappears and every
-            // hit test divides by a non-positive scale. Clamping the result holds at any
-            // spin speed, and the ceiling keeps a runaway zoom-in from doing the same in
-            // the other direction.
-            scale = Math.min(5.0, Math.max(0.1, scale + (double) e.getWheelRotation() / 10));
+            double rotation = e.getPreciseWheelRotation();
+            if (rotation == 0) {
+                return;
+            }
+            if (InputShortcuts.hasMenuMask(e.getModifiersEx())) {
+                zoom(e, rotation);
+            } else {
+                scroll(e.isShiftDown(), rotation);
+            }
+        }
+
+        /**
+         * Zooms about the pointer, so the element being aimed at stays put instead of sliding
+         * off as the drawing grows around the viewport's top-left corner.
+         */
+        private void zoom(MouseWheelEvent e, double rotation) {
+            double newScale = CanvasNavigation.zoomStep(scale, rotation);
+            if (newScale == scale) {
+                return;
+            }
+            JViewport viewport = viewport();
+            if (viewport != null) {
+                // The pointer relative to the viewport, not to this panel: the panel's own
+                // origin moves with the scroll position, and the anchor has to be a point the
+                // zoom itself does not move.
+                Point pointerInView = SwingUtilities.convertPoint(
+                        PetriNetsPanel.this, e.getPoint(), viewport);
+                Point target = CanvasNavigation.zoomAbout(
+                        viewport.getViewPosition(), pointerInView, scale, newScale,
+                        maxViewX(viewport), maxViewY(viewport));
+                scale = newScale;
+                viewport.setViewPosition(target);
+            } else {
+                scale = newScale;
+            }
             repaint();
         }
 
+        /**
+         * @param horizontal true to scroll sideways - Shift+wheel on a mouse, and also how the
+         *        macOS JDK reports a two-finger horizontal trackpad swipe
+         */
+        private void scroll(boolean horizontal, double rotation) {
+            JViewport viewport = viewport();
+            if (viewport == null) {
+                return;
+            }
+            double moved = rotation * PIXELS_PER_NOTCH;
+            Point position = viewport.getViewPosition();
+            if (horizontal) {
+                scrollRemainderX += moved;
+                int step = (int) scrollRemainderX;
+                scrollRemainderX -= step;
+                position.x += step;
+            } else {
+                scrollRemainderY += moved;
+                int step = (int) scrollRemainderY;
+                scrollRemainderY -= step;
+                position.y += step;
+            }
+            position.x = Math.max(0, Math.min(position.x, maxViewX(viewport)));
+            position.y = Math.max(0, Math.min(position.y, maxViewY(viewport)));
+            viewport.setViewPosition(position);
+        }
+    }
+
+    private JViewport viewport() {
+        return (JViewport) SwingUtilities.getAncestorOfClass(JViewport.class, this);
+    }
+
+    private static int maxViewX(JViewport viewport) {
+        return Math.max(0, viewport.getViewSize().width - viewport.getExtentSize().width);
+    }
+
+    private static int maxViewY(JViewport viewport) {
+        return Math.max(0, viewport.getViewSize().height - viewport.getExtentSize().height);
     }
 
     /**
@@ -1667,6 +1948,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (fusion.isAnimationLit() || fusion == choosenFusion) {
             return CanvasPalette.current().get(CanvasColor.FUSION_RING_SELECTED);
         }
+        // The rest of the connector lights too, but not in the same colour. The whole connector
+        // has to be visible - several places shared between two objects are one thing - while
+        // the strand actually clicked stays the one the eye lands on. One colour for both said
+        // "these are all equally what you picked", which is not true of any of them.
+        if (choosenFusion != null && canvasModel.connectorOf(choosenFusion).contains(fusion)) {
+            return CanvasPalette.current().get(CanvasColor.CONNECTOR_STRAND);
+        }
         if (selected.contains(fusion.getMaster()) && selected.contains(fusion.getJoined())) {
             return CanvasSelection.SELECTED;
         }
@@ -1744,16 +2032,33 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             choosenFusion = null;
             return;
         }
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            deleteSelectionWithin();
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+        repaint();
+    }
+
+    /**
+     * The body of {@link #deleteSelection}, wrapped by it in one update so that a selection
+     * holding objects, elements and an arc at once comes back on a single undo rather than on
+     * one per kind.
+     */
+    private void deleteSelectionWithin() {
+        // Objects go whole, and without asking. Delete now means what the eraser means: the
+        // selected Petri-objects and the nets inside them, in one undoable step. It used to ask
+        // twice over - once about the objects and again about whatever elements were selected -
+        // and a user who answered the first question and not the second was left with a model
+        // half taken apart. Undo covers the whole thing either way, which is what makes the
+        // question worth dropping rather than repeating.
+        //
+        // Dropping a frame while keeping its net is still available and still confirms: it is
+        // Remove Petri-object frame, in the object's own right-click menu.
         List<GraphObjectFrame> frames = framesOnThisCanvas(selection.allFrames());
         if (!frames.isEmpty() && choosenArc == null && choosen == null) {
-            String what = frames.size() == 1
-                    ? "the Petri-object '" + frames.getFirst().getName() + "'"
-                    : frames.size() + " Petri-objects";
-            if (MessageHelper.showConfirmation(dialogOwner(),
-                    "Delete " + what + " and the net inside? To keep the net and drop only the "
-                            + "frame, use the object's own Remove Petri-object frame.")) {
-                deleteSelectedObjects();
-            }
+            deleteSelectedObjects();
         }
         if (choosenArc != null) {
             removeArc(choosenArc);
@@ -1771,12 +2076,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             current = null;
         }
         if (!selection.elements().isEmpty()) {
-            int result = JOptionPane.showConfirmDialog((Component) null,
-                    "Are you sure you want to delete selected elements?",
-                    "Delete", JOptionPane.OK_CANCEL_OPTION);
-            if (result == JOptionPane.OK_OPTION) {
-                deleteSelectedElements();
-            }
+            deleteSelectedElements();
         }
     }
 
@@ -1874,12 +2174,18 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 // the answer exists, and undo needs it to put the element back into its object.
                 edit.rememberOwner(graphElement, canvasModel.ownerOf(graphElement));
                 if (graphElement instanceof GraphPetriPlace place) {
-                    // Same timing for the shared place a deleted half drags down with it.
-                    edit.rememberFusion(canvasModel.fusionOf(place));
+                    // Same timing for the reference links a deleted place drags down with it -
+                    // every one of them, since a place can now be the source of several.
+                    for (GraphPlaceFusion doomed : canvasModel.fusionsOf(place)) {
+                        edit.rememberFusion(doomed);
+                    }
                 }
                 remove(graphElement);
                 PetriNetsPanel.this.setDefaultColorGraphElements(); //27.07.2018
             }
+            // The deleted elements took their arcs with them, which can leave an arc that was
+            // half of a two-way pair standing on its own.
+            graphNet.fixOverlappingArcs();
             /* save this action into undo manager so that it can be undone */
             PetriNetsFrame.getUndoSupport().postEdit(edit);
         } catch (ExceptionInvalidNetStructure ex) {
@@ -1996,7 +2302,125 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 + fusion.getJoined().getName() + "' become two separate places again");
         split.addActionListener(e -> splitSharedPlace(fusion));
         menu.add(split);
+
+        // The group's members are the copies, never the source - see replicateLinkAcrossGroup.
+        GraphObjectGroup group = canvasModel.groupOf(canvasModel.ownerOf(fusion.getJoined()));
+        if (group != null && group.size() > 1) {
+            JMenuItem across = new JMenuItem(
+                    "Replicate across '" + group.getName() + "' (" + group.size() + " objects)");
+            across.setToolTipText("Give every object of the group the same shared place, the way"
+                    + " a connector to a group is replicated to each of its members");
+            across.addActionListener(e -> replicateLinkAcrossGroup(fusion, group));
+            menu.add(across);
+        }
+
+        // Offered only when there is a connector to speak of. On a pair of objects sharing one
+        // place the two commands would do exactly the same thing under two different names.
+        List<GraphPlaceFusion> connector = canvasModel.connectorOf(fusion);
+        if (connector.size() > 1) {
+            JMenuItem splitAll = new JMenuItem(
+                    "Split the whole connector (" + connector.size() + " shared places)");
+            splitAll.setToolTipText("These two Petri-objects share " + connector.size()
+                    + " places; this separates all of them at once");
+            splitAll.addActionListener(e -> splitConnector(connector));
+            menu.add(splitAll);
+        }
         menu.show(this, ev.getX(), ev.getY());
+    }
+
+    /**
+     * Gives every object of a group the same shared place, from one link to one of them.
+     *
+     * <p>This is the technique's connector-to-a-group:
+     * {@code g.net.p_b = o.net.p_a ⟺ ∀o_i ∈ g: o_i.net.p_b = o.net.p_a}. One declaration, and
+     * every member of the group shares that place with the single object - which is the point of
+     * groups, and the thing that made describing a hundred like nodes worth doing.
+     *
+     * <p>Note which side the group is on. The rule assigns <em>to</em> each member <em>from</em>
+     * the lone object, so the members are the copies and the object is the source. It cannot be
+     * the other way round: a place that copied a hundred sources would have no answer to what
+     * its marking is, and the editor refuses that link individually for the same reason. So the
+     * command is offered only from a link whose group end is the copy, which is why the menu
+     * looks at the owner of {@code getJoined()} and not of either end.
+     *
+     * <p>Members whose corresponding place is already linked are stepped over rather than
+     * treated as failures: replicating twice, or replicating after wiring one member by hand,
+     * should finish the job rather than refuse it.
+     *
+     * @param link  the link already made to one member of the group
+     * @param group the group to spread it across
+     */
+    private void replicateLinkAcrossGroup(GraphPlaceFusion link, GraphObjectGroup group) {
+        GraphObjectFrame linkedMember = canvasModel.ownerOf(link.getJoined());
+        int placeIndex = canvasModel.placesOf(linkedMember).indexOf(link.getJoined());
+        if (placeIndex < 0) {
+            MessageHelper.showError(dialogOwner(), "That place is not one of the group member's");
+            return;
+        }
+        GraphPetriPlace source = link.getMaster();
+
+        List<String> refused = new ArrayList<>();
+        int made = 0;
+        // One replication is one Ctrl+Z, the same bargain the stamping itself offers.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            for (GraphObjectFrame member : group.getMembers()) {
+                if (member == linkedMember) {
+                    continue;
+                }
+                List<GraphPetriPlace> places = canvasModel.placesOf(member);
+                if (placeIndex >= places.size()) {
+                    refused.add(member.getName() + ": it has no place in that position");
+                    continue;
+                }
+                GraphPetriPlace target = places.get(placeIndex);
+                if (canvasModel.sourceFusionOf(target) != null) {
+                    // Already wired, by an earlier replication or by hand. Nothing to do.
+                    continue;
+                }
+                try {
+                    GraphPlaceFusion made0 = canvasModel.joinPlaces(source, target);
+                    PetriNetsFrame.getUndoSupport().postEdit(new JoinPlacesEdit(this, made0));
+                    made++;
+                } catch (IllegalArgumentException rejected) {
+                    refused.add(member.getName() + ": " + rejected.getMessage());
+                }
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+
+        repaint();
+        if (!refused.isEmpty()) {
+            // Said out loud rather than swallowed: a replication that quietly covered part of a
+            // group would leave a model the user believes is uniform and is not.
+            MessageHelper.showWarnings(dialogOwner(),
+                    "Shared the place with " + made + " of " + (group.size() - 1)
+                            + " other objects", refused);
+        }
+    }
+
+    /**
+     * Separates every shared place between one pair of Petri-objects.
+     *
+     * <p>One undoable step for the whole connector, not one per place: detaching two objects is
+     * a single act however many places it took to join them, and having to press undo three
+     * times to take back one command would say otherwise.
+     *
+     * @param connector the links to split, as {@code GraphCanvasModel.connectorOf} reported them
+     */
+    private void splitConnector(List<GraphPlaceFusion> connector) {
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            // Over a copy: splitting removes links from the model, and the list handed in is
+            // derived from that same collection.
+            for (GraphPlaceFusion link : new ArrayList<>(connector)) {
+                splitSharedPlace(link);
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+        repaint();
     }
 
     private void showGroupSelectionMenu(MouseEvent ev, List<GraphElement> chunk) {
@@ -2040,6 +2464,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         duplicate.setToolTipText("Copy the object together with its net — the way to get N alike");
         duplicate.addActionListener(e -> duplicateObject(frame));
         menu.add(duplicate);
+
+        JMenuItem replicate = new JMenuItem("Replicate into a group...");
+        replicate.setToolTipText(
+                "Stamp this object N times and keep the copies together as one group");
+        replicate.addActionListener(e -> replicateObject(frame));
+        menu.add(replicate);
 
         JMenuItem saveAsTemplate = new JMenuItem("Save as Petri-object...");
         saveAsTemplate.setToolTipText(
@@ -2916,6 +3346,129 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
     }
 
+    /**
+     * The largest group the editor will stamp in one go.
+     *
+     * <p>There is nothing in the technique that stops at any number - its whole point is
+     * hundreds of like nodes. The limit is this editor's: every object here carries its own full
+     * copy of the net, drawn element by element on every repaint, so a four-figure group would
+     * make the canvas unusable long before the model became wrong. A refusal that says so is
+     * better than a stamp that appears to work and leaves the editor unresponsive.
+     */
+    private static final int MAX_GROUP_SIZE = 200;
+
+    /** Gap left between the members of a group when they are laid out. */
+    private static final int GROUP_MEMBER_GAP = 40;
+
+    /**
+     * Stamps a Petri-object N times and keeps the copies together as a group.
+     *
+     * <p>This is the technique's {@code multiply(net, lists, k)}: one net described once and
+     * instantiated k times. The members are ordinary Petri-objects - a group <em>is</em> its
+     * objects, by definition - so the simulation and the saved document are the same as if the
+     * user had duplicated by hand k times. What the group adds is that the editor now knows they
+     * belong together.
+     *
+     * @param frame the object to stamp
+     */
+    private void replicateObject(GraphObjectFrame frame) {
+        GraphObjectGroup existing = canvasModel.groupOf(frame);
+        String prompt = existing == null
+                ? "Replicate '" + frame.getName() + "' into a group of how many?"
+                : "'" + existing.getName() + "' holds " + existing.size()
+                        + " objects. How many should it hold?";
+        String answer = JOptionPane.showInputDialog(dialogOwner(), prompt,
+                existing == null ? "10" : Integer.toString(existing.size()));
+        if (answer == null) {
+            return;
+        }
+        int wanted;
+        try {
+            wanted = Integer.parseInt(answer.trim());
+        } catch (NumberFormatException notANumber) {
+            MessageHelper.showError(dialogOwner(), "'" + answer.trim() + "' is not a number");
+            return;
+        }
+        int already = existing == null ? 1 : existing.size();
+        if (wanted < 2) {
+            MessageHelper.showError(dialogOwner(), "A group holds at least two objects");
+            return;
+        }
+        if (wanted > MAX_GROUP_SIZE) {
+            MessageHelper.showError(dialogOwner(), "The editor stamps at most " + MAX_GROUP_SIZE
+                    + " objects in one group; every one of them carries a full copy of the net"
+                    + " and is drawn on every repaint");
+            return;
+        }
+        if (wanted <= already) {
+            MessageHelper.showError(dialogOwner(), existing == null
+                    ? "The group would hold nothing new"
+                    : "The group already holds " + already
+                            + " objects; removing members is done by erasing them");
+            return;
+        }
+
+        replicateObjectInto(frame, wanted);
+    }
+
+    /**
+     * Stamps {@code frame} until its group holds {@code wanted} objects.
+     *
+     * <p>The count is a parameter rather than something this asks for, the same reason
+     * {@link #duplicateObject(GraphObjectFrame, String)} takes its name that way: it makes the
+     * operation reachable - and testable - without a dialog standing in front of it.
+     *
+     * @param frame the object to stamp
+     * @param wanted how many objects the group should hold when this is done
+     */
+    private void replicateObjectInto(GraphObjectFrame frame, int wanted) {
+        GraphObjectGroup existing = canvasModel.groupOf(frame);
+        int already = existing == null ? 1 : existing.size();
+
+        // One replication is one Ctrl+Z. Stamping fifty objects and taking them back fifty times
+        // would be a worse bargain than not having the command at all.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            GraphObjectGroup group = existing;
+            if (group == null) {
+                group = new GraphObjectGroup(frame.getName(), frame.getTemplate());
+                canvasModel.getGroups().add(group);
+                group.add(frame);
+                // The first member is renamed too, so the group reads 1..n throughout rather
+                // than as one object with some numbered copies stuck to it.
+                frame.setName(group.getName() + " 1");
+            }
+            for (int index = already; index < wanted; index++) {
+                GraphObjectFrame copy =
+                        duplicateObject(frame, group.getName() + " " + (index + 1));
+                if (copy == null) {
+                    // duplicateObject has already said why; stop rather than leave a half group.
+                    break;
+                }
+                placeGroupMember(group, copy, index);
+                group.add(copy);
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+        canvasStack.notifyChanged();
+        repaint();
+    }
+
+    /**
+     * Puts the {@code index}-th member of a group beside the first one.
+     *
+     * <p>Needed because {@code duplicateObject} always offsets its copy from the object it was
+     * given by the same amount: told to copy the same object k times it would stack every copy
+     * on the same spot. Laying them out here keeps that method's own behaviour - one copy, one
+     * step to the right - untouched.
+     */
+    private void placeGroupMember(GraphObjectGroup group, GraphObjectFrame member, int index) {
+        GraphObjectFrame first = group.getMembers().getFirst();
+        java.awt.Rectangle bounds = first.getBounds();
+        moveFrame(member, bounds.x + index * (bounds.width + GROUP_MEMBER_GAP), bounds.y);
+    }
+
     private void renameObject(GraphObjectFrame frame) {
         String name = JOptionPane.showInputDialog(dialogOwner(), "Name of the Petri-object", frame.getName());
         if (name != null && !name.isBlank()) {
@@ -3221,6 +3774,13 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // Where the canvas takes focus: the user is demonstrably working on it, so its
             // keyboard shortcuts should reach it from here on.
             requestFocusInWindow();
+            // A latched pan swallows the click that ends it, rather than also selecting or
+            // deselecting whatever happens to be under the pointer when the user stops panning.
+            if (panLatched) {
+                endLatchedPan();
+                dragCompleted = false;
+                return;
+            }
             dragCompleted = false;
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
             if (maybeShowContextMenu(ev, scaledCurrentMousePoint)) {
@@ -3233,14 +3793,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // whatever is clicked is the whole point of picking either tool in the first place.
             if (tool == CanvasTool.PAN) {
                 if (SwingUtilities.isLeftMouseButton(ev)) {
-                    beginPan(ev.getPoint());
+                    beginPan(ev);
                 }
                 return;
             }
 
             if (tool == CanvasTool.DELETE) {
                 if (SwingUtilities.isLeftMouseButton(ev)) {
-                    handleDeleteClick(scaledCurrentMousePoint);
+                    // Nothing is erased yet. This press may still become a sweep, and erasing
+                    // here would mean whatever sat under its first pixel always went, whether
+                    // the user meant a click or the corner of a band. The release decides.
+                    eraserPressPoint = scaledCurrentMousePoint;
+                    startDragMouseLocation = scaledCurrentMousePoint;
+                    currentDragMouseLocation = null;
+                    leftMouseButtonPressed = true;
                 }
                 return;
             }
@@ -3286,6 +3852,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // but an element's full body, now also reachable the same way while shown, can.
             // Gated on the left button: a right-click on a header used to start a frame drag,
             // which then had to be undone in mouseReleased once the popup trigger arrived there.
+            // The band belongs to the group as a whole: clicking it takes all of it, and
+            // dragging from there moves all of it. Checked before the frame paths below, which
+            // is only a question of order because the band never overlaps a member - see
+            // groupBandAt.
+            GraphObjectGroup bandGroup = SwingUtilities.isLeftMouseButton(ev)
+                    ? groupBandAt(scaledCurrentMousePoint) : null;
+            if (bandGroup != null) {
+                selectGroup(bandGroup);
+                draggedGroup = bandGroup;
+                groupDragPoint = scaledCurrentMousePoint;
+                // The snapshot the release turns into one undo step, taken here for the same
+                // reason every other drag takes it at its start.
+                if (layoutBeforeDrag == null) {
+                    layoutBeforeDrag = new CanvasLayoutSnapshot(canvasModel);
+                }
+                setCursor(new Cursor(Cursor.MOVE_CURSOR));
+                repaint();
+                return;
+            }
+
             if (SwingUtilities.isLeftMouseButton(ev)) {
                 resizedFrame = frameHandleAt(scaledCurrentMousePoint);
                 draggedFrame = resizedFrame == null ? frameHeaderAt(scaledCurrentMousePoint) : null;
@@ -3398,8 +3984,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     && SwingUtilities.isLeftMouseButton(ev)
                     && find(scaledCurrentMousePoint) == null
                     && findArc(scaledCurrentMousePoint) == null) {
-                beginPan(ev.getPoint());
+                beginPan(ev);
                 selectToolPanning = true;
+                panGestureDragged = false;
                 setCursor(new Cursor(Cursor.HAND_CURSOR));
                 return;
             }
@@ -3589,6 +4176,15 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
+            // A click on a group's band is a click on the group, not on nothing. The press has
+            // already selected every member; the branch further down treats a click that hit no
+            // frame and no element as "clicked empty canvas" and clears the selection, which
+            // threw the group away the instant the button came back up.
+            if (groupBandAt(scaledCurrentMousePoint) != null) {
+                repaint();
+                return;
+            }
+
             // A frame — its header or its locked interior alike — selects the object on a
             // single click; a double click opens that object's own canvas, where its net can
             // actually be changed.
@@ -3716,14 +4312,48 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
-            if (selectToolPanning) {
-                endPan();
-                selectToolPanning = false;
+            if (draggedGroup != null) {
+                draggedGroup = null;
+                groupDragPoint = null;
                 setCursor(Cursor.getDefaultCursor());
+                // postDragEdit runs at the end of the release like it does for every drag, so
+                // the whole group's move is one step.
+            }
+
+            if (selectToolPanning) {
+                if (panGestureDragged) {
+                    // A held mouse drag: it ends where it always did, on the release.
+                    endLatchedPan();
+                } else {
+                    // Nothing moved between the double-click and this release, which is what a
+                    // trackpad's tap-to-click produces. Rather than end a pan the user has not
+                    // had a chance to make yet, hold the view to the pointer as though the
+                    // button were still down; the next click, or Escape, lets go.
+                    panLatched = true;
+                }
                 return;
             }
 
-            if (tool == CanvasTool.DELETE || tool == CanvasTool.ADD_PLACE
+            if (tool == CanvasTool.DELETE) {
+                boolean swept = leftMouseButtonPressed
+                        && startDragMouseLocation != null && currentDragMouseLocation != null
+                        && isEraserSweep(marqueeRectangle());
+                if (swept) {
+                    eraseWithin(marqueeRectangle());
+                } else if (eraserPressPoint != null) {
+                    handleDeleteClick(eraserPressPoint);
+                }
+                startDragMouseLocation = null;
+                currentDragMouseLocation = null;
+                eraserPressPoint = null;
+                leftMouseButtonPressed = false;
+                // The tool stays armed for the next stroke, so it keeps its own cursor.
+                setCursor(cursorFor(tool));
+                repaint();
+                return;
+            }
+
+            if (tool == CanvasTool.ADD_PLACE
                     || tool == CanvasTool.ADD_TRANSITION || tool == CanvasTool.ADD_PETRI_OBJECT
                     || tool == CanvasTool.PLACE_LOADED_NET) {
                 return;
@@ -4471,10 +5101,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param place the place that was just edited
      */
     public void placeMarkingEdited(GraphPetriPlace place) {
-        GraphPlaceFusion fusion = canvasModel.fusionOf(place);
-        if (fusion != null) {
+        // Every link the place takes part in, in either role: one place may now be repeated by
+        // several others, and editing the marking of the one they copy has to reach all of them.
+        for (GraphPlaceFusion fusion : canvasModel.fusionsOf(place)) {
             fusion.adoptMarkingFrom(place);
         }
+    }
+
+    /**
+     * @param fusion a reference link
+     * @param end one of its two places
+     * @return the place at its other end
+     */
+    private static GraphPetriPlace partnerOf(GraphPlaceFusion fusion, GraphPetriPlace end) {
+        return fusion.getMaster() == end ? fusion.getJoined() : fusion.getMaster();
     }
 
     /**
@@ -4490,14 +5130,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (!isFusionDrawnOnThisCanvas(fusion)) {
                 continue;
             }
-            if (fusion.isOnRing(point)) {
+            Line2D line = trimmedFusionLine(fusion);
+            if (line != null && line.ptSegDist(point) <= 4) {
                 return fusion;
-            }
-            if (fusion.isAnchoredToAFrame()) {
-                Line2D line = trimmedFusionLine(fusion);
-                if (line != null && line.ptSegDist(point) <= 4) {
-                    return fusion;
-                }
             }
         }
         return null;
@@ -4539,10 +5174,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         @Override
         public void mouseDragged(MouseEvent ev) {
             if (tool == CanvasTool.PAN || selectToolPanning) {
-                updatePan(ev.getPoint());
+                panGestureDragged = true;
+                updatePan(ev);
                 return;
             }
-            if (tool == CanvasTool.DELETE || tool == CanvasTool.ADD_PLACE
+            if (tool == CanvasTool.DELETE) {
+                if (leftMouseButtonPressed && startDragMouseLocation != null) {
+                    currentDragMouseLocation =
+                            new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+                    // So the click trailing this drag is not read as a click on nothing.
+                    dragCompleted = true;
+                    repaint();
+                }
+                return;
+            }
+
+            if (tool == CanvasTool.ADD_PLACE
                     || tool == CanvasTool.ADD_TRANSITION || tool == CanvasTool.ADD_PETRI_OBJECT
                     || tool == CanvasTool.PLACE_LOADED_NET) {
                 return;
@@ -4557,6 +5204,23 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 layoutBeforeDrag = new CanvasLayoutSnapshot(canvasModel);
             }
             Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+
+            if (draggedGroup != null) {
+                // By the step just taken rather than from where the drag began: moveFrame
+                // clamps a frame to the canvas, so a member stopped at an edge would otherwise
+                // keep receiving the whole accumulated delta and shoot away once it was free.
+                int dx = scaledCurrentMousePoint.x - groupDragPoint.x;
+                int dy = scaledCurrentMousePoint.y - groupDragPoint.y;
+                groupDragPoint = scaledCurrentMousePoint;
+                for (GraphObjectFrame member : draggedGroup.getMembers()) {
+                    if (isFrameOnThisCanvas(member)) {
+                        java.awt.Rectangle bounds = member.getBounds();
+                        moveFrame(member, bounds.x + dx, bounds.y + dy);
+                    }
+                }
+                repaint();
+                return;
+            }
 
             if (draggedFromPort != null) {
                 draggedPortCurrentPoint = scaledCurrentMousePoint;
@@ -4650,6 +5314,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseMoved(MouseEvent ev) {
+            if (panLatched) {
+                // The point of latching: no button is held, so this is the only event the
+                // gesture still receives.
+                updatePan(ev);
+                return;
+            }
             if (tool == CanvasTool.PLACE_LOADED_NET) {
                 // The one tool that does care where the pointer is without a button held: the
                 // outline has to follow it, so this cannot take the early return below.
@@ -4863,6 +5533,19 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
     }
 
+    /**
+     * The Delete tool's eraser pointer, or a crosshair if this platform cannot give us one.
+     *
+     * <p>Loaded through {@link javax.swing.ImageIcon}, which blocks on a {@code MediaTracker},
+     * rather than {@code Toolkit.getImage}, which returns immediately with an image that has not
+     * been read yet. An unloaded image measures -1 by -1, which puts the (0, 0) hotspot outside
+     * its bounds, and {@code createCustomCursor} then throws - caught below, so the tool quietly
+     * showed a crosshair instead of the eraser depending on nothing but load timing.
+     *
+     * <p>And resized to whatever {@code getBestCursorSize} asks for. The asset is 64x64 while
+     * Windows wants 32x32; left to the toolkit, each platform pads or scales it its own way,
+     * which is exactly the sort of difference this is meant not to have.
+     */
     private static Cursor buildEraserCursor() {
         try {
             URL url = ResourcePathConfig.getResource(PetriNetsPanel.class,
@@ -4870,13 +5553,22 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (url == null) {
                 return new Cursor(Cursor.CROSSHAIR_CURSOR);
             }
-            Image image = Toolkit.getDefaultToolkit().getImage(url);
-            return Toolkit.getDefaultToolkit().createCustomCursor(
-                    image, new Point(0, 0), "eraser");
+            Image loaded = new javax.swing.ImageIcon(url).getImage();
+            Toolkit toolkit = Toolkit.getDefaultToolkit();
+            Dimension best = toolkit.getBestCursorSize(CURSOR_SIZE, CURSOR_SIZE);
+            Image fitted = CursorImages.fitToCursor(loaded, best);
+            if (fitted == null) {
+                return new Cursor(Cursor.CROSSHAIR_CURSOR);
+            }
+            return toolkit.createCustomCursor(
+                    fitted, CursorImages.clampHotspot(new Point(0, 0), best), "eraser");
         } catch (RuntimeException problem) {
             return new Cursor(Cursor.CROSSHAIR_CURSOR);
         }
     }
+
+    /** The cursor size asked of the toolkit; it answers with the nearest it actually supports. */
+    private static final int CURSOR_SIZE = 32;
 
     /**
      * Drops a new place or transition at the click point — what the Add Place / Add Transition
@@ -4955,8 +5647,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             // answer exists, and undo needs it to put the element back into its own object.
             edit.rememberOwner(element, canvasModel.ownerOf(element));
             if (element instanceof GraphPetriPlace place) {
-                // Same timing for the shared place a deleted half drags down with it.
-                edit.rememberFusion(canvasModel.fusionOf(place));
+                // Same timing for the reference links a deleted place drags down with it -
+                // every one of them, since a place can now be the source of several.
+                for (GraphPlaceFusion doomed : canvasModel.fusionsOf(place)) {
+                    edit.rememberFusion(doomed);
+                }
             }
             remove(element);
             PetriNetsFrame.getUndoSupport().postEdit(edit);
@@ -5003,17 +5698,265 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         return beginOwner == focusedFrame;
     }
 
+    /**
+     * How far past the exact pointer position the eraser still reaches, in screen pixels.
+     *
+     * <p>In screen pixels, not canvas units, which is the point. The underlying hit tests are
+     * written in canvas units - an arc counts as hit within 3 of them, an element only if the
+     * point is literally inside its shape - and those units shrink on screen as the view zooms
+     * out. At half zoom an arc's 3 units are a pixel and a half, so erasing one meant landing
+     * the pointer inside a two-pixel ribbon, and the tool "sometimes did nothing" for no reason
+     * the user could see. Converting a fixed pixel reach back through the scale makes the
+     * eraser feel the same at every zoom level.
+     */
+    private static final int ERASER_REACH_PIXELS = 6;
+
+    /** The eight directions the eraser probes around the pointer. */
+    private static final int[][] ERASER_PROBE_DIRECTIONS = {
+        {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
+    };
+
+    /**
+     * The points an eraser click considers, nearest first.
+     *
+     * @param centre the click point in canvas coordinates
+     * @param reach how far to spread, in canvas units; 0 means the exact point only
+     */
+    private List<Point> eraserProbes(Point centre, int reach) {
+        List<Point> probes = new ArrayList<>();
+        probes.add(centre);
+        if (reach <= 0) {
+            return probes;
+        }
+        for (int ring : new int[]{Math.max(1, reach / 2), reach}) {
+            for (int[] direction : ERASER_PROBE_DIRECTIONS) {
+                probes.add(new Point(centre.x + direction[0] * ring, centre.y + direction[1] * ring));
+            }
+        }
+        return probes;
+    }
+
+    /** {@link #ERASER_REACH_PIXELS} in canvas units at the current zoom. */
+    private int eraserReach() {
+        return (int) Math.max(1, Math.round(ERASER_REACH_PIXELS / scale));
+    }
+
+    private GraphElement findErasableElement(Point centre, int reach) {
+        for (Point probe : eraserProbes(centre, reach)) {
+            GraphElement element = find(probe);
+            if (element != null && isOnThisCanvas(element)) {
+                return element;
+            }
+        }
+        return null;
+    }
+
+    private GraphPlaceFusion findErasableSharedPlace(Point centre, int reach) {
+        for (Point probe : eraserProbes(centre, reach)) {
+            GraphPlaceFusion fusion = findSharedPlace(probe);
+            if (fusion != null) {
+                return fusion;
+            }
+        }
+        return null;
+    }
+
+    private GraphArc findErasableArc(Point centre, int reach) {
+        for (Point probe : eraserProbes(centre, reach)) {
+            GraphArc arc = findArc(probe);
+            if (arc != null) {
+                return arc;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * How far a press has to travel, in screen pixels, before it counts as a sweep rather than
+     * a click. Without a threshold the hand-shake in any real click would draw a band a pixel
+     * across, which encloses nothing, and the eraser would answer an ordinary click by deleting
+     * nothing at all - the opposite of the complaint this is meant to fix.
+     */
+    private static final int ERASER_SWEEP_MIN_PIXELS = 6;
+
+    /**
+     * @param band the rectangle drawn between press and release, in canvas units
+     * @return true if it is big enough to have been meant as a sweep
+     */
+    private boolean isEraserSweep(Rectangle band) {
+        int threshold = (int) Math.max(2, Math.round(ERASER_SWEEP_MIN_PIXELS / scale));
+        return band.width >= threshold || band.height >= threshold;
+    }
+
+    /**
+     * Erases everything the eraser's band caught, in one undoable step.
+     *
+     * <p>Elements are caught by their centre, the same rule the marquee uses, so what the
+     * eraser takes matches what a selection band of the same shape would have picked out. Arcs
+     * are caught by crossing the band at all: an arc is a line, it has no centre worth speaking
+     * of, and sweeping across one plainly means erasing it.
+     *
+     * <p>A Petri-object caught by the band goes whole - its frame and the net inside it - the
+     * same as one the eraser is clicked on. The eraser removes what it is pointed at, and
+     * leaving an object's contents scattered loose on the canvas after erasing the object is
+     * not what anyone means by erasing it.
+     */
+    private void eraseWithin(Rectangle band) {
+        List<GraphObjectFrame> caughtObjects = objectsCaughtBy(band);
+        if (caughtObjects.isEmpty() && elementsCaughtBy(band).isEmpty()
+                && arcsSweptBy(band, List.of()).isEmpty()) {
+            return;
+        }
+
+        // One update, so a sweep that took a dozen things comes back on one Ctrl+Z rather than
+        // making the user press it a dozen times to undo a single gesture.
+        PetriNetsFrame.getUndoSupport().beginUpdate();
+        try {
+            // Objects first, and everything else re-read from the canvas afterwards: an element
+            // or an arc that belonged to one of them is already gone, and asking the canvas
+            // again is cheaper and far safer than predicting what the object took with it.
+            eraseObjects(caughtObjects);
+
+            List<GraphElement> caught = elementsCaughtBy(band);
+            for (GraphArc arc : arcsSweptBy(band, caught)) {
+                removeArc(arc);
+                PetriNetsFrame.getUndoSupport().postEdit(new DeleteArcEdit(this, arc));
+            }
+            if (!caught.isEmpty()) {
+                selection.clear();
+                for (GraphElement element : caught) {
+                    selection.add(element);
+                }
+                // Takes the elements' own arcs with them and posts its own edit, which is why
+                // the arcs above are only the ones nothing else would have removed.
+                deleteSelectedElements();
+            }
+        } finally {
+            PetriNetsFrame.getUndoSupport().endUpdate();
+        }
+
+        selection.clear();
+        choosen = null;
+        current = null;
+        choosenArc = null;
+        currentArc = null;
+        repaint();
+    }
+
+    /**
+     * Removes whole Petri-objects - each frame together with the net inside it, nested objects
+     * and all - without asking.
+     *
+     * <p>No confirmation, deliberately. The eraser is a tool the user picked up in order to
+     * remove things, and a prompt on every stroke turns a sweep across a canvas into a sequence
+     * of dialogs. Undo covers it, and covers the whole gesture in one step.
+     *
+     * @param frames the objects to remove
+     */
+    private void eraseObjects(List<GraphObjectFrame> frames) {
+        if (frames.isEmpty()) {
+            return;
+        }
+        selection.clear();
+        for (GraphObjectFrame frame : frames) {
+            selection.add(frame);
+        }
+        // Collects each object's subtree and its members before removing the frames, so nothing
+        // that belonged to one is left orphaned on the canvas.
+        deleteSelectedObjects();
+    }
+
+    /**
+     * @param band the eraser's rectangle
+     * @return the Petri-objects it caught, by their centre - the same rule the marquee uses, so
+     *         a sweep takes exactly what a selection band of that shape would have picked out
+     */
+    private List<GraphObjectFrame> objectsCaughtBy(Rectangle band) {
+        List<GraphObjectFrame> caught = new ArrayList<>();
+        for (GraphObjectFrame frame : canvasModel.getFrames()) {
+            if (frame == focusedFrame || !isFrameDrawnOnThisCanvas(frame)) {
+                continue;
+            }
+            if (band.contains(frame.getBounds().getCenterX(), frame.getBounds().getCenterY())) {
+                caught.add(frame);
+            }
+        }
+        return caught;
+    }
+
+    /**
+     * @param band the eraser's rectangle
+     * @return the loose elements it encloses, by their centre
+     */
+    private List<GraphElement> elementsCaughtBy(Rectangle band) {
+        List<GraphElement> caught = new ArrayList<>();
+        for (GraphPetriPlace place : graphNet.getGraphPetriPlaceList()) {
+            if (isOnThisCanvas(place) && band.contains(place.getGraphElementCenter())) {
+                caught.add(place);
+            }
+        }
+        for (GraphPetriTransition transition : graphNet.getGraphPetriTransitionList()) {
+            if (isOnThisCanvas(transition) && band.contains(transition.getGraphElementCenter())) {
+                caught.add(transition);
+            }
+        }
+        return caught;
+    }
+
+    /**
+     * @param band the eraser's rectangle
+     * @param goingAnyway elements already being deleted, whose own arcs go with them
+     * @return arcs the band crosses that nothing else is about to remove
+     */
+    private List<GraphArc> arcsSweptBy(Rectangle band, List<GraphElement> goingAnyway) {
+        List<GraphArc> swept = new ArrayList<>();
+        List<GraphArc> candidates = new ArrayList<>();
+        candidates.addAll(graphNet.getGraphArcInList());
+        candidates.addAll(graphNet.getGraphArcOutList());
+        for (GraphArc arc : candidates) {
+            if (goingAnyway.contains(arc.getBeginElement()) || goingAnyway.contains(arc.getEndElement())) {
+                continue;
+            }
+            if (!isDrawnOnThisCanvas(arc.getBeginElement()) || !isDrawnOnThisCanvas(arc.getEndElement())) {
+                continue;
+            }
+            if (isArcEditableHere(arc) && arc.getGraphElement().intersects(band)) {
+                swept.add(arc);
+            }
+        }
+        return swept;
+    }
+
+    /**
+     * Erases whatever one thing the pointer picked out.
+     *
+     * <p>Two passes: everything is offered the exact point first, and only if nothing at all is
+     * there does the eraser widen its reach. Widening in one pass instead would let a place six
+     * pixels away beat an arc lying directly under the pointer, purely because places are
+     * checked first - the forgiveness is meant to catch near misses, never to overrule a hit.
+     */
     private void handleDeleteClick(Point scaledPoint) {
         if (portOnCanvasAt(scaledPoint) != null) {
             return;
         }
-        GraphObjectFrame frame = frameAt(scaledPoint);
-        if (frame != null && isFrameOnThisCanvas(frame)) {
-            confirmRemoveObjectFrame(frame);
+        if (eraseAt(scaledPoint, 0)) {
             return;
         }
-        GraphElement element = find(scaledPoint);
-        if (element != null && isOnThisCanvas(element)) {
+        eraseAt(scaledPoint, eraserReach());
+    }
+
+    /**
+     * @param reach how far past the point to look, in canvas units
+     * @return true if the click resolved to something, whether or not it could be removed
+     */
+    private boolean eraseAt(Point scaledPoint, int reach) {
+        GraphObjectFrame frame = frameAt(scaledPoint);
+        if (frame != null && isFrameOnThisCanvas(frame)) {
+            eraseObjects(List.of(frame));
+            return true;
+        }
+        GraphElement element = findErasableElement(scaledPoint, reach);
+        if (element != null) {
             deleteElement(element);
             if (choosen == element) {
                 choosen = null;
@@ -5022,57 +5965,87 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 current = null;
             }
             repaint();
-            return;
+            return true;
         }
         // A shared place's drawn line is erasable like any arc: splitting the link leaves
         // both places where they are. A link is deletable wherever it is drawn, the same
         // rule a crossing arc follows.
-        GraphPlaceFusion sharedPlace = findSharedPlace(scaledPoint);
+        GraphPlaceFusion sharedPlace = findErasableSharedPlace(scaledPoint, reach);
         if (sharedPlace != null) {
             splitSharedPlace(sharedPlace);
-            return;
+            return true;
         }
-        GraphArc arc = findArc(scaledPoint);
-        if (arc != null && !isArcEditableHere(arc)) {
-            return;
+        GraphArc arc = findErasableArc(scaledPoint, reach);
+        if (arc == null) {
+            return false;
         }
-        if (arc != null) {
-            removeArc(arc);
-            DeleteArcEdit edit = new DeleteArcEdit(this, arc);
-            PetriNetsFrame.getUndoSupport().postEdit(edit);
-            if (choosenArc == arc) {
-                choosenArc = null;
-            }
-            repaint();
+        if (!isArcEditableHere(arc)) {
+            // Found, and deliberately left alone - so the caller stops rather than widening
+            // its reach and erasing some other arc the user was not pointing at.
+            return true;
         }
+        removeArc(arc);
+        DeleteArcEdit edit = new DeleteArcEdit(this, arc);
+        PetriNetsFrame.getUndoSupport().postEdit(edit);
+        if (choosenArc == arc) {
+            choosenArc = null;
+        }
+        repaint();
+        return true;
     }
 
     /**
      * Starts panning: remembers the drag's origin and the viewport's scroll position so
      * {@link #updatePan} can compute an absolute offset rather than drifting on rounding.
      *
-     * @param screenPoint the raw (unscaled) point the drag started at
+     * @param ev the press that started the drag
      */
-    private void beginPan(Point screenPoint) {
-        panViewport = (JViewport) SwingUtilities.getAncestorOfClass(JViewport.class, this);
+    private void beginPan(MouseEvent ev) {
+        panViewport = viewport();
         if (panViewport == null) {
             return;
         }
-        panDragOrigin = screenPoint;
+        panDragOrigin = pointInViewport(ev);
         panViewportOrigin = panViewport.getViewPosition();
     }
 
-    private void updatePan(Point screenPoint) {
+    /**
+     * The pointer in the viewport's own coordinates - the frame of reference a pan has to be
+     * measured in.
+     *
+     * <p>Not {@code ev.getPoint()}, which is relative to this panel, and this panel is the thing
+     * being scrolled: move the view and the panel slides under a motionless pointer, so the same
+     * physical position reports a different point and the drag delta is fed back into itself.
+     * The viewport does not move - only its child does - so converting into it cancels the
+     * scroll offset exactly.
+     *
+     * <p>{@code ev.getLocationOnScreen()} would also be stable and is the obvious alternative,
+     * but on an event synthesised for a component that is not showing it silently returns
+     * (0, 0), which would make every pan a no-op under test rather than a visible failure.
+     */
+    private Point pointInViewport(MouseEvent ev) {
+        return SwingUtilities.convertPoint(this, ev.getPoint(), panViewport);
+    }
+
+    /**
+     * Ends a double-click pan, latched or not, and hands the pointer back.
+     */
+    private void endLatchedPan() {
+        endPan();
+        selectToolPanning = false;
+        panLatched = false;
+        panGestureDragged = false;
+        setCursor(Cursor.getDefaultCursor());
+    }
+
+    /** Moves the view to follow a pan drag - see {@link #pointInViewport}. */
+    private void updatePan(MouseEvent ev) {
         if (panViewport == null || panDragOrigin == null) {
             return;
         }
-        int maxX = Math.max(0, panViewport.getViewSize().width - panViewport.getExtentSize().width);
-        int maxY = Math.max(0, panViewport.getViewSize().height - panViewport.getExtentSize().height);
-        int newX = panViewportOrigin.x - (screenPoint.x - panDragOrigin.x);
-        int newY = panViewportOrigin.y - (screenPoint.y - panDragOrigin.y);
-        panViewport.setViewPosition(new Point(
-                Math.max(0, Math.min(newX, maxX)),
-                Math.max(0, Math.min(newY, maxY))));
+        panViewport.setViewPosition(CanvasNavigation.panTo(
+                panViewportOrigin, panDragOrigin, pointInViewport(ev),
+                maxViewX(panViewport), maxViewY(panViewport)));
     }
 
     private void endPan() {
@@ -5274,6 +6247,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         canvasModel.getFrames().addAll(model.getFrames());
         canvasModel.getFusions().clear();
         canvasModel.getFusions().addAll(model.getFusions());
+        // The groups too. They are lists of the very frames just copied across, so leaving them
+        // behind is what made a document's groups vanish the moment it was opened: the model
+        // carried the group all the way here and this method dropped it.
+        canvasModel.getGroups().clear();
+        canvasModel.getGroups().addAll(model.getGroups());
         choosen = null;
         current = null;
         selection.clear();
@@ -5698,24 +6676,28 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         List<GraphPlaceFusion> litFusions = new ArrayList<>();
         for (GraphPetriPlace p : searchList) {
             for (Integer inp : inP) {
-                GraphPlaceFusion fusion = canvasModel.fusionOf(p);
-                GraphPetriPlace other = fusion == null ? null
-                        : fusion.getMaster() == p ? fusion.getJoined() : fusion.getMaster();
-                // A shared place's half answers to either half's number: the built model
-                // replaced the joined half's instance with the master's, so a firing in
-                // the joined half's own object reports the master's number - which its own
-                // scope's list never contained, and the token arriving there animated
-                // nothing at all.
-                boolean matches = p.getPetriPlace().getNumber() == inp
-                        || (other != null && other.getPetriPlace().getNumber() == inp);
+                List<GraphPlaceFusion> linked = canvasModel.fusionsOf(p);
+                // A linked place answers to any of its partners' numbers: the built model
+                // replaced each target's instance with its source's, so a firing in a target's
+                // own object reports the source's number - which that object's own scope list
+                // never contained, and the token arriving there animated nothing at all. With a
+                // source repeated by several places there is more than one partner to ask.
+                boolean matches = p.getPetriPlace().getNumber() == inp;
+                for (GraphPlaceFusion fusion : linked) {
+                    if (partnerOf(fusion, p).getPetriPlace().getNumber() == inp) {
+                        matches = true;
+                        break;
+                    }
+                }
                 if (!matches || list.contains(p)) {
                     continue;
                 }
                 list.add(p);
-                if (fusion != null) {
-                    // One place, both drawings: the new count lands on both halves, both
-                    // pulse, the reference line lights, and the other half's object joins
-                    // the animation spotlight like any crossing's far end.
+                // One place, every drawing of it: the new count lands on all of them, they all
+                // pulse, each reference line lights, and every partner's object joins the
+                // animation spotlight like any crossing's far end.
+                for (GraphPlaceFusion fusion : linked) {
+                    GraphPetriPlace other = partnerOf(fusion, p);
                     fusion.syncMarking();
                     if (!list.contains(other)) {
                         list.add(other);
