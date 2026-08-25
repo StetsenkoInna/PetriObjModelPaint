@@ -965,12 +965,24 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
         for (GraphObjectGroup group : canvasModel.getGroups()) {
             java.awt.Rectangle band = groupBandBounds(group);
-            if (band != null && band.contains(point)) {
+            if (band == null) {
+                continue;
+            }
+            // Grown by a few units before testing, so the drawn line itself is clickable rather
+            // than being the one part of the band that is not. A stroked outline straddles the
+            // rectangle it is drawn from, so half of what the user aims at lies outside it, and
+            // aiming at a line is what anyone does who wants the thing the line encloses.
+            java.awt.Rectangle reachable = new java.awt.Rectangle(band);
+            reachable.grow(GROUP_BAND_REACH, GROUP_BAND_REACH);
+            if (reachable.contains(point)) {
                 return group;
             }
         }
         return null;
     }
+
+    /** How far outside its own rectangle a group's band still answers to a click. */
+    private static final int GROUP_BAND_REACH = 4;
 
     /**
      * Selects every object of a group.

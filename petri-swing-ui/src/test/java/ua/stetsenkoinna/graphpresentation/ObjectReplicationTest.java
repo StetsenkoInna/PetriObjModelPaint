@@ -519,6 +519,91 @@ public class ObjectReplicationTest {
         }
     }
 
+    /** An empty spot on a member's own floor - inside its frame, on no element. */
+    private java.awt.Point emptyFloorOf(GraphObjectFrame frame) {
+        java.awt.Rectangle bounds = frame.getBounds();
+        return new java.awt.Point(bounds.x + 8, bounds.y + bounds.height - 10);
+    }
+
+    /**
+     * Clicking a member's own floor and pressing Delete: the reported gesture.
+     */
+    @Test(timeout = 10000)
+    public void clickingAMembersFloorAndDeletingTakesTheWholeObject() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+        GraphObjectFrame member = group.getMembers().getFirst();
+        int placesBefore = panel.getGraphNet().getGraphPetriPlaceList().size();
+
+        fullClickOn(emptyFloorOf(member));
+        panel.deleteSelection();
+
+        assertTrue("the frame went too, not only its net",
+                !panel.getCanvasModel().getFrames().contains(member));
+        assertTrue("and its net went", placesBefore
+                > panel.getGraphNet().getGraphPetriPlaceList().size());
+    }
+
+    /** The same spot, with the eraser: the other way it was reported. */
+    @Test(timeout = 10000)
+    public void erasingOnAMembersFloorTakesTheWholeObject() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+        GraphObjectFrame member = group.getMembers().getFirst();
+
+        panel.setTool(CanvasTool.DELETE);
+        java.awt.Point spot = emptyFloorOf(member);
+        eraserClick(spot.x, spot.y);
+
+        assertTrue("the frame went too", !panel.getCanvasModel().getFrames().contains(member));
+    }
+
+    /** Loads the demo document onto a fresh panel, or skips when it has not been generated. */
+    private GraphObjectGroup loadDemo() throws Exception {
+        java.io.File demo = new java.io.File("../petri-model/target/demo/release-2.3.0-demo.pnml");
+        org.junit.Assume.assumeTrue("demo document present", demo.isFile());
+        PetriP.initNext();
+        PetriT.initNext();
+        panel = new PetriNetsPanel(null, true);
+        panel.setCanvasModel(ua.stetsenkoinna.graphnet.GraphCanvasModel.fromObjModel(
+                new ua.stetsenkoinna.pnml.PnmlModelParser().parse(demo)));
+        return panel.getCanvasModel().getGroups().getFirst();
+    }
+
+    /**
+     * The reported gesture on the reported document: a click on a linked member's own floor,
+     * then Delete. Links to another object are the one thing the synthetic panels above do not
+     * have, and they are what a member of a real group always has.
+     */
+    @Test(timeout = 15000)
+    public void deletingALinkedMemberFromItsFloorTakesTheFrame() throws Exception {
+        GraphObjectGroup group = loadDemo();
+        GraphObjectFrame member = group.getMembers().getFirst();
+
+        fullClickOn(emptyFloorOf(member));
+        panel.deleteSelection();
+
+        assertTrue("the frame went, not only its net",
+                !panel.getCanvasModel().getFrames().contains(member));
+    }
+
+    /** And with the eraser, on the same document. */
+    @Test(timeout = 15000)
+    public void erasingALinkedMemberTakesTheFrame() throws Exception {
+        GraphObjectGroup group = loadDemo();
+        GraphObjectFrame member = group.getMembers().getFirst();
+
+        panel.setTool(CanvasTool.DELETE);
+        java.awt.Point spot = emptyFloorOf(member);
+        eraserClick(spot.x, spot.y);
+
+        assertTrue("the frame went", !panel.getCanvasModel().getFrames().contains(member));
+    }
+
     /** And it all comes back on one undo, however many objects it was. */
     @Test(timeout = 10000)
     public void deletingAGroupComesBackOnOneUndo() {
@@ -537,6 +622,28 @@ public class ObjectReplicationTest {
 
         assertEquals("all three objects came back together",
                 3, panel.getCanvasModel().getFrames().size());
+    }
+
+    /**
+     * The drawn line itself has to be clickable.
+     *
+     * <p>A stroked outline straddles the rectangle it comes from, so half of what the user aims
+     * at lies outside it. Testing the bare rectangle made the band's own contour the one part of
+     * it that did not answer - which is exactly the part anyone aims at.
+     */
+    @Test
+    public void clickingTheContourSelectsTheGroupToo() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+        java.awt.Rectangle first = group.getMembers().getFirst().getBounds();
+
+        // Two units outside the band's own edge: on the line as drawn, off the rectangle.
+        pressOn(new java.awt.Point(first.x - 18, first.y + first.height / 2));
+
+        assertTrue("the group is selected from its contour",
+                panel.getSelection().contains(group.getMembers().getFirst()));
     }
 
     /** Dragging the band moves every member by the same amount. */
