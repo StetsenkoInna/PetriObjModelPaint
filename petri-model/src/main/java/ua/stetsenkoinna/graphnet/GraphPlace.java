@@ -32,6 +32,31 @@ public class GraphPlace extends GraphElement {
     }
 
     /**
+     * Whether this place is linked to another, and so holds a marking it does not own alone.
+     *
+     * <p>Transient and derived: {@code GraphCanvasModel.syncFusions} states it afresh from the
+     * links on every pass rather than anything maintaining it, so it cannot drift out of step
+     * with them, and a file written before this existed reads back without it. Deriving rather
+     * than accumulating is the same rule the two-way arc pairing follows, and for the same
+     * reason - a flag that is only ever set and never cleared is wrong the moment a link goes.
+     */
+    private transient boolean linkedToAnotherPlace;
+
+    /**
+     * @param linked true if some link makes this place share its marking
+     */
+    public void setLinkedToAnotherPlace(boolean linked) {
+        this.linkedToAnotherPlace = linked;
+    }
+
+    /**
+     * @return whether this place shares its marking with another
+     */
+    public boolean isLinkedToAnotherPlace() {
+        return linkedToAnotherPlace;
+    }
+
+    /**
      * <p>Leaves {@code g2} set to the outline colour on the way out, which is not tidiness but
      * contract: {@link GraphPetriPlace} draws its name and marking straight afterwards and takes
      * the colour from here rather than resolving it a second time.
@@ -43,7 +68,8 @@ public class GraphPlace extends GraphElement {
         g2.setStroke(new BasicStroke(getLineWidth()));
         g2.setColor(stroke);
         g2.draw(graphElement);
-        g2.setColor(palette.get(CanvasColor.ELEMENT_FILL));
+        g2.setColor(palette.get(
+                linkedToAnotherPlace ? CanvasColor.LINKED_PLACE_FILL : CanvasColor.ELEMENT_FILL));
         g2.fill(graphElement);
         g2.setColor(stroke);
     }

@@ -796,7 +796,16 @@ public class GraphCanvasModel implements Serializable {
      */
     public void syncFusions() {
         refreshFusionOwners();
+        // Stated afresh, not added to: a place that has just lost its last link has to stop
+        // being drawn as linked, and only clearing first can say that.
+        for (GraphPetriPlace place : net.getGraphPetriPlaceList()) {
+            place.setLinkedToAnotherPlace(false);
+        }
         for (GraphPlaceFusion fusion : fusions) {
+            // Both ends: the source's marking is no more its own than the copy's once they are
+            // one instance, so marking only the copies would say something untrue about it.
+            fusion.getMaster().setLinkedToAnotherPlace(true);
+            fusion.getJoined().setLinkedToAnotherPlace(true);
             // Self-healing for the one-marking rule: any path that changed a marking
             // without going through the properties dialog converges back to the master's.
             fusion.syncMarking();

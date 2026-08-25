@@ -263,6 +263,33 @@ public class GraphCanvasModelTest {
         assertSame(p[0], canvas.sourceFusionOf(p[3]).getMaster());
     }
 
+    /**
+     * A linked place is drawn filled, so that a place whose marking is not its own says so where
+     * it stands - including on a canvas where the other end of the link is not visible at all.
+     *
+     * <p>The flag is derived on every pass rather than maintained, which is what the second half
+     * of this test is about: a place that has lost its last link has to stop being drawn as
+     * linked, and only clearing before setting can say that.
+     */
+    @Test
+    public void aLinkedPlaceIsMarkedAndUnmarkedAsItsLinksComeAndGo() {
+        GraphCanvasModel canvas = emptyCanvas();
+        GraphPetriPlace[] p = loosePlaces(canvas, 3);
+
+        canvas.joinPlaces(p[0], p[1]);
+        canvas.syncFusions();
+
+        assertTrue("the source shares its marking too", p[0].isLinkedToAnotherPlace());
+        assertTrue("and so does the copy", p[1].isLinkedToAnotherPlace());
+        assertFalse("a place in no link is left alone", p[2].isLinkedToAnotherPlace());
+
+        canvas.getFusions().clear();
+        canvas.syncFusions();
+
+        assertFalse("the mark goes when the link does", p[0].isLinkedToAnotherPlace());
+        assertFalse(p[1].isLinkedToAnotherPlace());
+    }
+
     /** Links of this kind are one-way: a link back the other way is refused. */
     @Test
     public void aLinkBackTheOtherWayIsRefused() {

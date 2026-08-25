@@ -347,6 +347,13 @@ Chains themselves are fine: a place that copies another may in turn be copied.
 Two places that belong to **no** object may now be linked. Two places of the **same** object may
 not — an object repeating itself says nothing.
 
+### A linked place is drawn filled
+
+A place that takes part in a link is drawn with a grey interior instead of the plain element
+fill — both ends, since once two places are one instance neither one's marking is its own any
+more. It says so where the place stands, which matters most on a canvas that does not draw the
+other end of the link at all.
+
 ### Telling a reference link from an informational arc
 
 Both are thin dashed lines, and they used to differ only in dash length and in whether the

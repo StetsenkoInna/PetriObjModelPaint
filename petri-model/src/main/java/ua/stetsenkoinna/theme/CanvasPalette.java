@@ -14,7 +14,7 @@ import static ua.stetsenkoinna.theme.CanvasColor.FRAME_BORDER_SELECTED;
 import static ua.stetsenkoinna.theme.CanvasColor.FRAME_HEADER;
 import static ua.stetsenkoinna.theme.CanvasColor.FRAME_HEADER_SELECTED;
 import static ua.stetsenkoinna.theme.CanvasColor.FRAME_TEXT;
-import static ua.stetsenkoinna.theme.CanvasColor.FUSION_RING;
+import static ua.stetsenkoinna.theme.CanvasColor.LINKED_PLACE_FILL;
 import static ua.stetsenkoinna.theme.CanvasColor.FUSION_RING_SELECTED;
 import static ua.stetsenkoinna.theme.CanvasColor.GUIDE;
 import static ua.stetsenkoinna.theme.CanvasColor.PORT_BORDER;
@@ -118,7 +118,7 @@ public final class CanvasPalette {
         c.put(PORT_BORDER, new Color(0x1C, 0x2B, 0x3A));
         c.put(PORT_HIGHLIGHT, new Color(0xD9, 0x7A, 0x00));
         c.put(PORT_LABEL_BACKDROP, new Color(255, 255, 255, 210));
-        c.put(FUSION_RING, new Color(0x1B, 0x7F, 0x3B));
+        c.put(LINKED_PLACE_FILL, new Color(0xD6, 0xD8, 0xDB));
         c.put(FUSION_RING_SELECTED, new Color(0xD9, 0x7A, 0x00));
         c.put(ANIMATION_ACTIVE, new Color(255, 77, 77));
         c.put(ANIMATION_CROSSING, new Color(60, 120, 220));
@@ -153,7 +153,7 @@ public final class CanvasPalette {
         c.put(PORT_BORDER, new Color(0xC7, 0xCE, 0xD6));
         c.put(PORT_HIGHLIGHT, new Color(0xE5, 0x9A, 0x2E));
         c.put(PORT_LABEL_BACKDROP, new Color(0x23, 0x26, 0x28, 210));
-        c.put(FUSION_RING, new Color(0x40, 0xB3, 0x6A));
+        c.put(LINKED_PLACE_FILL, new Color(0x3C, 0x41, 0x48));
         c.put(FUSION_RING_SELECTED, new Color(0xE5, 0x9A, 0x2E));
         c.put(ANIMATION_ACTIVE, new Color(0xFF, 0x6B, 0x6B));
         c.put(ANIMATION_CROSSING, new Color(0x5C, 0x93, 0xE8));
