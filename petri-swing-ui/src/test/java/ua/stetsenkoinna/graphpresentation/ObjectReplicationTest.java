@@ -646,6 +646,64 @@ public class ObjectReplicationTest {
                 panel.getSelection().contains(group.getMembers().getFirst()));
     }
 
+    /** The band's rectangle as the drawing would compute it, right now. */
+    private java.awt.Rectangle bandBoundsOf(GraphObjectGroup group) {
+        try {
+            Method method = PetriNetsPanel.class.getDeclaredMethod(
+                    "groupBandBounds", GraphObjectGroup.class);
+            method.setAccessible(true);
+            return (java.awt.Rectangle) method.invoke(panel, group);
+        } catch (InvocationTargetException failure) {
+            throw new AssertionError(failure.getCause());
+        } catch (ReflectiveOperationException broken) {
+            throw new AssertionError(broken);
+        }
+    }
+
+    /**
+     * The band has to stop being drawn the moment its objects are gone, not the next time
+     * something happens to tidy the group up.
+     *
+     * <p>This is the defect the model tests could not see. Deleting the group removed every
+     * frame correctly, and the canvas went on drawing a band around them: the check that decides
+     * what to enclose asked whether a frame would be drawn here, which is a question about
+     * nesting and visibility rather than about existence. The band stayed on screen until a drag
+     * or some other event ran the cleanup - so nudging the objects made it disappear, which is
+     * exactly how it was reported.
+     */
+    @Test(timeout = 10000)
+    public void theBandStopsBeingDrawnAsSoonAsItsObjectsAreGone() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+        assertNotNull("a band while the objects are there", bandBoundsOf(group));
+
+        fullClickOn(onTheBand(group));
+        panel.deleteSelection();
+
+        assertNull("and none once they are not - without anything else having to happen",
+                bandBoundsOf(group));
+    }
+
+    /** One member gone: the band shrinks to what is left rather than keeping a ghost inside. */
+    @Test(timeout = 10000)
+    public void theBandShrinksWhenAMemberIsErased() {
+        freshPanel();
+        GraphObjectFrame server = objectAt("Server", 0);
+        replicate(server, 3);
+        GraphObjectGroup group = panel.getCanvasModel().getGroups().getFirst();
+        int wideBefore = bandBoundsOf(group).width;
+
+        GraphObjectFrame last = group.getMembers().getLast();
+        panel.setTool(CanvasTool.DELETE);
+        java.awt.Point spot = emptyFloorOf(last);
+        eraserClick(spot.x, spot.y);
+
+        assertTrue("the band no longer reaches where the erased object stood",
+                bandBoundsOf(group).width < wideBefore);
+    }
+
     /** Dragging the band moves every member by the same amount. */
     @Test
     public void draggingTheBandMovesTheWholeGroup() {

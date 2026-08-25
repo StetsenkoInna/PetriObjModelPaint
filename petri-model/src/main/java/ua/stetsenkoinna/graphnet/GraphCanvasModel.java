@@ -1002,10 +1002,10 @@ public class GraphCanvasModel implements Serializable {
      */
     public void syncFusions() {
         refreshFusionOwners();
-        // Groups too, and here rather than beside each command that can remove an object. A
-        // member can go by the eraser, by Delete, by an undone paste, by its parent being
-        // removed; expecting every one of those paths to remember a collection added later is
-        // the mistake that made a group vanish on open. Run on every pass, it cannot be missed.
+        // Groups too. Note that this is not "every repaint": syncFusions runs on drags and a
+        // handful of other events, not from paintComponent, so a group can hold a member that
+        // has already gone until one of them comes round. Nothing drawn may depend on this
+        // having run - see how the group band derives itself from the frames that exist.
         removeDanglingGroupMembers();
         // Stated afresh, not added to: a place that has just lost its last link has to stop
         // being drawn as linked, and only clearing first can say that.

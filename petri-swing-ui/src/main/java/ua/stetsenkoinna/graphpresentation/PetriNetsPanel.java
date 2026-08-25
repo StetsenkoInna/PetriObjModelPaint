@@ -936,6 +936,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private java.awt.Rectangle groupBandBounds(GraphObjectGroup group) {
         java.awt.Rectangle band = null;
         for (GraphObjectFrame member : group.getMembers()) {
+            // Still on the canvas, first of all. isFrameDrawnOnThisCanvas answers about nesting
+            // and visibility, not about existence, so a frame that has just been deleted still
+            // reports that it would be drawn here - and the band went on being painted around
+            // objects that were no longer there until something else happened to tidy the group
+            // up. What is drawn has to be derived from what exists, on every paint.
+            if (!canvasModel.getFrames().contains(member)) {
+                continue;
+            }
             if (!isFrameDrawnOnThisCanvas(member) || member == focusedFrame) {
                 continue;
             }
@@ -1649,6 +1657,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         canvasModel.release(s);
         graphNet.delGraphElement(s); //added by Inna 4.12.2012
         canvasModel.removeDanglingFusions();
+        canvasModel.removeDanglingGroupMembers();
 
         repaint();
     }
