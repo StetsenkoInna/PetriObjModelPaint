@@ -354,6 +354,23 @@ is the one which had already taken effect by the time the later ones were declar
 Two places that belong to **no** object may now be linked. Two places of the **same** object may
 not — an object repeating itself says nothing.
 
+### Connectors
+
+All the shared places between one pair of Petri-objects are one **connector**. Two objects
+sharing three places are joined by a connector of three place identifications, not by three
+unrelated links — that is the unit the Petri-object technique itself reasons in, written
+`connector(o_u, o_v) = {(o_u.net.p_b, o_v.net.p_a)}`.
+
+The editor treats it as one thing where it matters. Selecting any one of its links highlights the
+whole connector, so what is actually joining the two objects is visible rather than one strand of
+it. A link's right-click menu offers **Split the whole connector** alongside splitting the single
+place, and does it in one undoable step: detaching two objects is a single act however many
+places it took to join them.
+
+A connector is derived from the links that exist, never stored, so it cannot disagree with them.
+A link with an end belonging to no object stands on its own — a connector joins two
+Petri-objects, and loose places are not one.
+
 ### A linked place is drawn filled
 
 A place that takes part in a link is drawn with a grey interior instead of the plain element
