@@ -165,7 +165,62 @@ public class PnmlModelParser {
                 warnings.add(String.format(PnmlConstants.WARNING_LINK_UNBOUND, invalid.getMessage()));
             }
         }
+        model.getGroups().addAll(readGroups(netElement, model.getObjectCount(), warnings));
         return model;
+    }
+
+    /**
+     * Reads the record of which objects were stamped together as a group.
+     *
+     * <p>Every kind of damage is answered by dropping the group and saying so, never by refusing
+     * the document. A group carries no semantics - the pages describe the same model with or
+     * without it - so refusing to open a file over an unreadable grouping would trade something
+     * that matters for something that does not.
+     */
+    private static List<ua.stetsenkoinna.graphnet.PetriObjectGroupRef> readGroups(
+            Element netElement, int objectCount, List<String> warnings) {
+        List<ua.stetsenkoinna.graphnet.PetriObjectGroupRef> groups = new ArrayList<>();
+        for (Element block : XmlHelper.toolSpecificBlocks(netElement)) {
+            Element groupsElement = XmlHelper.firstDirectChild(
+                    block, PnmlConstants.ELEMENT_PETRI_OBJECT_GROUPS);
+            if (groupsElement == null) {
+                continue;
+            }
+            for (Element element
+                    : XmlHelper.directChildren(groupsElement, PnmlConstants.ELEMENT_GROUP)) {
+                String name = element.getAttribute(PnmlConstants.ATTR_NAME);
+                List<Integer> members = new ArrayList<>();
+                boolean sound = true;
+                for (String token
+                        : element.getAttribute(PnmlConstants.ATTR_MEMBERS).trim().split("\s+")) {
+                    if (token.isEmpty()) {
+                        continue;
+                    }
+                    try {
+                        int index = Integer.parseInt(token);
+                        if (index < 0 || index >= objectCount) {
+                            sound = false;
+                            break;
+                        }
+                        members.add(index);
+                    } catch (NumberFormatException notANumber) {
+                        sound = false;
+                        break;
+                    }
+                }
+                if (!sound || members.size() < 2) {
+                    warnings.add("Dropped the Petri-object group '" + name
+                            + "': it does not name at least two objects of this document");
+                    continue;
+                }
+                String template = element.hasAttribute(PnmlConstants.ATTR_TEMPLATE_METHOD)
+                        ? element.getAttribute(PnmlConstants.ATTR_TEMPLATE_METHOD)
+                        : null;
+                groups.add(new ua.stetsenkoinna.graphnet.PetriObjectGroupRef(
+                        name, members, template));
+            }
+        }
+        return groups;
     }
 
     /**

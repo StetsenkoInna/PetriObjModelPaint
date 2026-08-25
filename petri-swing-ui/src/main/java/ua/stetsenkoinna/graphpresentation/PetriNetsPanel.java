@@ -712,6 +712,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         // Expanded frames go under the drawing, collapsed ones over it: covering the net is
         // exactly what collapsing an object means on a shared canvas.
+        paintObjectGroups(g2);
         paintObjectFrames(g2, false);
         graphNet.paintGraphPetriNet(g2, g, hiddenElements());
         // Built once for this paint and used by both fusion passes below: which elements the
@@ -872,6 +873,52 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param collapsedOnes true to draw the collapsed frames, which hide their net and are
      *        therefore painted over it, false for the expanded ones painted under it
      */
+    /**
+     * Draws a band around each group of Petri-objects, labelled with its name and size.
+     *
+     * <p>The technique's own notation draws a group as a stack of cards, one card per member,
+     * because on paper the members are identical and only one needs showing. Here they are real
+     * objects the user positions, edits and links individually, so a stack would have to hide
+     * them to draw them - and hiding the thing the user is working on to say it is one of many
+     * is a poor trade. A band round them says the same and hides nothing.
+     *
+     * <p>Painted before the frames themselves, so it reads as ground the objects stand on rather
+     * than a box drawn over them.
+     */
+    private void paintObjectGroups(Graphics2D g2) {
+        for (GraphObjectGroup group : canvasModel.getGroups()) {
+            java.awt.Rectangle band = null;
+            for (GraphObjectFrame member : group.getMembers()) {
+                if (!isFrameDrawnOnThisCanvas(member) || member == focusedFrame) {
+                    continue;
+                }
+                java.awt.Rectangle bounds = member.getBounds();
+                band = band == null ? new java.awt.Rectangle(bounds) : band.union(bounds);
+            }
+            if (band == null) {
+                continue;
+            }
+            band.grow(GROUP_BAND_MARGIN, GROUP_BAND_MARGIN);
+
+            Stroke previousStroke = g2.getStroke();
+            Color previousColor = g2.getColor();
+            g2.setColor(CanvasPalette.current().get(CanvasColor.GUIDE));
+            g2.setStroke(new BasicStroke(1.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
+                    10f, new float[]{2f, 6f}, 0f));
+            g2.drawRoundRect(band.x, band.y, band.width, band.height, 18, 18);
+            g2.setStroke(new BasicStroke(1.0f));
+            // "1...n", the way the notation labels a group, rather than just the count: it says
+            // the members are numbered and which numbers they run through.
+            g2.drawString(group.getName() + " 1..." + group.size(),
+                    band.x + 6, band.y - 4);
+            g2.setStroke(previousStroke);
+            g2.setColor(previousColor);
+        }
+    }
+
+    /** How far a group's band stands clear of the objects it encloses. */
+    private static final int GROUP_BAND_MARGIN = 16;
+
     private void paintObjectFrames(Graphics2D g2, boolean collapsedOnes) {
         List<GraphObjectFrame> flat = canvasModel.getFrames();
         for (GraphObjectFrame frame : canvasModel.framesParentFirst()) {

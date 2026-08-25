@@ -1156,6 +1156,23 @@ public class GraphCanvasModel implements Serializable {
         for (ua.stetsenkoinna.petriobj.PetriObjLink link : links) {
             model.addLink(link);
         }
+        // Which objects were stamped together, addressed by index like everything else a
+        // document says about an object. A group whose members no longer all exist is left out
+        // rather than written half-complete.
+        for (GraphObjectGroup group : groups) {
+            List<Integer> memberIndices = new ArrayList<>();
+            for (GraphObjectFrame member : group.getMembers()) {
+                int at = frames.indexOf(member);
+                if (at >= 0) {
+                    memberIndices.add(at);
+                }
+            }
+            if (memberIndices.size() >= 2) {
+                model.getGroups().add(new PetriObjectGroupRef(group.getName(), memberIndices,
+                        group.getTemplate() == null ? null : group.getTemplate().getMethodName()));
+            }
+        }
+
         return model;
     }
 
@@ -1279,6 +1296,7 @@ public class GraphCanvasModel implements Serializable {
         }
 
         canvas.restoreLinks(model);
+        canvas.restoreGroups(model);
         canvas.syncFusions();
         return canvas;
     }
@@ -1306,6 +1324,32 @@ public class GraphCanvasModel implements Serializable {
      * Turns the model's link declarations back into things drawn on the canvas: an output arc
      * from a transition of one object into a place of another, or a shared place.
      */
+    /**
+     * Puts back the record of which objects were stamped together.
+     *
+     * <p>After the frames exist, since a group is nothing but a list of them. A member index the
+     * document names but this canvas has no frame for is skipped, and a group left with fewer
+     * than two members is not restored at all - the same rule that dissolves a group on the
+     * canvas when it shrinks to one.
+     */
+    private void restoreGroups(GraphPetriObjModel model) {
+        for (PetriObjectGroupRef declared : model.getGroups()) {
+            GraphObjectGroup group = new GraphObjectGroup(declared.name(),
+                    declared.templateMethod() == null
+                            ? null
+                            : new NetTemplateRef(declared.templateMethod(), List.of()));
+            for (Integer index : declared.memberObjects()) {
+                GraphObjectFrame member = frameOfObject(index);
+                if (member != null) {
+                    group.add(member);
+                }
+            }
+            if (group.size() >= 2) {
+                groups.add(group);
+            }
+        }
+    }
+
     private void restoreLinks(GraphPetriObjModel model) {
         for (ua.stetsenkoinna.petriobj.PetriObjLink link : model.getLinks()) {
             GraphPetriObject source = model.getObject(link.getSourceObject());

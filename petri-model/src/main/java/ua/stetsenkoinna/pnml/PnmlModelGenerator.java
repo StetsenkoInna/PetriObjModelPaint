@@ -484,7 +484,36 @@ public class PnmlModelGenerator {
             linksElement.appendChild(linkElement);
         }
         toolspecific.appendChild(linksElement);
+        appendGroups(document, model, toolspecific);
         return toolspecific;
+    }
+
+    /**
+     * Records which objects were stamped together, when any were.
+     *
+     * <p>Into the same tool-specific block the links go in, and written only when there is
+     * something to write: a document from a model with no groups looks exactly as it did before
+     * groups existed.
+     */
+    private void appendGroups(Document document, GraphPetriObjModel model, Element toolspecific) {
+        if (model.getGroups().isEmpty()) {
+            return;
+        }
+        Element groupsElement = document.createElementNS(
+                PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_PETRI_OBJECT_GROUPS);
+        for (ua.stetsenkoinna.graphnet.PetriObjectGroupRef group : model.getGroups()) {
+            Element groupElement = document.createElementNS(
+                    PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_GROUP);
+            groupElement.setAttribute(PnmlConstants.ATTR_NAME, group.name());
+            groupElement.setAttribute(PnmlConstants.ATTR_MEMBERS, group.memberObjects().stream()
+                    .map(String::valueOf)
+                    .collect(java.util.stream.Collectors.joining(" ")));
+            if (group.templateMethod() != null) {
+                groupElement.setAttribute(PnmlConstants.ATTR_TEMPLATE_METHOD, group.templateMethod());
+            }
+            groupsElement.appendChild(groupElement);
+        }
+        toolspecific.appendChild(groupsElement);
     }
 
     private static void setElementId(Element linkElement, String attribute, String id) {
