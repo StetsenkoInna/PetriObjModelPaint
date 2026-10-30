@@ -31,7 +31,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
-          submodules: recursive
 
       - name: Determine version
         id: version

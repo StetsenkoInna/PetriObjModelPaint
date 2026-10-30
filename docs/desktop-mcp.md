@@ -58,12 +58,14 @@ Read them with `resources/read` at `petri://skills/petri-modeling`,
 and argument `description` combines those guides with the Swing tool adapter.
 The guides describe modeling semantics; they do not add web-only tools to the editor.
 
-The submodule at `petri-swing-ui/vendor/petri-modeling-skills` pins the source revision.
-Run `git submodule update --init --recursive` before building. Maven packages the
-canonical Markdown files, manifest and license into the JAR. To upgrade, check out
-the desired shared revision in the submodule, run the tests and commit the changed
-submodule pointer. Edit shared rules in the shared repository rather than copying
-them into this application.
+Maven downloads the versioned resource ZIP from GitHub Releases during
+`generate-resources`, verifies its pinned SHA-256 and packages the Markdown,
+schemas, manifest and license into the JAR. A plain clone and the usual Maven
+build command are sufficient; no submodule, token or Python runtime is needed.
+The archive is cached in the local Maven repository and checked again on reuse.
+To upgrade, update `petri.skills.version` and `petri.skills.sha256` in the desktop
+POM after publishing the reviewed assets. Edit shared rules in the shared
+repository rather than copying them into this application.
 
 ### Desktop actions
 
