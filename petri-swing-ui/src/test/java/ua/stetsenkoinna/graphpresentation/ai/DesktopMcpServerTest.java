@@ -29,7 +29,7 @@ public class DesktopMcpServerTest {
     private final DesktopMcpServer server = new DesktopMcpServer(counter);
     private final HttpClient client = HttpClient.newHttpClient();
 
-    @Before public void start() throws Exception { server.start(0); }
+    @Before public void start() throws Exception { server.start(0, null); }
     @After public void stop() { server.close(); client.close(); }
 
     private HttpResponse<String> post(String body, String token, String origin) throws Exception {
@@ -79,6 +79,26 @@ public class DesktopMcpServerTest {
         assertEquals(0, counter.value.get());
     }
 
+    @Test public void authenticationIsOffByDefaultButBrowserOriginsAreStillRejected() throws Exception {
+        server.close();
+        server.start(0);
+        assertNull(server.token());
+        assertFalse(server.isAuthenticationRequired());
+        assertEquals("increment", rpc("tools/list", Map.of()).at("/result/tools/0/name").asText());
+        rpc("tools/call", Map.of("name", "increment", "arguments", Map.of("amount", 2)));
+        assertEquals(2, counter.value.get());
+        assertEquals(403, post("{}", null, "https://example.org").statusCode());
+        assertEquals(7, rpc("ping", Map.of()).get("id").asInt());
+    }
+
+    @Test public void authenticationCanBeDisabledWithAnExistingSavedToken() throws Exception {
+        String savedToken = server.token();
+        server.close();
+        server.start(0, savedToken, false);
+        assertNull(server.token());
+        assertEquals(7, rpc("ping", Map.of()).get("id").asInt());
+    }
+
     @Test public void parseAndMethodErrorsAreJsonRpcErrors() throws Exception {
         assertEquals(-32700, DesktopMcpServer.JSON.readTree(post("{", server.token(), null).body()).at("/error/code").asInt());
         assertEquals(-32600, DesktopMcpServer.JSON.readTree(post("[]", server.token(), null).body()).at("/error/code").asInt());
@@ -89,7 +109,7 @@ public class DesktopMcpServerTest {
         String oldToken = server.token();
         server.close();
         assertFalse(server.isRunning());
-        server.start(0);
+        server.start(0, null);
         assertNotEquals(oldToken, server.token());
         assertEquals(401, post("{}", oldToken, null).statusCode());
     }
@@ -157,10 +177,21 @@ public class DesktopMcpServerTest {
     }
 
     @Test public void stdioBridgeForwardsRequestsWithoutExtraStdout() throws Exception {
+        checkStdioBridge();
+    }
+
+    @Test public void stdioBridgeAlsoWorksWithoutAToken() throws Exception {
+        server.close();
+        server.start(0);
+        checkStdioBridge();
+    }
+
+    private void checkStdioBridge() throws Exception {
         ProcessBuilder builder = new ProcessBuilder(
                 java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java").toString(),
                 "-cp", System.getProperty("java.class.path"), DesktopMcpStdioBridge.class.getName(), server.endpoint());
-        builder.environment().put("PETRI_MCP_TOKEN", server.token());
+        builder.environment().remove("PETRI_MCP_TOKEN");
+        if (server.token() != null) builder.environment().put("PETRI_MCP_TOKEN", server.token());
         Process process = builder.start();
         try {
             process.getOutputStream().write(("{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n"

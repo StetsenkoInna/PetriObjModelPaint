@@ -34,18 +34,24 @@ public final class DesktopMcpServer implements AutoCloseable {
     }
 
     public synchronized void start(int port) throws IOException {
-        start(port, null);
+        start(port, null, false);
     }
 
     public synchronized void start(int port, String savedToken) throws IOException {
+        start(port, savedToken, true);
+    }
+
+    public synchronized void start(int port, String savedToken, boolean requireAuthentication) throws IOException {
         if (server != null) {
             return;
         }
-        if (savedToken != null && !ua.stetsenkoinna.config.AppSettings.isValidMcpToken(savedToken)) {
+        if (requireAuthentication && savedToken != null && !ua.stetsenkoinna.config.AppSettings.isValidMcpToken(savedToken)) {
             throw new IllegalArgumentException("Saved MCP token is invalid");
         }
         HttpServer candidate = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
-        if (savedToken == null) {
+        if (!requireAuthentication) {
+            token = null;
+        } else if (savedToken == null) {
             byte[] secret = new byte[32];
             new SecureRandom().nextBytes(secret);
             token = Base64.getUrlEncoder().withoutPadding().encodeToString(secret);
@@ -73,6 +79,10 @@ public final class DesktopMcpServer implements AutoCloseable {
 
     public synchronized String token() {
         return token;
+    }
+
+    public synchronized boolean isAuthenticationRequired() {
+        return token != null;
     }
 
     public List<String> toolNames() {
@@ -138,9 +148,10 @@ public final class DesktopMcpServer implements AutoCloseable {
                 return;
             }
             String authorization = exchange.getRequestHeaders().getFirst("Authorization");
-            String expected = "Bearer " + token();
-            if (authorization == null || !MessageDigest.isEqual(
-                    expected.getBytes(StandardCharsets.UTF_8), authorization.getBytes(StandardCharsets.UTF_8))) {
+            String currentToken = token();
+            String expected = "Bearer " + currentToken;
+            if (currentToken != null && (authorization == null || !MessageDigest.isEqual(
+                    expected.getBytes(StandardCharsets.UTF_8), authorization.getBytes(StandardCharsets.UTF_8)))) {
                 send(exchange, 401, null);
                 return;
             }

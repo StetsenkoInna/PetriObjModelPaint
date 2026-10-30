@@ -147,6 +147,32 @@ public class AppSettingsTest {
         assertTrue(reloaded.isMcpEnabled());
         assertEquals(9876, reloaded.getMcpPort());
         assertEquals(token, reloaded.getMcpToken());
+        assertTrue(reloaded.isMcpAuthenticationRequired());
+    }
+
+    @Test
+    public void mcpAuthenticationDefaultsOffEvenForLegacySavedTokens() throws IOException {
+        assertFalse(new AppSettings(settingsFile()).isMcpAuthenticationRequired());
+        Files.createDirectories(settingsFile().getParent());
+        String token = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
+        Files.writeString(settingsFile(), "mcp.enabled=true\nmcp.port=9876\nmcp.token=" + token + "\n");
+        assertFalse(new AppSettings(settingsFile()).isMcpAuthenticationRequired());
+    }
+
+    @Test
+    public void unauthenticatedConnectionSurvivesRestartAndCanDisableExistingAuthentication() {
+        AppSettings settings = new AppSettings(settingsFile());
+        settings.rememberMcpConnection(9876, null, false);
+        AppSettings reloaded = new AppSettings(settingsFile());
+        assertTrue(reloaded.isMcpEnabled());
+        assertFalse(reloaded.isMcpAuthenticationRequired());
+        assertNull(reloaded.getMcpToken());
+        String token = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
+        settings.rememberMcpConnection(9876, token, true);
+        settings.rememberMcpConnection(9876, null, false);
+        reloaded = new AppSettings(settingsFile());
+        assertFalse(reloaded.isMcpAuthenticationRequired());
+        assertEquals(token, reloaded.getMcpToken());
     }
 
     @Test
