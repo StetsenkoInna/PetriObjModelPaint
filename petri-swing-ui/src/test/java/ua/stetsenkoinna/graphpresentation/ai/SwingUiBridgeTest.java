@@ -70,6 +70,11 @@ public class SwingUiBridgeTest {
                     ua.stetsenkoinna.graphpresentation.io.FileDialogs.open(frame, "MCP test file",
                             ua.stetsenkoinna.graphpresentation.io.FileDialogs.ANY, null)));
             content.add(openFile);
+            JButton saveFile = new JButton("Save native file");
+            saveFile.addActionListener(event -> chosenFile.set(
+                    ua.stetsenkoinna.graphpresentation.io.FileDialogs.save(frame, "MCP test save",
+                            ua.stetsenkoinna.graphpresentation.io.FileDialogs.PNML, null, "model.pnml")));
+            content.add(saveFile);
             field.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke("ctrl K"), "test-key");
             field.getActionMap().put("test-key", new AbstractAction() {
                 @Override public void actionPerformed(ActionEvent event) { clicks.incrementAndGet(); }
@@ -168,6 +173,22 @@ public class SwingUiBridgeTest {
             assertEquals(file.toFile(), chosenFile.get());
         } finally {
             java.nio.file.Files.deleteIfExists(file);
+        }
+    }
+
+    @Test public void nativeSaveSelectionPreservesNewPathAndExtension() throws Exception {
+        java.nio.file.Path directory = java.nio.file.Files.createTempDirectory("petri-mcp-save-");
+        try {
+            action(find(inspect(), "text", "Save native file"), "click");
+            JsonNode dialog = find(inspect(), "title", "MCP test save");
+            assertNotNull(dialog);
+            java.nio.file.Path target = directory.resolve("new-model");
+            action(dialog, "file", "path", target.toString());
+            long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+            while (chosenFile.get() == null && System.nanoTime() < deadline) Thread.sleep(20);
+            assertEquals(directory.resolve("new-model.pnml").toFile(), chosenFile.get());
+        } finally {
+            java.nio.file.Files.deleteIfExists(directory);
         }
     }
 }

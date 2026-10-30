@@ -222,9 +222,7 @@ public final class SwingUiBridge {
                 if (dialog.getMode() == java.awt.FileDialog.SAVE && file.exists()
                         && javax.swing.JOptionPane.showConfirmDialog(dialog, "Replace existing file?\n" + file,
                                 "Confirm save", javax.swing.JOptionPane.YES_NO_OPTION) != javax.swing.JOptionPane.YES_OPTION) return;
-                dialog.setDirectory(file.getParent());
-                dialog.setFile(file.getName());
-                dialog.dispose();
+                ua.stetsenkoinna.graphpresentation.io.FileDialogs.selectFile(dialog, file);
             }
             case "click" -> {
                 if (!(component instanceof AbstractButton button)) throw new IllegalArgumentException("Use mouse for a canvas");
