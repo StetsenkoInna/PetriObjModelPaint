@@ -21,6 +21,7 @@ public final class DesktopMcpServer implements AutoCloseable {
     static final ObjectMapper JSON = new ObjectMapper();
     private static final int MAX_BODY = 1_048_576;
     private final McpToolRegistry tools;
+    private final ModelingSkills skills = new ModelingSkills();
     private HttpServer server;
     private ExecutorService executor;
     private String token;
@@ -137,13 +138,27 @@ public final class DesktopMcpServer implements AutoCloseable {
         switch (request.path("method").asText()) {
             case "initialize" -> result = Map.of(
                     "protocolVersion", "2025-03-26",
-                    "capabilities", Map.of("tools", Map.of()),
+                    "capabilities", Map.of("tools", Map.of(), "resources", Map.of(), "prompts", Map.of()),
                     "serverInfo", Map.of("name", "PetriObjModelPaint Desktop", "version", "1.0"),
-                    "instructions", "Control the running Swing editor. Inspect UI before actions; use returned component IDs. "
+                    "instructions", "Control the running Swing editor. For model design read the shared resources at "
+                            + "petri://skills/petri-modeling, petri://skills/petri-patterns and petri://skills/pnml-standard, "
+                            + "or use the build_petri_model prompt. Inspect UI before actions; use returned component IDs. "
                             + "Actions are queued on the UI thread; inspect again to observe completion and dialogs. "
                             + "Coordinates are relative to the chosen component. File choosers may be native OS windows.");
             case "ping" -> result = Map.of();
             case "tools/list" -> result = Map.of("tools", tools.list());
+            case "resources/list" -> result = Map.of("resources", skills.resources());
+            case "prompts/list" -> result = Map.of("prompts", skills.prompts());
+            case "resources/read", "prompts/get" -> {
+                JsonNode params = request.path("params");
+                try {
+                    result = "resources/read".equals(request.path("method").asText())
+                            ? skills.read(params.path("uri").asText())
+                            : skills.prompt(params.path("name").asText(), params.path("arguments"));
+                } catch (IllegalArgumentException ex) {
+                    return error(id, -32602, ex.getMessage());
+                }
+            }
             case "tools/call" -> {
                 JsonNode params = request.path("params");
                 try {

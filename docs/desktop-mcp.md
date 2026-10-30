@@ -34,6 +34,25 @@ and rejects browser-originated requests. Closing the MCP window leaves it runnin
 
 ## Implementation
 
+### Shared modeling skills
+
+`resources/list` exposes the canonical guides from
+[petri-modeling-skills](https://github.com/sergiorbk/petri-modeling-skills).
+Read them with `resources/read` at `petri://skills/petri-modeling`,
+`petri://skills/petri-patterns`, `petri://skills/pnml-standard` and
+`petri://skills/pattern-catalog`. `prompts/get` with name `build_petri_model`
+and argument `description` combines those guides with the Swing tool adapter.
+The guides describe modeling semantics; they do not add web-only tools to the editor.
+
+The submodule at `petri-swing-ui/vendor/petri-modeling-skills` pins the source revision.
+Run `git submodule update --init --recursive` before building. Maven packages the
+canonical Markdown files, manifest and license into the JAR. To upgrade, check out
+the desired shared revision in the submodule, run the tests and commit the changed
+submodule pointer. Edit shared rules in the shared repository rather than copying
+them into this application.
+
+### Desktop actions
+
 Annotate a service method with `@McpTool`. Its declaration supplies the name,
 description and argument schema for both discovery and invocation. The HTTP transport
 uses `McpToolRegistry`; it has no separate list of tool implementations. The UI bridge

@@ -107,6 +107,33 @@ public class DesktopMcpServerTest {
         assertEquals("increment", replies.get(1).at("/result/tools/0/name").asText());
     }
 
+    @Test public void sharedSkillsAreDiscoverableReadableAndIncludedInModelingPrompt() throws Exception {
+        JsonNode initialized = rpc("initialize", Map.of()).get("result");
+        assertTrue(initialized.path("capabilities").has("resources"));
+        assertTrue(initialized.path("capabilities").has("prompts"));
+        JsonNode resources = rpc("resources/list", Map.of()).at("/result/resources");
+        assertEquals(4, resources.size());
+        for (JsonNode resource : resources) {
+            JsonNode contents = rpc("resources/read", Map.of("uri", resource.get("uri").asText())).at("/result/contents/0");
+            assertEquals("text/markdown", contents.path("mimeType").asText());
+            assertFalse(contents.path("text").asText().isBlank());
+            assertFalse(contents.path("text").asText().startsWith("---"));
+        }
+        assertEquals(-32602, rpc("resources/read", Map.of("uri", "petri://skills/../../pom.xml")).at("/error/code").asInt());
+        JsonNode prompt = rpc("prompts/list", Map.of()).at("/result/prompts/0");
+        assertEquals("build_petri_model", prompt.path("name").asText());
+        JsonNode result = rpc("prompts/get", Map.of("name", "build_petri_model", "arguments", Map.of("description", "Two parallel machines")));
+        String text = result.at("/result/messages/0/content/text").asText();
+        assertTrue(text.contains("Two parallel machines"));
+        for (JsonNode resource : resources) {
+            String guide = rpc("resources/read", Map.of("uri", resource.get("uri").asText())).at("/result/contents/0/text").asText();
+            assertTrue(text.contains(guide));
+        }
+        assertTrue(text.contains("inspect_ui"));
+        assertTrue(text.contains("ui_action"));
+        assertEquals(-32602, rpc("prompts/get", Map.of("name", "build_petri_model", "arguments", Map.of())).at("/error/code").asInt());
+    }
+
     @Test public void stdioBridgeForwardsRequestsWithoutExtraStdout() throws Exception {
         ProcessBuilder builder = new ProcessBuilder(
                 java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java").toString(),
