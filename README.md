@@ -45,6 +45,23 @@ This is a multi-module Maven project:
 | `petri-swing-ui` | Desktop editor (Swing, fat JAR) |
 | `petri-server` | Spring Boot REST + WebSocket server |
 
+## Use the simulation libraries in your own project
+
+You can use the simulation engine without installing the desktop editor. After
+the `v2.4.0` library release is published, the public GitHub-hosted Maven repository
+provides `ua.stetsenkoinna:petri-math:2.4.0`, `petri-api:2.4.0` and
+`petri-model:2.4.0`, including source JARs and POMs. Java 23+ is required.
+
+- **Simulation only:** depend on `petri-math`.
+- **Service interfaces and DTOs:** depend on `petri-api`.
+- **PNML readers/writers and graph models:** depend on `petri-model`.
+
+See [Java library integration](docs/java-libraries.md) for the repository URL,
+copyable Maven configuration and release downloads. Dependencies are resolved by
+Maven without a GitHub token or Git submodule. Python and other languages can call
+the standalone [simulation server over HTTP](docs/petri-server-integration.md);
+the Java JARs are not Python-importable packages.
+
 ---
 
 ## Two ways to run it
