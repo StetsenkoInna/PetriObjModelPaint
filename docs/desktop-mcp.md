@@ -16,8 +16,11 @@ plus buttons to copy the URL, token, or selected client setup.
 Codex and Claude Code connect directly over Streamable HTTP. Claude Desktop's local
 configuration starts a small stdio process that forwards MCP messages to the same
 running editor. Claude's cloud connectors cannot reach this localhost endpoint.
-The generated configuration includes the current port and token. After stopping and
-starting the server, copy the updated configuration because the token changes.
+The generated configuration includes the saved port and token. Enabling MCP remembers
+both in the application's per-user `ui.properties` and starts the server automatically
+after application restart. Existing client configurations continue to work. Explicitly
+stopping the server disables automatic startup and retains the connection settings
+for the next manual start.
 
 ## Tools
 
@@ -28,9 +31,11 @@ Actions run on the event dispatch thread. Inspect again after each action to see
 result or a newly opened dialog. IDs expire at the next inspection. Native file dialogs
 accept a path through the `file` action; existing-file saves ask for confirmation.
 
-The server is initially stopped, binds only to `127.0.0.1`, requires a bearer token,
-and rejects browser-originated requests. Closing the MCP window leaves it running;
-**Stop server** or closing the editor disconnects clients.
+MCP is disabled on a fresh installation. It binds only to `127.0.0.1`, requires a
+bearer token, and rejects browser-originated requests. Closing the MCP window leaves
+it running. Closing the editor disconnects clients without disabling automatic startup;
+**Stop server** disables it. If the saved port is unavailable, the editor still opens
+and the MCP window reports the startup failure so the port can be corrected.
 
 ## Implementation
 

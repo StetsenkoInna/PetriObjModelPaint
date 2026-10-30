@@ -14,9 +14,12 @@ import javax.swing.JSpinner;
 import javax.swing.JTextArea;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.JTabbedPane;
+import ua.stetsenkoinna.config.AppSettings;
 
 public final class McpDialog extends JDialog {
     private final DesktopMcpServer server;
+    private final AppSettings settings;
+    private String startupFailure;
     private final JLabel status = new JLabel();
     private final JTextArea connection = new JTextArea(12, 68);
     private final JSpinner port = new JSpinner(new SpinnerNumberModel(8765, 1024, 65535, 1));
@@ -30,8 +33,15 @@ public final class McpDialog extends JDialog {
     private final JButton copySetup = new JButton("Copy client setup");
 
     public McpDialog(Window owner, DesktopMcpServer server) {
+        this(owner, server, AppSettings.shared(), null);
+    }
+
+    public McpDialog(Window owner, DesktopMcpServer server, AppSettings settings, String startupFailure) {
         super(owner, "AI - MCP", ModalityType.MODELESS);
         this.server = server;
+        this.settings = settings;
+        this.startupFailure = startupFailure;
+        port.setValue(settings.getMcpPort());
         port.setEditor(new JSpinner.NumberEditor(port, "0"));
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         JPanel content = new JPanel(new BorderLayout(8, 8));
@@ -78,12 +88,18 @@ public final class McpDialog extends JDialog {
         try {
             if (server.isRunning()) {
                 server.close();
+                settings.disableMcp();
             } else {
                 port.commitEdit();
-                server.start((Integer) port.getValue());
+                int selectedPort = (Integer) port.getValue();
+                server.start(selectedPort, settings.getMcpToken());
+                settings.rememberMcpConnection(selectedPort, server.token());
             }
+            startupFailure = null;
             refresh();
         } catch (Exception ex) {
+            startupFailure = ex.getMessage();
+            refresh();
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Cannot start MCP", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -91,6 +107,7 @@ public final class McpDialog extends JDialog {
     private void refresh() {
         boolean running = server.isRunning();
         status.setText(running ? "Running on localhost" : "Stopped");
+        status.setToolTipText(startupFailure);
         status.setPreferredSize(new java.awt.Dimension(155, status.getPreferredSize().height));
         if (running) port.setValue(java.net.URI.create(server.endpoint()).getPort());
         toggle.setText(running ? "Stop server" : "Start server");
@@ -101,11 +118,12 @@ public final class McpDialog extends JDialog {
         connection.setText(running
                 ? "Transport: Streamable HTTP\nURL: " + server.endpoint()
                     + "\nAvailable tools: " + String.join(", ", server.toolNames()) + ".\n"
-                    + "The client can operate menus, fields, dialogs and the canvas. Closing this window keeps the server running; Stop server disconnects clients."
-                : "Start the server to connect an AI client to this running application.\n\n"
+                    + "The client can operate menus, fields, dialogs and the canvas. MCP starts automatically after application restart with the same connection settings. Stop server disables automatic startup."
+                : (startupFailure == null ? "" : "MCP startup failed: " + startupFailure + "\n\n")
+                    + "Start the server to connect an AI client to this running application.\n\n"
                     + "The client can read application windows and operate controls and the canvas, including opening, editing, running and saving models. "
                     + "Normal application dialogs and confirmations remain in place.\n\n"
-                    + "The server accepts authenticated connections on 127.0.0.1 only. A new token is generated each time it starts.");
+                    + "The server accepts authenticated connections on 127.0.0.1 only. Its port and token are remembered so configured clients can reconnect after restart.");
         connection.setCaretPosition(0);
         String hint = "Start the server to see a ready-to-copy client setup.";
         codex.setText(running ? McpConnectionInstructions.codex(server.endpoint(), server.token()) : hint);

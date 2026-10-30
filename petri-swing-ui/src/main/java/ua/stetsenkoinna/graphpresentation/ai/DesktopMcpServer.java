@@ -31,13 +31,24 @@ public final class DesktopMcpServer implements AutoCloseable {
     }
 
     public synchronized void start(int port) throws IOException {
+        start(port, null);
+    }
+
+    public synchronized void start(int port, String savedToken) throws IOException {
         if (server != null) {
             return;
         }
-        byte[] secret = new byte[32];
-        new SecureRandom().nextBytes(secret);
-        token = Base64.getUrlEncoder().withoutPadding().encodeToString(secret);
+        if (savedToken != null && !ua.stetsenkoinna.config.AppSettings.isValidMcpToken(savedToken)) {
+            throw new IllegalArgumentException("Saved MCP token is invalid");
+        }
         HttpServer candidate = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+        if (savedToken == null) {
+            byte[] secret = new byte[32];
+            new SecureRandom().nextBytes(secret);
+            token = Base64.getUrlEncoder().withoutPadding().encodeToString(secret);
+        } else {
+            token = savedToken;
+        }
         executor = Executors.newFixedThreadPool(4, runnable -> {
             Thread thread = new Thread(runnable, "desktop-mcp");
             thread.setDaemon(true);

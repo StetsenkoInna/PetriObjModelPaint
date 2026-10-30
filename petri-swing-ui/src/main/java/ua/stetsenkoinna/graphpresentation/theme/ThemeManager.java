@@ -1,12 +1,20 @@
 package ua.stetsenkoinna.graphpresentation.theme;
 
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.Window;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import javax.swing.SwingUtilities;
+import javax.swing.JComponent;
+import javax.swing.JMenu;
+import javax.swing.JPopupMenu;
 import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 import javax.swing.plaf.ColorUIResource;
@@ -188,16 +196,58 @@ public final class ThemeManager {
     }
 
     private static void refreshOpenWindows(ThemeVariant variant) {
+        Set<Component> popupComponents = Collections.newSetFromMap(new IdentityHashMap<>());
+        UIDefaults menuOverrides = null;
+        if (variant.isDark()) {
+            menuOverrides = new UIDefaults();
+            for (Map.Entry<String, Object> entry : darkDefaults().entrySet()) {
+                String key = entry.getKey();
+                if (key.startsWith("Menu") || key.startsWith("PopupMenu")
+                        || key.startsWith("CheckBoxMenuItem") || key.startsWith("RadioButtonMenuItem")) {
+                    menuOverrides.put(key, entry.getValue());
+                }
+            }
+        }
         for (Window window : Window.getWindows()) {
+            if (!window.isDisplayable()) continue;
             SwingUtilities.updateComponentTreeUI(window);
+            refreshDetachedPopups(window, popupComponents, menuOverrides);
         }
         for (ThemeChangeListener listener : LISTENERS) {
             listener.themeChanged(variant, currentPalette);
         }
         for (Window window : Window.getWindows()) {
+            if (!window.isDisplayable()) continue;
             window.invalidate();
             window.validate();
             window.repaint();
+        }
+    }
+
+    private static void refreshDetachedPopups(Component component, Set<Component> visited, UIDefaults menuOverrides) {
+        if (!visited.add(component)) return;
+        if (component instanceof JComponent control) {
+            if (control instanceof javax.swing.JMenuItem || control instanceof JPopupMenu) {
+                if (menuOverrides != null) {
+                    control.putClientProperty("Nimbus.Overrides.InheritDefaults", true);
+                    control.putClientProperty("Nimbus.Overrides", menuOverrides);
+                    control.putClientProperty("petri.darkMenuOverrides", true);
+                } else if (Boolean.TRUE.equals(control.getClientProperty("petri.darkMenuOverrides"))) {
+                    control.putClientProperty("Nimbus.Overrides", null);
+                    control.putClientProperty("Nimbus.Overrides.InheritDefaults", null);
+                    control.putClientProperty("petri.darkMenuOverrides", null);
+                }
+                control.updateUI();
+            }
+            JPopupMenu popup = control instanceof JMenu menu ? menu.getPopupMenu() : control.getComponentPopupMenu();
+            if (popup != null && !visited.contains(popup)) {
+                // Hidden popups are not ordinary children, so the window UI update misses them.
+                SwingUtilities.updateComponentTreeUI(popup);
+                refreshDetachedPopups(popup, visited, menuOverrides);
+            }
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) refreshDetachedPopups(child, visited, menuOverrides);
         }
     }
 
@@ -327,6 +377,22 @@ public final class ThemeManager {
         defaults.put("MenuBar:Menu[Disabled].textForeground", disabledText);
         defaults.put("MenuBar:Menu[Selected].textForeground", Color.WHITE);
         defaults.put("MenuBar:Menu[Enabled+Selected].textForeground", Color.WHITE);
+        // Active menus use Nimbus painters rather than the ordinary background colour.
+        javax.swing.Painter<javax.swing.JComponent> menuSelection = (graphics, component, width, height) -> {
+            graphics.setColor(selection);
+            graphics.fillRect(0, 0, width, height);
+        };
+        for (String region : List.of("MenuBar:Menu", "Menu", "MenuItem", "CheckBoxMenuItem", "RadioButtonMenuItem")) {
+            defaults.put(region + ".selectionBackground", selection);
+            defaults.put(region + ".selectionForeground", Color.WHITE);
+            for (String state : List.of("MouseOver", "Enabled+MouseOver", "Selected", "Enabled+Selected",
+                    "MouseOver+Selected", "Enabled+MouseOver+Selected", "Pressed", "Enabled+Pressed")) {
+                defaults.put(region + "[" + state + "].backgroundPainter", menuSelection);
+                defaults.put(region + "[" + state + "].textForeground", Color.WHITE);
+                defaults.put(region + ":MenuItemAccelerator[" + state + "].textForeground", Color.WHITE);
+            }
+        }
+        defaults.put("PopupMenu[Enabled].backgroundPainter", controlPainter(chrome, border));
         // JFileChooser reads a few of its own, and is one of the few dialogs the app opens that
         // it does not build itself.
         defaults.put("FileChooser.background", chrome);

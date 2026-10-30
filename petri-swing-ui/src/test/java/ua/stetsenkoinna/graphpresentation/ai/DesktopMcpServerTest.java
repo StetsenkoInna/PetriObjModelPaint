@@ -94,6 +94,28 @@ public class DesktopMcpServerTest {
         assertEquals(401, post("{}", oldToken, null).statusCode());
     }
 
+    @Test public void aSavedConnectionRestartsAtTheSameAddressWithTheSameToken() throws Exception {
+        String savedToken = server.token();
+        String savedEndpoint = server.endpoint();
+        int savedPort = URI.create(savedEndpoint).getPort();
+        server.close();
+        server.start(savedPort, savedToken);
+
+        assertEquals(savedEndpoint, server.endpoint());
+        assertEquals(savedToken, server.token());
+        assertEquals(7, rpc("ping", Map.of()).get("id").asInt());
+    }
+
+    @Test public void invalidSavedCredentialsDoNotOpenAListener() throws Exception {
+        server.close();
+        try {
+            server.start(0, "short");
+            fail("Weak saved token accepted");
+        } catch (IllegalArgumentException expected) {
+            assertFalse(server.isRunning());
+        }
+    }
+
     @Test public void batchesReturnOnlyRequestResponses() throws Exception {
         HttpResponse<String> response = post("""
                 [{"jsonrpc":"2.0","method":"notifications/initialized"},

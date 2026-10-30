@@ -108,6 +108,16 @@ public final class SwingUiBridge {
         info.put("showing", component.isShowing());
         info.put("width", component.getWidth());
         info.put("height", component.getHeight());
+        info.put("x", component.getX());
+        info.put("y", component.getY());
+        if (component instanceof JComponent control) {
+            java.awt.Rectangle visible = control.getVisibleRect();
+            info.put("visibleRect", Map.of("x", visible.x, "y", visible.y, "width", visible.width, "height", visible.height));
+        }
+        if (component instanceof javax.accessibility.Accessible accessible && accessible.getAccessibleContext() != null) {
+            String name = accessible.getAccessibleContext().getAccessibleName();
+            if (name != null && !name.isBlank()) info.put("accessibleName", name);
+        }
         if (component.getName() != null) info.put("name", component.getName());
         if (component instanceof java.awt.Frame frame) info.put("title", frame.getTitle());
         if (component instanceof java.awt.Dialog dialog) info.put("title", dialog.getTitle());
