@@ -308,7 +308,8 @@ public class SetTransition extends javax.swing.JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void okButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_okButtonActionPerformed
+    private void okButtonActionPerformed(java.awt.event.ActionEvent evt) {
+        if (!panel.isDocumentEditable()) { setVisible(false); return; }//GEN-FIRST:event_okButtonActionPerformed
      try{
         setTName();
         setTimeDelay();
@@ -451,6 +452,7 @@ public class SetTransition extends javax.swing.JFrame {
         getTName();
         getTimeDelay();
         getPriority();
+        if (!panel.isDocumentEditable()) ReadOnlyParameterForm.apply(getContentPane(), okButton, cancelButton);
     }
     
     private PetriNetsPanel panel;

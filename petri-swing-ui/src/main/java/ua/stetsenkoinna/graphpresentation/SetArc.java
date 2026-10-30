@@ -165,7 +165,8 @@ public class SetArc extends javax.swing.JFrame {
         this.setVisible(false);
     }//GEN-LAST:event_cancelButtonActionPerformed
 
-    private void okButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_okButtonActionPerformed
+    private void okButtonActionPerformed(java.awt.event.ActionEvent evt) {
+        if (!panel.isDocumentEditable()) { setVisible(false); return; }//GEN-FIRST:event_okButtonActionPerformed
        try {
            setQuantity();
            setIsInf();
@@ -261,5 +262,6 @@ public class SetArc extends javax.swing.JFrame {
         setChosenTie(t);
         getQuantity();
         getIsInf();
+        if (!panel.isDocumentEditable()) ReadOnlyParameterForm.apply(getContentPane(), okButton, cancelButton);
     }
 }

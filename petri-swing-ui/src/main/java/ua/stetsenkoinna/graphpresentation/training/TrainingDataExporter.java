@@ -32,14 +32,33 @@ public final class TrainingDataExporter {
     private record Artifact(String name, String mediaType, String purpose, byte[] content) { }
     private final SnapshotProvider snapshots;
     private final Clock clock;
+    private final TrainingBundleWorkspace workspace;
+    private final java.util.function.Supplier<Map<String, String>> contributor;
 
     public TrainingDataExporter(SnapshotProvider snapshots) { this(snapshots, Clock.systemUTC()); }
     public TrainingDataExporter(SnapshotProvider snapshots, Clock clock) {
-        this.snapshots = snapshots;
-        this.clock = clock;
+        this(snapshots, clock, new TrainingBundleWorkspace());
     }
 
+    public TrainingDataExporter(SnapshotProvider snapshots, Clock clock, TrainingBundleWorkspace workspace) {
+        this(snapshots, clock, workspace, () -> ua.stetsenkoinna.config.AppSettings.shared().getContributorProfile().fields());
+    }
+
+    public TrainingDataExporter(SnapshotProvider snapshots, Clock clock, TrainingBundleWorkspace workspace, java.util.function.Supplier<Map<String, String>> contributor) {
+        this.snapshots = snapshots;
+        this.clock = clock;
+        this.workspace = workspace;
+        this.contributor = contributor;
+    }
+
+    public TrainingBundleWorkspace workspace() { return workspace; }
+
     public ExportResult export(Path directory, TrainingExportRequest request) throws Exception {
+        return export(directory, request, null);
+    }
+
+    public ExportResult export(Path directory, TrainingExportRequest request, TrainingBundleWorkspace.Review review) throws Exception {
+        TrainingBundleWorkspace.Bundle expectedBundle = workspace.active();
         TrainingSnapshot snapshot = capture(request.includeScreenshot());
         Instant createdAt = clock.instant();
         String title = TrainingMetadataRedactor.redactText(request.title());
@@ -65,13 +84,24 @@ public final class TrainingDataExporter {
         verification.put("simulation", null);
         artifacts.add(json("verification.json", "No model acceptance or simulation success is inferred from an export", verification));
         missing.add(missing("verification.json.checks", "No structured correctness checks were recorded for this snapshot"));
-        missing.add(missing("verification.json.simulation", "No structured simulation run tied to this exact snapshot was recorded; editor panels are raw observations only"));
+        missing.add(missing("verification.json.simulation", "This snapshot file does not certify simulation; exact-version execution evidence, when collected, is retained in history/reviews/*.json. Editor panels are raw observations only"));
         if (!snapshot.observations().isEmpty()) {
             artifacts.add(json("editor-observations.json", "Raw editor controls, potentially stale output and viewport metadata; not verification results", TrainingMetadataRedactor.redact(snapshot.observations())));
         }
         if (snapshot.networkImage() != null) {
-            artifacts.add(new Artifact("network.png", "image/png", "Existing active-canvas rendering without window chrome; current collapsed/focused visibility is preserved", snapshot.networkImage().png()));
+            artifacts.add(new Artifact("network.png", "image/png", "Complete document with all nested objects expanded and visible", snapshot.networkImage().png()));
             artifacts.add(json("model-geometry.json", "Source canvas shape coordinates and image transform; unverified geometry is not accepted detector labeling", snapshot.networkImage().geometry()));
+            List<Map<String, Object>> views = new ArrayList<>();
+            views.add(Map.of("id", "main", "image", "network.png", "geometry", "model-geometry.json", "scope", "whole-document-expanded"));
+            for (NetworkImageExporter.NetworkView view : snapshot.networkViews()) {
+                String image = "networks/" + view.id() + ".png";
+                String geometry = "networks/" + view.id() + "-geometry.json";
+                artifacts.add(new Artifact(image, "image/png", "Expanded object subtree: " + view.name(), view.image().png()));
+                artifacts.add(json(geometry, "Unverified coordinates for this object image", view.image().geometry()));
+                views.add(Map.of("id", view.id(), "name", view.name(), "object_index", view.objectIndex(),
+                        "parent_id", view.parentId(), "image", image, "geometry", geometry, "scope", "object-subtree-expanded"));
+            }
+            artifacts.add(json("network-views.json", "Image hierarchy; object indices match model.pnml object order", Map.of("views", views)));
         }
         if (snapshot.screenshot() != null) {
             artifacts.add(new Artifact("screenshot.png", "image/png", "Main-window QA view only, excluding owned connection dialogs; not a detector image", snapshot.screenshot()));
@@ -79,11 +109,13 @@ public final class TrainingDataExporter {
             missing.add(missing("screenshot.png", "The main window was not visible or was too large for the requested QA screenshot"));
         }
         Map<String, Object> manifest = new LinkedHashMap<>();
-        manifest.put("schema_version", "1.0");
+        manifest.put("schema_version", "1.1");
         manifest.put("title", title);
         manifest.put("created_at", createdAt.toString());
         manifest.put("app", Map.of("name", "PetriObjModelPaint", "version", appVersion()));
         manifest.put("shared_skills", sharedSkills());
+        Map<String, String> profile = contributor.get();
+        if (!profile.isEmpty()) manifest.put("contributor", TrainingMetadataRedactor.redact(profile));
         manifest.put("status", request.status());
         manifest.put("capture_scope", Map.of("conversation", request.conversation().isEmpty() ? "unavailable" : "client-provided",
                 "tool_calls", calls.isEmpty() ? "unavailable"
@@ -98,7 +130,7 @@ public final class TrainingDataExporter {
 
         Path destination = directory.toAbsolutePath().normalize();
         Files.createDirectories(destination);
-        String baseName = "training-" + slug(title) + "-" + FILE_TIME.format(createdAt);
+        String baseName = "training-" + slug(title) + workspace.fileSuffix(review != null) + "-" + FILE_TIME.format(createdAt);
         Path target = destination.resolve(baseName + ".zip");
         if (Files.exists(target)) target = destination.resolve(baseName + "-" + UUID.randomUUID().toString().substring(0, 8) + ".zip");
         Path temporary = Files.createTempFile(destination, ".petri-training-", ".tmp");
@@ -107,8 +139,8 @@ public final class TrainingDataExporter {
                 write(zip, "manifest.json", JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(TrainingMetadataRedactor.redact(manifest)), createdAt);
                 for (Artifact artifact : artifacts) write(zip, artifact.name(), artifact.content(), createdAt);
             }
-            Files.move(temporary, target);
-            return new ExportResult(target, hash(Files.readAllBytes(target)), request.status(), artifacts.size());
+            workspace.write(temporary, target, review, expectedBundle);
+            return new ExportResult(target, hash(Files.readAllBytes(target)), request.status(), workspace.active().files().size() - 1);
         } finally {
             Files.deleteIfExists(temporary);
         }

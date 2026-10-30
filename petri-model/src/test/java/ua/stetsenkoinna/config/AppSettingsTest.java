@@ -29,6 +29,23 @@ public class AppSettingsTest {
         return folder.getRoot().toPath().resolve("configs").resolve("ui.properties");
     }
 
+    @Test public void optionalContributorProfileIsSavedOnceAndCanBeCleared() {
+        AppSettings settings = new AppSettings(settingsFile());
+        var automatic = settings.getContributorProfile();
+        assertTrue(automatic.nickname().matches("[a-z]+-[a-z]+"));
+        assertEquals(automatic, new AppSettings(settingsFile()).getContributorProfile());
+        var profile = new ContributorProfile(" Марія ", "Університет", "КН-21", "test@example.invalid");
+        settings.setContributorProfile(profile);
+        assertEquals("Марія", new AppSettings(settingsFile()).getContributorProfile().nickname());
+        assertEquals("КН-21", new AppSettings(settingsFile()).getContributorProfile().group());
+        assertEquals(automatic.id(), new AppSettings(settingsFile()).getContributorProfile().id());
+        settings.setContributorProfile(new ContributorProfile("", "", "", ""));
+        var cleared = new AppSettings(settingsFile()).getContributorProfile();
+        assertTrue(cleared.nickname().matches("[a-z]+-[a-z]+"));
+        assertTrue(cleared.organization().isEmpty()); assertTrue(cleared.contacts().isEmpty());
+        assertEquals(automatic.id(), cleared.id());
+    }
+
     @Test
     public void aMissingFileMeansDefaultsAndAFirstRun() {
         AppSettings settings = new AppSettings(settingsFile());

@@ -20,6 +20,10 @@ import javax.swing.*;
 public class AnimRunPetriObjModel extends PetriObjModel{
 
     private final JTextArea area; // specifies where simulation protokol is printed
+    private java.util.function.DoubleConsumer stateListener;
+    public void setStateListener(java.util.function.DoubleConsumer listener) { stateListener = listener; }
+    private void publishState() { if (stateListener != null) stateListener.accept(getCurrentTime()); }
+
     private StatisticGraphMonitor statisticGraphMonitor;
     private ArrayList<AnimRunPetriSim> runlist = new ArrayList<>();
 
@@ -64,7 +68,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{
         area.setText(" Events protocol ");
         super.setSimulationTime(timeModeling);
 
-        super.setCurrentTime(0.0);
+        double originTime = super.getCurrentTime();
         double min;
         super.getListObj().sort(PetriSim.getComparatorByPriority());
         for (AnimRunPetriSim e : getRunlist()) {
@@ -74,6 +78,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{
                 return;
             }
         }
+        publishState();
         super.printMark(area::append);
         ArrayList<AnimRunPetriSim> conflictObj = new ArrayList<>();
         Random r = new Random();
@@ -113,13 +118,13 @@ public class AnimRunPetriObjModel extends PetriObjModel{
             List<PetriElementStatisticDto> currentStatistic = new ArrayList<>();
             if (super.isStatistics()) {
                 for (AnimRunPetriSim e : getRunlist()) {
-                    if (min > 0) {
+                    if (min > originTime) {
                         if (min < super.getSimulationTime()) {
                             // статистика за час "дельта т"
                             // для спільних позицій потрібно статистику збирати тільки один раз
-                            e.doStatistics((min - super.getCurrentTime()) / min);
+                            e.doStatistics((min - super.getCurrentTime()) / (min - originTime));
                         } else {
-                            e.doStatistics((timeModeling - super.getCurrentTime()) / super.getSimulationTime());
+                            e.doStatistics((timeModeling - super.getCurrentTime()) / (super.getSimulationTime() - originTime));
                         }
                     }
                     if (isStatisticMonitorEnabled() && isStatisticCollectionTime()) {
@@ -199,6 +204,7 @@ public class AnimRunPetriObjModel extends PetriObjModel{
                         }
                 }
 
+                publishState();
                 printInfo("Markers enter transitions:");
                 super.printMark(area::append);
             }

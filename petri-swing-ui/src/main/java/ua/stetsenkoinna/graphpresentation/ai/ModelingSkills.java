@@ -13,6 +13,7 @@ import java.util.Map;
 final class ModelingSkills {
     private static final String ROOT = "/petri-modeling-skills/";
     private static final String URI_PREFIX = "petri://skills/";
+    private static final String REVIEW_URI = "petri://desktop/training-review";
     private record Guide(String id, String name, String description, String text) { }
     private Map<String, Guide> guides;
 
@@ -21,11 +22,13 @@ final class ModelingSkills {
         List<Map<String, Object>> result = new ArrayList<>();
         guides.values().forEach(guide -> result.add(Map.of("uri", URI_PREFIX + guide.id(),
                 "name", guide.name(), "description", guide.description(), "mimeType", "text/markdown")));
+        result.add(Map.of("uri", REVIEW_URI, "name", "Desktop training bundle review", "description", "Use the desktop review tools and revision targets", "mimeType", "text/markdown"));
         return result;
     }
 
     synchronized Map<String, Object> read(String uri) {
         load();
+        if (REVIEW_URI.equals(uri)) return Map.of("contents", List.of(Map.of("uri", uri, "mimeType", "text/markdown", "text", readText("/ua/stetsenkoinna/graphpresentation/ai/training-review.md"))));
         if (!uri.startsWith(URI_PREFIX)) throw new IllegalArgumentException("Unknown skill resource");
         Guide guide = guides.get(uri.substring(URI_PREFIX.length()));
         if (guide == null) throw new IllegalArgumentException("Unknown skill resource");
@@ -35,10 +38,20 @@ final class ModelingSkills {
     List<Map<String, Object>> prompts() {
         return List.of(Map.of("name", "build_petri_model",
                 "description", "Plan and build a Petri model using the shared modeling skills and this editor's controls.",
-                "arguments", List.of(Map.of("name", "description", "description", "System to model or change requested", "required", true))));
+                "arguments", List.of(Map.of("name", "description", "description", "System to model or change requested", "required", true))),
+                Map.of("name", "review_petri_model", "description", "Review an existing training ZIP and append findings to its exact revision.",
+                        "arguments", List.of(Map.of("name", "input_path", "description", "Local training ZIP to review", "required", true))));
     }
 
     synchronized Map<String, Object> prompt(String name, JsonNode arguments) {
+        if ("review_petri_model".equals(name)) {
+            if (!arguments.path("input_path").isTextual() || arguments.path("input_path").asText().isBlank()) throw new IllegalArgumentException("input_path is required");
+            load();
+            String text = "Review the training ZIP at: " + arguments.path("input_path").asText() + "\n\n"
+                    + readText("/ua/stetsenkoinna/graphpresentation/ai/training-review.md");
+            if (guides.containsKey("petri-training-review")) text += "\n\n" + guides.get("petri-training-review").text();
+            return Map.of("description", "Review a Petri training bundle", "messages", List.of(Map.of("role", "user", "content", Map.of("type", "text", "text", text))));
+        }
         if (!"build_petri_model".equals(name)) throw new IllegalArgumentException("Unknown modeling prompt");
         if (!arguments.path("description").isTextual() || arguments.path("description").asText().isBlank()) {
             throw new IllegalArgumentException("description is required");

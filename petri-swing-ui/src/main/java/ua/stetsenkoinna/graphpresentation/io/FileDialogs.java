@@ -99,6 +99,8 @@ public final class FileDialogs {
 
     /** A model document, in either of the two spellings the editor reads. */
     public static final FileKind MODEL = new FileKind("PNML or XML model", "pnml", "xml");
+    public static final FileKind PROJECT = new FileKind("Petri model or training archive", "pnml", "xml", "zip");
+    public static final FileKind TRAINING_ARCHIVE = new FileKind("Training archive", "zip");
 
     /** A PNML document, for the commands that only ever write that. */
     public static final FileKind PNML = new FileKind("PNML document", "pnml");

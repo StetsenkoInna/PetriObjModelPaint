@@ -22,7 +22,8 @@ public final class TrainingDataTools {
     }
 
     @McpTool(name = "export_training_data", description = "Save the current PNML model, network image, geometry and supplied task context as a local training ZIP. "
-            + "Supply actual user/assistant conversation messages when available; the editor cannot see the external client's private conversation. "
+            + "All nested objects get separate expanded images. Loaded revision/review history and task context are preserved. "
+            + "Supply actual new user/assistant conversation messages when available; they append to the loaded transcript. The editor cannot see the external client's private conversation. "
             + "Review status defaults to unreviewed; exporting never marks correctness checks as passed. Screenshot is an optional main-window QA image only.",
             inputSchema = """
                     {"type":"object","properties":{
@@ -39,32 +40,42 @@ public final class TrainingDataTools {
                     """)
     public Object exportTrainingData(JsonNode args) throws Exception {
         Path directory = Path.of(required(args, "output_directory"));
+        TrainingExportRequest inherited = exporter.workspace().exportRequest(required(args, "title"), messages(args));
         TrainingExportRequest request = new TrainingExportRequest(required(args, "title"),
-                args.has("task") ? args.get("task").asText() : null,
-                strings(args, "clarifications"), strings(args, "assumptions"), strings(args, "acceptance"),
-                args.path("status").asText("unreviewed"), messages(args), args.path("include_screenshot").asBoolean(false));
+                args.has("task") ? args.get("task").asText() : inherited.task(),
+                args.has("clarifications") ? strings(args, "clarifications") : inherited.clarifications(),
+                args.has("assumptions") ? strings(args, "assumptions") : inherited.assumptions(),
+                args.has("acceptance") ? strings(args, "acceptance") : inherited.acceptance(),
+                args.path("status").asText("unreviewed"), inherited.conversation(), args.path("include_screenshot").asBoolean(false));
         TrainingDataExporter.ExportResult result = exporter.export(directory, request);
         return text(Map.of("path", result.path().toString(), "sha256", result.sha256(),
                 "status", result.status(), "artifact_count", result.artifactCount(), "verification_status", "unknown"));
     }
 
-    @McpTool(name = "export_network_image", description = "Save the active canvas as a standalone PNG using the same renderer as training ZIPs. "
-            + "No window chrome is included. Existing collapsed/focused visibility is preserved; geometry metadata is unverified. "
+    @McpTool(name = "export_network_image", description = "Export the active view, complete expanded document, or selected expanded object subtrees as PNG or an image ZIP. "
+            + "scope=active preserves visibility; document expands everything; selection exports selected places/transitions/objects with arcs between them; objects uses zero-based object_indices (omitted: all) and optional include_overview. "
+            + "Configure include_parameters (append a complete model input table), scale, transparent_background and max_dimension; the renderer caps images at 24 megapixels. Geometry remains unverified. "
             + "Existing files are preserved unless overwrite is explicitly true.", inputSchema = """
-                    {"type":"object","properties":{"output_path":{"type":"string"},"overwrite":{"type":"boolean"}},
+                    {"type":"object","properties":{"output_path":{"type":"string"},"overwrite":{"type":"boolean"},
+                    "scope":{"type":"string","enum":["active","document","objects","selection"]},"object_indices":{"type":"array","items":{"type":"integer"}},
+                    "include_parameters":{"type":"boolean"},"include_overview":{"type":"boolean"},"scale":{"type":"number"},"transparent_background":{"type":"boolean"},"max_dimension":{"type":"integer"}},
                     "required":["output_path"],"additionalProperties":false}
                     """)
     public Object exportNetworkImage(JsonNode args) throws Exception {
         Path target = Path.of(required(args, "output_path")).toAbsolutePath().normalize();
-        if (!target.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".png")) {
-            throw new IllegalArgumentException("The image output path must end with .png");
-        }
         NetworkImageExporter images = new NetworkImageExporter();
-        NetworkImageExporter.RenderedImage image = SwingCapture.call(() -> images.render(canvas.get()));
-        images.write(target, image, args.path("overwrite").asBoolean(false));
-        Map<?, ?> dimensions = (Map<?, ?>) image.geometry().get("image");
-        return text(Map.of("path", target.toString(), "width", dimensions.get("width"), "height", dimensions.get("height"),
-                "transform", image.geometry().get("transform"), "label_status", "unverified"));
+        var options = new NetworkImageExporter.Options(args.path("scale").asDouble(1), args.path("transparent_background").asBoolean(false), args.path("max_dimension").asInt(8192), args.path("include_parameters").asBoolean(false));
+        List<Integer> selected = args.has("object_indices") ? DesktopMcpServer.JSON.convertValue(args.get("object_indices"), new TypeReference<List<Integer>>() { }) : null;
+        var captured = SwingCapture.call(() -> images.renderConfigured(canvas.get(), args.path("scope").asText("active"), selected, args.path("include_overview").asBoolean(true), options));
+        images.writeImages(target, captured, args.path("overwrite").asBoolean(false));
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("path", target.toString()); result.put("image_count", captured.size()); result.put("label_status", "unverified");
+        if (captured.size() == 1) {
+            var image = captured.values().iterator().next();
+            Map<?, ?> dimensions = (Map<?, ?>) image.geometry().get("image");
+            result.put("width", dimensions.get("width")); result.put("height", dimensions.get("height")); result.put("transform", image.geometry().get("transform"));
+        }
+        return text(result);
     }
 
     private static String required(JsonNode args, String key) {

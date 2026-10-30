@@ -46,7 +46,7 @@ public class AnimationControls {
         CONTROLS_BLOCKED,
     }
 
-    private final PetriNetsFrame hostFrame;
+    private final SimulationFrame hostFrame;
 
     private volatile State phase;
 
@@ -83,7 +83,9 @@ public class AnimationControls {
 
     private static final String ILLEGAL_ACTION_MESSAGE = "Illegal action on AnimationControls. Current state: %s, attempted action: %s";
 
-    public AnimationControls(PetriNetsFrame hostFrame) {
+    public AnimationControls(PetriNetsFrame hostFrame) { this((SimulationFrame) hostFrame); }
+
+    public AnimationControls(SimulationFrame hostFrame) {
         this.hostFrame = hostFrame;
 
         stepBackAction = new StepBackAction(this);
@@ -329,7 +331,7 @@ public class AnimationControls {
                 // not do: a button that says "put it back" has to put it back. Straight to the
                 // pre-run snapshot rather than one step at a time, which is what step-back is
                 // for.
-                if (GraphPetriNetBackupHolder.getInstance().isEmpty()) {
+                if (hostFrame.getSimulationBackup().isEmpty()) {
                     // Should not happen - both ways into this state leave the pre-run snapshot
                     // in place - but a missing snapshot is not worth an exception on the event
                     // thread when there is an obvious answer: there is nothing to go back to,
@@ -479,9 +481,9 @@ public class AnimationControls {
      * step-back history: a new run starting means whatever was steppable before no longer is.
      */
     private void saveCurrentNetState() {
-        GraphPetriNetBackupHolder holder = GraphPetriNetBackupHolder.getInstance();
+        GraphPetriNetBackupHolder holder = hostFrame.getSimulationBackup();
         holder.save(
-            new GraphCanvasModel(hostFrame.getPetriNetsPanel().getCanvasModel())
+            ua.stetsenkoinna.graphnet.GraphCanvasSnapshots.copy(hostFrame.getPetriNetsPanel().getCanvasModel())
         );
         stepHistory.clear();
     }
@@ -491,7 +493,7 @@ public class AnimationControls {
      * before a forward step advances it — so stepping backward can restore this exact moment.
      */
     private void pushStepHistory() {
-        stepHistory.push(new GraphCanvasModel(hostFrame.getPetriNetsPanel().getCanvasModel()));
+        stepHistory.push(ua.stetsenkoinna.graphnet.GraphCanvasSnapshots.copy(hostFrame.getPetriNetsPanel().getCanvasModel()));
     }
 
     /**
@@ -499,7 +501,7 @@ public class AnimationControls {
      * Throws RuntimeException if no state was saved.
      */
     private void restoreSavedState() {
-        GraphPetriNetBackupHolder holder = GraphPetriNetBackupHolder.getInstance();
+        GraphPetriNetBackupHolder holder = hostFrame.getSimulationBackup();
 
         if (holder.isEmpty()) {
             throw new RuntimeException("Tried to restore saved state, but there was no state saved");
@@ -525,7 +527,7 @@ public class AnimationControls {
      * Drops the previously saved net-state backup without restoring it.
      */
     private void clearSavedState() {
-        GraphPetriNetBackupHolder.getInstance().clear();
+        hostFrame.getSimulationBackup().clear();
     }
 
 }
