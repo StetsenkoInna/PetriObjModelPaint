@@ -19,19 +19,18 @@ public final class DesktopMcpStdioBridge {
         if (!"http".equals(endpoint.getScheme()) || !"127.0.0.1".equals(endpoint.getHost())
                 || !"/mcp".equals(endpoint.getPath())) throw new IllegalArgumentException("Expected a local desktop MCP URL");
         String token = System.getenv("PETRI_MCP_TOKEN");
-        if (token == null || token.isBlank()) throw new IllegalArgumentException("PETRI_MCP_TOKEN is required");
         try (HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
                 BufferedReader input = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
             String line;
             while ((line = input.readLine()) != null) {
                 if (line.isBlank()) continue;
-                HttpRequest request = HttpRequest.newBuilder(endpoint)
-                        .header("Authorization", "Bearer " + token)
+                HttpRequest.Builder request = HttpRequest.newBuilder(endpoint)
                         .header("Content-Type", "application/json")
                         .header("Accept", "application/json, text/event-stream")
                         .timeout(Duration.ofSeconds(30))
-                        .POST(HttpRequest.BodyPublishers.ofString(line, StandardCharsets.UTF_8)).build();
-                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                        .POST(HttpRequest.BodyPublishers.ofString(line, StandardCharsets.UTF_8));
+                if (token != null && !token.isBlank()) request.header("Authorization", "Bearer " + token);
+                HttpResponse<String> response = client.send(request.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
                 if (response.statusCode() != 200 && response.statusCode() != 202) {
                     throw new IllegalStateException("Desktop MCP returned HTTP " + response.statusCode());
                 }

@@ -8,13 +8,13 @@ final class McpConnectionInstructions {
     private McpConnectionInstructions() { }
 
     static String codex(String url, String token) {
-        return "[mcp_servers.petriDesktop]\nurl = \"" + url + "\"\n"
-                + "http_headers = { Authorization = \"Bearer " + token + "\" }";
+        return "[mcp_servers.petriDesktop]\nurl = \"" + url + "\""
+                + (token == null ? "" : "\nhttp_headers = { Authorization = \"Bearer " + token + "\" }");
     }
 
     static String claudeCode(String url, String token) {
         return "claude mcp add --transport http petriDesktop " + url
-                + " --header \"Authorization: Bearer " + token + "\"";
+                + (token == null ? "" : " --header \"Authorization: Bearer " + token + "\"");
     }
 
     static String claudeDesktop(String url, String token) {
@@ -25,7 +25,7 @@ final class McpConnectionInstructions {
             Object config = Map.of("mcpServers", Map.of("petriDesktop", Map.of(
                     "command", java,
                     "args", List.of("-cp", classPath, DesktopMcpStdioBridge.class.getName(), url),
-                    "env", Map.of("PETRI_MCP_TOKEN", token))));
+                    "env", token == null ? Map.of() : Map.of("PETRI_MCP_TOKEN", token))));
             return DesktopMcpServer.JSON.writerWithDefaultPrettyPrinter().writeValueAsString(config);
         } catch (Exception ex) {
             throw new IllegalStateException("Cannot create Claude Desktop configuration", ex);

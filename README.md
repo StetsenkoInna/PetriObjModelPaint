@@ -45,6 +45,10 @@ This is a multi-module Maven project:
 | `petri-swing-ui` | Desktop editor (Swing, fat JAR) |
 | `petri-server` | Spring Boot REST + WebSocket server |
 
+## Reusable libraries
+
+From v2.4.0, releases include [petri-math](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.4.0/petri-math-2.4.0.jar), [petri-api](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.4.0/petri-api-2.4.0.jar) and [petri-model](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.4.0/petri-model-2.4.0.jar) for use without the editor. See the [Java library integration guide](docs/java-libraries.md) for Maven setup, requirements and examples.
+
 ---
 
 ## Two ways to run it
@@ -112,10 +116,10 @@ In code terms, this technique lives in the `petri-math` module (`PetriObjModel`,
 
 ## Build
 
-Initialize the pinned shared modeling skills before the first source build:
+Build the application. Maven downloads the pinned shared modeling resource archive
+from GitHub Releases and verifies its SHA-256 automatically:
 
 ```bash
-git submodule update --init --recursive
 mvn package -DskipTests
 ```
 
@@ -135,6 +139,7 @@ Output:
 |-------|----------------|
 | [Desktop UI](docs/desktop-ui.md) | Editor, animation controls, statistics module, Petri-objects on the canvas, net library, PNML import/export |
 | [Desktop MCP](docs/desktop-mcp.md) | Connect Codex, Claude Code or Claude Desktop to the running Swing editor |
+| [Java libraries](docs/java-libraries.md) | Import the simulation engine, API and PNML model without the editor |
 | [Training data export](docs/training-data-export.md) | Save a local model/context ZIP or a standalone canvas PNG |
 | [Petri-object models](docs/petri-object-models.md) | Objects and links, composing a model in the editor, the PNML form, running one from code or over HTTP |
 | [Server integration](docs/petri-server-integration.md) | REST API reference, SSE streaming, WebSocket/STOMP, session control, PNML requirements, the Petri-object model API |

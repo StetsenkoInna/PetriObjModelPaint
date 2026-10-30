@@ -2,7 +2,6 @@ package ua.stetsenkoinna.petriobj;
 
 import java.io.Serializable;
 import java.util.*;
-import javax.swing.JOptionPane;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -380,7 +379,7 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
             a = generateTimeServ();
         }
         if (a < 0) {
-            JOptionPane.showMessageDialog(null, "Negative time delay was generated : time == " + a + ".\n Transition '" + this.name + "'.");
+            log.warn("Negative time delay generated: time={}, transition={}", a, this.name);
         }
         return a;
     }

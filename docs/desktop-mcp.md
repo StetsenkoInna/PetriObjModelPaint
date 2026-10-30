@@ -16,8 +16,16 @@ plus buttons to copy the URL, token, or selected client setup.
 Codex and Claude Code connect directly over Streamable HTTP. Claude Desktop's local
 configuration starts a small stdio process that forwards MCP messages to the same
 running editor. Claude's cloud connectors cannot reach this localhost endpoint.
-The generated configuration includes the saved port and token. Enabling MCP remembers
-both in the application's per-user `ui.properties` and starts the server automatically
+Token authentication is optional and **off by default**. To enable it, stop the server,
+select **Require token**, and start it again. The generated client setup includes an
+authorization header (or bridge token) only when authentication is enabled. Copy the
+updated setup after changing the mode; remove old authentication entries when disabling it.
+The **Copy token** button is available only while authentication is enabled.
+The authentication choice is saved separately; an older saved token alone does not
+enable authentication.
+
+The generated configuration includes the saved port and optional token. Enabling MCP remembers
+the connection settings in the application's per-user `ui.properties` and starts the server automatically
 after application restart. Existing client configurations continue to work. Explicitly
 stopping the server disables automatic startup and retains the connection settings
 for the next manual start.
@@ -31,8 +39,9 @@ Actions run on the event dispatch thread. Inspect again after each action to see
 result or a newly opened dialog. IDs expire at the next inspection. Native file dialogs
 accept a path through the `file` action; existing-file saves ask for confirmation.
 
-MCP is disabled on a fresh installation. It binds only to `127.0.0.1`, requires a
-bearer token, and rejects browser-originated requests. Closing the MCP window leaves
+MCP is disabled on a fresh installation. It binds only to `127.0.0.1` and rejects
+browser-originated requests in both authentication modes. Without **Require token**,
+local clients can connect without credentials. Closing the MCP window leaves
 it running. Closing the editor disconnects clients without disabling automatic startup;
 **Stop server** disables it. If the saved port is unavailable, the editor still opens
 and the MCP window reports the startup failure so the port can be corrected.
@@ -49,12 +58,14 @@ Read them with `resources/read` at `petri://skills/petri-modeling`,
 and argument `description` combines those guides with the Swing tool adapter.
 The guides describe modeling semantics; they do not add web-only tools to the editor.
 
-The submodule at `petri-swing-ui/vendor/petri-modeling-skills` pins the source revision.
-Run `git submodule update --init --recursive` before building. Maven packages the
-canonical Markdown files, manifest and license into the JAR. To upgrade, check out
-the desired shared revision in the submodule, run the tests and commit the changed
-submodule pointer. Edit shared rules in the shared repository rather than copying
-them into this application.
+Maven downloads the versioned resource ZIP from GitHub Releases during
+`generate-resources`, verifies its pinned SHA-256 and packages the Markdown,
+schemas, manifest and license into the JAR. A plain clone and the usual Maven
+build command are sufficient; no submodule, token or Python runtime is needed.
+The archive is cached in the local Maven repository and checked again on reuse.
+To upgrade, update `petri.skills.version` and `petri.skills.sha256` in the desktop
+POM after publishing the reviewed assets. Edit shared rules in the shared
+repository rather than copying them into this application.
 
 ### Desktop actions
 

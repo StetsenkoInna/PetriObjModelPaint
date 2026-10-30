@@ -408,10 +408,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }
         try {
             String savedToken = settings.getMcpToken();
-            if (savedToken == null) {
+            if (settings.isMcpAuthenticationRequired() && savedToken == null) {
                 throw new IllegalArgumentException("Saved MCP token is missing or invalid. Start the server again from AI > MCP.");
             }
-            mcpServer.start(settings.getMcpPort(), savedToken);
+            mcpServer.start(settings.getMcpPort(), savedToken, settings.isMcpAuthenticationRequired());
         } catch (Exception ex) {
             mcpStartupFailure = ex.getMessage();
             LOGGER.warn("Could not start the saved MCP connection on port {}", settings.getMcpPort());

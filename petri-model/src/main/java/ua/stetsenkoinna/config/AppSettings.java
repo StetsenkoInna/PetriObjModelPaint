@@ -49,6 +49,7 @@ public class AppSettings {
     private static final String KEY_MCP_ENABLED = "mcp.enabled";
     private static final String KEY_MCP_PORT = "mcp.port";
     private static final String KEY_MCP_TOKEN = "mcp.token";
+    private static final String KEY_MCP_AUTH_REQUIRED = "mcp.authRequired";
     public static final int DEFAULT_MCP_PORT = 8765;
 
     private static volatile AppSettings shared;
@@ -180,16 +181,25 @@ public class AppSettings {
         return isValidMcpToken(token) ? token : null;
     }
 
+    public boolean isMcpAuthenticationRequired() {
+        return Boolean.parseBoolean(properties.getProperty(KEY_MCP_AUTH_REQUIRED));
+    }
+
     /** Remembers a connection only after the listener has started successfully. */
     public void rememberMcpConnection(int port, String token) {
+        rememberMcpConnection(port, token, true);
+    }
+
+    public void rememberMcpConnection(int port, String token, boolean requireAuthentication) {
         if (!isValidMcpPort(port)) {
             throw new IllegalArgumentException("MCP port must be between 1024 and 65535");
         }
-        if (!isValidMcpToken(token)) {
+        if ((requireAuthentication || token != null) && !isValidMcpToken(token)) {
             throw new IllegalArgumentException("MCP token must contain at least 32 random bytes encoded as URL-safe Base64");
         }
         properties.setProperty(KEY_MCP_PORT, Integer.toString(port));
-        properties.setProperty(KEY_MCP_TOKEN, token);
+        if (token != null) properties.setProperty(KEY_MCP_TOKEN, token);
+        properties.setProperty(KEY_MCP_AUTH_REQUIRED, Boolean.toString(requireAuthentication));
         properties.setProperty(KEY_MCP_ENABLED, Boolean.TRUE.toString());
         save();
     }

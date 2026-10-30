@@ -1,0 +1,74 @@
+name: Build Java library distribution
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: java-library-distribution
+  cancel-in-progress: false
+
+jobs:
+  libraries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '23'
+          cache: maven
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify core and build the standalone server
+        run: mvn --batch-mode --no-transfer-progress verify -pl petri-math,petri-api,petri-model,petri-server -am -Djava.awt.headless=true
+      - name: Preserve previously published Maven versions
+        run: |
+          if git ls-remote --exit-code --heads origin refs/heads/maven-repository >/dev/null; then
+            git clone --depth 1 --branch maven-repository "https://github.com/${GITHUB_REPOSITORY}.git" target/maven-repository
+          fi
+      - name: Prepare Maven artifacts and source JARs
+        run: |
+          python -m unittest discover -s scripts/tests -v
+          python scripts/package_java_libraries.py
+      - name: Verify release tag and include server executable
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import hashlib, os, shutil
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          version = ET.parse('pom.xml').getroot().findtext('{http://maven.apache.org/POM/4.0.0}version')
+          if os.environ.get('RELEASE_TAG'):
+              assert os.environ['RELEASE_TAG'] == 'v' + version, 'Release tag and POM version differ'
+          target = Path('target/library-release') / f'petri-server-{version}.jar'
+          shutil.copy2('petri-server/target/petri-server.jar', target)
+          with (target.parent / 'SHA256SUMS.txt').open('a') as checksums:
+              checksums.write(hashlib.sha256(target.read_bytes()).hexdigest() + '  ' + target.name + '\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: java-library-distribution
+          path: target/library-release/*
+      - name: Publish anonymous Maven repository on the dedicated branch
+        if: github.event_name == 'release'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: maven-repository
+          publish_dir: target/maven-repository
+          keep_files: true
+          exclude_assets: '.git'
+          enable_jekyll: true
+      - name: Attach files to the existing published release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" target/library-release/*

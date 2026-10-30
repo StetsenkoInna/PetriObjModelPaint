@@ -45,6 +45,10 @@
 | `petri-swing-ui` | Десктопний редактор (Swing, fat JAR) |
 | `petri-server` | Spring Boot REST + WebSocket сервер |
 
+## Бібліотеки для власних проєктів
+
+Починаючи з v2.4.0, релізи містять [petri-math](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.4.0/petri-math-2.4.0.jar), [petri-api](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.4.0/petri-api-2.4.0.jar) та [petri-model](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.4.0/petri-model-2.4.0.jar) для використання без редактора. Налаштування Maven, вимоги та приклади наведено в [інструкції підключення](docs/java-libraries.md).
+
 ---
 
 ## Два способи запуску

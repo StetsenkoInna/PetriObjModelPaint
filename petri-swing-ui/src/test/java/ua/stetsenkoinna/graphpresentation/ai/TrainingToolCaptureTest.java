@@ -17,7 +17,7 @@ public class TrainingToolCaptureTest {
 
     @Test public void capturesRealRequestsWithBoundedHistoryAndRedactedConnectionToken() throws Exception {
         try (DesktopMcpServer server = new DesktopMcpServer(new Actions()); HttpClient client = HttpClient.newHttpClient()) {
-            server.start(0);
+            server.start(0, null);
             for (int i = 0; i < 201; i++) {
                 String payload = DesktopMcpServer.JSON.writeValueAsString(Map.of("jsonrpc", "2.0", "id", i,
                         "method", "tools/call", "params", Map.of("name", "ui_action",

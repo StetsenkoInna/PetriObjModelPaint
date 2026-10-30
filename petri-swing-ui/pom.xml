@@ -7,11 +7,20 @@
     <parent>
         <groupId>ua.stetsenkoinna</groupId>
         <artifactId>petri-parent</artifactId>
-        <version>2.3.0</version>
+        <version>2.4.0</version>
     </parent>
 
     <artifactId>petri-swing-ui</artifactId>
     <packaging>jar</packaging>
+
+    <properties>
+        <petri.skills.version>0.3.0</petri.skills.version>
+        <petri.skills.sha256>9004079c312ff202a05b1845da61580b8ab3b151c7ffecf77f988473e03cdbbf</petri.skills.sha256>
+        <petri.skills.url>https://github.com/sergiorbk/petri-modeling-skills/releases/download/v${petri.skills.version}/petri-modeling-skills-${petri.skills.version}-resources.zip</petri.skills.url>
+        <petri.skills.cache>${settings.localRepository}/io/github/sergiorbk/petri-modeling-skills-resources/${petri.skills.version}</petri.skills.cache>
+        <petri.skills.archive>${petri.skills.cache}/petri-modeling-skills-${petri.skills.version}-resources.zip</petri.skills.archive>
+        <petri.skills.resources>${project.build.directory}/generated-resources/shared-skills/${petri.skills.version}-${petri.skills.sha256}</petri.skills.resources>
+    </properties>
 
     <licenses>
         <license>
@@ -72,23 +81,8 @@
     <build>
         <resources>
             <resource>
-                <directory>vendor/petri-modeling-skills/petri_modeling_skills</directory>
-                <targetPath>petri-modeling-skills</targetPath>
+                <directory>${petri.skills.resources}</directory>
                 <filtering>false</filtering>
-                <includes>
-                    <include>manifest.json</include>
-                    <include>skills/**/*.md</include>
-                    <include>schemas/**/*.json</include>
-                </includes>
-            </resource>
-            <resource>
-                <directory>vendor/petri-modeling-skills</directory>
-                <targetPath>petri-modeling-skills</targetPath>
-                <filtering>false</filtering>
-                <includes>
-                    <include>LICENSE</include>
-                    <include>NOTICE</include>
-                </includes>
             </resource>
             <resource>
                 <directory>src/main/resources</directory>
@@ -133,21 +127,23 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.6.3</version>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
                 <executions>
                     <execution>
-                        <id>require-shared-modeling-skills</id>
-                        <goals><goal>enforce</goal></goals>
+                        <id>download-shared-modeling-skills</id>
+                        <phase>generate-resources</phase>
+                        <goals><goal>run</goal></goals>
                         <configuration>
-                            <rules>
-                                <requireFilesExist>
-                                    <message>Run git submodule update --init --recursive before building the desktop application.</message>
-                                    <files>
-                                        <file>${project.basedir}/vendor/petri-modeling-skills/petri_modeling_skills/manifest.json</file>
-                                    </files>
-                                </requireFilesExist>
-                            </rules>
+                            <target>
+                                <mkdir dir="${petri.skills.cache}"/>
+                                <get src="${petri.skills.url}" dest="${petri.skills.archive}" skipexisting="true" maxtime="60"/>
+                                <checksum file="${petri.skills.archive}" algorithm="SHA-256" property="${petri.skills.sha256}" verifyproperty="petri.skills.valid"/>
+                                <fail message="Shared modeling skills SHA-256 mismatch. Remove the cached archive and retry.">
+                                    <condition><not><equals arg1="${petri.skills.valid}" arg2="true"/></not></condition>
+                                </fail>
+                                <unzip src="${petri.skills.archive}" dest="${petri.skills.resources}"/>
+                            </target>
                         </configuration>
                     </execution>
                 </executions>

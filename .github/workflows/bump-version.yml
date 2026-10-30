@@ -21,7 +21,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.branch }}
-          submodules: recursive
 
       - uses: actions/setup-java@v4
         with:

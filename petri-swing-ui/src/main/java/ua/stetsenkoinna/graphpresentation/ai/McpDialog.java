@@ -5,6 +5,7 @@ import java.awt.FlowLayout;
 import java.awt.Window;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -24,6 +25,7 @@ public final class McpDialog extends JDialog {
     private final JTextArea connection = new JTextArea(12, 68);
     private final JSpinner port = new JSpinner(new SpinnerNumberModel(8765, 1024, 65535, 1));
     private final JButton toggle = new JButton();
+    private final JCheckBox authentication = new JCheckBox("Require token");
     private final JTabbedPane clients = new JTabbedPane();
     private final JTextArea codex = clientText();
     private final JTextArea claudeCode = clientText();
@@ -42,6 +44,7 @@ public final class McpDialog extends JDialog {
         this.settings = settings;
         this.startupFailure = startupFailure;
         port.setValue(settings.getMcpPort());
+        authentication.setSelected(server.isRunning() ? server.isAuthenticationRequired() : settings.isMcpAuthenticationRequired());
         port.setEditor(new JSpinner.NumberEditor(port, "0"));
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         JPanel content = new JPanel(new BorderLayout(8, 8));
@@ -62,6 +65,7 @@ public final class McpDialog extends JDialog {
         controls.add(status);
         controls.add(new JLabel("Port"));
         controls.add(port);
+        controls.add(authentication);
         toggle.addActionListener(event -> toggleServer());
         controls.add(toggle);
         copyUrl.addActionListener(event -> copy(server.endpoint()));
@@ -92,8 +96,8 @@ public final class McpDialog extends JDialog {
             } else {
                 port.commitEdit();
                 int selectedPort = (Integer) port.getValue();
-                server.start(selectedPort, settings.getMcpToken());
-                settings.rememberMcpConnection(selectedPort, server.token());
+                server.start(selectedPort, settings.getMcpToken(), authentication.isSelected());
+                settings.rememberMcpConnection(selectedPort, server.token(), authentication.isSelected());
             }
             startupFailure = null;
             refresh();
@@ -112,18 +116,20 @@ public final class McpDialog extends JDialog {
         if (running) port.setValue(java.net.URI.create(server.endpoint()).getPort());
         toggle.setText(running ? "Stop server" : "Start server");
         port.setEnabled(!running);
+        authentication.setEnabled(!running);
         copyUrl.setEnabled(running);
-        copyToken.setEnabled(running);
+        copyToken.setEnabled(running && server.isAuthenticationRequired());
         copySetup.setEnabled(running);
         connection.setText(running
                 ? "Transport: Streamable HTTP\nURL: " + server.endpoint()
+                    + "\nAuthentication: " + (server.isAuthenticationRequired() ? "Bearer token required" : "Off")
                     + "\nAvailable tools: " + String.join(", ", server.toolNames()) + ".\n"
                     + "The client can operate menus, fields, dialogs and the canvas. MCP starts automatically after application restart with the same connection settings. Stop server disables automatic startup."
                 : (startupFailure == null ? "" : "MCP startup failed: " + startupFailure + "\n\n")
                     + "Start the server to connect an AI client to this running application.\n\n"
                     + "The client can read application windows and operate controls and the canvas, including opening, editing, running and saving models. "
                     + "Normal application dialogs and confirmations remain in place.\n\n"
-                    + "The server accepts authenticated connections on 127.0.0.1 only. Its port and token are remembered so configured clients can reconnect after restart.");
+                    + "The server accepts connections on 127.0.0.1 only. Token authentication is optional and off by default. Connection settings are remembered after restart.");
         connection.setCaretPosition(0);
         String hint = "Start the server to see a ready-to-copy client setup.";
         codex.setText(running ? McpConnectionInstructions.codex(server.endpoint(), server.token()) : hint);

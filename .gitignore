@@ -10,3 +10,6 @@ temp/
 /plans/
 /CLAUDE.md
 /.uiharness/
+
+__pycache__/
+*.py[cod]

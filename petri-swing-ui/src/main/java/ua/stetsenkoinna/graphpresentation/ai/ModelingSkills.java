@@ -88,7 +88,7 @@ final class ModelingSkills {
     private static String readText(String resource) {
         try (InputStream input = ModelingSkills.class.getResourceAsStream(resource)) {
             if (input == null) throw new IllegalStateException("Missing modeling resource " + resource
-                    + "; initialize the shared skills submodule and rebuild the application");
+                    + "; rebuild the application to download the pinned shared skills release");
             return new String(input.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException ex) {
             throw new IllegalStateException("Cannot read modeling resource " + resource, ex);
