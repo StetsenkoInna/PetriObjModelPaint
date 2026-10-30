@@ -50,6 +50,16 @@ import java.util.Locale;
  * two silently does nothing on the other platform.
  */
 public final class FileDialogs {
+    private static final java.util.Map<FileDialog, File> automatedSelections =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    public static void selectFile(FileDialog dialog, File file) {
+        if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException("Select files on the Swing event thread");
+        automatedSelections.put(dialog, file.getAbsoluteFile());
+        dialog.setDirectory(file.getAbsoluteFile().getParent());
+        dialog.setFile(file.getName());
+        dialog.dispose();
+    }
 
     private FileDialogs() {
     }
@@ -318,6 +328,8 @@ public final class FileDialogs {
     }
 
     private static File chosenFile(FileDialog dialog) {
+        File automated = automatedSelections.remove(dialog);
+        if (automated != null) return automated;
         String name = dialog.getFile();
         if (name == null) {
             return null;

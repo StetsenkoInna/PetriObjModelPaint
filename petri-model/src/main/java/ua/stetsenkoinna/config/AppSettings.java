@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
+import java.util.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ua.stetsenkoinna.theme.ThemeMode;
@@ -45,6 +46,10 @@ public class AppSettings {
 
     /** Stores whether the last active project should be reopened automatically on startup. */
     private static final String KEY_REOPEN_LAST_PROJECT = "reopen.lastProject";
+    private static final String KEY_MCP_ENABLED = "mcp.enabled";
+    private static final String KEY_MCP_PORT = "mcp.port";
+    private static final String KEY_MCP_TOKEN = "mcp.token";
+    public static final int DEFAULT_MCP_PORT = 8765;
 
     private static volatile AppSettings shared;
 
@@ -155,6 +160,61 @@ public class AppSettings {
     public void setReopenLastProjectOnStartup(boolean value) {
         properties.setProperty(KEY_REOPEN_LAST_PROJECT, Boolean.toString(value));
         save();
+    }
+
+    public boolean isMcpEnabled() {
+        return Boolean.parseBoolean(properties.getProperty(KEY_MCP_ENABLED));
+    }
+
+    public int getMcpPort() {
+        try {
+            int port = Integer.parseInt(properties.getProperty(KEY_MCP_PORT, Integer.toString(DEFAULT_MCP_PORT)));
+            return isValidMcpPort(port) ? port : DEFAULT_MCP_PORT;
+        } catch (NumberFormatException ex) {
+            return DEFAULT_MCP_PORT;
+        }
+    }
+
+    public String getMcpToken() {
+        String token = properties.getProperty(KEY_MCP_TOKEN);
+        return isValidMcpToken(token) ? token : null;
+    }
+
+    /** Remembers a connection only after the listener has started successfully. */
+    public void rememberMcpConnection(int port, String token) {
+        if (!isValidMcpPort(port)) {
+            throw new IllegalArgumentException("MCP port must be between 1024 and 65535");
+        }
+        if (!isValidMcpToken(token)) {
+            throw new IllegalArgumentException("MCP token must contain at least 32 random bytes encoded as URL-safe Base64");
+        }
+        properties.setProperty(KEY_MCP_PORT, Integer.toString(port));
+        properties.setProperty(KEY_MCP_TOKEN, token);
+        properties.setProperty(KEY_MCP_ENABLED, Boolean.TRUE.toString());
+        save();
+    }
+
+    public void disableMcp() {
+        properties.setProperty(KEY_MCP_ENABLED, Boolean.FALSE.toString());
+        save();
+    }
+
+    public static boolean isValidMcpPort(int port) {
+        return port >= 1024 && port <= 65535;
+    }
+
+    public static boolean isValidMcpToken(String token) {
+        if (token == null || token.length() < 43 || token.length() > 172
+                || !token.matches("[A-Za-z0-9_-]+")) {
+            return false;
+        }
+        try {
+            byte[] decoded = Base64.getUrlDecoder().decode(token);
+            return decoded.length >= 32 && decoded.length <= 128
+                    && Base64.getUrlEncoder().withoutPadding().encodeToString(decoded).equals(token);
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     /**

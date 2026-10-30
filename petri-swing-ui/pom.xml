@@ -24,6 +24,10 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
             <groupId>ua.stetsenkoinna</groupId>
             <artifactId>petri-math</artifactId>
         </dependency>
@@ -68,6 +72,24 @@
     <build>
         <resources>
             <resource>
+                <directory>vendor/petri-modeling-skills/petri_modeling_skills</directory>
+                <targetPath>petri-modeling-skills</targetPath>
+                <filtering>false</filtering>
+                <includes>
+                    <include>manifest.json</include>
+                    <include>skills/**/*.md</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>vendor/petri-modeling-skills</directory>
+                <targetPath>petri-modeling-skills</targetPath>
+                <filtering>false</filtering>
+                <includes>
+                    <include>LICENSE</include>
+                    <include>NOTICE</include>
+                </includes>
+            </resource>
+            <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
                 <includes>
@@ -81,6 +103,7 @@
                     <include>**/*.png</include>
                     <include>**/*.PNG</include>
                     <include>**/*.pnml</include>
+                    <include>ua/stetsenkoinna/graphpresentation/ai/*.md</include>
                 </includes>
             </resource>
             <!-- The module's LICENSE ships inside the JAR under a project-unique path (a bare
@@ -107,6 +130,27 @@
             </resource>
         </resources>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.6.3</version>
+                <executions>
+                    <execution>
+                        <id>require-shared-modeling-skills</id>
+                        <goals><goal>enforce</goal></goals>
+                        <configuration>
+                            <rules>
+                                <requireFilesExist>
+                                    <message>Run git submodule update --init --recursive before building the desktop application.</message>
+                                    <files>
+                                        <file>${project.basedir}/vendor/petri-modeling-skills/petri_modeling_skills/manifest.json</file>
+                                    </files>
+                                </requireFilesExist>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>

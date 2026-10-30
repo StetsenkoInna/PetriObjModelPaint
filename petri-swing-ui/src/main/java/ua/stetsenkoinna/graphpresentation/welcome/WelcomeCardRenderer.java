@@ -170,7 +170,7 @@ public class WelcomeCardRenderer extends JPanel implements ListCellRenderer<Welc
         boolean missing = !isFile(entry);
         Color background = selected ? palette.getActiveControl() : palette.getSurface();
         Color textColor = palette.getChromeText();
-        Color mutedColor = mix(textColor, background, 0.45f);
+        Color mutedColor = mix(textColor, background, 0.25f);
 
         Composite originalComposite = g2.getComposite();
         if (missing) {
@@ -182,6 +182,7 @@ public class WelcomeCardRenderer extends JPanel implements ListCellRenderer<Welc
 
         Icon avatar = avatarFor(entry);
         avatar.paintIcon(this, g2, cx - AVATAR_SIZE / 2, y);
+        g2.setComposite(originalComposite);
         y += AVATAR_SIZE + 8;
 
         int textWidth = width - 2 * PADDING;

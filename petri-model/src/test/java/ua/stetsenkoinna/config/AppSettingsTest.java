@@ -12,6 +12,8 @@ import java.nio.file.Path;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 /**
  * How the preferences file behaves, including on the machines where it is missing, unreadable
@@ -32,6 +34,9 @@ public class AppSettingsTest {
         AppSettings settings = new AppSettings(settingsFile());
         assertEquals(ThemeMode.DEFAULT, settings.getThemeMode());
         assertFalse("a fresh install has not been through setup", settings.isInitialSetupCompleted());
+        assertFalse(settings.isMcpEnabled());
+        assertEquals(AppSettings.DEFAULT_MCP_PORT, settings.getMcpPort());
+        assertNull(settings.getMcpToken());
     }
 
     @Test
@@ -131,5 +136,60 @@ public class AppSettingsTest {
     public void turningOffReopenLastProjectSurvivesARestart() {
         new AppSettings(settingsFile()).setReopenLastProjectOnStartup(false);
         assertFalse(new AppSettings(settingsFile()).isReopenLastProjectOnStartup());
+    }
+
+    @Test
+    public void successfulMcpConnectionSurvivesARestartWithTheSameCredentials() {
+        String token = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
+        new AppSettings(settingsFile()).rememberMcpConnection(9876, token);
+
+        AppSettings reloaded = new AppSettings(settingsFile());
+        assertTrue(reloaded.isMcpEnabled());
+        assertEquals(9876, reloaded.getMcpPort());
+        assertEquals(token, reloaded.getMcpToken());
+    }
+
+    @Test
+    public void explicitlyStoppingMcpDisablesStartupWithoutChangingTheClientCredentials() {
+        String token = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
+        AppSettings settings = new AppSettings(settingsFile());
+        settings.rememberMcpConnection(9876, token);
+        settings.disableMcp();
+
+        AppSettings reloaded = new AppSettings(settingsFile());
+        assertFalse(reloaded.isMcpEnabled());
+        assertEquals(9876, reloaded.getMcpPort());
+        assertEquals(token, reloaded.getMcpToken());
+    }
+
+    @Test
+    public void invalidMcpProfilesCannotEnableStartup() {
+        AppSettings settings = new AppSettings(settingsFile());
+        String token = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
+        for (int port : new int[]{0, 1023, 65536}) {
+            try {
+                settings.rememberMcpConnection(port, token);
+                fail("Invalid port accepted");
+            } catch (IllegalArgumentException expected) {
+                assertFalse(settings.isMcpEnabled());
+            }
+        }
+        for (String invalid : new String[]{"short", token + "!", java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[20])}) {
+            try {
+                settings.rememberMcpConnection(9876, invalid);
+                fail("Invalid token accepted");
+            } catch (IllegalArgumentException expected) {
+                assertFalse(settings.isMcpEnabled());
+            }
+        }
+    }
+
+    @Test
+    public void malformedSavedMcpValuesHaveSafeAccessors() throws IOException {
+        Files.createDirectories(settingsFile().getParent());
+        Files.writeString(settingsFile(), "mcp.enabled=true\nmcp.port=99999\nmcp.token=short\n");
+        AppSettings reloaded = new AppSettings(settingsFile());
+        assertEquals(AppSettings.DEFAULT_MCP_PORT, reloaded.getMcpPort());
+        assertNull(reloaded.getMcpToken());
     }
 }

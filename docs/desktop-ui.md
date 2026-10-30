@@ -16,6 +16,12 @@ Build it first with `mvn package -DskipTests` (see the root [README](../README.m
 
 ## Visual Editor
 
+Open **Settings > Preferences** for appearance and startup choices. Settings are also
+available from the Welcome screen. A missing recent project can be located again or
+removed from the list; removing its entry leaves files on disk untouched.
+For local AI control, open **AI > MCP** and follow the short
+[client setup instructions](desktop-mcp.md).
+
 Draw a net directly on the canvas: places, transitions, arcs, drag-and-drop layout.
 
 | Class | Responsibility |

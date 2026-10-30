@@ -57,6 +57,12 @@ This is a multi-module Maven project:
 Both run the same model underneath, whether it's a single net or several composed into a
 Petri-object model.
 
+Shared modeling guidance lives in
+[petri-modeling-skills](https://github.com/sergiorbk/petri-modeling-skills):
+rules for correct Petri nets, production and queueing blocks, and PNML interchange.
+The desktop MCP integration and [petri-net-sim](https://github.com/sergiorbk/petri-net-sim)
+read the same versioned guides.
+
 **Desktop UI.**
 
 ```bash
@@ -106,9 +112,16 @@ In code terms, this technique lives in the `petri-math` module (`PetriObjModel`,
 
 ## Build
 
+Initialize the pinned shared modeling skills before the first source build:
+
 ```bash
+git submodule update --init --recursive
 mvn package -DskipTests
 ```
+
+The desktop JAR includes the shared guides from
+[petri-modeling-skills](https://github.com/sergiorbk/petri-modeling-skills).
+They are available through MCP resources and prompts without a runtime network connection.
 
 Output:
 - `petri-swing-ui/target/petri-swing-ui.jar`
@@ -121,6 +134,7 @@ Output:
 | Guide | What it covers |
 |-------|----------------|
 | [Desktop UI](docs/desktop-ui.md) | Editor, animation controls, statistics module, Petri-objects on the canvas, net library, PNML import/export |
+| [Desktop MCP](docs/desktop-mcp.md) | Connect Codex, Claude Code or Claude Desktop to the running Swing editor |
 | [Petri-object models](docs/petri-object-models.md) | Objects and links, composing a model in the editor, the PNML form, running one from code or over HTTP |
 | [Server integration](docs/petri-server-integration.md) | REST API reference, SSE streaming, WebSocket/STOMP, session control, PNML requirements, the Petri-object model API |
 

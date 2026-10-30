@@ -1,6 +1,7 @@
 package ua.stetsenkoinna.graphpresentation;
 
 import java.awt.Component;
+import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
@@ -8,6 +9,9 @@ import java.awt.RenderingHints;
 import java.awt.geom.RoundRectangle2D;
 
 import javax.swing.Icon;
+import javax.swing.AbstractButton;
+import ua.stetsenkoinna.config.ResourcePathConfig;
+import ua.stetsenkoinna.graphpresentation.theme.ThemeManager;
 
 /**
  * Small vector icons for the toolbar and header controls that no image asset in
@@ -78,7 +82,7 @@ public final class CanvasToolIcons {
                         new int[]{x + s * 2 / 10, x + s * 2 / 10, x + s * 8 / 10, x + s * 55 / 100, x + s * 62 / 100, x + s * 45 / 100},
                         new int[]{y + s * 1 / 10, y + s * 85 / 100, y + s * 60 / 100, y + s * 55 / 100, y + s * 90 / 100, y + s * 62 / 100},
                         6);
-                g2.setColor(c.getForeground());
+                g2.setColor(toolbarForeground(c));
                 g2.fillPolygon(arrow);
                 g2.setColor(c.getBackground());
                 g2.drawPolygon(arrow);
@@ -102,7 +106,7 @@ public final class CanvasToolIcons {
             @Override
             public void paintIcon(Component c, Graphics g, int x, int y) {
                 Graphics2D g2 = prepare(g);
-                g2.setColor(c.getForeground());
+                g2.setColor(toolbarForeground(c));
                 float inset = size * 0.12f;
                 RoundRectangle2D rect = new RoundRectangle2D.Float(
                         x + inset, y + inset, size - 2 * inset, size - 2 * inset, 3, 3);
@@ -136,7 +140,7 @@ public final class CanvasToolIcons {
             @Override
             public void paintIcon(Component c, Graphics g, int x, int y) {
                 Graphics2D g2 = prepare(g);
-                g2.setColor(c.getForeground());
+                g2.setColor(toolbarForeground(c));
                 float inset = size * 0.12f;
                 RoundRectangle2D rect = new RoundRectangle2D.Float(
                         x + inset, y + inset, size - 2 * inset, size - 2 * inset, 3, 3);
@@ -182,7 +186,7 @@ public final class CanvasToolIcons {
             @Override
             public void paintIcon(Component c, Graphics g, int x, int y) {
                 Graphics2D g2 = prepare(g);
-                g2.setColor(c.getForeground());
+                g2.setColor(toolbarForeground(c));
                 g2.setStroke(new java.awt.BasicStroke(1.8f, java.awt.BasicStroke.CAP_ROUND,
                         java.awt.BasicStroke.JOIN_ROUND));
                 int nearX = x + size * (pointingLeft ? 68 : 32) / 100;
@@ -380,7 +384,7 @@ public final class CanvasToolIcons {
             @Override
             public void paintIcon(Component c, Graphics g, int x, int y) {
                 Graphics2D g2 = prepare(g);
-                g2.setColor(c.getForeground());
+                g2.setColor(toolbarForeground(c));
                 // Two letters have to fit the same square one does, so the size is driven by
                 // how much text there is rather than fixed.
                 float pointSize = size * (letters.length() > 1 ? 0.62f : 0.86f);
@@ -407,6 +411,105 @@ public final class CanvasToolIcons {
         };
     }
 
+    /** Keeps the original light artwork and draws the same tool clearly on dark chrome. */
+    static Icon themedToolbarIcon(Icon original, String resourceName) {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component component, Graphics graphics, int x, int y) {
+                if (!ThemeManager.currentVariant().isDark()) {
+                    original.paintIcon(component, graphics, x, y);
+                    return;
+                }
+                Graphics2D g = prepare(graphics);
+                g.translate(x, y);
+                g.scale(getIconWidth() / 20.0, getIconHeight() / 20.0);
+                g.setColor(toolbarForeground(component));
+                g.setStroke(new java.awt.BasicStroke(1.5f, java.awt.BasicStroke.CAP_ROUND,
+                        java.awt.BasicStroke.JOIN_ROUND));
+                switch (resourceName) {
+                    case ResourcePathConfig.HAND_ICON -> {
+                        java.awt.geom.Path2D.Float hand = new java.awt.geom.Path2D.Float();
+                        hand.moveTo(6, 11);
+                        hand.lineTo(6, 4);
+                        hand.curveTo(6, 2.6, 8, 2.6, 8, 4);
+                        hand.lineTo(8, 8);
+                        hand.lineTo(8, 2.5);
+                        hand.curveTo(8, 1, 10, 1, 10, 2.5);
+                        hand.lineTo(10, 8);
+                        hand.lineTo(10, 3.3);
+                        hand.curveTo(10, 1.9, 12, 1.9, 12, 3.3);
+                        hand.lineTo(12, 8.5);
+                        hand.lineTo(12, 5);
+                        hand.curveTo(12, 3.7, 14, 3.7, 14, 5);
+                        hand.lineTo(14, 13);
+                        hand.curveTo(14, 17, 11, 19, 8, 17);
+                        hand.lineTo(3, 12);
+                        hand.curveTo(1.8, 10.2, 3, 8.8, 4.2, 10);
+                        hand.closePath();
+                        g.draw(hand);
+                    }
+                    case ResourcePathConfig.ERASER_ICON -> {
+                        Polygon eraser = new Polygon(new int[]{2, 12, 18, 8}, new int[]{12, 2, 8, 18}, 4);
+                        Color foreground = toolbarForeground(component);
+                        Color background = ThemeManager.palette().getChromeAlt();
+                        g.setColor(new Color((foreground.getRed() + background.getRed()) / 2,
+                                (foreground.getGreen() + background.getGreen()) / 2,
+                                (foreground.getBlue() + background.getBlue()) / 2));
+                        g.fillPolygon(new Polygon(new int[]{2, 6, 12, 8}, new int[]{12, 8, 14, 18}, 4));
+                        g.setColor(foreground);
+                        g.drawPolygon(eraser);
+                        g.draw(new java.awt.geom.Line2D.Float(6, 8, 12, 14));
+                    }
+                    case ResourcePathConfig.PLACE_ICON -> {
+                        g.setColor(ThemeManager.palette().getSurface());
+                        g.fillOval(2, 2, 16, 16);
+                        g.setColor(toolbarForeground(component));
+                        g.drawOval(2, 2, 16, 16);
+                        g.setFont(new java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.PLAIN, 9));
+                        java.awt.FontMetrics metrics = g.getFontMetrics();
+                        g.drawString("0", 10 - metrics.stringWidth("0") / 2f,
+                                10 + (metrics.getAscent() - metrics.getDescent()) / 2f);
+                    }
+                    case ResourcePathConfig.TRANSITION_ICON -> g.fill(new java.awt.geom.Rectangle2D.Float(8.5f, 2, 3, 16));
+                    case ResourcePathConfig.ARC_ICON -> {
+                        g.draw(new java.awt.geom.Line2D.Float(3, 17, 16, 4));
+                        g.fillPolygon(new Polygon(new int[]{11, 17, 17}, new int[]{3, 3, 9}, 3));
+                    }
+                    default -> {
+                        g.dispose();
+                        original.paintIcon(component, graphics, x, y);
+                        return;
+                    }
+                }
+                g.dispose();
+            }
+
+            @Override
+            public int getIconWidth() {
+                return original.getIconWidth();
+            }
+
+            @Override
+            public int getIconHeight() {
+                return original.getIconHeight();
+            }
+        };
+    }
+
+    static void installToolbarDisabledIcon(AbstractButton button) {
+        Runnable update = () -> {
+            Icon icon = button.getIcon() == null ? null : withOpacity(button.getIcon(), 0.5f);
+            button.setDisabledIcon(icon);
+            button.setDisabledSelectedIcon(icon);
+        };
+        update.run();
+        button.addPropertyChangeListener("icon", event -> update.run());
+    }
+
+    private static Color toolbarForeground(Component component) {
+        return ThemeManager.currentVariant().isDark() ? ThemeManager.palette().getChromeText() : component.getForeground();
+    }
+
     /**
      * Wraps another icon, painting it at reduced opacity. Used as a button's disabled-state
      * icon: Swing can auto-generate a grayscale variant for an {@code ImageIcon}, but not for
@@ -415,11 +518,15 @@ public final class CanvasToolIcons {
      * than as blocked.
      */
     static Icon dimmed(Icon icon) {
+        return withOpacity(icon, 0.35f);
+    }
+
+    private static Icon withOpacity(Icon icon, float opacity) {
         return new Icon() {
             @Override
             public void paintIcon(Component c, Graphics g, int x, int y) {
                 Graphics2D g2 = prepare(g);
-                g2.setComposite(java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, 0.35f));
+                g2.setComposite(java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, opacity));
                 icon.paintIcon(c, g2, x, y);
                 g2.dispose();
             }

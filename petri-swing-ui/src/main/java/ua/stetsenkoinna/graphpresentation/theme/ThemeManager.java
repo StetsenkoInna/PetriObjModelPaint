@@ -1,12 +1,20 @@
 package ua.stetsenkoinna.graphpresentation.theme;
 
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.Window;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import javax.swing.SwingUtilities;
+import javax.swing.JComponent;
+import javax.swing.JMenu;
+import javax.swing.JPopupMenu;
 import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 import javax.swing.plaf.ColorUIResource;
@@ -188,16 +196,80 @@ public final class ThemeManager {
     }
 
     private static void refreshOpenWindows(ThemeVariant variant) {
+        Set<Component> popupComponents = Collections.newSetFromMap(new IdentityHashMap<>());
+        UIDefaults menuOverrides = menuOverrides(variant);
         for (Window window : Window.getWindows()) {
+            if (!window.isDisplayable()) continue;
             SwingUtilities.updateComponentTreeUI(window);
+            refreshDetachedPopups(window, popupComponents, menuOverrides);
         }
         for (ThemeChangeListener listener : LISTENERS) {
             listener.themeChanged(variant, currentPalette);
         }
         for (Window window : Window.getWindows()) {
+            if (!window.isDisplayable()) continue;
             window.invalidate();
             window.validate();
             window.repaint();
+        }
+    }
+
+    static void initializeMenu(Component menu) {
+        refreshDetachedPopups(menu, Collections.newSetFromMap(new IdentityHashMap<>()),
+                menuOverrides(currentVariant));
+    }
+
+    private static UIDefaults menuOverrides(ThemeVariant variant) {
+        UIDefaults menuOverrides = null;
+        if (variant.isDark()) {
+            menuOverrides = new UIDefaults();
+            UIDefaults installed = UIManager.getLookAndFeelDefaults();
+            for (Object entry : installed.keySet()) {
+                if (entry instanceof String key && isMenuKey(key)) {
+                    menuOverrides.put(key, installed.get(key));
+                }
+            }
+            for (Map.Entry<String, Object> entry : darkDefaults().entrySet()) {
+                String key = entry.getKey();
+                if (isMenuKey(key)) {
+                    menuOverrides.put(key, entry.getValue());
+                }
+            }
+        }
+        return menuOverrides;
+    }
+
+    private static boolean isMenuKey(String key) {
+        return key.startsWith("Menu") || key.startsWith("PopupMenu")
+                || key.startsWith("CheckBoxMenuItem") || key.startsWith("RadioButtonMenuItem");
+    }
+
+    private static void refreshDetachedPopups(Component component, Set<Component> visited, UIDefaults menuOverrides) {
+        if (!visited.add(component)) return;
+        if (component instanceof JComponent control) {
+            if (control instanceof javax.swing.JMenuItem || control instanceof JPopupMenu) {
+                if (menuOverrides != null) {
+                    // Nimbus merges inherited overrides into its shared style defaults.
+                    // A complete local table keeps them from leaking into the next theme.
+                    control.putClientProperty("Nimbus.Overrides.InheritDefaults", false);
+                    control.putClientProperty("Nimbus.Overrides", menuOverrides);
+                    control.putClientProperty("petri.darkMenuOverrides", true);
+                } else if (Boolean.TRUE.equals(control.getClientProperty("petri.darkMenuOverrides"))) {
+                    control.putClientProperty("Nimbus.Overrides", null);
+                    control.putClientProperty("Nimbus.Overrides.InheritDefaults", null);
+                    control.putClientProperty("petri.darkMenuOverrides", null);
+                }
+                control.updateUI();
+            }
+            JPopupMenu popup = control instanceof JMenu menu ? menu.getPopupMenu() : control.getComponentPopupMenu();
+            if (popup != null && !visited.contains(popup)) {
+                // Hidden popups are not ordinary children, so the window UI update misses them.
+                SwingUtilities.updateComponentTreeUI(popup);
+                refreshDetachedPopups(popup, visited, menuOverrides);
+            }
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) refreshDetachedPopups(child, visited, menuOverrides);
         }
     }
 
@@ -221,7 +293,7 @@ public final class ThemeManager {
         // dark chrome the usual value lands around 2:1 against its background, which is legible
         // as "greyed out" and barely legible as text - and the settings dialog uses disabled
         // labels for the line of explanation under each choice, which is meant to be read.
-        Color disabledText = new Color(0x97, 0x9C, 0x9F);
+        Color disabledText = new Color(0xB3, 0xBA, 0xC1);
         Color selection = new Color(0x3A, 0x6E, 0xA5);
         Color border = new Color(0x56, 0x5A, 0x5D);
 
@@ -327,12 +399,72 @@ public final class ThemeManager {
         defaults.put("MenuBar:Menu[Disabled].textForeground", disabledText);
         defaults.put("MenuBar:Menu[Selected].textForeground", Color.WHITE);
         defaults.put("MenuBar:Menu[Enabled+Selected].textForeground", Color.WHITE);
+        // Active menus use Nimbus painters rather than the ordinary background colour.
+        javax.swing.Painter<javax.swing.JComponent> menuSelection = (graphics, component, width, height) -> {
+            graphics.setColor(selection);
+            graphics.fillRect(0, 0, width, height);
+        };
+        for (String region : List.of("MenuBar:Menu", "Menu", "MenuItem", "CheckBoxMenuItem", "RadioButtonMenuItem")) {
+            defaults.put(region + ".selectionBackground", selection);
+            defaults.put(region + ".selectionForeground", Color.WHITE);
+            for (String state : List.of("MouseOver", "Enabled+MouseOver", "Selected", "Enabled+Selected",
+                    "MouseOver+Selected", "Enabled+MouseOver+Selected", "Pressed", "Enabled+Pressed")) {
+                defaults.put(region + "[" + state + "].backgroundPainter", menuSelection);
+                defaults.put(region + "[" + state + "].textForeground", Color.WHITE);
+                defaults.put(region + ":MenuItemAccelerator[" + state + "].textForeground", Color.WHITE);
+            }
+        }
+        defaults.put("PopupMenu[Enabled].backgroundPainter", controlPainter(chrome, border));
         // JFileChooser reads a few of its own, and is one of the few dialogs the app opens that
         // it does not build itself.
         defaults.put("FileChooser.background", chrome);
         defaults.put("FileChooser.foreground", text);
 
+        for (String control : List.of("Button", "ToggleButton", "ComboBox", "Spinner")) {
+            for (String state : List.of("Enabled", "Focused", "MouseOver", "Focused+MouseOver",
+                    "Pressed", "Focused+Pressed", "Selected", "Focused+Selected",
+                    "MouseOver+Selected", "Focused+MouseOver+Selected", "Pressed+Selected", "Disabled", "Disabled+Selected")) {
+                Color background = state.contains("Disabled") ? chromeDark
+                        : state.contains("Selected") || state.contains("Pressed") ? selection
+                        : state.contains("MouseOver") ? new Color(0x50, 0x55, 0x59) : chromeDark;
+                defaults.put(control + "[" + state + "].backgroundPainter", controlPainter(background, border));
+                defaults.put(control + "[" + state + "].textForeground", state.contains("Disabled") ? disabledText
+                        : state.contains("Selected") || state.contains("Pressed") ? Color.WHITE : text);
+            }
+        }
+        for (String control : List.of("Label", "CheckBox", "RadioButton", "TextField", "FormattedTextField", "TextArea")) {
+            defaults.put(control + "[Enabled].textForeground", text);
+            defaults.put(control + "[Disabled].textForeground", disabledText);
+        }
+        for (String state : List.of("Default", "Default+Focused", "Default+MouseOver", "Default+Focused+MouseOver",
+                "Default+Pressed", "Default+Focused+Pressed", "Default+Disabled")) {
+            defaults.put("Button[" + state + "].backgroundPainter", controlPainter(
+                    state.contains("Pressed") ? selection : chromeDark, border));
+            defaults.put("Button[" + state + "].textForeground", state.contains("Disabled") ? disabledText : text);
+        }
+        defaults.put("Table[Enabled+Selected].textForeground", Color.WHITE);
+        defaults.put("Table[Enabled+Selected].textBackground", selection);
+        defaults.put("TableHeader:\"TableHeader.renderer\"[Enabled].backgroundPainter", controlPainter(chromeDark, border));
+        defaults.put("TableHeader:\"TableHeader.renderer\"[Enabled].textForeground", text);
+        for (String state : List.of("Enabled", "Enabled+MouseOver", "Enabled+Pressed", "Selected",
+                "Selected+Focused", "MouseOver+Selected", "Disabled", "Disabled+Selected")) {
+            String prefix = "TabbedPane:TabbedPaneTab[" + state + "]";
+            defaults.put(prefix + ".backgroundPainter", controlPainter(state.contains("Selected") ? chrome : chromeDark, border));
+            defaults.put(prefix + ".textForeground", state.contains("Disabled") ? disabledText : text);
+        }
+        defaults.put("Spinner:Panel:\"Spinner.formattedTextField\"[Disabled].backgroundPainter", controlPainter(chromeDark, border));
+        defaults.put("Spinner:Panel:\"Spinner.formattedTextField\"[Disabled].textForeground", disabledText);
+
         return wrapAsResources(defaults);
+    }
+
+    private static javax.swing.Painter<javax.swing.JComponent> controlPainter(Color background, Color border) {
+        return (graphics, component, width, height) -> {
+            graphics.setColor(background);
+            graphics.fillRoundRect(0, 0, width, height, 7, 7);
+            graphics.setColor(component.isFocusOwner() ? new Color(0x4A, 0x90, 0xD9) : border);
+            graphics.drawRoundRect(0, 0, width - 1, height - 1, 7, 7);
+        };
     }
 
     /**
@@ -342,7 +474,7 @@ public final class ThemeManager {
      */
     private static Map<String, Object> wrapAsResources(Map<String, Object> raw) {
         Map<String, Object> wrapped = new LinkedHashMap<>();
-        raw.forEach((key, color) -> wrapped.put(key, new ColorUIResource((Color) color)));
+        raw.forEach((key, value) -> wrapped.put(key, value instanceof Color color ? new ColorUIResource(color) : value));
         return wrapped;
     }
 }

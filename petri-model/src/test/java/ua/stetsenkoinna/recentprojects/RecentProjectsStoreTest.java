@@ -31,6 +31,25 @@ public class RecentProjectsStoreTest {
     }
 
     @Test
+    public void relocatingMergesOpenedPathAndPreservesOriginalMetadataAndActiveProject() {
+        RecentProjectsStore store = new RecentProjectsStore(registryFile());
+        RecentProjectEntry original = store.recordOpened(projectFile("missing.pnml"), "Original");
+        store.updateMetadata(original.getId(), "Description", "Authors");
+        RecentProjectEntry opened = store.recordOpened(projectFile("moved.pnml"), "Moved");
+        store.setActiveProjectId(opened.getId());
+        store.relocate(original.getId(), projectFile("moved.pnml"));
+        RecentProjectsStore reloaded = new RecentProjectsStore(registryFile());
+        assertEquals(1, reloaded.all().size());
+        RecentProjectEntry result = reloaded.findById(original.getId()).orElseThrow();
+        assertEquals("Description", result.getDescription());
+        assertEquals("Authors", result.getAuthors());
+        assertEquals(original.getCreatedAt(), result.getCreatedAt());
+        assertEquals(original.getLastEditedAt(), result.getLastEditedAt());
+        assertEquals(projectFile("moved.pnml").toAbsolutePath().toString(), result.getPath());
+        assertEquals(original.getId(), reloaded.getActiveProjectId());
+    }
+
+    @Test
     public void openingANewProjectCreatesAnEntryWithTheSystemUserAsAuthor() {
         RecentProjectsStore store = new RecentProjectsStore(registryFile());
 

@@ -60,6 +60,11 @@ import ua.stetsenkoinna.theme.ThemeVariant;
 import ua.stetsenkoinna.utils.MessageHelper;
 
 public class PetriNetsFrame extends javax.swing.JFrame {
+    private final ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer mcpServer =
+            new ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer(
+                    new ua.stetsenkoinna.graphpresentation.ai.SwingUiBridge());
+    private ua.stetsenkoinna.graphpresentation.ai.McpDialog mcpDialog;
+    private String mcpStartupFailure;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PetriNetsFrame.class);
 
@@ -363,6 +368,20 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         applyWindowGeometry();
         installUndoTracking();
+        javax.swing.JMenu aiMenu = new javax.swing.JMenu("AI");
+        javax.swing.JMenuItem mcpItem = new javax.swing.JMenuItem("MCP...");
+        mcpItem.addActionListener(event -> {
+            if (mcpDialog == null || !mcpDialog.isDisplayable()) {
+                mcpDialog = new ua.stetsenkoinna.graphpresentation.ai.McpDialog(
+                        this, mcpServer, AppSettings.shared(), mcpStartupFailure);
+                mcpStartupFailure = null;
+                mcpItem.setToolTipText(null);
+            }
+            mcpDialog.setVisible(true);
+            mcpDialog.toFront();
+        });
+        petriNetsFrameMenuBar.add(aiMenu);
+        aiMenu.add(mcpItem);
         petriNetsFrameMenuBar.add(new HelpMenu(this));
 
         // Last, so everything it colours exists. addListener calls back straight away, which is
@@ -370,6 +389,25 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // "apply the theme once at startup" path to keep in step with this one.
         themeListener = this::applyTheme;
         ThemeManager.addListener(themeListener);
+        restoreMcpConnection();
+        mcpItem.setToolTipText(mcpStartupFailure);
+    }
+
+    private void restoreMcpConnection() {
+        AppSettings settings = AppSettings.shared();
+        if (!settings.isMcpEnabled()) {
+            return;
+        }
+        try {
+            String savedToken = settings.getMcpToken();
+            if (savedToken == null) {
+                throw new IllegalArgumentException("Saved MCP token is missing or invalid. Start the server again from AI > MCP.");
+            }
+            mcpServer.start(settings.getMcpPort(), savedToken);
+        } catch (Exception ex) {
+            mcpStartupFailure = ex.getMessage();
+            LOGGER.warn("Could not start the saved MCP connection on port {}", settings.getMcpPort());
+        }
     }
 
     /**
@@ -402,6 +440,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     @Override
     public void dispose() {
+        mcpServer.close();
         if (themeListener != null) {
             ThemeManager.removeListener(themeListener);
             themeListener = null;
@@ -455,6 +494,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 javax.swing.BorderFactory.createMatteBorder(0, 0, 0, 1, palette.getDivider()));
 
         modelingResultsPanel.setBackground(palette.getChromeAlt());
+        timeStartLabel.setBackground(palette.getChrome());
+        timeStartLabel.setForeground(palette.getChromeText());
+        timeModelingLabel.setBackground(palette.getChrome());
+        timeModelingLabel.setForeground(palette.getChromeText());
 
         if (petriNetsPanel != null) {
             petriNetsPanel.applyTheme();
@@ -709,7 +752,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         }
         java.awt.Image image = loaded.getImage()
                 .getScaledInstance(TOOL_ICON_SIZE, TOOL_ICON_SIZE, java.awt.Image.SCALE_SMOOTH);
-        return new javax.swing.ImageIcon(image);
+        return CanvasToolIcons.themedToolbarIcon(new javax.swing.ImageIcon(image), iconFileName);
     }
 
     /**
@@ -744,6 +787,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         button.setMargin(new Insets(8, 8, 8, 8));
         button.setMaximumSize(new java.awt.Dimension(TOOLBAR_WIDTH, TOOLBAR_WIDTH));
         button.setPreferredSize(new java.awt.Dimension(TOOLBAR_WIDTH, TOOLBAR_WIDTH));
+        CanvasToolIcons.installToolbarDisabledIcon(button);
     }
 
     /**
@@ -1154,6 +1198,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         styleTransportButton(stepBackButton);
 
         skipForwardAnimationButton.setAction(runNetAction);
+        stepBackButton.getAccessibleContext().setAccessibleName("Rewind simulation");
+        playPauseAnimationButton.getAccessibleContext().setAccessibleName("Play or pause simulation");
+        stopAnimationButton.getAccessibleContext().setAccessibleName("Stop simulation");
+        runOneEventButton.getAccessibleContext().setAccessibleName("Run one event");
+        skipForwardAnimationButton.getAccessibleContext().setAccessibleName("Run to completion");
         skipForwardAnimationButton.setIcon(CanvasToolIcons.fastForward(TOOL_ICON_SIZE));
         skipForwardAnimationButton.setDisabledIcon(CanvasToolIcons.dimmed(skipForwardAnimationButton.getIcon()));
         styleTransportButton(skipForwardAnimationButton);
@@ -1610,14 +1659,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         editNetParametersMenuItem.addActionListener(this::editNetParametersMenuItemActionPerformed);
         editMenu.add(editNetParametersMenuItem);
 
-        // Where an application's settings live on Windows and Linux. The theme also has a
-        // direct switch under View, since that one is reached often enough to be worth two
-        // clicks rather than four - see buildThemeMenu.
-        editMenu.addSeparator();
+        javax.swing.JMenu settingsMenu = new javax.swing.JMenu("Settings");
         preferencesMenuItem = new javax.swing.JMenuItem("Preferences...");
         preferencesMenuItem.addActionListener(evt ->
                 SettingsDialog.showPreferences(this, AppSettings.shared()));
-        editMenu.add(preferencesMenuItem);
+        settingsMenu.add(preferencesMenuItem);
 
         petriNetsFrameMenuBar.add(editMenu);
 
@@ -1633,6 +1679,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         viewMenu.add(buildThemeMenu());
 
         petriNetsFrameMenuBar.add(viewMenu);
+        petriNetsFrameMenuBar.add(settingsMenu);
 
         statisticMenu.setText("Statistics");
 

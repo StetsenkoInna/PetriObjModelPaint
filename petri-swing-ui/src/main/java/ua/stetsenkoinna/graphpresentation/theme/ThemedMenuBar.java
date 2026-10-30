@@ -1,7 +1,11 @@
 package ua.stetsenkoinna.graphpresentation.theme;
 
 import java.awt.Graphics;
+import java.awt.Component;
+import java.awt.Insets;
+import javax.swing.BorderFactory;
 import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 
 /**
  * A menu bar that fills its own background while the dark theme is in force.
@@ -21,6 +25,18 @@ import javax.swing.JMenuBar;
  * class exists to add a dark appearance rather than to restyle the existing one.
  */
 public class ThemedMenuBar extends JMenuBar {
+
+    @Override
+    protected void addImpl(Component component, Object constraints, int index) {
+        super.addImpl(component, constraints, index);
+        if (component instanceof JMenuItem item) {
+            ThemeManager.initializeMenu(item);
+            // Nimbus gives submenus and bare actions different padding by default.
+            item.setMargin(new Insets(0, 0, 0, 0));
+            item.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 10));
+            item.setMaximumSize(item.getPreferredSize());
+        }
+    }
 
     @Override
     protected void paintComponent(Graphics g) {

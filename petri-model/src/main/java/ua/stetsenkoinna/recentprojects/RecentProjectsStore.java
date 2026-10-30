@@ -194,6 +194,24 @@ public class RecentProjectsStore {
         return Optional.ofNullable(entries.get(id));
     }
 
+    public synchronized void relocate(String id, Path path) {
+        RecentProjectEntry existing = entries.get(id);
+        if (existing == null) {
+            return;
+        }
+        String absolutePath = path.toAbsolutePath().toString();
+        RecentProjectEntry duplicate = findByPath(absolutePath);
+        if (duplicate != null && !duplicate.getId().equals(id)) {
+            entries.remove(duplicate.getId());
+            if (duplicate.getId().equals(activeProjectId)) {
+                activeProjectId = id;
+            }
+        }
+        entries.put(id, existing.touched(absolutePath, existing.getName(),
+                System.currentTimeMillis(), existing.getLastEditedAt()));
+        save();
+    }
+
     /** @return the id of the project to auto-reopen on next startup, or null if none is set */
     public synchronized String getActiveProjectId() {
         return activeProjectId;
