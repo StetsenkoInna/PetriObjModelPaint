@@ -2,6 +2,11 @@ name: Build Java library distribution
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing published release to repair (empty: build only)'
+        required: false
+        type: string
   release:
     types: [published]
 
@@ -15,8 +20,18 @@ concurrency:
 jobs:
   libraries:
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
+      - name: Check that the target release is already published
+        if: env.RELEASE_TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -37,8 +52,6 @@ jobs:
           python -m unittest discover -s scripts/tests -v
           python scripts/package_java_libraries.py
       - name: Verify release tag and include server executable
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           python - <<'PY'
           import hashlib, os, shutil
@@ -57,18 +70,16 @@ jobs:
           name: java-library-distribution
           path: target/library-release/*
       - name: Publish anonymous Maven repository on the dedicated branch
-        if: github.event_name == 'release'
+        if: env.RELEASE_TAG != ''
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: maven-repository
           publish_dir: target/maven-repository
           keep_files: true
-          exclude_assets: '.git'
           enable_jekyll: true
       - name: Attach files to the existing published release
-        if: github.event_name == 'release'
+        if: env.RELEASE_TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: gh release upload "$RELEASE_TAG" target/library-release/*
