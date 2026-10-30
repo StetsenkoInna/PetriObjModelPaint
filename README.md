@@ -121,6 +121,7 @@ Output:
 | Guide | What it covers |
 |-------|----------------|
 | [Desktop UI](docs/desktop-ui.md) | Editor, animation controls, statistics module, Petri-objects on the canvas, net library, PNML import/export |
+| [Desktop MCP](docs/desktop-mcp.md) | Connect Codex, Claude Code or Claude Desktop to the running Swing editor |
 | [Petri-object models](docs/petri-object-models.md) | Objects and links, composing a model in the editor, the PNML form, running one from code or over HTTP |
 | [Server integration](docs/petri-server-integration.md) | REST API reference, SSE streaming, WebSocket/STOMP, session control, PNML requirements, the Petri-object model API |
 

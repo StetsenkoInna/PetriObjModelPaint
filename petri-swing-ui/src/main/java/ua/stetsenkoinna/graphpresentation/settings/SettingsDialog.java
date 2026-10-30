@@ -69,7 +69,7 @@ public class SettingsDialog extends JDialog {
      * @param mode which of the two jobs this dialog is doing
      */
     public SettingsDialog(Window owner, AppSettings settings, Mode mode) {
-        super(owner, mode == Mode.FIRST_RUN ? "Welcome to PetriObjModelPaint" : "Preferences",
+        super(owner, mode == Mode.FIRST_RUN ? "Welcome to PetriObjModelPaint" : "Settings",
                 ModalityType.APPLICATION_MODAL);
         this.settings = settings;
         this.mode = mode;
@@ -149,7 +149,7 @@ public class SettingsDialog extends JDialog {
         header.setBorder(BorderFactory.createEmptyBorder(14, 16, 6, 16));
         List<String> lines = mode == Mode.FIRST_RUN
                 ? List.of("Let's set the editor up.",
-                          "You can change any of this later from Edit > Preferences.")
+                          "You can change any of this later from Settings > Preferences.")
                 : List.of("These settings apply to the whole application",
                           "and are remembered between sessions.");
         for (String line : lines) {

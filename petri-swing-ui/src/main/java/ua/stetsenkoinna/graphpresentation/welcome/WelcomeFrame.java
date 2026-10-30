@@ -65,6 +65,7 @@ public class WelcomeFrame extends JFrame {
     private final JComboBox<SortOption> sortCombo = new JComboBox<>(SortOption.values());
     private final JList<WelcomeItem> list = new JList<>();
     private final JScrollPane scrollPane = new JScrollPane(list);
+    private final JButton removeButton = new JButton("Remove from list");
 
     /** Held so it can be unregistered in {@link #dispose()}, mirroring {@code PetriNetsFrame}. */
     private ThemeManager.ThemeChangeListener themeListener;
@@ -97,6 +98,15 @@ public class WelcomeFrame extends JFrame {
         setLayout(new BorderLayout());
         add(buildHeader(), BorderLayout.NORTH);
         add(scrollPane, BorderLayout.CENTER);
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        removeButton.setEnabled(false);
+        removeButton.addActionListener(event -> {
+            if (list.getSelectedValue() instanceof RecentProjectItem recent) {
+                removeRecent(recent.entry());
+            }
+        });
+        actions.add(removeButton);
+        add(actions, BorderLayout.SOUTH);
 
         configureList();
         refreshList();
@@ -151,6 +161,10 @@ public class WelcomeFrame extends JFrame {
         sortPanel.add(fullWidthRow(new JLabel("Sort by")));
         sortCombo.addActionListener(event -> refreshList());
         sortPanel.add(sortCombo);
+        JButton settingsButton = new JButton("Settings...");
+        settingsButton.addActionListener(event ->
+                ua.stetsenkoinna.graphpresentation.settings.SettingsDialog.showPreferences(this, settings));
+        sortPanel.add(settingsButton);
         header.add(sortPanel, BorderLayout.EAST);
 
         return header;
@@ -163,6 +177,8 @@ public class WelcomeFrame extends JFrame {
         list.setFixedCellHeight(170);
         list.setCellRenderer(new WelcomeCardRenderer());
         list.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        list.addListSelectionListener(event ->
+                removeButton.setEnabled(list.getSelectedValue() instanceof RecentProjectItem));
         // The renderer sets a per-cell tooltip on itself, but a JList's own tooltip lookup
         // (which delegates to the renderer under the mouse) only fires for a component the
         // ToolTipManager actually knows about - without this, every tooltip is dead code.
@@ -287,10 +303,13 @@ public class WelcomeFrame extends JFrame {
         open.addActionListener(event -> openRecent(entry));
         menu.add(open);
 
+        JMenuItem locate = new JMenuItem("Locate file...");
+        locate.addActionListener(event -> locateRecent(entry));
+        menu.add(locate);
+
         JMenuItem remove = new JMenuItem("Remove from list");
         remove.addActionListener(event -> {
-            store.remove(entry.getId());
-            refreshList();
+            removeRecent(entry);
         });
         menu.add(remove);
 
@@ -328,9 +347,29 @@ public class WelcomeFrame extends JFrame {
                 dispose();
             }
         } else {
-            JOptionPane.showMessageDialog(this,
+            int choice = JOptionPane.showOptionDialog(this,
                     "'" + entry.getName() + "' could not be found at:\n" + entry.getPath(),
-                    "Project not found", JOptionPane.ERROR_MESSAGE);
+                    "Project not found", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
+                    null, new String[]{"Locate file...", "Remove from list", "Cancel"}, "Locate file...");
+            if (choice == 0) {
+                locateRecent(entry);
+            } else if (choice == 1) {
+                removeRecent(entry);
+            }
+        }
+    }
+
+    private void removeRecent(RecentProjectEntry entry) {
+        store.remove(entry.getId());
+        refreshList();
+    }
+
+    private void locateRecent(RecentProjectEntry entry) {
+        File selected = FileDialogs.openAmong(this, "Locate project",
+                List.of(FileDialogs.MODEL, FileDialogs.ANY), null);
+        if (selected != null && onOpenProject.test(selected)) {
+            store.relocate(entry.getId(), selected.toPath());
+            dispose();
         }
     }
 

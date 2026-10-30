@@ -106,6 +106,8 @@ public final class ScreenshotHarness {
         runShot(options, "main-selection", () -> shotMainSelection(frame, options.outDir, options.capture));
         runShot(options, "menus", () -> shotMenus(frame, options.outDir, options.capture));
         runShot(options, "dialog-settings", () -> shotDialogSettings(frame, options.outDir, options.capture));
+        runShot(options, "dialog-mcp", () -> shotMcp(frame, options.outDir));
+        runShot(options, "welcome", () -> shotWelcome(options.outDir));
         runShot(options, "dialog-statistics", () -> shotDialogStatistics(frame, options.outDir, options.capture));
 
         System.out.println("SUMMARY: ok=" + OK_COUNT.get() + " skip=" + SKIP_COUNT.get()
@@ -137,6 +139,49 @@ public final class ScreenshotHarness {
         }
         frame.validate();
         return frame;
+    }
+
+    private static void shotMcp(PetriNetsFrame frame, Path outDir) throws Exception {
+        var server = new ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer(
+                new ua.stetsenkoinna.graphpresentation.ai.SwingUiBridge());
+        JDialog[] dialog = new JDialog[1];
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                dialog[0] = new ua.stetsenkoinna.graphpresentation.ai.McpDialog(frame, server);
+                dialog[0].setVisible(true);
+            });
+            captureAndSave("dialog-mcp", outDir, dialog[0]::getRootPane);
+            server.start(0);
+            SwingUtilities.invokeAndWait(() -> {
+                dialog[0].dispose();
+                dialog[0] = new ua.stetsenkoinna.graphpresentation.ai.McpDialog(frame, server);
+                dialog[0].setVisible(true);
+            });
+            captureAndSave("dialog-mcp-running", outDir, dialog[0]::getRootPane);
+        } finally {
+            server.close();
+            SwingUtilities.invokeAndWait(() -> { if (dialog[0] != null) dialog[0].dispose(); });
+        }
+    }
+
+    private static void shotWelcome(Path outDir) throws Exception {
+        var store = new ua.stetsenkoinna.recentprojects.RecentProjectsStore(null);
+        store.recordOpened(Path.of(SAMPLE_NET_FALLBACK), "Queue and processing station");
+        var missing = store.recordOpened(outDir.resolve("missing-model.pnml"), "Moved project");
+        store.updateMetadata(missing.getId(), "File moved to another folder", "Project author");
+        JFrame[] welcome = new JFrame[1];
+        SwingUtilities.invokeAndWait(() -> {
+            ua.stetsenkoinna.graphpresentation.welcome.WelcomeFrame.show(
+                    new ua.stetsenkoinna.config.AppSettings(null), store, file -> false, () -> false, () -> { }, false);
+            for (Window window : Window.getWindows()) {
+                if (window instanceof ua.stetsenkoinna.graphpresentation.welcome.WelcomeFrame frame && frame.isShowing()) welcome[0] = frame;
+            }
+        });
+        try {
+            captureAndSave("welcome", outDir, welcome[0]::getRootPane);
+        } finally {
+            SwingUtilities.invokeAndWait(welcome[0]::dispose);
+        }
     }
 
     /**
@@ -382,7 +427,9 @@ public final class ScreenshotHarness {
         Exception[] failure = new Exception[1];
         SwingUtilities.invokeAndWait(() -> {
             try {
-                Object dialog = instantiateSpeculatively(resolvedClass, frame);
+                Object dialog = new ua.stetsenkoinna.graphpresentation.settings.SettingsDialog(frame,
+                        new ua.stetsenkoinna.config.AppSettings(null),
+                        ua.stetsenkoinna.graphpresentation.settings.SettingsDialog.Mode.PREFERENCES);
                 if (dialog instanceof java.awt.Dialog awtDialog) {
                     // A speculative dialog must never be allowed to block the harness in a
                     // modal event loop - force it non-modal regardless of how it was built.

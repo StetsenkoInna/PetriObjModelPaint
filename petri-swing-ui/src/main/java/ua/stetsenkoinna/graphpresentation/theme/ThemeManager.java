@@ -221,7 +221,7 @@ public final class ThemeManager {
         // dark chrome the usual value lands around 2:1 against its background, which is legible
         // as "greyed out" and barely legible as text - and the settings dialog uses disabled
         // labels for the line of explanation under each choice, which is meant to be read.
-        Color disabledText = new Color(0x97, 0x9C, 0x9F);
+        Color disabledText = new Color(0xB3, 0xBA, 0xC1);
         Color selection = new Color(0x3A, 0x6E, 0xA5);
         Color border = new Color(0x56, 0x5A, 0x5D);
 
@@ -332,7 +332,51 @@ public final class ThemeManager {
         defaults.put("FileChooser.background", chrome);
         defaults.put("FileChooser.foreground", text);
 
+        for (String control : List.of("Button", "ToggleButton", "ComboBox", "Spinner")) {
+            for (String state : List.of("Enabled", "Focused", "MouseOver", "Focused+MouseOver",
+                    "Pressed", "Focused+Pressed", "Selected", "Focused+Selected",
+                    "MouseOver+Selected", "Focused+MouseOver+Selected", "Pressed+Selected", "Disabled", "Disabled+Selected")) {
+                Color background = state.contains("Disabled") ? chromeDark
+                        : state.contains("Selected") || state.contains("Pressed") ? selection
+                        : state.contains("MouseOver") ? new Color(0x50, 0x55, 0x59) : chromeDark;
+                defaults.put(control + "[" + state + "].backgroundPainter", controlPainter(background, border));
+                defaults.put(control + "[" + state + "].textForeground", state.contains("Disabled") ? disabledText
+                        : state.contains("Selected") || state.contains("Pressed") ? Color.WHITE : text);
+            }
+        }
+        for (String control : List.of("Label", "CheckBox", "RadioButton", "TextField", "FormattedTextField", "TextArea")) {
+            defaults.put(control + "[Enabled].textForeground", text);
+            defaults.put(control + "[Disabled].textForeground", disabledText);
+        }
+        for (String state : List.of("Default", "Default+Focused", "Default+MouseOver", "Default+Focused+MouseOver",
+                "Default+Pressed", "Default+Focused+Pressed", "Default+Disabled")) {
+            defaults.put("Button[" + state + "].backgroundPainter", controlPainter(
+                    state.contains("Pressed") ? selection : chromeDark, border));
+            defaults.put("Button[" + state + "].textForeground", state.contains("Disabled") ? disabledText : text);
+        }
+        defaults.put("Table[Enabled+Selected].textForeground", Color.WHITE);
+        defaults.put("Table[Enabled+Selected].textBackground", selection);
+        defaults.put("TableHeader:\"TableHeader.renderer\"[Enabled].backgroundPainter", controlPainter(chromeDark, border));
+        defaults.put("TableHeader:\"TableHeader.renderer\"[Enabled].textForeground", text);
+        for (String state : List.of("Enabled", "Enabled+MouseOver", "Enabled+Pressed", "Selected",
+                "Selected+Focused", "MouseOver+Selected", "Disabled", "Disabled+Selected")) {
+            String prefix = "TabbedPane:TabbedPaneTab[" + state + "]";
+            defaults.put(prefix + ".backgroundPainter", controlPainter(state.contains("Selected") ? chrome : chromeDark, border));
+            defaults.put(prefix + ".textForeground", state.contains("Disabled") ? disabledText : text);
+        }
+        defaults.put("Spinner:Panel:\"Spinner.formattedTextField\"[Disabled].backgroundPainter", controlPainter(chromeDark, border));
+        defaults.put("Spinner:Panel:\"Spinner.formattedTextField\"[Disabled].textForeground", disabledText);
+
         return wrapAsResources(defaults);
+    }
+
+    private static javax.swing.Painter<javax.swing.JComponent> controlPainter(Color background, Color border) {
+        return (graphics, component, width, height) -> {
+            graphics.setColor(background);
+            graphics.fillRoundRect(0, 0, width, height, 7, 7);
+            graphics.setColor(component.isFocusOwner() ? new Color(0x4A, 0x90, 0xD9) : border);
+            graphics.drawRoundRect(0, 0, width - 1, height - 1, 7, 7);
+        };
     }
 
     /**
@@ -342,7 +386,7 @@ public final class ThemeManager {
      */
     private static Map<String, Object> wrapAsResources(Map<String, Object> raw) {
         Map<String, Object> wrapped = new LinkedHashMap<>();
-        raw.forEach((key, color) -> wrapped.put(key, new ColorUIResource((Color) color)));
+        raw.forEach((key, value) -> wrapped.put(key, value instanceof Color color ? new ColorUIResource(color) : value));
         return wrapped;
     }
 }

@@ -60,6 +60,10 @@ import ua.stetsenkoinna.theme.ThemeVariant;
 import ua.stetsenkoinna.utils.MessageHelper;
 
 public class PetriNetsFrame extends javax.swing.JFrame {
+    private final ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer mcpServer =
+            new ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer(
+                    new ua.stetsenkoinna.graphpresentation.ai.SwingUiBridge());
+    private ua.stetsenkoinna.graphpresentation.ai.McpDialog mcpDialog;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PetriNetsFrame.class);
 
@@ -363,6 +367,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         applyWindowGeometry();
         installUndoTracking();
+        javax.swing.JMenu aiMenu = new javax.swing.JMenu("AI");
+        javax.swing.JMenuItem mcpItem = new javax.swing.JMenuItem("MCP...");
+        mcpItem.addActionListener(event -> {
+            if (mcpDialog == null || !mcpDialog.isDisplayable()) {
+                mcpDialog = new ua.stetsenkoinna.graphpresentation.ai.McpDialog(this, mcpServer);
+            }
+            mcpDialog.setVisible(true);
+            mcpDialog.toFront();
+        });
+        petriNetsFrameMenuBar.add(aiMenu);
+        aiMenu.add(mcpItem);
         petriNetsFrameMenuBar.add(new HelpMenu(this));
 
         // Last, so everything it colours exists. addListener calls back straight away, which is
@@ -402,6 +417,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     @Override
     public void dispose() {
+        mcpServer.close();
         if (themeListener != null) {
             ThemeManager.removeListener(themeListener);
             themeListener = null;
@@ -455,6 +471,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 javax.swing.BorderFactory.createMatteBorder(0, 0, 0, 1, palette.getDivider()));
 
         modelingResultsPanel.setBackground(palette.getChromeAlt());
+        timeStartLabel.setBackground(palette.getChrome());
+        timeStartLabel.setForeground(palette.getChromeText());
+        timeModelingLabel.setBackground(palette.getChrome());
+        timeModelingLabel.setForeground(palette.getChromeText());
 
         if (petriNetsPanel != null) {
             petriNetsPanel.applyTheme();
@@ -1610,14 +1630,11 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         editNetParametersMenuItem.addActionListener(this::editNetParametersMenuItemActionPerformed);
         editMenu.add(editNetParametersMenuItem);
 
-        // Where an application's settings live on Windows and Linux. The theme also has a
-        // direct switch under View, since that one is reached often enough to be worth two
-        // clicks rather than four - see buildThemeMenu.
-        editMenu.addSeparator();
+        javax.swing.JMenu settingsMenu = new javax.swing.JMenu("Settings");
         preferencesMenuItem = new javax.swing.JMenuItem("Preferences...");
         preferencesMenuItem.addActionListener(evt ->
                 SettingsDialog.showPreferences(this, AppSettings.shared()));
-        editMenu.add(preferencesMenuItem);
+        settingsMenu.add(preferencesMenuItem);
 
         petriNetsFrameMenuBar.add(editMenu);
 
@@ -1633,6 +1650,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         viewMenu.add(buildThemeMenu());
 
         petriNetsFrameMenuBar.add(viewMenu);
+        petriNetsFrameMenuBar.add(settingsMenu);
 
         statisticMenu.setText("Statistics");
 
