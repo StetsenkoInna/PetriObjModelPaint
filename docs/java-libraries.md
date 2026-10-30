@@ -41,6 +41,10 @@ Use `petri-model` for PNML or `petri-api` for service contracts; their core
 dependencies are transitive. No GitHub account, token, submodule or editor install
 is required to download the libraries. The parent POM is published alongside them.
 
+If your Maven settings redirect every repository through a mirror, exclude
+`petri-libraries` from that mirror, for example with
+`<mirrorOf>*,!petri-libraries</mirrorOf>`.
+
 ## Release files
 
 Each release includes the three binary JARs, matching source JARs and POMs,
