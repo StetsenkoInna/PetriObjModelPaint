@@ -122,6 +122,40 @@ public class TrainingDataExporterTest {
         assertEquals("unknown", JSON.readTree(entries.get("verification.json")).path("status").asText());
     }
 
+    @Test public void credentialRedactionCoversTrainingMetadataWithoutChangingModelBytes() throws Exception {
+        String pnml = model();
+        Map<String, Object> arguments = Map.of("tokens", 6, "mcp_token", "opaque_call_credential");
+        List<Map<String, Object>> calls = List.of(Map.of("tool", "ui_action", "arguments", arguments,
+                "result", Map.of("bearer_token", "opaque_result_credential"), "timestamp", "2026-10-30T09:14:00Z", "origin", "application"));
+        Map<String, Object> observations = Map.of("protocol_text", "tokens=6 password=opaque_observation_credential",
+                "current_controls", Map.of("tokens", 6, "authorization", "opaque_header_credential"));
+        TrainingDataExporter exporter = new TrainingDataExporter(includeScreenshot ->
+                new TrainingSnapshot(pnml, observations, null, null, calls, "Observed calls only"), CLOCK);
+        TrainingExportRequest request = new TrainingExportRequest("Queue token=opaque_title_credential",
+                "Process 6 tokens api_key=opaque_task_credential", List.of("mcp_token: opaque_clarification_credential"),
+                List.of("One second"), List.of("All 6 tokens completed"), null,
+                List.of(Map.of("role", "user", "content", "{\"mcp_token\":\"opaque_conversation_credential\"}")), false);
+        var result = exporter.export(folder.getRoot().toPath(), request);
+        Map<String, byte[]> entries = unpack(result.path());
+        String metadata = new String(entries.get("manifest.json"), StandardCharsets.UTF_8)
+                + new String(entries.get("task.json"), StandardCharsets.UTF_8)
+                + new String(entries.get("conversation.jsonl"), StandardCharsets.UTF_8)
+                + new String(entries.get("tool-calls.jsonl"), StandardCharsets.UTF_8)
+                + new String(entries.get("editor-observations.json"), StandardCharsets.UTF_8);
+        for (String secret : List.of("opaque_call_credential", "opaque_result_credential", "opaque_observation_credential",
+                "opaque_header_credential", "opaque_title_credential", "opaque_task_credential",
+                "opaque_clarification_credential", "opaque_conversation_credential")) {
+            assertFalse(secret, metadata.contains(secret));
+            assertFalse(secret, result.path().getFileName().toString().contains(secret));
+        }
+        assertTrue(JSON.readTree(entries.get("task.json")).path("task").asText().contains("Process 6 tokens"));
+        assertEquals(6, JSON.readTree(entries.get("tool-calls.jsonl")).at("/arguments/tokens").asInt());
+        assertEquals(6, JSON.readTree(entries.get("editor-observations.json")).at("/current_controls/tokens").asInt());
+        assertArrayEquals(pnml.getBytes(StandardCharsets.UTF_8), entries.get("model.pnml"));
+        assertEquals("opaque_call_credential", arguments.get("mcp_token"));
+        assertTrue(request.title().contains("opaque_title_credential"));
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void unsupportedConversationRolesAreRejected() {
         new TrainingExportRequest("Title", "Task", null, null, null, null,

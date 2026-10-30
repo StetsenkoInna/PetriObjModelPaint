@@ -23,6 +23,8 @@ The bundle follows the shared
 `manifest.json` lists the application and shared-skills versions, capture scope,
 missing observations and a SHA256 for every other artifact. Unknown source revisions
 remain null. No conversation, tool result or successful validation is invented.
+Credential-shaped values in textual metadata are redacted before writing the archive.
+Model PNML, image bytes and numeric token counts retain their original values.
 
 The geometry is marked `unverified`. Its body bounds can include elements hidden by
 the current canvas view and are not reviewed detection labels. The image transform is

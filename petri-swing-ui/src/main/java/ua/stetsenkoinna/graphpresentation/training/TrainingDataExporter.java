@@ -42,6 +42,7 @@ public final class TrainingDataExporter {
     public ExportResult export(Path directory, TrainingExportRequest request) throws Exception {
         TrainingSnapshot snapshot = capture(request.includeScreenshot());
         Instant createdAt = clock.instant();
+        String title = TrainingMetadataRedactor.redactText(request.title());
         List<Artifact> artifacts = new ArrayList<>();
         List<Map<String, String>> missing = new ArrayList<>();
         Map<String, Object> task = new LinkedHashMap<>();
@@ -49,7 +50,7 @@ public final class TrainingDataExporter {
         task.put("clarifications", request.clarifications());
         task.put("assumptions", request.assumptions());
         task.put("acceptance", request.acceptance());
-        artifacts.add(json("task.json", "User-supplied task, clarifications, assumptions and acceptance criteria", task));
+        artifacts.add(json("task.json", "User-supplied task, clarifications, assumptions and acceptance criteria", TrainingMetadataRedactor.redact(task)));
         artifacts.add(new Artifact("model.pnml", "application/xml", "Current document serialized by the editor's PNML writer", snapshot.modelPnml().getBytes(StandardCharsets.UTF_8)));
         artifacts.add(new Artifact("conversation.jsonl", "application/x-ndjson", "Actual messages supplied by the external client; no inferred private reasoning", jsonLines(request.conversation())));
         if (request.task() == null) missing.add(missing("task.json.task", "No task description was supplied"));
@@ -66,7 +67,7 @@ public final class TrainingDataExporter {
         missing.add(missing("verification.json.checks", "No structured correctness checks were recorded for this snapshot"));
         missing.add(missing("verification.json.simulation", "No structured simulation run tied to this exact snapshot was recorded; editor panels are raw observations only"));
         if (!snapshot.observations().isEmpty()) {
-            artifacts.add(json("editor-observations.json", "Raw editor controls, potentially stale output and viewport metadata; not verification results", snapshot.observations()));
+            artifacts.add(json("editor-observations.json", "Raw editor controls, potentially stale output and viewport metadata; not verification results", TrainingMetadataRedactor.redact(snapshot.observations())));
         }
         if (snapshot.networkImage() != null) {
             artifacts.add(new Artifact("network.png", "image/png", "Existing active-canvas rendering without window chrome; current collapsed/focused visibility is preserved", snapshot.networkImage().png()));
@@ -79,7 +80,7 @@ public final class TrainingDataExporter {
         }
         Map<String, Object> manifest = new LinkedHashMap<>();
         manifest.put("schema_version", "1.0");
-        manifest.put("title", request.title());
+        manifest.put("title", title);
         manifest.put("created_at", createdAt.toString());
         manifest.put("app", Map.of("name", "PetriObjModelPaint", "version", appVersion()));
         manifest.put("shared_skills", sharedSkills());
@@ -97,13 +98,13 @@ public final class TrainingDataExporter {
 
         Path destination = directory.toAbsolutePath().normalize();
         Files.createDirectories(destination);
-        String baseName = "training-" + slug(request.title()) + "-" + FILE_TIME.format(createdAt);
+        String baseName = "training-" + slug(title) + "-" + FILE_TIME.format(createdAt);
         Path target = destination.resolve(baseName + ".zip");
         if (Files.exists(target)) target = destination.resolve(baseName + "-" + UUID.randomUUID().toString().substring(0, 8) + ".zip");
         Path temporary = Files.createTempFile(destination, ".petri-training-", ".tmp");
         try {
             try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(temporary), StandardCharsets.UTF_8)) {
-                write(zip, "manifest.json", JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(manifest), createdAt);
+                write(zip, "manifest.json", JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(TrainingMetadataRedactor.redact(manifest)), createdAt);
                 for (Artifact artifact : artifacts) write(zip, artifact.name(), artifact.content(), createdAt);
             }
             Files.move(temporary, target);
@@ -137,7 +138,7 @@ public final class TrainingDataExporter {
 
     private static byte[] jsonLines(List<Map<String, Object>> records) throws Exception {
         StringBuilder output = new StringBuilder();
-        for (Map<String, Object> record : records) output.append(JSON.writeValueAsString(record)).append('\n');
+        for (Map<String, Object> record : records) output.append(JSON.writeValueAsString(TrainingMetadataRedactor.redact(record))).append('\n');
         return output.toString().getBytes(StandardCharsets.UTF_8);
     }
 
