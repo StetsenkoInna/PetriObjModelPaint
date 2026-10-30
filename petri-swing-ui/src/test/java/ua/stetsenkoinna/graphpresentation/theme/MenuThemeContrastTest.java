@@ -25,6 +25,10 @@ public class MenuThemeContrastTest {
             ThemeMode original = ThemeManager.currentMode();
             JFrame frame = null;
             try {
+                ThemeManager.applyMode(ThemeMode.LIGHT);
+                JMenu cachedMenu = new JMenu("Cached menu");
+                cachedMenu.add(new JMenuItem("Cached item"));
+                render(cachedMenu.getPopupMenu());
                 ThemeManager.applyMode(ThemeMode.DARK);
                 frame = new JFrame();
                 ThemedMenuBar bar = new ThemedMenuBar();

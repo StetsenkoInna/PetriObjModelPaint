@@ -197,17 +197,7 @@ public final class ThemeManager {
 
     private static void refreshOpenWindows(ThemeVariant variant) {
         Set<Component> popupComponents = Collections.newSetFromMap(new IdentityHashMap<>());
-        UIDefaults menuOverrides = null;
-        if (variant.isDark()) {
-            menuOverrides = new UIDefaults();
-            for (Map.Entry<String, Object> entry : darkDefaults().entrySet()) {
-                String key = entry.getKey();
-                if (key.startsWith("Menu") || key.startsWith("PopupMenu")
-                        || key.startsWith("CheckBoxMenuItem") || key.startsWith("RadioButtonMenuItem")) {
-                    menuOverrides.put(key, entry.getValue());
-                }
-            }
-        }
+        UIDefaults menuOverrides = menuOverrides(variant);
         for (Window window : Window.getWindows()) {
             if (!window.isDisplayable()) continue;
             SwingUtilities.updateComponentTreeUI(window);
@@ -224,12 +214,44 @@ public final class ThemeManager {
         }
     }
 
+    static void initializeMenu(Component menu) {
+        refreshDetachedPopups(menu, Collections.newSetFromMap(new IdentityHashMap<>()),
+                menuOverrides(currentVariant));
+    }
+
+    private static UIDefaults menuOverrides(ThemeVariant variant) {
+        UIDefaults menuOverrides = null;
+        if (variant.isDark()) {
+            menuOverrides = new UIDefaults();
+            UIDefaults installed = UIManager.getLookAndFeelDefaults();
+            for (Object entry : installed.keySet()) {
+                if (entry instanceof String key && isMenuKey(key)) {
+                    menuOverrides.put(key, installed.get(key));
+                }
+            }
+            for (Map.Entry<String, Object> entry : darkDefaults().entrySet()) {
+                String key = entry.getKey();
+                if (isMenuKey(key)) {
+                    menuOverrides.put(key, entry.getValue());
+                }
+            }
+        }
+        return menuOverrides;
+    }
+
+    private static boolean isMenuKey(String key) {
+        return key.startsWith("Menu") || key.startsWith("PopupMenu")
+                || key.startsWith("CheckBoxMenuItem") || key.startsWith("RadioButtonMenuItem");
+    }
+
     private static void refreshDetachedPopups(Component component, Set<Component> visited, UIDefaults menuOverrides) {
         if (!visited.add(component)) return;
         if (component instanceof JComponent control) {
             if (control instanceof javax.swing.JMenuItem || control instanceof JPopupMenu) {
                 if (menuOverrides != null) {
-                    control.putClientProperty("Nimbus.Overrides.InheritDefaults", true);
+                    // Nimbus merges inherited overrides into its shared style defaults.
+                    // A complete local table keeps them from leaking into the next theme.
+                    control.putClientProperty("Nimbus.Overrides.InheritDefaults", false);
                     control.putClientProperty("Nimbus.Overrides", menuOverrides);
                     control.putClientProperty("petri.darkMenuOverrides", true);
                 } else if (Boolean.TRUE.equals(control.getClientProperty("petri.darkMenuOverrides"))) {

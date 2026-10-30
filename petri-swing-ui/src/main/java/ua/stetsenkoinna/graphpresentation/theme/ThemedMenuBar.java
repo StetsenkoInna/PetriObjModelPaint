@@ -30,6 +30,7 @@ public class ThemedMenuBar extends JMenuBar {
     protected void addImpl(Component component, Object constraints, int index) {
         super.addImpl(component, constraints, index);
         if (component instanceof JMenuItem item) {
+            ThemeManager.initializeMenu(item);
             // Nimbus gives submenus and bare actions different padding by default.
             item.setMargin(new Insets(0, 0, 0, 0));
             item.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 10));
