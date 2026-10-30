@@ -55,30 +55,43 @@ public final class McpToolRegistry {
     }
 
     private static void validate(JsonNode args, JsonNode schema) {
-        if (!args.isObject()) throw new IllegalArgumentException("Arguments must be an object");
-        for (JsonNode required : schema.path("required")) {
-            if (!args.has(required.asText())) throw new IllegalArgumentException("Missing argument: " + required.asText());
+        validate(args, schema, "arguments");
+    }
+
+    private static void validate(JsonNode value, JsonNode property, String path) {
+        boolean valid = switch (property.path("type").asText()) {
+            case "string" -> value.isTextual();
+            case "integer" -> value.isIntegralNumber() && value.canConvertToInt();
+            case "number" -> value.isNumber();
+            case "boolean" -> value.isBoolean();
+            case "array" -> value.isArray();
+            case "object" -> value.isObject();
+            default -> false;
+        };
+        if (!valid) throw new IllegalArgumentException("Invalid type for: " + path);
+        if (property.has("enum")) {
+            boolean found = false;
+            for (JsonNode allowed : property.get("enum")) if (allowed.equals(value)) found = true;
+            if (!found) throw new IllegalArgumentException("Invalid value for: " + path);
         }
-        args.fields().forEachRemaining(field -> {
-            JsonNode property = schema.path("properties").path(field.getKey());
-            if (property.isMissingNode()) throw new IllegalArgumentException("Unknown argument: " + field.getKey());
-            JsonNode value = field.getValue();
-            boolean valid = switch (property.path("type").asText()) {
-                case "string" -> value.isTextual();
-                case "integer" -> value.isIntegralNumber() && value.canConvertToInt();
-                case "number" -> value.isNumber();
-                default -> false;
-            };
-            if (!valid) throw new IllegalArgumentException("Invalid type for: " + field.getKey());
-            if (property.has("enum")) {
-                boolean found = false;
-                for (JsonNode allowed : property.get("enum")) if (allowed.equals(value)) found = true;
-                if (!found) throw new IllegalArgumentException("Invalid value for: " + field.getKey());
+        if (value.isNumber() && ((property.has("minimum") && value.asDouble() < property.get("minimum").asDouble())
+                || (property.has("maximum") && value.asDouble() > property.get("maximum").asDouble()))) {
+            throw new IllegalArgumentException("Out of range: " + path);
+        }
+        if (value.isArray()) {
+            for (int i = 0; i < value.size(); i++) {
+                validate(value.get(i), property.path("items"), path + "[" + i + "]");
             }
-            if (value.isNumber() && ((property.has("minimum") && value.asDouble() < property.get("minimum").asDouble())
-                    || (property.has("maximum") && value.asDouble() > property.get("maximum").asDouble()))) {
-                throw new IllegalArgumentException("Out of range: " + field.getKey());
+        }
+        if (value.isObject()) {
+            for (JsonNode required : property.path("required")) {
+                if (!value.has(required.asText())) throw new IllegalArgumentException("Missing argument: " + path + "." + required.asText());
             }
-        });
+            value.fields().forEachRemaining(field -> {
+                JsonNode child = property.path("properties").path(field.getKey());
+                if (child.isMissingNode()) throw new IllegalArgumentException("Unknown argument: " + path + "." + field.getKey());
+                validate(field.getValue(), child, path + "." + field.getKey());
+            });
+        }
     }
 }
