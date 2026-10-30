@@ -134,7 +134,7 @@ public class DesktopMcpServerTest {
         assertTrue(initialized.path("capabilities").has("resources"));
         assertTrue(initialized.path("capabilities").has("prompts"));
         JsonNode resources = rpc("resources/list", Map.of()).at("/result/resources");
-        assertEquals(4, resources.size());
+        assertEquals(6, resources.size());
         for (JsonNode resource : resources) {
             JsonNode contents = rpc("resources/read", Map.of("uri", resource.get("uri").asText())).at("/result/contents/0");
             assertEquals("text/markdown", contents.path("mimeType").asText());

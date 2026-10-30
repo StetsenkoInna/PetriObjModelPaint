@@ -25,6 +25,9 @@ public final class DesktopMcpServer implements AutoCloseable {
     private HttpServer server;
     private ExecutorService executor;
     private String token;
+    private final java.util.ArrayDeque<Map<String, Object>> trainingCalls = new java.util.ArrayDeque<>();
+    private int trainingCallBytes;
+    private boolean trainingCallsTruncated;
 
     public DesktopMcpServer(Object... services) {
         this.tools = new McpToolRegistry(services);
@@ -74,6 +77,42 @@ public final class DesktopMcpServer implements AutoCloseable {
 
     public List<String> toolNames() {
         return tools.list().stream().map(tool -> (String) tool.get("name")).toList();
+    }
+
+    public synchronized List<Map<String, Object>> trainingToolCalls() {
+        return JSON.convertValue(List.copyOf(trainingCalls), new com.fasterxml.jackson.core.type.TypeReference<>() { });
+    }
+
+    public synchronized String trainingToolCaptureNote() {
+        return "Only actual ui_action requests during this application process are recorded. "
+                + "Queued results do not prove action completion. UI inspection, screenshots and exports are excluded. "
+                + "The editor cannot observe the client's private conversation or complete session history. "
+                + (trainingCallsTruncated ? "Older calls were discarded at the 200-call/1 MiB limit." : "No recorder limit was reached.");
+    }
+
+    private synchronized void recordTrainingCall(JsonNode arguments, Object result) {
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("tool", "ui_action");
+        String redacted = arguments.toString();
+        if (token != null) redacted = redacted.replace(token, "[REDACTED]");
+        try {
+            entry.put("arguments", JSON.readValue(redacted, Map.class));
+            String resultJson = JSON.writeValueAsString(result);
+            if (token != null) resultJson = resultJson.replace(token, "[REDACTED]");
+            entry.put("result", JSON.readValue(resultJson, Object.class));
+            entry.put("timestamp", java.time.Instant.now().toString());
+            entry.put("origin", "application");
+            int bytes = JSON.writeValueAsBytes(entry).length;
+            if (bytes > 1_048_576) { trainingCallsTruncated = true; return; }
+            trainingCalls.addLast(entry);
+            trainingCallBytes += bytes;
+            while (trainingCalls.size() > 200 || trainingCallBytes > 1_048_576) {
+                trainingCallBytes -= JSON.writeValueAsBytes(trainingCalls.removeFirst()).length;
+                trainingCallsTruncated = true;
+            }
+        } catch (IOException ex) {
+            trainingCallsTruncated = true;
+        }
     }
 
     @Override
@@ -177,6 +216,9 @@ public final class DesktopMcpServer implements AutoCloseable {
                 } catch (Exception ex) {
                     result = Map.of("isError", true, "content", List.of(Map.of(
                             "type", "text", "text", ex.getMessage() == null ? ex.toString() : ex.getMessage())));
+                }
+                if ("ui_action".equals(params.path("name").asText()) && params.path("arguments").isObject()) {
+                    recordTrainingCall(params.path("arguments"), result);
                 }
             }
             default -> {

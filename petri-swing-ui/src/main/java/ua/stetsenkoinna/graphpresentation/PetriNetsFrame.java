@@ -57,12 +57,20 @@ import ua.stetsenkoinna.pnml.PnmlModelGenerator;
 import ua.stetsenkoinna.pnml.PnmlModelParser;
 import ua.stetsenkoinna.theme.ThemeMode;
 import ua.stetsenkoinna.theme.ThemeVariant;
+import ua.stetsenkoinna.graphpresentation.ai.TrainingDataTools;
+import ua.stetsenkoinna.graphpresentation.training.FrameTrainingCapture;
+import ua.stetsenkoinna.graphpresentation.training.NetworkImageDialog;
+import ua.stetsenkoinna.graphpresentation.training.TrainingDataDialog;
+import ua.stetsenkoinna.graphpresentation.training.TrainingDataExporter;
+import ua.stetsenkoinna.graphpresentation.training.TrainingSnapshot;
 import ua.stetsenkoinna.utils.MessageHelper;
 
 public class PetriNetsFrame extends javax.swing.JFrame {
+    private final TrainingDataExporter trainingDataExporter = new TrainingDataExporter(this::captureTrainingSnapshot);
     private final ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer mcpServer =
             new ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer(
-                    new ua.stetsenkoinna.graphpresentation.ai.SwingUiBridge());
+                    new ua.stetsenkoinna.graphpresentation.ai.SwingUiBridge(),
+                    new TrainingDataTools(trainingDataExporter, this::getPetriNetsPanel));
     private ua.stetsenkoinna.graphpresentation.ai.McpDialog mcpDialog;
     private String mcpStartupFailure;
 
@@ -1586,6 +1594,13 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         exportPnmlMenuItem.addActionListener(this::exportPnmlMenuItemActionPerformed);
         fileMenu.add(exportPnmlMenuItem);
 
+        javax.swing.JMenuItem exportImage = new javax.swing.JMenuItem("Export image...");
+        exportImage.addActionListener(event -> NetworkImageDialog.export(this));
+        fileMenu.add(exportImage);
+        javax.swing.JMenuItem exportTraining = new javax.swing.JMenuItem("Export training data...");
+        exportTraining.addActionListener(event -> new TrainingDataDialog(this, trainingDataExporter).setVisible(true));
+        fileMenu.add(exportTraining);
+
         fileMenu.addSeparator();
 
         legacyMenu = new javax.swing.JMenu("Legacy formats");
@@ -2569,6 +2584,17 @@ public class PetriNetsFrame extends javax.swing.JFrame {
 
     public String getNameNet() {
         return netNameTextField.getText();
+    }
+
+    public TrainingSnapshot captureTrainingSnapshot(boolean includeScreenshot) throws Exception {
+        java.util.Map<String, Object> controls = new java.util.LinkedHashMap<>();
+        controls.put("time_start_text", timeStartField.getText());
+        controls.put("simulation_horizon_text", timeModelingTextField.getText());
+        controls.put("time_unit_label", timeUnitControl.getScale().chipLabel());
+        controls.put("number_of_runs", getNumberOfRuns());
+        TrainingSnapshot snapshot = FrameTrainingCapture.capture(this, controls, protocolTextArea.getText(),
+                statisticsTextArea.getText(), includeScreenshot);
+        return mcpServer == null ? snapshot : snapshot.withToolCalls(mcpServer.trainingToolCalls(), mcpServer.trainingToolCaptureNote());
     }
 
     public PetriNetsPanel getPetriNetsPanel() {

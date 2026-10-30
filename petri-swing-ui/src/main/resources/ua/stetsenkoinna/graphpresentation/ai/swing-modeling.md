@@ -1,6 +1,7 @@
 # Swing editor adapter
 
-The available desktop tools are `inspect_ui`, `screenshot` and `ui_action`.
+The available desktop tools include `inspect_ui`, `screenshot`, `ui_action`,
+`export_training_data` and `export_network_image`.
 The shared modeling guides describe concepts, not additional tool names.
 
 Inspect the current document and windows before choosing an action. Use the component
@@ -23,3 +24,10 @@ existing-file save still asks for confirmation. Do not assume a queued action su
 Run and save through the existing application actions. Check the visible error and
 simulation output, and report the checks actually performed. Shared knowledge does
 not grant an unavailable pattern builder, validator, export tool or chart tool.
+
+When requested, use `export_network_image` for a standalone image of the active
+canvas or `export_training_data` for the current PNML and supplied session context.
+Supply only actual conversation messages. A bundle is unreviewed by default;
+export success is not a passed model check. Geometry is unverified rather than
+reviewed detector labeling. Follow `petri://skills/petri-training-export` for the
+shared archive contract.
