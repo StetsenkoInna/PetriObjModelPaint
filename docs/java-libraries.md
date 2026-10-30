@@ -58,6 +58,8 @@ libraries. Publishing the libraries does not replace the Python simulator in
 Petri Net Sim. That application can use the server adapter when a shared Java
 simulation backend is desired.
 
-Running the Build Java library distribution workflow manually builds review
-artifacts only. Repository publication and release uploads run only after an
-existing GitHub Release is published. The workflow does not create releases or tags.
+Running the Build Java library distribution workflow manually with an empty
+`release_tag` builds review artifacts only. To repair a failed publication, set
+`release_tag` to an existing published tag, for example `v2.4.0`: the workflow
+builds that tag and publishes its packages. Normal publication runs when a
+GitHub Release is published. The workflow does not create releases or tags.
