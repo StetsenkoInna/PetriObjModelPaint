@@ -379,7 +379,7 @@ public class PetriT extends PetriMainElement implements Cloneable, Serializable 
             a = generateTimeServ();
         }
         if (a < 0) {
-            LOGGER.warn("Negative time delay generated: time={}, transition={}", a, this.name);
+            log.warn("Negative time delay generated: time={}, transition={}", a, this.name);
         }
         return a;
     }
