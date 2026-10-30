@@ -4,7 +4,7 @@
  */
 package ua.stetsenkoinna.graphpresentation.statistic;
 
-import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
+import ua.stetsenkoinna.graphpresentation.SimulationFrame;
 import ua.stetsenkoinna.graphpresentation.theme.ThemeManager;
 import ua.stetsenkoinna.graphpresentation.theme.UiPalette;
 import ua.stetsenkoinna.theme.ThemeVariant;
@@ -45,7 +45,9 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     /**
      * Creates new form StatisticMonitorDialog
      */
-    public StatisticMonitorDialog(PetriNetsFrame parent, boolean modal) {
+    public StatisticMonitorDialog(ua.stetsenkoinna.graphpresentation.PetriNetsFrame parent, boolean modal) { this((SimulationFrame) parent, modal); }
+
+    public StatisticMonitorDialog(SimulationFrame parent, boolean modal) {
         super(parent, modal);
         this.parent = parent;
         this.jfxPanel = new JFXPanel();
@@ -168,6 +170,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         formulaInputField.setFont(new Font("Consolas", Font.PLAIN, 14));
         formulaInputField.setToolTipText("Enter your formula...");
         formulaInputField.setPreferredSize(new java.awt.Dimension(232, 20));
+        formulaInputField.getAccessibleContext().setAccessibleName("Monitor formula");
         formulaInputField.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {

@@ -29,14 +29,14 @@ public final class FrameTrainingCapture {
         PetriNetsPanel panel = frame.getPetriNetsPanel();
         panel.getCanvasModel().setName(frame.getNameNet());
         String pnml = new PnmlModelGenerator().generateXml(panel.getCanvasModel().toObjModel());
-        NetworkImageExporter.RenderedImage network = new NetworkImageExporter().render(panel);
+        NetworkImageExporter.TrainingImages images = new NetworkImageExporter().renderTrainingImages(panel);
         Map<String, Object> observations = new LinkedHashMap<>();
         observations.put("captured_at", Instant.now().toString());
         observations.put("provenance", "Visible editor text and current controls only; output may predate model edits and is not a verified simulation run.");
         observations.put("current_controls", controls);
         observations.put("protocol_text", protocol == null ? "" : protocol);
         observations.put("statistics_text", statistics == null ? "" : statistics);
-        observations.put("network_image_scope", "Existing active-canvas painter, including its current collapsed/focused visibility. Geometry is unverified and is not ready-made detector labeling.");
+        observations.put("network_image_scope", "Complete document and one expanded subtree per object, rendered on an independent copy. Geometry remains unverified.");
         observations.put("source_nodes", sourceNodes(panel));
         Map<String, Object> viewport = new LinkedHashMap<>();
         viewport.put("coordinate_system", "Swing logical pixels; canvas model positions are scaled by zoom");
@@ -70,8 +70,8 @@ public final class FrameTrainingCapture {
             observations.put("qa_screenshot", Map.of("file", "screenshot.png", "width", image.getWidth(),
                     "height", image.getHeight(), "coordinate_system", "main-frame Swing logical pixels; owned dialogs are excluded"));
         }
-        return new TrainingSnapshot(pnml, observations, network, screenshot, List.of(),
-                "The editor does not observe the external client's complete MCP history or private reasoning");
+        return new TrainingSnapshot(pnml, observations, images.overview(), screenshot, List.of(),
+                "The editor does not observe the external client's complete MCP history or private reasoning", images.objects());
     }
 
     private static List<Map<String, Object>> sourceNodes(PetriNetsPanel panel) {

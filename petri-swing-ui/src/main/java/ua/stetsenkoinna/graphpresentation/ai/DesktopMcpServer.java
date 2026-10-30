@@ -93,21 +93,35 @@ public final class DesktopMcpServer implements AutoCloseable {
         return JSON.convertValue(List.copyOf(trainingCalls), new com.fasterxml.jackson.core.type.TypeReference<>() { });
     }
 
+    public synchronized void clearTrainingToolCalls() {
+        trainingCalls.clear(); trainingCallBytes = 0; trainingCallsTruncated = false;
+    }
+
     public synchronized String trainingToolCaptureNote() {
-        return "Only actual ui_action requests during this application process are recorded. "
-                + "Queued results do not prove action completion. UI inspection, screenshots and exports are excluded. "
+        return "Actual ui_action and training-bundle open/review/image/comparison/export requests since this document was opened are recorded. "
+                + "Queued results do not prove action completion. Image responses store hashes instead of image bytes; general UI inspection and screenshots are excluded. "
+                + "A snapshot precedes its own export response; that call can appear in the next snapshot. Direct mouse/keyboard editing is not an action-by-action recorder. "
                 + "The editor cannot observe the client's private conversation or complete session history. "
                 + (trainingCallsTruncated ? "Older calls were discarded at the 200-call/1 MiB limit." : "No recorder limit was reached.");
     }
 
-    private synchronized void recordTrainingCall(JsonNode arguments, Object result) {
+    private synchronized void recordTrainingCall(String tool, JsonNode arguments, Object result) {
         Map<String, Object> entry = new LinkedHashMap<>();
-        entry.put("tool", "ui_action");
+        entry.put("tool", tool);
         String redacted = arguments.toString();
         if (token != null) redacted = redacted.replace(token, "[REDACTED]");
         try {
             entry.put("arguments", JSON.readValue(redacted, Map.class));
-            String resultJson = JSON.writeValueAsString(result);
+            Object recorded = result;
+            if ("training_bundle_image".equals(tool)) {
+                JsonNode payload = JSON.valueToTree(result);
+                if ("image".equals(payload.at("/content/0/type").asText())) {
+                    byte[] png = Base64.getDecoder().decode(payload.at("/content/0/data").asText());
+                    recorded = Map.of("image_path", arguments.path("image_path").asText(), "mime_type", "image/png", "byte_count", png.length,
+                            "sha256", java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(png)));
+                }
+            }
+            String resultJson = JSON.writeValueAsString(recorded);
             if (token != null) resultJson = resultJson.replace(token, "[REDACTED]");
             entry.put("result", JSON.readValue(resultJson, Object.class));
             entry.put("timestamp", java.time.Instant.now().toString());
@@ -120,7 +134,7 @@ public final class DesktopMcpServer implements AutoCloseable {
                 trainingCallBytes -= JSON.writeValueAsBytes(trainingCalls.removeFirst()).length;
                 trainingCallsTruncated = true;
             }
-        } catch (IOException ex) {
+        } catch (Exception ex) {
             trainingCallsTruncated = true;
         }
     }
@@ -203,7 +217,7 @@ public final class DesktopMcpServer implements AutoCloseable {
                     "serverInfo", Map.of("name", "PetriObjModelPaint Desktop", "version", "1.0"),
                     "instructions", "Control the running Swing editor. For model design read the shared resources at "
                             + "petri://skills/petri-modeling, petri://skills/petri-patterns and petri://skills/pnml-standard, "
-                            + "or use the build_petri_model prompt. Inspect UI before actions; use returned component IDs. "
+                            + "or use the build_petri_model prompt. For ZIP review use review_petri_model or read petri://desktop/training-review. Inspect UI before actions; use returned component IDs. "
                             + "Actions are queued on the UI thread; inspect again to observe completion and dialogs. "
                             + "Coordinates are relative to the chosen component. File choosers may be native OS windows.");
             case "ping" -> result = Map.of();
@@ -228,8 +242,10 @@ public final class DesktopMcpServer implements AutoCloseable {
                     result = Map.of("isError", true, "content", List.of(Map.of(
                             "type", "text", "text", ex.getMessage() == null ? ex.toString() : ex.getMessage())));
                 }
-                if ("ui_action".equals(params.path("name").asText()) && params.path("arguments").isObject()) {
-                    recordTrainingCall(params.path("arguments"), result);
+                String tool = params.path("name").asText();
+                if (java.util.Set.of("ui_action", "open_training_bundle", "inspect_training_bundle", "training_bundle_image", "compare_training_revisions", "export_training_review", "export_training_data", "export_network_image").contains(tool)
+                        && params.path("arguments").isObject()) {
+                    recordTrainingCall(tool, params.path("arguments"), result);
                 }
             }
             default -> {

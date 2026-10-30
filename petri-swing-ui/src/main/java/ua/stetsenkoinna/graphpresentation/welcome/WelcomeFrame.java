@@ -110,6 +110,26 @@ public class WelcomeFrame extends JFrame {
 
         configureList();
         refreshList();
+        java.awt.dnd.DropTargetAdapter projectDrop = new java.awt.dnd.DropTargetAdapter() {
+            @Override public void drop(java.awt.dnd.DropTargetDropEvent event) {
+                try {
+                    if (!event.isDataFlavorSupported(java.awt.datatransfer.DataFlavor.javaFileListFlavor)) { event.rejectDrop(); return; }
+                    event.acceptDrop(java.awt.dnd.DnDConstants.ACTION_COPY);
+                    @SuppressWarnings("unchecked")
+                    List<File> files = (List<File>) event.getTransferable().getTransferData(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+                    boolean opened = files.size() == 1 && files.getFirst().isFile()
+                            && files.getFirst().getName().toLowerCase(java.util.Locale.ROOT).matches(".*\\.(pnml|xml|zip)$")
+                            && onOpenProject.test(files.getFirst());
+                    event.dropComplete(opened);
+                    if (opened) dispose();
+                } catch (Exception failure) {
+                    event.dropComplete(false);
+                    MessageHelper.showException(WelcomeFrame.this, "Could not open the dropped project", failure);
+                }
+            }
+        };
+        new java.awt.dnd.DropTarget(getContentPane(), projectDrop);
+        new java.awt.dnd.DropTarget(list, projectDrop);
 
         setSize(900, 600);
         setLocationRelativeTo(null);
@@ -333,8 +353,7 @@ public class WelcomeFrame extends JFrame {
     }
 
     private void openViaChooser() {
-        File selected = FileDialogs.openAmong(this, "Open project",
-                java.util.List.of(FileDialogs.MODEL, FileDialogs.ANY), null);
+        File selected = FileDialogs.open(this, "Open project", FileDialogs.PROJECT, null);
         if (selected != null && onOpenProject.test(selected)) {
             dispose();
         }
@@ -365,8 +384,7 @@ public class WelcomeFrame extends JFrame {
     }
 
     private void locateRecent(RecentProjectEntry entry) {
-        File selected = FileDialogs.openAmong(this, "Locate project",
-                List.of(FileDialogs.MODEL, FileDialogs.ANY), null);
+        File selected = FileDialogs.open(this, "Locate project", FileDialogs.PROJECT, null);
         if (selected != null && onOpenProject.test(selected)) {
             store.relocate(entry.getId(), selected.toPath());
             dispose();

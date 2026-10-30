@@ -4,7 +4,7 @@ import ua.stetsenkoinna.graphnet.GraphPetriNet;
 import ua.stetsenkoinna.graphnet.GraphPetriObjModel;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
-import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
+import ua.stetsenkoinna.graphpresentation.SimulationFrame;
 import ua.stetsenkoinna.api.dto.PetriElementStatisticDto;
 import ua.stetsenkoinna.api.enums.PetriStatisticFunction;
 
@@ -23,14 +23,16 @@ import org.slf4j.LoggerFactory;
  */
 public class FormulaBuilderServiceImpl implements FormulaBuilderService {
     private static final Logger log = LoggerFactory.getLogger(FormulaBuilderServiceImpl.class);
-    private PetriNetsFrame petriNetParent;
+    private SimulationFrame petriNetParent;
     private static final List<String> OPERATORS = Arrays.asList("+", "-", "*", "/");
     private static final Pattern VALID_CHARACTERS = Pattern.compile("^[A-Za-z0-9_.;() +\\-*/\\u0400-\\u04FF]*$");
     private static final Pattern FUNCTION_CALL_PATTERN = Pattern.compile("([A-Z_0-9]+)\\(([^()]*?(?:;[^()]*?)*)\\)");
     private static final Pattern DIVISION_BY_ZERO = Pattern.compile("/\\s*0(?!\\.[0-9])");
     private static final Pattern ARGUMENT_WITH_ID_PATTERN = Pattern.compile( "^O(\\d+)\\.(.+)$");
 
-    public FormulaBuilderServiceImpl(PetriNetsFrame parent) {
+    public FormulaBuilderServiceImpl(ua.stetsenkoinna.graphpresentation.PetriNetsFrame parent) { this((SimulationFrame) parent); }
+
+    public FormulaBuilderServiceImpl(SimulationFrame parent) {
         this.petriNetParent = parent;
     }
 

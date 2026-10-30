@@ -1,6 +1,7 @@
 package ua.stetsenkoinna.graphpresentation.dragndrop;
 
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
+import ua.stetsenkoinna.graphpresentation.PetriNetsFrame;
 import ua.stetsenkoinna.utils.MessageHelper;
 
 import javax.swing.*;
@@ -15,7 +16,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Unified handler for multiple file format drag and drop operations.
- * Supports both PNML and PNS file formats by delegating to specialized handlers.
+ * Opens training ZIPs as complete review documents; PNML/PNS retain their merge behavior.
  *
  * This unified approach allows multiple file types to be handled by a single
  * DropTarget, avoiding conflicts when multiple handlers are registered.
@@ -95,14 +96,23 @@ public class UnifiedDropHandler implements DropTargetListener {
             @SuppressWarnings("unchecked")
             List<File> droppedFiles = (List<File>) transferable.getTransferData(DataFlavor.javaFileListFlavor);
 
-            Point dropLocation = dtde.getLocation();
+            if (droppedFiles.stream().anyMatch(PetriNetsFrame::isTrainingArchive)) {
+                if (droppedFiles.size() != 1 || !(parentFrame instanceof PetriNetsFrame frame)) {
+                    MessageHelper.showError(parentFrame, "Open one training archive at a time.");
+                    dtde.dropComplete(false);
+                } else dtde.dropComplete(frame.openTrainingArchiveFromUi(droppedFiles.getFirst()));
+                return;
+            }
+
+            Point dropLocation = SwingUtilities.convertPoint(dtde.getDropTargetContext().getComponent(), dtde.getLocation(), panel);
+            dropLocation = new Point(Math.max(0, dropLocation.x), Math.max(0, dropLocation.y));
             boolean atLeastOneSuccess = false;
 
             // Process each dropped file
             for (File file : droppedFiles) {
-                String fileName = file.getName().toLowerCase();
+                String fileName = file.getName().toLowerCase(java.util.Locale.ROOT);
 
-                if (fileName.endsWith(".pnml")) {
+                if (fileName.endsWith(".pnml") || fileName.endsWith(".xml")) {
                     // Delegate to PNML handler
                     LOGGER.info("Processing PNML file: {}", file.getName());
                     if (importPnmlFile(file, dropLocation)) {
@@ -122,7 +132,8 @@ public class UnifiedDropHandler implements DropTargetListener {
                     MessageHelper.showError(parentFrame,
                         "Unsupported file type: " + file.getName() + "\n\n" +
                         "Supported formats:\n" +
-                        "  • .pnml (Petri Net Markup Language)\n" +
+                        "  • .pnml / .xml (Petri net model)\n" +
+                        "  • .zip (Training archive)\n" +
                         "  • .pns (Petri Net Serialized)");
                 }
             }

@@ -14,7 +14,7 @@ public class GraphPetriNetBackupHolder {
     private static GraphPetriNetBackupHolder instance;
     private GraphCanvasModel canvasModel = null;
 
-    private GraphPetriNetBackupHolder() {}
+    public GraphPetriNetBackupHolder() {}
 
     public static GraphPetriNetBackupHolder getInstance() {
         if (instance == null) {

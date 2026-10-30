@@ -146,7 +146,20 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private List<GraphObjectFrame> copiedFrames = new ArrayList<>();
 
     /** False for a panel that only displays a net, e.g. while animating a whole model. */
+    public enum Mode { EDIT, REVIEW, PREVIEW }
+    private final Mode mode;
     private final boolean editable;
+    public boolean isDocumentEditable() { return editable; }
+    public Mode getMode() { return mode; }
+    private Point reviewStart;
+    private boolean reviewFindingMode;
+    private java.util.function.Consumer<Rectangle> reviewSelectionListener = area -> { };
+    private java.util.function.Consumer<Rectangle> reviewFindingHandler = area -> { };
+    public void setReviewSelectionListener(java.util.function.Consumer<Rectangle> listener) { reviewSelectionListener = listener; }
+    public void setReviewFindingHandler(java.util.function.Consumer<Rectangle> handler) { reviewFindingHandler = handler; }
+    public void setReviewFindingMode(boolean enabled) { reviewFindingMode = enabled; }
+
+    private boolean previewNavigationInstalled;
 
     /**
      * The canvas seen as a Petri-object model: the drawing above, plus the frames that mark
@@ -309,8 +322,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *        but not drawn on, which is what the per-object views of a Petri-object model
      *        animation need
      */
-    public PetriNetsPanel(JTextField textField, boolean editable) {
-        this.editable = editable;
+    public PetriNetsPanel(JTextField textField, boolean editable) { this(textField, editable ? Mode.EDIT : Mode.PREVIEW); }
+
+    public PetriNetsPanel(JTextField textField, Mode mode) {
+        this.mode = java.util.Objects.requireNonNull(mode);
+        this.editable = mode == Mode.EDIT;
         initComponents();
         applyTheme();
 
@@ -327,15 +343,14 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         nameTextField = textField;
         this.resetOwnState(); // починаємо заново створювати усі списки графічних елементів  //додано 3.12.2012
-        setFocusable(editable);
+        setFocusable(mode != Mode.PREVIEW);
 
         addMouseWheelListener(new MouseWheelHendler());
-        if (!editable) {
-            return;
-        }
+        if (mode == Mode.PREVIEW) return;
 
         addMouseListener(new MouseHandler());
         addMouseMotionListener(new MouseMotionHandler());
+        if (mode == Mode.REVIEW) return;
 
         this.addKeyListener(new KeyAdapter() {
             @Override
@@ -410,6 +425,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * recreated the frame.
      */
     public void pasteAction() {
+        if (!editable) return;
         pasteClipboard();
     }
 
@@ -1092,7 +1108,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *         between it and that focus collapsed or eye-hidden. The one predicate that decides
      *         what a canvas shows of the nesting hierarchy.
      */
-    private boolean isFrameDrawnOnThisCanvas(GraphObjectFrame frame) {
+    public boolean isFrameDrawnOnThisCanvas(GraphObjectFrame frame) {
         if (frame == null || frame == focusedFrame) {
             // Neither is a box this canvas paints. The net has no frame of its own, and the
             // object being edited is drawn as the net it holds rather than as a room around it,
@@ -1117,7 +1133,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *         object's net, a sibling object's, the free elements while an object is being edited
      *         - is simply not on this canvas.
      */
-    private boolean isDrawnOnThisCanvas(GraphElement element) {
+    public boolean isDrawnOnThisCanvas(GraphElement element) {
         GraphObjectFrame owner = canvasModel.ownerOf(element);
         if (owner == focusedFrame) {
             return true;
@@ -1987,6 +2003,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * it - a promise the documentation already made and the mechanism never kept.
      */
     public void duplicateSelection() {
+        if (!editable) return;
         // Ctrl+D on several objects is still one gesture, so it is one Ctrl+Z. Nested updates
         // collapse into a single edit at the outermost end, which is why duplicateObject can
         // group on its own as well without producing two.
@@ -2025,6 +2042,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * as the frame's own "Remove Petri-object frame", which says what it keeps.
      */
     public void deleteSelection() {
+        if (!editable) return;
         // The selected shared place goes first: it was the last thing clicked, and
         // splitting a link asks no confirmation - both places stay where they are.
         if (choosenFusion != null) {
@@ -3076,6 +3094,86 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         return scale;
     }
 
+    private Point reviewPoint(MouseEvent event) { return new Point((int) (event.getX() / scale), (int) (event.getY() / scale)); }
+
+    private void reviewPressed(MouseEvent event) {
+        requestFocusInWindow();
+        if (SwingUtilities.isMiddleMouseButton(event) || (tool == CanvasTool.PAN && SwingUtilities.isLeftMouseButton(event))) { beginPan(event); return; }
+        if (!SwingUtilities.isLeftMouseButton(event)) return;
+        Point point = reviewPoint(event);
+        GraphObjectFrame eye = frameEyeIconAt(point);
+        if (eye != null) { eye.setContentVisible(!eye.isContentVisible()); repaint(); return; }
+        reviewStart = point;
+        startDragMouseLocation = point; currentDragMouseLocation = point; leftMouseButtonPressed = true;
+    }
+    private void reviewDragged(MouseEvent event) {
+        if (panViewport != null) { updatePan(event); return; }
+        if (reviewStart != null) { currentDragMouseLocation = reviewPoint(event); repaint(); }
+    }
+    private void reviewReleased(MouseEvent event) {
+        if (panViewport != null) { endPan(); return; }
+        if (reviewStart == null || !SwingUtilities.isLeftMouseButton(event)) return;
+        Point end = reviewPoint(event);
+        Rectangle area = new Rectangle(Math.min(end.x, reviewStart.x), Math.min(end.y, reviewStart.y), Math.abs(end.x-reviewStart.x), Math.abs(end.y-reviewStart.y));
+        boolean click = area.width < 4 && area.height < 4;
+        GraphElement element = find(end);
+        if (click) area = element == null ? new Rectangle(end.x-4, end.y-4, 8, 8) : new Rectangle(element.getBounds());
+        reviewStart = null; startDragMouseLocation = null; currentDragMouseLocation = null; leftMouseButtonPressed = false;
+        selection.clear();
+        if (click && element != null) selection.elements().add(element);
+        else for (GraphElement node : canvasModel.getNet().getGraphPetriPlaceList()) { if (isDrawnOnThisCanvas(node) && area.intersects(node.getBounds())) selection.elements().add(node); }
+        if (!click) for (GraphElement node : canvasModel.getNet().getGraphPetriTransitionList()) { if (isDrawnOnThisCanvas(node) && area.intersects(node.getBounds())) selection.elements().add(node); }
+        reviewSelectionListener.accept(new Rectangle(area));
+        if (reviewFindingMode && event.getClickCount() < 2) reviewFindingHandler.accept(new Rectangle(area));
+        repaint();
+    }
+    private void reviewClicked(MouseEvent event) {
+        if (!SwingUtilities.isLeftMouseButton(event) || event.getClickCount() < 2 || tool == CanvasTool.PAN || reviewFindingMode) return;
+        Point point = reviewPoint(event); GraphElement element = find(point);
+        if (element instanceof GraphPetriPlace) { setPositionFrame.setInfo(element); setPositionFrame.setVisible(true); }
+        else if (element instanceof GraphPetriTransition) { setTransitionFrame.setInfo(element); setTransitionFrame.setVisible(true); }
+        else {
+            GraphArc arc = findArc(point);
+            if (arc != null) { setArcFrame.setInfo(arc); setArcFrame.setVisible(true); }
+            else { GraphObjectFrame frame = frameAt(point); if (frame != null) { openObjectCanvas(frame); fitDrawingToViewport(); } }
+        }
+    }
+
+    /** Same viewport navigation as the editor, without node dragging or editing listeners. */
+    private boolean previewSelectionMode;
+    public void setPreviewSelectionMode(boolean enabled) { previewSelectionMode = enabled; setCursor(Cursor.getPredefinedCursor(enabled ? Cursor.CROSSHAIR_CURSOR : Cursor.HAND_CURSOR)); }
+
+    public void enablePreviewNavigation() {
+        if (editable || previewNavigationInstalled) return;
+        previewNavigationInstalled = true;
+        setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        java.awt.event.MouseAdapter navigation = new java.awt.event.MouseAdapter() {
+            @Override public void mousePressed(MouseEvent event) {
+                if ((!previewSelectionMode && SwingUtilities.isLeftMouseButton(event)) || SwingUtilities.isMiddleMouseButton(event)) {
+                    beginPan(event); setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+                }
+            }
+            @Override public void mouseDragged(MouseEvent event) { if (panViewport != null) updatePan(event); }
+            @Override public void mouseReleased(MouseEvent event) { endPan(); setCursor(Cursor.getPredefinedCursor(previewSelectionMode ? Cursor.CROSSHAIR_CURSOR : Cursor.HAND_CURSOR)); }
+        };
+        addMouseListener(navigation); addMouseMotionListener(navigation);
+    }
+
+    public void fitDrawingToViewport() {
+        JViewport view = viewport();
+        if (view == null || view.getWidth() < 1 || view.getHeight() < 1) return;
+        Rectangle extent = null;
+        List<GraphElement> nodes = new ArrayList<>();
+        nodes.addAll(graphNet.getGraphPetriPlaceList()); nodes.addAll(graphNet.getGraphPetriTransitionList());
+        for (GraphElement node : nodes) if (isDrawnOnThisCanvas(node) && node.getBounds() != null) extent = extent == null ? new Rectangle(node.getBounds()) : extent.union(node.getBounds());
+        for (GraphObjectFrame frame : canvasModel.getFrames()) if (isFrameDrawnOnThisCanvas(frame) || frame == focusedFrame) extent = extent == null ? new Rectangle(frame.getBounds()) : extent.union(frame.getBounds());
+        if (extent == null) return;
+        extent.grow(80, 80);
+        scale = Math.max(0.05, Math.min(4, Math.min((view.getWidth() - 20.0) / Math.max(1, extent.width), (view.getHeight() - 20.0) / Math.max(1, extent.height))));
+        view.setViewPosition(new Point(Math.max(0, (int) (extent.x * scale)), Math.max(0, (int) (extent.y * scale))));
+        repaint();
+    }
+
     /**
      * Adds a net at the coordinates it already carries — the non-interactive counterpart of
      * {@link #placeNetInteractively}, for when there is nothing on the canvas to collide with
@@ -3771,6 +3869,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mousePressed(MouseEvent ev) {
+            if (mode == Mode.REVIEW) { reviewPressed(ev); return; }
             // Where the canvas takes focus: the user is demonstrably working on it, so its
             // keyboard shortcuts should reach it from here on.
             requestFocusInWindow();
@@ -4141,6 +4240,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseClicked(MouseEvent ev) {
+            if (mode == Mode.REVIEW) { reviewClicked(ev); return; }
             if (contextMenuShown) {
                 contextMenuShown = false;
                 return;
@@ -4268,6 +4368,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseReleased(MouseEvent ev) {
+            if (mode == Mode.REVIEW) { reviewReleased(ev); return; }
             // Whichever of the many ways below this release ends - and several of them return
             // early - a gesture that moved anything leaves exactly one undo step behind it.
             try {
@@ -5173,6 +5274,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseDragged(MouseEvent ev) {
+            if (mode == Mode.REVIEW) { reviewDragged(ev); return; }
             if (tool == CanvasTool.PAN || selectToolPanning) {
                 panGestureDragged = true;
                 updatePan(ev);
@@ -5314,6 +5416,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         @Override
         public void mouseMoved(MouseEvent ev) {
+            if (mode == Mode.REVIEW) {  return; }
             if (panLatched) {
                 // The point of latching: no button is held, so this is the only event the
                 // gesture still receives.
@@ -5449,6 +5552,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *        CanvasTool#ADD_PETRI_OBJECT} is active, or {@code null} for every other tool
      */
     public void setTool(CanvasTool newTool, PetriObjectTemplate template) {
+        if (mode == Mode.REVIEW && newTool != CanvasTool.SELECT && newTool != CanvasTool.PAN && newTool != CanvasTool.MARQUEE) return;
         // Every template shares the one ADD_PETRI_OBJECT mode, so "same tool" is not the same
         // question as "nothing to do" any more: switching straight from one template's button
         // to another has to re-arm even though the tool itself did not change. The Arc mode
@@ -6102,7 +6206,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Enable drag and drop for both PNML and PNS files using a unified handler.
+     * Enable model imports and opening training archives across the project window.
      * This method should be preferred over enablePnmlDragAndDrop() and enablePnsDragAndDrop()
      * to avoid conflicts between multiple DropTargets.
      *
@@ -6111,6 +6215,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     public void enableDragAndDrop(JFrame parentFrame) {
         UnifiedDropHandler dropHandler = new UnifiedDropHandler(this, parentFrame);
         new DropTarget(this, dropHandler);
+        new DropTarget(parentFrame.getContentPane(), dropHandler);
     }
 
     /**

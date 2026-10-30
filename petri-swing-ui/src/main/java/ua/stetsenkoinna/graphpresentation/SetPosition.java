@@ -119,7 +119,8 @@ public class SetPosition extends javax.swing.JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void okButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_okButtonActionPerformed
+    private void okButtonActionPerformed(java.awt.event.ActionEvent evt) {
+        if (!panel.isDocumentEditable()) { setVisible(false); return; }//GEN-FIRST:event_okButtonActionPerformed
         try {
             setPName();
             setPMark();
@@ -176,6 +177,7 @@ public class SetPosition extends javax.swing.JFrame {
         setChoosen(e);
         getPName();
         getPMark();
+        if (!panel.isDocumentEditable()) ReadOnlyParameterForm.apply(getContentPane(), okButton, cancelButton);
     }
     private PetriNetsPanel panel;
     private GraphPetriPlace choosenPetriP;

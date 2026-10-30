@@ -63,20 +63,23 @@ import ua.stetsenkoinna.graphpresentation.training.NetworkImageDialog;
 import ua.stetsenkoinna.graphpresentation.training.TrainingDataDialog;
 import ua.stetsenkoinna.graphpresentation.training.TrainingDataExporter;
 import ua.stetsenkoinna.graphpresentation.training.TrainingSnapshot;
+import ua.stetsenkoinna.graphpresentation.training.TrainingBundleWorkspace;
+import ua.stetsenkoinna.graphpresentation.training.TrainingReviewDialog;
+import ua.stetsenkoinna.graphpresentation.training.SwingCapture;
 import ua.stetsenkoinna.utils.MessageHelper;
 
-public class PetriNetsFrame extends javax.swing.JFrame {
+public class PetriNetsFrame extends SimulationFrame {
     private final TrainingDataExporter trainingDataExporter = new TrainingDataExporter(this::captureTrainingSnapshot);
     private final ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer mcpServer =
             new ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer(
                     new ua.stetsenkoinna.graphpresentation.ai.SwingUiBridge(),
-                    new TrainingDataTools(trainingDataExporter, this::getPetriNetsPanel));
+                    new TrainingDataTools(trainingDataExporter, this::getPetriNetsPanel),
+                    new ua.stetsenkoinna.graphpresentation.ai.TrainingReviewTools(this, trainingDataExporter));
     private ua.stetsenkoinna.graphpresentation.ai.McpDialog mcpDialog;
     private String mcpStartupFailure;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PetriNetsFrame.class);
 
-    public Timer timer; // timer that starts repainting while simulation
 
     /** The View > Theme radio items, kept so the tick can follow a change made anywhere else. */
     private final java.util.EnumMap<ThemeMode, javax.swing.JRadioButtonMenuItem> themeMenuItems =
@@ -254,6 +257,8 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * thrown away.
      */
     private void resetWorkspaceForNewDocument() {
+        trainingDataExporter.workspace().clear();
+        mcpServer.clearTrainingToolCalls();
         fileUse.newWorksheet(getPetriNetsPanel());
 
         // A fresh document has no file: plain Save asks where to put it rather than
@@ -376,6 +381,20 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         applyWindowGeometry();
         installUndoTracking();
+        javax.swing.JMenu reviewMenu = new javax.swing.JMenu("Review");
+        javax.swing.JMenuItem openReviewArchive = new javax.swing.JMenuItem("Open archive...");
+        openReviewArchive.addActionListener(event -> {
+            java.io.File file = FileDialogs.open(this, "Open review archive", FileDialogs.TRAINING_ARCHIVE, documentStartDirectory());
+            if (file != null) openTrainingArchiveFromUi(file);
+        });
+        reviewMenu.add(openReviewArchive);
+        javax.swing.JMenuItem reviewNetwork = new javax.swing.JMenuItem("Review network...");
+        reviewNetwork.addActionListener(event -> new TrainingReviewDialog(this, trainingDataExporter).setVisible(true));
+        reviewMenu.add(reviewNetwork);
+        javax.swing.JMenuItem versions = new javax.swing.JMenuItem("Versions and comparison...");
+        versions.addActionListener(event -> new TrainingReviewDialog(this, trainingDataExporter).showVersionsAndComparison());
+        reviewMenu.add(versions);
+        petriNetsFrameMenuBar.add(reviewMenu);
         javax.swing.JMenu aiMenu = new javax.swing.JMenu("AI");
         javax.swing.JMenuItem mcpItem = new javax.swing.JMenuItem("MCP...");
         mcpItem.addActionListener(event -> {
@@ -390,6 +409,10 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         });
         petriNetsFrameMenuBar.add(aiMenu);
         aiMenu.add(mcpItem);
+        aiMenu.addSeparator();
+        javax.swing.JMenuItem exportTraining = new javax.swing.JMenuItem("Export training data...");
+        exportTraining.addActionListener(event -> new TrainingDataDialog(this, trainingDataExporter).setVisible(true));
+        aiMenu.add(exportTraining);
         petriNetsFrameMenuBar.add(new HelpMenu(this));
 
         // Last, so everything it colours exists. addListener calls back straight away, which is
@@ -1133,6 +1156,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         netNameTextField.setFont(new java.awt.Font("Arial", Font.PLAIN, 14)); // NOI18N
         netNameTextField.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         netNameTextField.setText("New PetriNet");
+        netNameTextField.getAccessibleContext().setAccessibleName("Network name");
         netNameTextField.setCaretPosition(1);
         netNameTextField.setMinimumSize(new java.awt.Dimension(0, 0));
         netNameTextField.addActionListener(this::netNameTextFieldActionPerformed);
@@ -1478,23 +1502,27 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         // A real split pane rather than a plain WEST/EAST border region, so the sidebar's
         // width is something the user can drag to change, not just collapsed/expanded.
         mainSplitPane = new javax.swing.JSplitPane(javax.swing.JSplitPane.HORIZONTAL_SPLIT,
-                petriNetPanelScrollPane, modelingResultsPanel);
+                petriNetPanelScrollPane, modelingResultsPanel) {
+            @Override public void doLayout() {
+                // A collapsed sidebar is a fixed strip at every layout pass, including
+                // maximize/restore and look-and-feel changes, not only the first resize.
+                boolean previous = sidebarTogglingProgrammatically;
+                sidebarTogglingProgrammatically = true;
+                try {
+                    if (resultsSidebarCollapsed && getWidth() > 0) {
+                        int location = Math.max(0, getWidth() - getInsets().right - SIDEBAR_COLLAPSED_WIDTH - getDividerSize());
+                        if (getDividerLocation() != location) setDividerLocation(location);
+                    }
+                    super.doLayout();
+                } finally { sidebarTogglingProgrammatically = previous; }
+            }
+        };
+        mainSplitPane.getAccessibleContext().setAccessibleName("Canvas and results split");
         mainSplitPane.setBorder(null);
         mainSplitPane.setDividerSize(3);
         mainSplitPane.setResizeWeight(1.0);
         mainSplitPane.setContinuousLayout(true);
-        // The divider's starting position depends on the split pane's actual width, which is
-        // still zero at construction time (the frame is not yet shown) — apply the default
-        // collapsed position once real geometry exists, then stop listening.
-        mainSplitPane.addComponentListener(new java.awt.event.ComponentAdapter() {
-            @Override
-            public void componentResized(java.awt.event.ComponentEvent e) {
-                if (mainSplitPane.getWidth() > 0) {
-                    setSidebarCollapsed(resultsSidebarCollapsed);
-                    mainSplitPane.removeComponentListener(this);
-                }
-            }
-        });
+        // Initial geometry and subsequent resizes are handled by doLayout above.
         // A manual drag away from the collapsed strip re-expands it, and vice versa — the
         // toggle button's own icon and tooltip stay truthful to what the divider is doing
         // even when the user moved it directly instead of clicking the arrow.
@@ -1502,6 +1530,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             if (sidebarTogglingProgrammatically || mainSplitPane.getWidth() <= 0) {
                 return;
             }
+            // Layout/UI delegates also change this property. Only a user's divider
+            // gesture may turn a collapsed sidebar into an expanded one.
+            java.awt.AWTEvent current = java.awt.EventQueue.getCurrentEvent();
+            if (!(current instanceof java.awt.event.InputEvent input)
+                    || !(input.getSource() instanceof java.awt.Component source)
+                    || !javax.swing.SwingUtilities.isDescendingFrom(source, mainSplitPane)) return;
             int sidebarWidth = mainSplitPane.getWidth() - mainSplitPane.getDividerLocation() - mainSplitPane.getDividerSize();
             boolean nowCollapsed = sidebarWidth <= SIDEBAR_COLLAPSED_WIDTH + 4;
             if (!nowCollapsed) {
@@ -1597,9 +1631,6 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         javax.swing.JMenuItem exportImage = new javax.swing.JMenuItem("Export image...");
         exportImage.addActionListener(event -> NetworkImageDialog.export(this));
         fileMenu.add(exportImage);
-        javax.swing.JMenuItem exportTraining = new javax.swing.JMenuItem("Export training data...");
-        exportTraining.addActionListener(event -> new TrainingDataDialog(this, trainingDataExporter).setVisible(true));
-        fileMenu.add(exportTraining);
 
         fileMenu.addSeparator();
 
@@ -1679,6 +1710,9 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         preferencesMenuItem.addActionListener(evt ->
                 SettingsDialog.showPreferences(this, AppSettings.shared()));
         settingsMenu.add(preferencesMenuItem);
+        javax.swing.JMenuItem contributor = new javax.swing.JMenuItem("Contributor profile...");
+        contributor.addActionListener(event -> ua.stetsenkoinna.graphpresentation.settings.ContributorProfileDialog.show(this, AppSettings.shared()));
+        settingsMenu.add(contributor);
 
         petriNetsFrameMenuBar.add(editMenu);
 
@@ -2060,22 +2094,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      */
     private RunPetriObjModel getRunPetriObjModel()
             throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
-        GraphPetriObjModel objModel = getPetriNetsPanel().getCanvasModel().toObjModel();
-
-        ArrayList<PetriSim> list = new ArrayList<>();
-        for (GraphPetriObject object : objModel.getObjects()) {
-            PetriSim petriSim = GraphPetriObjModel.createPetriSim(object);
-            petriSim.setSimulationTime(modelingTime());
-            petriSim.setTimeCurr(startTime());
-            list.add(petriSim);
-        }
-
-        RunPetriObjModel model = new RunPetriObjModel(list, protocolTextArea);
-        for (PetriObjLink link : objModel.getLinks()) {
-            model.addLink(link);
-        }
-        model.validateStructure();
-        return model;
+        return CanvasSimulationModels.run(getPetriNetsPanel(), netNameTextField.getText(), startTime(), modelingTime(), protocolTextArea);
     }
 
     public void animateNet() {
@@ -2119,35 +2138,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      */
     private AnimRunPetriObjModel getAnimRunPetriObjModel()
             throws ExceptionInvalidNetStructure, ExceptionInvalidTimeDelay {
-        GraphPetriObjModel objModel = getPetriNetsPanel().getCanvasModel().toObjModel();
-
-        ArrayList<AnimRunPetriSim> objects = new ArrayList<>();
-        StateTime clock = new StateTime();
-        for (GraphPetriObject object : objModel.getObjects()) {
-            object.getGraphNet().createPetriNet(object.getName());
-            // object.getGraphNet() is scoped to just this object's own places and transitions,
-            // renumbered from zero independently of every other object's — passing it through
-            // is what lets animation matching tell apart two objects that landed on the same
-            // local number instead of ever finding both of them at once.
-            AnimRunPetriSim petriSim = new AnimRunPetriSim(
-                    object.getGraphNet().getPetriNet(), clock,
-                    protocolTextArea, getPetriNetsPanel(), speedControl, null, object.getGraphNet());
-            petriSim.setName(object.getName());
-            petriSim.setPriority(object.getPriority());
-            petriSim.setSimulationTime(modelingTime());
-            petriSim.setTimeCurr(startTime());
-            objects.add(petriSim);
-        }
-
-        AnimRunPetriObjModel model = new AnimRunPetriObjModel(objects, protocolTextArea);
-        for (AnimRunPetriSim petriSim : objects) {
-            petriSim.setParentModel(model);
-        }
-        for (PetriObjLink link : objModel.getLinks()) {
-            model.addLink(link);
-        }
-        model.validateStructure();
-        return model;
+        return CanvasSimulationModels.animated(getPetriNetsPanel(), netNameTextField.getText(), startTime(), modelingTime(), protocolTextArea, speedControl);
     }
 
     private void centerOnNetMenuItemActionPerformed(
@@ -2192,17 +2183,18 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * frames on the canvas with their nets inside.
      */
     private void importPnmlMenuItemActionPerformed(java.awt.event.ActionEvent evt) {
-        if (!confirmDiscardingCurrentNet()) {
-            return;
-        }
         java.io.File selectedFile = null;
         try {
-            selectedFile = FileDialogs.openAmong(this, "Open",
-                    java.util.List.of(FileDialogs.MODEL, FileDialogs.ANY), documentStartDirectory());
+            selectedFile = FileDialogs.open(this, "Open", FileDialogs.PROJECT, documentStartDirectory());
             if (selectedFile == null) {
                 return;
             }
             lastOpenDirectory = selectedFile.getParentFile();
+            if (isTrainingArchive(selectedFile)) {
+                openTrainingArchiveFromUi(selectedFile);
+                return;
+            }
+            if (!confirmDiscardingCurrentNet()) return;
 
             // Opening a document, so everything the old one left behind goes with it — the
             // undo stack in particular, whose edits would otherwise apply to this new net.
@@ -2257,6 +2249,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * than the exception propagating and taking startup down with it.
      */
     public void openProjectFile(java.io.File file) {
+        if (isTrainingArchive(file)) { openTrainingArchiveFromUi(file, false); return; }
         try {
             loadPnmlFile(file);
         } catch (Exception ex) {
@@ -2264,6 +2257,33 @@ public class PetriNetsFrame extends javax.swing.JFrame {
             MessageHelper.showException(this,
                     "Could not reopen the last project: " + file.getName(), ex);
         }
+    }
+
+    public static boolean isTrainingArchive(java.io.File file) {
+        return file != null && file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".zip");
+    }
+
+    /** Shared entry for File > Open, Review > Open archive and dropped training ZIPs. */
+    public boolean openTrainingArchiveFromUi(java.io.File file) { return openTrainingArchiveFromUi(file, true); }
+
+    private boolean openTrainingArchiveFromUi(java.io.File file, boolean confirmDiscard) {
+        if (confirmDiscard && !confirmDiscardingCurrentNet()) return false;
+        new SwingWorker<Void, Void>() {
+            @Override protected Void doInBackground() throws Exception { openTrainingBundle(file.toPath(), true); return null; }
+            @Override protected void done() {
+                try {
+                    get(); lastOpenDirectory = file.getParentFile();
+                    var projects = ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared();
+                    var entry = projects.recordOpened(file.toPath(), getNameNet());
+                    projects.setActiveProjectId(entry.getId());
+                    new TrainingReviewDialog(PetriNetsFrame.this, trainingDataExporter).setVisible(true);
+                } catch (Exception failure) {
+                    LOGGER.error("Could not open training archive", failure);
+                    MessageHelper.showException(PetriNetsFrame.this, "Could not open training archive: " + file.getName(), failure);
+                }
+            }
+        }.execute();
+        return true;
     }
 
     /**
@@ -2280,6 +2300,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     "'" + entry.getName() + "' could not be found at:\n" + entry.getPath());
             return;
         }
+        if (isTrainingArchive(file)) { openTrainingArchiveFromUi(file, false); return; }
         resetWorkspaceForNewDocument();
         try {
             loadPnmlFile(file);
@@ -2340,11 +2361,12 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                 ua.stetsenkoinna.config.AppSettings.shared(),
                 ua.stetsenkoinna.recentprojects.RecentProjectsStore.shared(),
                 file -> {
-                    resetWorkspaceForNewDocument();
                     // Shown before loading, not after: a parse failure below puts up an error
                     // dialog, which needs this frame visible and the default parent again to
                     // attach to rather than the WelcomeFrame that is about to be disposed.
                     reshowAfterWelcome();
+                    if (isTrainingArchive(file)) { openTrainingArchiveFromUi(file, false); return true; }
+                    resetWorkspaceForNewDocument();
                     try {
                         loadPnmlFile(file);
                     } catch (Exception ex) {
@@ -2381,6 +2403,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
                     if (!confirmDiscardingCurrentNet()) {
                         return false; // stays open exactly as it was - this frame was never touched
                     }
+                    if (isTrainingArchive(file)) { openTrainingArchiveFromUi(file, false); focusMainFrame(); return true; }
                     resetWorkspaceForNewDocument();
                     try {
                         loadPnmlFile(file);
@@ -2586,6 +2609,31 @@ public class PetriNetsFrame extends javax.swing.JFrame {
         return netNameTextField.getText();
     }
 
+    public TrainingDataExporter getTrainingDataExporter() { return trainingDataExporter; }
+    public ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer getMcpServer() { return mcpServer; }
+
+    public void openTrainingBundle(java.nio.file.Path path, boolean replaceCurrent) throws Exception {
+        TrainingBundleWorkspace.Bundle bundle = TrainingBundleWorkspace.read(path);
+        PnmlModelParser parser = new PnmlModelParser();
+        GraphPetriObjModel model = parser.parseXml(bundle.pnml());
+        GraphCanvasModel canvas = GraphCanvasModel.fromObjModel(model);
+        SwingCapture.call(() -> {
+            if (!replaceCurrent && (!getPetriNetsPanel().getGraphNet().getGraphPetriPlaceList().isEmpty()
+                    || !getPetriNetsPanel().getGraphNet().getGraphPetriTransitionList().isEmpty()
+                    || !getPetriNetsPanel().getCanvasModel().getFrames().isEmpty())) {
+                throw new IllegalArgumentException("Opening a bundle replaces the current document; set replace_current=true explicitly");
+            }
+            if (!parser.getWarnings().isEmpty() || !canvas.getLoadWarnings().isEmpty()) {
+                throw new IllegalArgumentException("Cannot review a model that requires import repairs: " + parser.getWarnings() + canvas.getLoadWarnings());
+            }
+            resetWorkspaceForNewDocument();
+            getPetriNetsPanel().setCanvasModel(canvas);
+            netNameTextField.setText(model.getName());
+            trainingDataExporter.workspace().adopt(bundle);
+            return null;
+        });
+    }
+
     public TrainingSnapshot captureTrainingSnapshot(boolean includeScreenshot) throws Exception {
         java.util.Map<String, Object> controls = new java.util.LinkedHashMap<>();
         controls.put("time_start_text", timeStartField.getText());
@@ -2751,7 +2799,7 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * The Petri-object model currently being animated. Exposed so the transport controls can
      * pause and resume it while it runs.
      */
-    public AnimRunPetriObjModel animationModel;
+
 
     /**
      * Set by {@link AnimationControls} just before starting an animation that should advance
@@ -2762,20 +2810,20 @@ public class PetriNetsFrame extends javax.swing.JFrame {
      * rather than a separate single-event path, so it looks exactly like Start-then-Pause —
      * same element highlighting, same timing, same statistics.
      */
-    public volatile boolean startAnimationStepping;
+
 
     /**
      * The thread an animation runs on, kept here so that pressing Stop has something to
      * interrupt.
      */
-    public Thread animationThread;
+
 
     /**
      * The non-animated "Run net" model currently executing, or {@code null} — stored here,
      * the same way {@link #animationModel} is for animation, so the Stop button can reach it
      * to call {@link RunPetriObjModel#halt()} while it's running.
      */
-    public RunPetriObjModel runModel;
+
 
     private StatisticMonitorDialog statisticMonitorDialog;
     private StatisticGraphMonitor statisticGraphMonitor;

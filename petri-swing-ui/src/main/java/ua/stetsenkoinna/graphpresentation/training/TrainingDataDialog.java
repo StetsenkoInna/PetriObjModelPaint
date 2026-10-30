@@ -29,11 +29,18 @@ public final class TrainingDataDialog extends JDialog {
     private final JCheckBox screenshot = new JCheckBox("Include a main-window screenshot for QA");
     private final JButton save = new JButton("Export ZIP...");
     private final JButton cancel = new JButton("Cancel");
+    private final TrainingExportRequest inherited;
 
     public TrainingDataDialog(PetriNetsFrame owner, TrainingDataExporter exporter) {
         super(owner, "Export training data", true);
         this.exporter = exporter;
+        try { inherited = exporter.workspace().exportRequest(owner.getNameNet(), List.of()); }
+        catch (Exception failure) { throw new IllegalArgumentException("Cannot read training context", failure); }
         title = new JTextField(owner.getNameNet(), 38);
+        title.getAccessibleContext().setAccessibleName("Training title");
+        task.getAccessibleContext().setAccessibleName("Training task");
+        status.getAccessibleContext().setAccessibleName("Human review status");
+        task.setText(inherited.task() == null ? "" : inherited.task());
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         JPanel form = new JPanel();
         form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
@@ -51,7 +58,7 @@ public final class TrainingDataDialog extends JDialog {
         review.add(status);
         form.add(review);
         form.add(screenshot);
-        JTextArea note = new JTextArea("The bundle contains the current model and network image. It is unreviewed by default. "
+        JTextArea note = new JTextArea("The bundle contains the complete model, expanded images of every object and preserved revision/review history. It is unreviewed by default. "
                 + "Exporting does not verify correctness. External conversations are included only when supplied through MCP.", 3, 62);
         note.setEditable(false);
         note.setLineWrap(true);
@@ -75,8 +82,8 @@ public final class TrainingDataDialog extends JDialog {
     private void export() {
         TrainingExportRequest request;
         try {
-            request = new TrainingExportRequest(title.getText(), task.getText(), List.of(), List.of(), List.of(),
-                    (String) status.getSelectedItem(), List.of(), screenshot.isSelected());
+            request = new TrainingExportRequest(title.getText(), task.getText(), inherited.clarifications(), inherited.assumptions(), inherited.acceptance(),
+                    (String) status.getSelectedItem(), inherited.conversation(), screenshot.isSelected());
         } catch (IllegalArgumentException failure) {
             JOptionPane.showMessageDialog(this, failure.getMessage(), "Export training data", JOptionPane.ERROR_MESSAGE);
             return;

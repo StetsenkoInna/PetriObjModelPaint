@@ -477,7 +477,7 @@ public class PetriSim implements Cloneable, Serializable {
         if (activeT.isEmpty() && isBufferEmpty()) {
             timeMin = Double.MAX_VALUE;
         } else {
-            while (!activeT.isEmpty()) {
+            while (!activeT.isEmpty() && !Thread.currentThread().isInterrupted()) {
                 PetriT tr = this.doConflikt(activeT);
                 if (!fireActIn(tr)) return;
                 activeT = this.findActiveT();
@@ -494,7 +494,7 @@ public class PetriSim implements Cloneable, Serializable {
             if (!fireActOut(eventMin)) return;
             if (eventMin.getBuffer() > 0) {
                 boolean u = true;
-                while (u) {
+                while (u && !Thread.currentThread().isInterrupted()) {
                     eventMin.minEvent();
                     if (eventMin.getMinTime() == this.getCurrentTime()) {
                         if (!fireActOut(eventMin)) return;
@@ -508,7 +508,7 @@ public class PetriSim implements Cloneable, Serializable {
                     if (!fireActOut(transition)) return;
                     if (transition.getBuffer() > 0) {
                         boolean u = true;
-                        while (u) {
+                        while (u && !Thread.currentThread().isInterrupted()) {
                             transition.minEvent();
                             if (transition.getMinTime() == this.getCurrentTime()) {
                                 if (!fireActOut(transition)) return;

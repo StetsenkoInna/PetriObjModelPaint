@@ -113,6 +113,31 @@ public class AppSettings {
         return file;
     }
 
+    public synchronized ContributorProfile getContributorProfile() {
+        boolean changed = false;
+        if (properties.getProperty("contributor.nickname", "").isBlank()) { properties.setProperty("contributor.nickname", randomNickname()); changed = true; }
+        if (properties.getProperty("contributor.id", "").isBlank()) { properties.setProperty("contributor.id", java.util.UUID.randomUUID().toString()); changed = true; }
+        if (changed) save();
+        return new ContributorProfile(properties.getProperty("contributor.id"), properties.getProperty("contributor.nickname"), properties.getProperty("contributor.organization"),
+                properties.getProperty("contributor.group"), properties.getProperty("contributor.contacts"));
+    }
+
+    public synchronized void setContributorProfile(ContributorProfile profile) {
+        if (properties.getProperty("contributor.id", "").isBlank()) properties.setProperty("contributor.id", java.util.UUID.randomUUID().toString());
+        properties.setProperty("contributor.nickname", profile.nickname().isBlank() ? randomNickname() : profile.nickname());
+        properties.setProperty("contributor.organization", profile.organization());
+        properties.setProperty("contributor.group", profile.group());
+        properties.setProperty("contributor.contacts", profile.contacts());
+        save();
+    }
+
+    private static String randomNickname() {
+        String[] adjectives = ("amber brave bright brisk calm clever cloudy coral cosmic crazy crisp curious dapper daring dreamy eager electric emerald fancy fast fearless fiery flying frosty gentle golden happy hidden icy jolly joyful kind lucky lunar magic mellow merry mighty misty nimble noble noisy orange patient peaceful playful polar proud purple quick quiet rainy rapid red rosy royal ruby sandy shiny silent silver sleepy snowy solar speedy spicy spring starry steady stormy sunny swift tiny tropical velvet violet vivid warm wild windy wise witty young zesty").split(" ");
+        String[] animals = ("albatross alpaca antelope badger bat beaver beetle bison bobcat buffalo butterfly camel canary capybara cat chameleon cheetah chipmunk cobra condor cougar coyote crab crane cricket crow deer dingo dolphin donkey dove dragonfly duck eagle echidna falcon ferret finch firefly flamingo fox frog gazelle gecko giraffe goat goose gorilla hamster hare hawk hedgehog heron horse hummingbird ibis iguana jaguar jellyfish kangaroo kestrel kiwi koala lemur leopard lion lizard llama lobster lynx macaw magpie manatee marmot meerkat mongoose moose mouse narwhal newt octopus okapi otter owl panda panther parrot peacock pelican penguin pigeon pony puffin quail rabbit raccoon raven reindeer robin salmon seal shark sparrow squirrel starfish stork swallow swan tapir tiger toucan turtle wallaby walrus weasel whale wolf wombat woodpecker yak zebra").split(" ");
+        var random = java.util.concurrent.ThreadLocalRandom.current();
+        return adjectives[random.nextInt(adjectives.length)] + "-" + animals[random.nextInt(animals.length)];
+    }
+
     /**
      * @return the theme the user chose, or {@link ThemeMode#DEFAULT} if they never have
      */
