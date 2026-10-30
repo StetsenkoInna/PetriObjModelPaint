@@ -45,21 +45,9 @@
 | `petri-swing-ui` | Десктопний редактор (Swing, fat JAR) |
 | `petri-server` | Spring Boot REST + WebSocket сервер |
 
-## Використання бібліотек у власному проєкті
+## Бібліотеки для власних проєктів
 
-Математичне ядро можна використовувати без встановлення редактора. Після
-публікації бібліотек `v2.4.0` публічний Maven-репозиторій на GitHub надаватиме
-`ua.stetsenkoinna:petri-math:2.4.0`, `petri-api:2.4.0` та `petri-model:2.4.0`
-разом із вихідними JAR і POM. Потрібна Java 23+.
-
-- `petri-math` — симуляція мереж і Петрі-об'єктних моделей.
-- `petri-api` — інтерфейси сервісів, події та DTO.
-- `petri-model` — граф-модель і читання/запис PNML.
-
-[Інструкція підключення Java-бібліотек](docs/java-libraries.md) містить URL
-репозиторію та готовий приклад Maven. Токен GitHub і submodule не потрібні.
-Python та інші мови можуть звертатися до [сервера через HTTP](docs/petri-server-integration.md);
-Java JAR не є пакетами для Python `import`.
+Починаючи з v2.4.0, релізи містять [petri-math](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.4.0/petri-math-2.4.0.jar), [petri-api](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.4.0/petri-api-2.4.0.jar) та [petri-model](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.4.0/petri-model-2.4.0.jar) для використання без редактора. Налаштування Maven, вимоги та приклади наведено в [інструкції підключення](docs/java-libraries.md).
 
 ---
 
