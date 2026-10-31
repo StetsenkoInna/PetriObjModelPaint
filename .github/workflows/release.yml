@@ -37,6 +37,13 @@ jobs:
         shell: bash
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
+      # A release cut from a tag whose source was never bumped would ship a jar stamping the
+      # old version into every PNML file and a README linking the previous release. Run the
+      # bump-version workflow first; this only checks that it was.
+      - name: Check the source states this version
+        if: runner.os == 'Linux'
+        run: python3 scripts/bump_version.py --check "${{ steps.version.outputs.version }}"
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

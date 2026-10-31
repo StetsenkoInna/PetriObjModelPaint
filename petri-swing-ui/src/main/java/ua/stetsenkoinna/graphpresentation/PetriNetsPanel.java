@@ -346,11 +346,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         setFocusable(mode != Mode.PREVIEW);
 
         addMouseWheelListener(new MouseWheelHendler());
-        if (mode == Mode.PREVIEW) return;
+        if (mode == Mode.PREVIEW) {
+            enableArcHints();
+            return;
+        }
 
         addMouseListener(new MouseHandler());
         addMouseMotionListener(new MouseMotionHandler());
-        if (mode == Mode.REVIEW) return;
+        if (mode == Mode.REVIEW) {
+            enableArcHints();
+            return;
+        }
 
         this.addKeyListener(new KeyAdapter() {
             @Override
@@ -398,7 +404,18 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
             }
         });
+        enableArcHints();
+    }
 
+    /**
+     * Hover hints on arcs and shared place links, in every mode: a preview of a running model is
+     * exactly where someone learning the notation is looking. See {@link #getToolTipText}.
+     *
+     * <p>Called last, once the panel's own handlers are in: the tooltip manager adds mouse and
+     * key listeners of its own, and the panel's are meant to stay the first ones.
+     */
+    private void enableArcHints() {
+        javax.swing.ToolTipManager.sharedInstance().registerComponent(this);
     }
 
     /**
@@ -1623,6 +1640,29 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
         FramePort port = portOnCanvasAt(point);
         return port != null ? port.getElement() : null;
+    }
+
+    /**
+     * Names the arc or shared place link under the pointer and says what it does; see
+     * {@link ArcHints}. Nothing over a place or transition, whose own drawing already says
+     * what it is, so a hint never covers the element the pointer is actually on.
+     */
+    @Override
+    public String getToolTipText(MouseEvent ev) {
+        // Between deletePetriNet() and the repaint that builds a fresh net there is none; the
+        // tooltip timer can still fire then, and a preview panel has no other guard against it.
+        if (graphNet == null) {
+            return null;
+        }
+        Point2D point = new Point2D.Double(ev.getX() / scale, ev.getY() / scale);
+        if (find(point) != null) {
+            return null;
+        }
+        if (findSharedPlace(point) != null) {
+            return ArcHints.SHARED_PLACE;
+        }
+        GraphArc arc = findArc(point);
+        return arc == null ? null : ArcHints.forArc(arc);
     }
 
     public GraphArc findArc(Point2D p) {

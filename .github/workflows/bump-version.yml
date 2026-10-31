@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'New version, e.g. 2.2.3'
+        description: 'New version, e.g. 2.6.0'
         required: true
       branch:
-        description: 'Branch to bump and tag'
+        description: 'Branch to bump and tag (blank = the default branch)'
         required: false
-        default: develop
+        default: ''
 
 permissions:
   contents: write
@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.branch }}
+          ref: ${{ inputs.branch || github.event.repository.default_branch }}
 
       - uses: actions/setup-java@v4
         with:
@@ -28,18 +28,24 @@ jobs:
           java-version: '23'
           cache: maven
 
-      - name: Set version in all module poms
-        run: >
-          mvn --batch-mode --no-transfer-progress
-          org.codehaus.mojo:versions-maven-plugin:2.18.0:set
-          -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false
+      # Every place the version is written down, not only the poms: the PNML tool version,
+      # the README download links and the library docs. See scripts/bump_version.py.
+      - name: Set the version everywhere
+        run: python3 scripts/bump_version.py "${{ inputs.version }}"
+
+      # The gate: nothing is committed or tagged unless the bumped tree still passes.
+      # ToolSpecificIdentityTest in particular checks the PNML tool version against the pom.
+      - name: Test
+        run: |
+          python3 -m unittest discover -s scripts/tests
+          mvn --batch-mode --no-transfer-progress test
 
       - name: Commit and tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pom.xml petri-math/pom.xml petri-api/pom.xml petri-model/pom.xml petri-swing-ui/pom.xml petri-server/pom.xml
+          git add -u
           git commit -m "Bump project version to ${{ inputs.version }}"
           git tag "v${{ inputs.version }}"
-          git push origin "${{ inputs.branch }}"
+          git push origin HEAD:"${{ inputs.branch || github.event.repository.default_branch }}"
           git push origin "v${{ inputs.version }}"

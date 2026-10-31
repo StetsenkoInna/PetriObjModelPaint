@@ -46,6 +46,22 @@ file you're editing rather than introducing a new style.
   affects documented behavior.
 - Merging into `master` requires an approving review and passing CI.
 
+## Releasing
+
+The version is written in several places: the poms, the PNML tool version in
+`PnmlConstants`, the download links in both READMEs and the library docs. Never
+edit them by hand. Run the **Bump version** workflow with the new version; it
+updates every place with `scripts/bump_version.py`, runs the tests and only
+then commits and tags. Then write `docs/releases/<version>.md` and publish a
+GitHub Release from the tag.
+
+To bump locally, or to see whether everything agrees:
+
+```bash
+python scripts/bump_version.py 2.6.0
+python scripts/bump_version.py --check
+```
+
 ## Reporting bugs
 
 Open a [bug report issue](.github/ISSUE_TEMPLATE/bug_report.yml) with steps to

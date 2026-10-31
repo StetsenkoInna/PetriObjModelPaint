@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Windows, not Linux: the Swing tests drive real native file dialogs, and on Linux the
+    # GTK file dialog crashes the JVM (SIGSEGV in its filename filter) once JavaFX, which the
+    # statistics views use, runs in the same process. Windows also needs no virtual display.
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '23'
+          cache: maven
+
+      # Every version site still agrees with the pom; see scripts/bump_version.py.
+      - name: Scripts
+        run: |
+          python -m unittest discover -s scripts/tests
+          python scripts/bump_version.py --check
+
+      - name: Maven tests
+        run: |
+          set -o pipefail
+          mvn --batch-mode --no-transfer-progress --fail-at-end test 2>&1 | tee maven.log
+
+      # Names each failed test, with its message and the top of its trace, as an annotation on
+      # the pull request, so a failure can be read without opening (or signing in to) the log.
+      - name: Report failed tests
+        if: failure()
+        run: |
+          python - <<'PY'
+          import glob
+          import xml.etree.ElementTree as ET
+          for report in glob.glob("**/target/surefire-reports/TEST-*.xml", recursive=True):
+              for case in ET.parse(report).getroot().iter("testcase"):
+                  for kind in ("failure", "error"):
+                      problem = case.find(kind)
+                      if problem is None:
+                          continue
+                      message = " ".join((problem.get("message") or "").split())[:300]
+                      trace = [line.strip() for line in (problem.text or "").strip().splitlines()[:8]]
+                      print(f"::error title={case.get('classname')}.{case.get('name')}::"
+                            f"{kind}: {message} %0A" + " %0A".join(trace))
+          PY
+          # A test JVM that crashed leaves no report at all; Maven's own errors still name it.
+          grep -E '^\[ERROR\]' maven.log | grep -v -E '^\[ERROR\] *$|Help 1|re-run Maven|full stack trace|-rf :'             | head -n 8 | sed 's/^/::error title=Maven::/' || true
+          # Which test class was running when a JVM died, and why it died.
+          grep -E 'Running ua\.' maven.log | tail -n 2 | sed 's/^/::error title=Last started::/' || true
+          for crash in $(find . -name 'hs_err_pid*.log' -o -name '*.dumpstream' | head -n 3); do
+            echo "::error title=$crash::$(grep -m 12 -E 'SIG|Problematic|^#  |Exception|Error|at ' "$crash" | tr '\n' ' ' | cut -c1-900)"
+          done
