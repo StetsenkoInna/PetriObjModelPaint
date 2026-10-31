@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Stroke;
+import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.io.Serializable;
 import java.util.Objects;
@@ -174,14 +175,14 @@ public class GraphPlaceFusion implements Serializable {
 
     /**
      * Draws a fusion anchored to at least one frame as a line between the two halves' drawn
-     * positions — a framed half's port, a free half's own position — since a locked place
+     * positions, a framed half's port or a free half's own position, since a locked place
      * cannot be moved to sit on top of the other half the way two free places can.
      *
-     * <p>The line is the UML dependency notation: black, dashed, with an open arrowhead at
-     * the master end - the reference relation is stored directed, the joined half points at
-     * the real place it stands for, exactly the way a PNML {@code referencePlace} points at
-     * the node it references. It used to be a plain solid green line, which read as some
-     * special kind of arc rather than as a "this IS that one" reference.
+     * <p>The line is a double line with an open arrowhead at the joined end, pointing from the
+     * master to the joined half: the joined place's marking is a consequence of what happens in
+     * the master, which is the assignment {@code joined := master} the simulation makes. It used
+     * to be dash-dot, which was still too easy to mistake for a dashed informational arc; a
+     * double line is a difference of kind from every arc on the canvas.
      *
      * @param g2 canvas graphics
      * @param masterPoint where the master half is drawn: its port if framed, its own position
@@ -211,26 +212,63 @@ public class GraphPlaceFusion implements Serializable {
         boolean selected = highlight != null;
         float width = selected ? 2.2f : 1.4f;
         g2.setColor(selected ? highlight : palette.get(CanvasColor.ELEMENT_STROKE));
-        // Dash-dot, where an informational arc is an even dash. The two used to be told apart
-        // only by dash length and by whether the arrowhead was filled - differences of degree,
-        // and those are the first thing to go when the canvas is zoomed out, printed or
-        // screenshotted. A pattern of a different kind survives all three.
-        g2.setStroke(new BasicStroke(width, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f,
-                new float[] {9f, 4f, 2f, 4f}, 0f));
-        g2.drawLine(masterPoint.x, masterPoint.y, joinedPoint.x, joinedPoint.y);
-
-        // A filled node on the source end, and no arrowhead at either. An arrowhead promises a
-        // flow, and nothing flows along a reference link: the target simply repeats the source.
-        // Direction still has to be legible - one end is the source and the other copies it -
-        // and the node carries that, being on one end only. It just stops spelling the
-        // relationship as movement. With one source repeated by several places the nodes
-        // coincide, so the fan reads as one origin rather than as several separate links.
-        g2.setStroke(new BasicStroke(width));
-        int radius = selected ? 5 : 4;
-        g2.fillOval(masterPoint.x - radius, masterPoint.y - radius, radius * 2, radius * 2);
+        g2.setStroke(new BasicStroke(width, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER));
+        g2.draw(tieRails(masterPoint, joinedPoint));
+        g2.setStroke(new BasicStroke(width, BasicStroke.CAP_ROUND, BasicStroke.JOIN_MITER));
+        g2.draw(tieArrowhead(masterPoint, joinedPoint));
 
         g2.setStroke(previousStroke);
         g2.setColor(previousColor);
+    }
+
+    /** Distance between the two rails of the tie, centre to centre. */
+    private static final double RAIL_GAP = 5;
+    /** Length of each arm of the tie's open arrowhead. */
+    private static final double ARROW_ARM = 12;
+    /** Angle between each arm of the arrowhead and the tie. */
+    private static final double ARROW_ANGLE = Math.toRadians(30);
+
+    /**
+     * The two parallel rails of the tie from {@code from} to {@code to}. They stop where they
+     * meet the arrowhead's arms, so the two lines close into the tip instead of poking through.
+     */
+    static Path2D tieRails(Point2D from, Point2D to) {
+        double[] u = direction(from, to);
+        double half = RAIL_GAP / 2;
+        double back = Math.min(half / Math.tan(ARROW_ANGLE), from.distance(to));
+        double endX = to.getX() - u[0] * back;
+        double endY = to.getY() - u[1] * back;
+        double nx = -u[1] * half;
+        double ny = u[0] * half;
+        Path2D rails = new Path2D.Double();
+        rails.moveTo(from.getX() + nx, from.getY() + ny);
+        rails.lineTo(endX + nx, endY + ny);
+        rails.moveTo(from.getX() - nx, from.getY() - ny);
+        rails.lineTo(endX - nx, endY - ny);
+        return rails;
+    }
+
+    /**
+     * The open arrowhead at {@code to}: two arms meeting at the tip, not a filled triangle, so
+     * it does not read as the filled arrowhead of an ordinary arc.
+     */
+    static Path2D tieArrowhead(Point2D from, Point2D to) {
+        double[] u = direction(from, to);
+        double along = ARROW_ARM * Math.cos(ARROW_ANGLE);
+        double across = ARROW_ARM * Math.sin(ARROW_ANGLE);
+        Path2D arrow = new Path2D.Double();
+        arrow.moveTo(to.getX() - u[0] * along - u[1] * across, to.getY() - u[1] * along + u[0] * across);
+        arrow.lineTo(to.getX(), to.getY());
+        arrow.lineTo(to.getX() - u[0] * along + u[1] * across, to.getY() - u[1] * along - u[0] * across);
+        return arrow;
+    }
+
+    /** Unit vector from {@code from} to {@code to}; any direction will do for a zero-length tie. */
+    private static double[] direction(Point2D from, Point2D to) {
+        double dx = to.getX() - from.getX();
+        double dy = to.getY() - from.getY();
+        double length = Math.hypot(dx, dy);
+        return length > 0 ? new double[] {dx / length, dy / length} : new double[] {1, 0};
     }
 
     /**

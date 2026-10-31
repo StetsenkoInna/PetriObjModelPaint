@@ -422,20 +422,20 @@ other end of the link at all.
 
 ### Telling a reference link from an informational arc
 
-Both are thin dashed lines, and they used to differ only in dash length and in whether the
-arrowhead was filled. Those are differences of degree, and they are the first thing to disappear
-when the canvas is zoomed out, printed or screenshotted.
+An informational arc is a thin dashed line. The reference link used to be dashed too (dash-dot),
+and the two were still easy to confuse, especially when the canvas is zoomed out, printed or
+screenshotted. The reference link is now a solid double line, a difference of kind rather than
+of degree.
 
 | | Line | End |
 |---|---|---|
 | Informational arc | even dash | filled arrowhead at the transition |
-| Reference link | dash-dot | filled **node** on the source, no arrowhead |
+| Reference link | solid double line | open arrowhead at the copy |
 
-The reference link has no arrowhead on purpose. An arrowhead promises a flow, and nothing flows
-along a reference link — the copy simply *is* the source. Direction still matters and is still
-visible, because the node sits on one end only: the end everything else is copying. Where one
-source is repeated by several places, their nodes coincide, so the fan reads as one origin
-rather than as several unrelated links.
+The arrowhead points from the source to the copy and reads as an assignment: the copy's marking
+is a consequence of what happens in the source, `copy := source`. Both places of a link are
+filled grey, which says, wherever the place is drawn, that its marking depends on events in
+another Petri-object.
 
 ---
 

@@ -119,7 +119,7 @@ public final class CanvasPalette {
         c.put(PORT_BORDER, new Color(0x1C, 0x2B, 0x3A));
         c.put(PORT_HIGHLIGHT, new Color(0xD9, 0x7A, 0x00));
         c.put(PORT_LABEL_BACKDROP, new Color(255, 255, 255, 210));
-        c.put(LINKED_PLACE_FILL, new Color(0xD6, 0xD8, 0xDB));
+        c.put(LINKED_PLACE_FILL, new Color(0xB4, 0xB7, 0xBC));
         c.put(FUSION_RING_SELECTED, new Color(0xD9, 0x7A, 0x00));
         // The same hue as the picked strand, held well back from it.
         c.put(CONNECTOR_STRAND, new Color(0xE8, 0xB0, 0x66));
@@ -156,7 +156,7 @@ public final class CanvasPalette {
         c.put(PORT_BORDER, new Color(0xC7, 0xCE, 0xD6));
         c.put(PORT_HIGHLIGHT, new Color(0xE5, 0x9A, 0x2E));
         c.put(PORT_LABEL_BACKDROP, new Color(0x23, 0x26, 0x28, 210));
-        c.put(LINKED_PLACE_FILL, new Color(0x3C, 0x41, 0x48));
+        c.put(LINKED_PLACE_FILL, new Color(0x55, 0x5B, 0x63));
         c.put(FUSION_RING_SELECTED, new Color(0xE5, 0x9A, 0x2E));
         c.put(CONNECTOR_STRAND, new Color(0x9A, 0x6B, 0x2A));
         c.put(ANIMATION_ACTIVE, new Color(0xFF, 0x6B, 0x6B));
