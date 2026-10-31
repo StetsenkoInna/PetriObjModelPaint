@@ -54,7 +54,7 @@ public final class McpToolRegistry {
         }
     }
 
-    private static void validate(JsonNode args, JsonNode schema) {
+    static void validate(JsonNode args, JsonNode schema) {
         validate(args, schema, "arguments");
     }
 
@@ -78,7 +78,12 @@ public final class McpToolRegistry {
                 || (property.has("maximum") && value.asDouble() > property.get("maximum").asDouble()))) {
             throw new IllegalArgumentException("Out of range: " + path);
         }
+        if (value.isNumber() && !Double.isFinite(value.asDouble())) throw new IllegalArgumentException("Non-finite number: " + path);
+        if (value.isTextual() && ((property.has("minLength") && value.asText().length() < property.get("minLength").asInt())
+                || (property.has("maxLength") && value.asText().length() > property.get("maxLength").asInt()))) throw new IllegalArgumentException("Invalid length: " + path);
         if (value.isArray()) {
+            if ((property.has("maxItems") && value.size() > property.get("maxItems").asInt())
+                    || (property.has("minItems") && value.size() < property.get("minItems").asInt())) throw new IllegalArgumentException("Invalid array size: " + path);
             for (int i = 0; i < value.size(); i++) {
                 validate(value.get(i), property.path("items"), path + "[" + i + "]");
             }

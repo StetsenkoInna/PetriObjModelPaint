@@ -74,7 +74,8 @@ public class PetriNetsFrame extends SimulationFrame {
             new ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer(
                     new ua.stetsenkoinna.graphpresentation.ai.SwingUiBridge(),
                     new TrainingDataTools(trainingDataExporter, this::getPetriNetsPanel),
-                    new ua.stetsenkoinna.graphpresentation.ai.TrainingReviewTools(this, trainingDataExporter));
+                    new ua.stetsenkoinna.graphpresentation.ai.TrainingReviewTools(this, trainingDataExporter),
+                    new ua.stetsenkoinna.graphpresentation.ai.ModelTools(this));
     private ua.stetsenkoinna.graphpresentation.ai.McpDialog mcpDialog;
     private String mcpStartupFailure;
 
@@ -2608,6 +2609,35 @@ public class PetriNetsFrame extends SimulationFrame {
     public String getNameNet() {
         return netNameTextField.getText();
     }
+
+    /** Called synchronously on the EDT by the direct MCP model service. */
+    public void applyMcpCanvas(GraphCanvasModel canvas, boolean newDocument) {
+        if (!javax.swing.SwingUtilities.isEventDispatchThread()) throw new IllegalStateException("EDT required");
+        if (runModel != null || animationModel != null) throw new IllegalStateException("Stop the interactive simulation before editing the model");
+        GraphCanvasModel before = new GraphCanvasModel(getPetriNetsPanel().getCanvasModel());
+        before.setName(getNameNet());
+        java.io.File previousFile = currentPnmlFile;
+        if (newDocument) resetWorkspaceForNewDocument();
+        else animationControls.resetForNewDocument();
+        getPetriNetsPanel().setCanvasModel(canvas);
+        netNameTextField.setText(canvas.getName());
+        GraphCanvasModel after = new GraphCanvasModel(canvas);
+        getUndoSupport().postEdit(new javax.swing.undo.AbstractUndoableEdit() {
+            @Override public String getPresentationName() { return "MCP model change"; }
+            @Override public void undo() {
+                super.undo(); animationControls.resetForNewDocument();
+                getPetriNetsPanel().setCanvasModel(new GraphCanvasModel(before));
+                netNameTextField.setText(before.getName()); currentPnmlFile = previousFile;
+            }
+            @Override public void redo() {
+                super.redo(); animationControls.resetForNewDocument();
+                getPetriNetsPanel().setCanvasModel(new GraphCanvasModel(after));
+                netNameTextField.setText(after.getName()); currentPnmlFile = null;
+            }
+        });
+    }
+
+    public void rememberMcpFile(java.nio.file.Path path) { currentPnmlFile = path.toFile(); }
 
     public TrainingDataExporter getTrainingDataExporter() { return trainingDataExporter; }
     public ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer getMcpServer() { return mcpServer; }
