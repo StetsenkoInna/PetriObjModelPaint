@@ -117,7 +117,7 @@ public class ObjectCanvasFocusTest {
         BufferedImage image = new BufferedImage(region.width, region.height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
         graphics.translate(-region.x, -region.y);
-        panel.paintComponent(graphics);
+        panel.paintModel(graphics);
         graphics.dispose();
 
         int background = Color.WHITE.getRGB();
@@ -210,10 +210,11 @@ public class ObjectCanvasFocusTest {
 
         // The click therefore falls through to the element under it, which is the whole point.
         GraphElement inside = named(panel, "PIn");
+        Point2D pixel = panel.toPanel(inside.getGraphElementCenter());
         panel.new MouseHandler().mousePressed(new MouseEvent(panel, MouseEvent.MOUSE_PRESSED,
                 System.currentTimeMillis(), 0,
-                (int) inside.getGraphElementCenter().getX(),
-                (int) inside.getGraphElementCenter().getY(), 1, false, MouseEvent.BUTTON1));
+                (int) Math.round(pixel.getX()),
+                (int) Math.round(pixel.getY()), 1, false, MouseEvent.BUTTON1));
         assertSame(inside, panel.getChoosen());
     }
 

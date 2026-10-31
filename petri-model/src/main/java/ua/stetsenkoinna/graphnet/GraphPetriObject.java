@@ -14,6 +14,13 @@ import java.util.Objects;
  * template differ exactly in those.
  */
 public class GraphPetriObject implements Serializable {
+    private static final long serialVersionUID = 6555007543450265938L;
+    private String modelId = ModelIdentity.create("o_");
+    private Boolean contentVisible = true;
+    public String getModelId() { if (modelId == null) modelId = ModelIdentity.create("o_"); return modelId; }
+    public void setModelId(String value) { modelId = ModelIdentity.requireValid(value); }
+    public boolean isContentVisible() { return !Boolean.FALSE.equals(contentVisible); }
+    public void setContentVisible(boolean value) { contentVisible = value; }
 
     /** Where a newly created object is put when the caller has no position in mind. */
     private static final Point DEFAULT_POSITION = new Point(0, 0);

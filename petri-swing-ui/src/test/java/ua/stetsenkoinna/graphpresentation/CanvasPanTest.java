@@ -111,15 +111,19 @@ public class CanvasPanTest {
         assertEquals(new Point(500, 400), viewport.getViewPosition());
     }
 
-    /** Panning towards the top-left corner stops there rather than scrolling into nothing. */
+    /** Panning through the backing surface edge continues into negative model coordinates. */
     @Test
-    public void panStopsAtTheCanvasEdge() {
+    public void panContinuesPastTheFormerCanvasEdge() {
         canvasInAViewportAt(20, 20);
+        var before = panel.getCamera();
 
         mouseHandler().mousePressed(atViewportPoint(MouseEvent.MOUSE_PRESSED, 100, 100));
         motionHandler().mouseDragged(atViewportPoint(MouseEvent.MOUSE_DRAGGED, 900, 900));
 
-        assertEquals(new Point(0, 0), viewport.getViewPosition());
+        assertEquals(before.center_x() - 800, panel.getCamera().center_x(), 0.001);
+        assertEquals(before.center_y() - 800, panel.getCamera().center_y(), 0.001);
+        assertTrue(viewport.getViewPosition().x > 0);
+        assertTrue(viewport.getViewPosition().y > 0);
     }
 
     /**

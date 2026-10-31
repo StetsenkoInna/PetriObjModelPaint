@@ -55,6 +55,10 @@ public class ObjectCanvasBoundaryPortTest {
     }
 
     private static void drag(PetriNetsPanel panel, int fromX, int fromY, int toX, int toY) {
+        Point2D from = panel.toPanel(new Point2D.Double(fromX, fromY));
+        Point2D to = panel.toPanel(new Point2D.Double(toX, toY));
+        fromX = (int) Math.round(from.getX()); fromY = (int) Math.round(from.getY());
+        toX = (int) Math.round(to.getX()); toY = (int) Math.round(to.getY());
         PetriNetsPanel.MouseHandler handler = mouseHandlerOf(panel);
         MouseMotionListener motion = panel.getMouseMotionListeners()[0];
         handler.mousePressed(new MouseEvent(panel, MouseEvent.MOUSE_PRESSED,

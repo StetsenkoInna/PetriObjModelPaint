@@ -224,11 +224,11 @@ public final class NetworkImageExporter {
             }
             graphics.setFont(panel.getFont());
             graphics.translate(-extent.getX() * scale, -extent.getY() * scale);
-            graphics.scale(scale / panel.getScale(), scale / panel.getScale());
+            graphics.scale(scale, scale);
             boolean opaque = panel.isOpaque();
             try {
                 if (options.transparentBackground()) panel.setOpaque(false);
-                panel.paintComponent(graphics);
+                panel.paintModel(graphics);
                 if (!parameterLines.isEmpty()) {
                     graphics.setTransform(new java.awt.geom.AffineTransform());
                     graphics.scale(scale, scale);

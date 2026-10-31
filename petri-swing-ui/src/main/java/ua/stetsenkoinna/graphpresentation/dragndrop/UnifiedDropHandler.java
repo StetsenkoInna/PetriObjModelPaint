@@ -105,7 +105,8 @@ public class UnifiedDropHandler implements DropTargetListener {
             }
 
             Point dropLocation = SwingUtilities.convertPoint(dtde.getDropTargetContext().getComponent(), dtde.getLocation(), panel);
-            dropLocation = new Point(Math.max(0, dropLocation.x), Math.max(0, dropLocation.y));
+            var worldDrop = panel.toWorld(dropLocation);
+            dropLocation = new Point((int) Math.round(worldDrop.x), (int) Math.round(worldDrop.y));
             boolean atLeastOneSuccess = false;
 
             // Process each dropped file

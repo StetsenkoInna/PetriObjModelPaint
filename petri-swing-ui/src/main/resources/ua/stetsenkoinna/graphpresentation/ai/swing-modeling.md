@@ -1,51 +1,97 @@
-# Swing editor adapter
+# Direct desktop model API
 
-Prefer direct model tools: `get_model`, `apply_model`, `edit_model`, `validate_model`,
-`simulate_model`, `open_model` and `save_model`. These operations need no UI inspection.
-Read `get_model` first and use its revision in changes. `apply_model` accepts a complete
-flat document with name, places, transitions and arcs. IDs are stable XML NCNames;
-arcs address nodes by ID. Coordinates are node centers. `edit_model` accepts atomic
-put_place, put_transition, put_arc and remove operations; puts partially update existing
-elements. A failed batch leaves the canvas unchanged. Existing documents require
-replace_current=true for apply/open; stale revisions are rejected. Changes support Undo.
+Start with `get_model_capabilities` and `get_model`. Model construction uses direct
+tools, including composed models. Do not use `inspect_ui` or `ui_action` to create,
+group, nest, duplicate or connect model elements. UI controls are for inspecting
+appearance, testing the interface or handling a specifically requested UI task.
 
-Structured edits are for flat concrete nets. Preserve objects, links and symbolic
-parameters by reading include_pnml=true and using `open_model` with revised PNML.
-`validate_model` checks engine compatibility, not task correctness or schema conformance.
-`simulate_model` returns observed evidence from a fresh copy and leaves the canvas
-markings unchanged. It has bounded execution and reports failed or incomplete runs.
-`save_model` writes PNML to an absolute path; overwrite=true is required for existing files.
-Delay and horizon values use the same model clock. Uniform deviation is the half-range;
-normal deviation is the standard deviation. A read arc tests availability, not absence.
+`apply_model` accepts the complete document: name, places, transitions, local arcs,
+objects, links and groups. `edit_model` applies an atomic batch to the same document.
+No drawing gesture or property dialog is necessary. Use the revision from the last
+read as `expected_revision`; stale or invalid batches leave the model unchanged.
+Apply/open need replace_current=true for a nonempty document. `undo_model` restores
+an edit or redoes it without clicking controls. Data is scoped to the complete document,
+regardless of which object's canvas happens to be visible.
 
-UI tools remain available: `inspect_ui`, `screenshot`, `ui_action`,
-`export_training_data` and `export_network_image`. The following applies to UI actions.
-The shared modeling guides describe concepts, not additional tool names.
+## Objects and ports
 
-Inspect the current document and windows before choosing an action. Use the component
-IDs returned by the latest inspection. Read menus and tooltips to find the editor's
-existing creation, property, simulation, undo and save actions. Use a window screenshot
-to understand canvas geometry. Mouse coordinates are relative to the chosen component.
+Create an object directly in objects[] or with put_object. Its members[] explicitly
+lists the place and transition IDs it owns. Coordinates do not decide ownership.
+Use parent for nesting. `set_owner` moves membership; `move_object` translates the
+whole subtree, while put_object can change only the frame bounds. replicate_object
+copies a subtree with fresh prefixed IDs and its internal connections. External
+connections are copied only when include_external_links=true. A canonical resource
+outside a replicated object can be shared by all copies through their local aliases.
 
-Use the editor's controls and property dialogs to apply the design. The time-unit
-chips only label the model clock; changing them does not convert existing delays or
-the horizon. Choose one unit and convert all relevant numeric parameters consistently
-when needed. This desktop API has no `time_unit` argument or automatic pattern
-auto-connection. Inspect and verify the arcs actually
-created on the canvas. Petri-object composition uses the editor's own object controls.
+Ports are derived from object members. `get_model.ports` returns IDs in the form
+objectId:elementId, kind and perimeter position. Do not create fake port nodes.
+Nested-object boundary ports can address elements in the object's subtree.
 
-Actions are queued on the Swing event dispatch thread. Inspect again to observe
-completion, errors and modal dialogs before the next action. Handle the innermost
-dialog first. A native file dialog accepts a path through the `file` action. An
-existing-file save still asks for confirmation. Do not assume a queued action succeeded.
+- `placeFusion`: source is the canonical place, target is its local alias in another
+  object. They share ONE marking. Seed the canonical resource once; do not add the
+  alias counts as extra capacity. One source may have several aliases.
+- `transitionToPlace`: a transition delivers weight tokens to a place in another
+  object. This is a special output connection, not shared identity.
+- Ordinary and read arcs stay inside one object. To consume from an external queue,
+  create a local place in the consuming object, fuse it to the canonical queue,
+  and draw an ordinary input arc from that local place to the local transition.
+  A read arc tests availability without consuming; it is not an inhibitor zero-test.
 
-When using UI actions, run and save through the existing application actions. Check the visible error and
-simulation output, and report the checks actually performed. Shared knowledge does
-not grant an unavailable pattern builder, validator, export tool or chart tool.
+For example, two object fragments can have:
 
-When requested, use `export_network_image` for a standalone image of the active
-canvas or `export_training_data` for the current PNML and supplied session context.
-Supply only actual conversation messages. A bundle is unreviewed by default;
-export success is not a passed model check. Geometry is unverified rather than
-reviewed detector labeling. Follow `petri://skills/petri-training-export` for the
-shared archive contract.
+```json
+{"links":[
+  {"type":"placeFusion","source":"pool:resource","target":"machine:local_resource"},
+  {"type":"transitionToPlace","source":"source:finish","target":"machine:queue"}
+]}
+```
+
+Use links[] in apply_model or connect_ports/disconnect_ports in edit_model. Link IDs
+are derived and returned; omit id when creating a new connection. A fusion has no
+transfer weight. Direct cross-object place-to-transition and transition-to-transition
+connections are invalid. Do not substitute an informational arc for a shared queue.
+Connections between aliases in a single runtime object are rejected rather than
+silently changing their meaning.
+
+## Parameters and reusable modules
+
+Symbolic values are preserved by tokens_parameter, delay_parameter,
+distribution_parameter, priority_parameter, probability_parameter, weight_parameter
+and read_parameter. Supplying a concrete numeric/literal field clears its symbolic
+field. Editing a shared place updates all aliases. Resolve symbolic cross-object
+output weights before PNML export or simulation; the engine link contract requires
+a concrete quantity. Do not interpret placeholder numeric values as resolved symbols.
+
+`list_model_templates` exposes library methods, typed arguments and saved palette
+templates. `insert_model_template` instantiates one at signed world coordinates.
+`export_model_fragment` saves selected object subtrees with internal links, nesting,
+groups and parameters. `insert_model_fragment` inserts such a module with fresh
+prefixed IDs, preserving its relative arrangement. Use these tools instead of
+opening the Nets window, saving objects through dialogs or stamping palette tools.
+
+## Geometry, checks and saving
+
+Coordinates are world coordinates and can be negative. A new canvas centers (0,0)
+and can pan in all directions. `set_model_view` focuses an object/root, sets camera
+center/zoom or fits the drawing, without moving the model. Save/open preserve world
+coordinates. Node coordinates are centers; object coordinates are frame corners.
+
+`optimize_model_layout` improves spacing without rebuilding topology or changing
+parameters. It is optional, revision checked and undoable. Inspect its report:
+verified=true only covers the stated verification_scope, readability_verified
+separates unreadable labels from remaining crossings. Do not claim an arbitrary
+complex diagram is clear when diagnostics remain. Use apply=false for a preview.
+Do not automatically apply it as a final step unless its evidence justifies doing so.
+
+`validate_model` checks engine compatibility; it is not proof of task correctness.
+`simulate_model` runs a fresh copy and returns observed states/statistics/trajectories,
+leaving canvas markings unchanged. It reports limits and failures explicitly.
+Delays and horizon use the same model clock; changing UI time-unit labels does not
+convert values. Uniform deviation is half-range; normal deviation is standard deviation.
+
+`save_model` writes the full PNML document to an absolute path, preserving existing
+files unless overwrite=true. `open_model` reads full PNML directly, including legacy
+models. PNML editing is an interchange option, not a required workaround for objects.
+Use export_network_image for a real renderer image. Dataset/review tools preserve
+actual task, conversation, checks and version history; follow their shared guides.
+Never invent conversation messages or claim that ZIP export itself proves correctness.

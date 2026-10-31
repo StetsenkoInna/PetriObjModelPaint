@@ -138,8 +138,13 @@ public class GraphCanvasModel implements Serializable {
                 // the source model was already inconsistent, not something a copy should mask.
                 continue;
             }
-            this.fusions.add(new GraphPlaceFusion(newMaster, newJoined,
-                    frameMap.get(oldFusion.getMasterOwner()), frameMap.get(oldFusion.getJoinedOwner())));
+            GraphPlaceFusion copy = new GraphPlaceFusion(newMaster, newJoined,
+                    frameMap.get(oldFusion.getMasterOwner()), frameMap.get(oldFusion.getJoinedOwner()));
+            if (oldFusion.getBoundaryStubOffset() != null) {
+                copy.setBoundaryStubOffset(new Point2D.Double(
+                        oldFusion.getBoundaryStubOffset().x, oldFusion.getBoundaryStubOffset().y));
+            }
+            this.fusions.add(copy);
         }
         copyGroups(other, frameMap);
 
@@ -278,6 +283,7 @@ public class GraphCanvasModel implements Serializable {
         Map<GraphObjectFrame, GraphObjectFrame> frameMap = new IdentityHashMap<>();
         for (GraphObjectFrame oldFrame : other.frames) {
             GraphObjectFrame copy = new GraphObjectFrame(oldFrame, oldToNew);
+            copy.setModelId(ModelIdentity.create("o_"));
             frameMap.put(oldFrame, copy);
             frames.add(copy);
         }
@@ -298,10 +304,13 @@ public class GraphCanvasModel implements Serializable {
             }
             GraphPlaceFusion copy = new GraphPlaceFusion((GraphPetriPlace) master, (GraphPetriPlace) joined,
                     frameMap.get(oldFusion.getMasterOwner()), frameMap.get(oldFusion.getJoinedOwner()));
-            copy.setBoundaryStubOffset(oldFusion.getBoundaryStubOffset());
+            if (oldFusion.getBoundaryStubOffset() != null) {
+                copy.setBoundaryStubOffset(new Point2D.Double(
+                        oldFusion.getBoundaryStubOffset().x, oldFusion.getBoundaryStubOffset().y));
+            }
             fusions.add(copy);
         }
-        copyGroups(other, frameMap);
+        copyGroups(other, frameMap, false);
         syncFusions();
     }
 
@@ -615,8 +624,15 @@ public class GraphCanvasModel implements Serializable {
      */
     private void copyGroups(GraphCanvasModel other,
                             Map<GraphObjectFrame, GraphObjectFrame> frameMap) {
+        copyGroups(other, frameMap, true);
+    }
+
+    private void copyGroups(GraphCanvasModel other,
+                            Map<GraphObjectFrame, GraphObjectFrame> frameMap,
+                            boolean preserveIds) {
         for (GraphObjectGroup oldGroup : other.groups) {
             GraphObjectGroup copy = new GraphObjectGroup(oldGroup.getName(), oldGroup.getTemplate());
+            if (preserveIds) copy.setModelId(oldGroup.getModelId());
             for (GraphObjectFrame member : oldGroup.getMembers()) {
                 GraphObjectFrame replacement = frameMap.get(member);
                 if (replacement != null) {
@@ -1019,7 +1035,13 @@ public class GraphCanvasModel implements Serializable {
             fusion.getJoined().setLinkedToAnotherPlace(true);
             // Self-healing for the one-marking rule: any path that changed a marking
             // without going through the properties dialog converges back to the master's.
-            fusion.syncMarking();
+            GraphPetriPlace source = fusion.getMaster();
+            for (int step=0; step<fusions.size(); step++) {
+                GraphPlaceFusion previous = sourceFusionOf(source);
+                if (previous == null) break;
+                source = previous.getMaster();
+            }
+            fusion.syncMarkingFrom(source);
         }
     }
 
@@ -1115,6 +1137,7 @@ public class GraphCanvasModel implements Serializable {
 
         GraphPetriObjModel model = new GraphPetriObjModel(name);
         List<ua.stetsenkoinna.petriobj.PetriObjLink> links = new ArrayList<>();
+        Map<ua.stetsenkoinna.petriobj.PetriObjLink, Point2D.Double> linkOffsets = new IdentityHashMap<>();
 
         for (GraphArcIn arc : net.getGraphArcInList()) {
             GraphPetriPlace place = placeOf(arc.getBeginElement());
@@ -1143,22 +1166,33 @@ public class GraphCanvasModel implements Serializable {
             if (placeOwner == transitionOwner) {
                 arcsOut.get(placeOwner).add(arc);
             } else {
-                links.add(ua.stetsenkoinna.petriobj.PetriObjLink.transitionToPlace(
+                if (arc.getArcOut().kIsParam()) {
+                    throw new IllegalArgumentException("Resolve cross-object output weight parameter '"
+                            + arc.getArcOut().getKParamName() + "' before saving or simulating the composed model");
+                }
+                var link = ua.stetsenkoinna.petriobj.PetriObjLink.transitionToPlace(
                         transitionOwner, transitions.get(transitionOwner).indexOf(transition),
                         placeOwner, places.get(placeOwner).indexOf(place),
-                        Math.max(1, arc.getArcOut().getQuantity())));
+                        Math.max(1, arc.getArcOut().getQuantity()));
+                links.add(link);
+                if (arc.getBoundaryStubOffset() != null) linkOffsets.put(link, arc.getBoundaryStubOffset());
             }
         }
 
         for (GraphPlaceFusion fusion : fusions) {
             Integer masterOwner = owners.get(fusion.getMaster());
             Integer joinedOwner = owners.get(fusion.getJoined());
-            if (masterOwner == null || joinedOwner == null || masterOwner.equals(joinedOwner)) {
+            if (masterOwner == null || joinedOwner == null) {
                 continue;
             }
-            links.add(ua.stetsenkoinna.petriobj.PetriObjLink.placeFusion(
+            if (masterOwner.equals(joinedOwner)) {
+                throw new IllegalArgumentException("Shared place representations must belong to different Petri-objects before saving or simulating. Put each representation in its own object.");
+            }
+            var link = ua.stetsenkoinna.petriobj.PetriObjLink.placeFusion(
                     joinedOwner, places.get(joinedOwner).indexOf(fusion.getJoined()),
-                    masterOwner, places.get(masterOwner).indexOf(fusion.getMaster())));
+                    masterOwner, places.get(masterOwner).indexOf(fusion.getMaster()));
+            links.add(link);
+            if (fusion.getBoundaryStubOffset() != null) linkOffsets.put(link, fusion.getBoundaryStubOffset());
         }
 
         for (int index = 0; index < objectCount; index++) {
@@ -1171,7 +1205,10 @@ public class GraphCanvasModel implements Serializable {
             GraphObjectFrame frame = free ? null : frames.get(index);
             GraphPetriObject object = new GraphPetriObject(
                     free ? FREE_OBJECT_NAME : frame.getName(), objectNet);
+            if (free) object.setModelId("free");
             if (!free) {
+                object.setModelId(frame.getModelId());
+                object.setContentVisible(frame.isContentVisible());
                 object.setPriority(frame.getPriority());
                 object.setTemplate(frame.getTemplate());
                 // The expanded rectangle, never the collapsed summary box: a collapsed
@@ -1191,6 +1228,7 @@ public class GraphCanvasModel implements Serializable {
 
         for (ua.stetsenkoinna.petriobj.PetriObjLink link : links) {
             model.addLink(link);
+            if (linkOffsets.containsKey(link)) model.setLinkBoundaryStubOffset(link, linkOffsets.get(link));
         }
         // Which objects were stamped together, addressed by index like everything else a
         // document says about an object. A group whose members no longer all exist is left out
@@ -1205,7 +1243,8 @@ public class GraphCanvasModel implements Serializable {
             }
             if (memberIndices.size() >= 2) {
                 model.getGroups().add(new PetriObjectGroupRef(group.getName(), memberIndices,
-                        group.getTemplate() == null ? null : group.getTemplate().getMethodName()));
+                        group.getTemplate() == null ? null : group.getTemplate().getMethodName(), group.getModelId(),
+                        group.getTemplate() == null ? List.of() : group.getTemplate().getArguments()));
             }
         }
 
@@ -1289,6 +1328,8 @@ public class GraphCanvasModel implements Serializable {
                     object.getHeight() > 0 ? object.getHeight() : defaultHeight(object));
             if (!free) {
                 GraphObjectFrame frame = new GraphObjectFrame(object.getName(), bounds);
+                frame.setModelId(object.getModelId());
+                frame.setContentVisible(object.isContentVisible());
                 frame.setPriority(object.getPriority());
                 frame.setTemplate(object.getTemplate());
                 canvas.frames.add(frame);
@@ -1373,7 +1414,8 @@ public class GraphCanvasModel implements Serializable {
             GraphObjectGroup group = new GraphObjectGroup(declared.name(),
                     declared.templateMethod() == null
                             ? null
-                            : new NetTemplateRef(declared.templateMethod(), List.of()));
+                            : new NetTemplateRef(declared.templateMethod(), declared.templateArguments()));
+            group.setModelId(declared.modelId());
             for (Integer index : declared.memberObjects()) {
                 GraphObjectFrame member = frameOfObject(index);
                 if (member != null) {
@@ -1404,9 +1446,11 @@ public class GraphCanvasModel implements Serializable {
                             loadWarnings.add("Dropped the link " + master.getName() + " = "
                                     + joined.getName() + ": " + rejection);
                         } else {
-                            fusions.add(new GraphPlaceFusion(master, joined,
+                            GraphPlaceFusion fusion = new GraphPlaceFusion(master, joined,
                                     frameOfObject(link.getTargetObject()),
-                                    frameOfObject(link.getSourceObject())));
+                                    frameOfObject(link.getSourceObject()));
+                            fusion.setBoundaryStubOffset(model.getLinkBoundaryStubOffset(link));
+                            fusions.add(fusion);
                         }
                     }
                 }
@@ -1414,8 +1458,9 @@ public class GraphCanvasModel implements Serializable {
                     GraphPetriTransition transition = transitionAt(source, link.getSourceElement());
                     GraphPetriPlace place = placeAt(target, link.getTargetElement());
                     if (transition != null && place != null) {
-                        net.getGraphArcOutList().add(
-                                GraphArcFactory.outArc(transition, place, link.getQuantity()));
+                        GraphArcOut arc = GraphArcFactory.outArc(transition, place, link.getQuantity());
+                        arc.setBoundaryStubOffset(model.getLinkBoundaryStubOffset(link));
+                        net.getGraphArcOutList().add(arc);
                     }
                 }
             }

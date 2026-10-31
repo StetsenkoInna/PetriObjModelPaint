@@ -23,9 +23,9 @@ with live animation, watch the statistics, and exchange it as PNML.
 
 > [!TIP]
 > **Just want to use the app?** Grab the ready-made editor, no source build required:
-> [Windows](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.7.0/petri-swing-ui-2.7.0-windows.zip) ·
-> [Linux](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.7.0/petri-swing-ui-2.7.0-linux.zip) ·
-> [macOS](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.7.0/petri-swing-ui-2.7.0-macos.zip)
+> [Windows](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.0/petri-swing-ui-2.8.0-windows.zip) ·
+> [Linux](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.0/petri-swing-ui-2.8.0-linux.zip) ·
+> [macOS](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.0/petri-swing-ui-2.8.0-macos.zip)
 > (or browse the [latest release](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/latest) page for other
 > versions). Unzip it and run the launcher inside (`.bat` / `.sh` / `.command`): it checks for
 > Java 23+ and points you to the official download if it's missing.
@@ -47,7 +47,7 @@ This is a multi-module Maven project:
 
 ## Reusable libraries
 
-From v2.4.0, releases include [petri-math](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-math-2.6.0.jar), [petri-api](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-api-2.6.0.jar) and [petri-model](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-model-2.6.0.jar) for use without the editor. See the [Java library integration guide](docs/java-libraries.md) for Maven setup, requirements and examples.
+From v2.4.0, releases include [petri-math](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-math-2.6.0.jar), [petri-api](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-api-2.6.0.jar) and [petri-model](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.0/petri-model-2.8.0.jar) for use without the editor. See the [Java library integration guide](docs/java-libraries.md) for Maven setup, requirements and examples.
 
 ---
 

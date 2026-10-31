@@ -9,6 +9,7 @@ import ua.stetsenkoinna.petriobj.PetriT;
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
+import java.awt.geom.Point2D;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -47,7 +48,9 @@ public class FrameReparentingTest {
     }
 
     private static MouseEvent event(PetriNetsPanel panel, int id, int x, int y) {
-        return new MouseEvent(panel, id, System.currentTimeMillis(), 0, x, y, 1, false, MouseEvent.BUTTON1);
+        Point2D pixel = panel.toPanel(new Point2D.Double(x, y));
+        return new MouseEvent(panel, id, System.currentTimeMillis(), 0,
+                (int) Math.round(pixel.getX()), (int) Math.round(pixel.getY()), 1, false, MouseEvent.BUTTON1);
     }
 
     /** Drags whatever is under (fromX, fromY) - a frame's header, in every test here - to (toX, toY). */

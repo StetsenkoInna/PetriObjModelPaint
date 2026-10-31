@@ -93,18 +93,26 @@ public class TrainingReviewWorkflowTest {
             var canvas = live[0].canvas();
             var place = canvas.getGraphNet().getGraphPetriPlaceList().getFirst();
             var position = place.getGraphElementCenter();
+            var pixel = canvas.toPanel(position);
+            int x = (int) Math.round(pixel.getX()), y = (int) Math.round(pixel.getY());
+            assertTrue("The node is visible before selecting it", canvas.getVisibleRect().contains(x, y));
+            String[] selectionError = {null};
             Timer answer = new Timer(40, null);
             answer.addActionListener(event -> {
                 for (Window window : Window.getWindows()) if (window.isShowing()) {
                     JTextArea text = find(window, JTextArea.class, "Finding comment");
                     JOptionPane pane = find(window, JOptionPane.class, null);
                     if (text != null && pane != null) { text.setText("Перевірити кількість початкових маркерів"); pane.setValue(JOptionPane.OK_OPTION); answer.stop(); }
+                    else if (pane != null && window instanceof java.awt.Dialog dialog && "Cannot attach finding".equals(dialog.getTitle())) {
+                        selectionError[0] = String.valueOf(pane.getMessage()); pane.setValue(JOptionPane.OK_OPTION); answer.stop();
+                    }
                 }
             });
             answer.start();
-            int x = (int) (position.getX() * canvas.getScale()), y = (int) (position.getY() * canvas.getScale());
             canvas.dispatchEvent(new java.awt.event.MouseEvent(canvas, java.awt.event.MouseEvent.MOUSE_PRESSED, 0, java.awt.event.InputEvent.BUTTON1_DOWN_MASK, x, y, 1, false, java.awt.event.MouseEvent.BUTTON1));
             canvas.dispatchEvent(new java.awt.event.MouseEvent(canvas, java.awt.event.MouseEvent.MOUSE_RELEASED, 1, 0, x, y, 1, false, java.awt.event.MouseEvent.BUTTON1));
+            answer.stop();
+            assertNull(selectionError[0], selectionError[0]);
             assertEquals(position, place.getGraphElementCenter());
             JTable table = find(form[0], JTable.class, null); assertEquals(1, table.getRowCount());
             assertEquals("Перевірити кількість початкових маркерів", table.getModel().getValueAt(0, 1));

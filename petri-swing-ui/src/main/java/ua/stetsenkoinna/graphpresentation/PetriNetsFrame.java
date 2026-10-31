@@ -75,7 +75,8 @@ public class PetriNetsFrame extends SimulationFrame {
                     new ua.stetsenkoinna.graphpresentation.ai.SwingUiBridge(),
                     new TrainingDataTools(trainingDataExporter, this::getPetriNetsPanel),
                     new ua.stetsenkoinna.graphpresentation.ai.TrainingReviewTools(this, trainingDataExporter),
-                    new ua.stetsenkoinna.graphpresentation.ai.ModelTools(this));
+                    new ua.stetsenkoinna.graphpresentation.ai.ModelTools(this),
+                    new ua.stetsenkoinna.graphpresentation.ai.ModelCatalogTools(this));
     private ua.stetsenkoinna.graphpresentation.ai.McpDialog mcpDialog;
     private String mcpStartupFailure;
 
@@ -147,6 +148,9 @@ public class PetriNetsFrame extends SimulationFrame {
 
     /* ACTIONS */
     private final AnimationControls animationControls = new AnimationControls(this);
+    private final javax.swing.Action improveSpacingAction = new javax.swing.AbstractAction("Improve spacing") {
+        @Override public void actionPerformed(java.awt.event.ActionEvent event) { improveSpacingFromUi(); }
+    };
     private final RunNetAction runNetAction = animationControls.runNetAction;
     public final StepBackAction stepBackAction = animationControls.stepBackAction;
     public final StopSimulationAction stopSimulationAction = animationControls.stopSimulationAction;
@@ -306,10 +310,8 @@ public class PetriNetsFrame extends SimulationFrame {
      */
     private Point viewportCentreOnCanvas() {
         java.awt.Rectangle view = petriNetPanelScrollPane.getViewport().getViewRect();
-        double scale = getPetriNetsPanel().getScale();
-        return new Point(
-                (int) ((view.x + view.width / 2) / scale),
-                (int) ((view.y + view.height / 2) / scale));
+        var world = getPetriNetsPanel().toWorld(new java.awt.geom.Point2D.Double(view.x + view.width / 2.0,view.y + view.height / 2.0));
+        return new Point((int)Math.round(world.getX()),(int)Math.round(world.getY()));
     }
 
     /**
@@ -1397,6 +1399,13 @@ public class PetriNetsFrame extends SimulationFrame {
         styleToolButton(objectBandToolButton);
         canvasToolGroup.add(objectBandToolButton);
         pinnedToolsPanel.add(objectBandToolButton);
+        javax.swing.JButton spacingButton = new javax.swing.JButton(improveSpacingAction);
+        spacingButton.setText(null);
+        spacingButton.setIcon(CanvasToolIcons.spacing(TOOL_ICON_SIZE));
+        spacingButton.setToolTipText("Improve spacing");
+        spacingButton.getAccessibleContext().setAccessibleName("Improve spacing");
+        styleToolButton(spacingButton);
+        pinnedToolsPanel.add(spacingButton);
 
         leftIconToolBar.add(pinnedToolsPanel, java.awt.BorderLayout.NORTH);
 
@@ -1724,6 +1733,9 @@ public class PetriNetsFrame extends SimulationFrame {
         centerOnNetMenuItem.setText("Center on net");
         centerOnNetMenuItem.addActionListener(this::centerOnNetMenuItemActionPerformed);
         viewMenu.add(centerOnNetMenuItem);
+        javax.swing.JMenuItem spacingMenuItem = new javax.swing.JMenuItem(improveSpacingAction);
+        spacingMenuItem.setIcon(CanvasToolIcons.spacing(16));
+        viewMenu.add(spacingMenuItem);
 
         viewMenu.addSeparator();
         viewMenu.add(buildThemeMenu());
@@ -2144,16 +2156,7 @@ public class PetriNetsFrame extends SimulationFrame {
 
     private void centerOnNetMenuItemActionPerformed(
             java.awt.event.ActionEvent evt) {// GEN-FIRST:event_centerOnNetMenuItemActionPerformed
-        Rectangle viewBounds = petriNetPanelScrollPane.getBounds();
-        LOGGER.debug("{}  {}", viewBounds.x, viewBounds.width);
-        Point centre = new Point(
-                viewBounds.x + viewBounds.width / 2,
-                viewBounds.y + viewBounds.height / 2);
-        // Through the canvas rather than straight at the net: the net alone has no notion of a
-        // Petri-object frame, so moving it directly slid every object's net out from under its own
-        // frame and left every frame where it was.
-        getPetriNetsPanel().centreCanvasAt(centre);
-        getPetriNetsPanel().repaint();
+        getPetriNetsPanel().fitDrawingToViewport();
     }// GEN-LAST:event_centerOnNetMenuItemActionPerformed
 
     private void openMethodMenuItemActionPerformed(
@@ -2227,6 +2230,7 @@ public class PetriNetsFrame extends SimulationFrame {
         GraphCanvasModel canvas = GraphCanvasModel.fromObjModel(objModel);
         getPetriNetsPanel().setCanvasModel(canvas);
         netNameTextField.setText(objModel.getName());
+        getPetriNetsPanel().fitDrawingToViewport();
         // The opened file is the document's file from here on: plain Save writes back
         // to it silently, the way every editor treats the file it has open.
         currentPnmlFile = file;
@@ -2639,27 +2643,74 @@ public class PetriNetsFrame extends SimulationFrame {
         GraphCanvasModel before = new GraphCanvasModel(getPetriNetsPanel().getCanvasModel());
         before.setName(getNameNet());
         java.io.File previousFile = currentPnmlFile;
+        var previousCamera = getPetriNetsPanel().getCamera();
+        String focusedId = getPetriNetsPanel().getFocusedFrame()==null ? null : getPetriNetsPanel().getFocusedFrame().getModelId();
         if (newDocument) resetWorkspaceForNewDocument();
         else animationControls.resetForNewDocument();
         getPetriNetsPanel().setCanvasModel(canvas);
         netNameTextField.setText(canvas.getName());
+        if(newDocument)getPetriNetsPanel().fitDrawingToViewport();
+        else restoreEditingView(focusedId,previousCamera);
         GraphCanvasModel after = new GraphCanvasModel(canvas);
+        java.io.File resultFile = currentPnmlFile;
         getUndoSupport().postEdit(new javax.swing.undo.AbstractUndoableEdit() {
             @Override public String getPresentationName() { return "MCP model change"; }
             @Override public void undo() {
+                var camera = getPetriNetsPanel().getCamera();
                 super.undo(); animationControls.resetForNewDocument();
                 getPetriNetsPanel().setCanvasModel(new GraphCanvasModel(before));
                 netNameTextField.setText(before.getName()); currentPnmlFile = previousFile;
+                restoreEditingView(focusedId,camera);
             }
             @Override public void redo() {
+                var camera = getPetriNetsPanel().getCamera();
                 super.redo(); animationControls.resetForNewDocument();
                 getPetriNetsPanel().setCanvasModel(new GraphCanvasModel(after));
-                netNameTextField.setText(after.getName()); currentPnmlFile = null;
+                netNameTextField.setText(after.getName()); currentPnmlFile = resultFile;
+                restoreEditingView(focusedId,camera);
             }
         });
     }
 
     public void rememberMcpFile(java.nio.file.Path path) { currentPnmlFile = path.toFile(); }
+
+    private void restoreEditingView(String objectId,PetriNetsPanel.CameraState camera) {
+        var panel=getPetriNetsPanel();
+        var focus=objectId==null?null:panel.getCanvasModel().getFrames().stream().filter(o->o.getModelId().equals(objectId)).findFirst().orElse(null);
+        boolean collapsed=focus!=null&&focus.isCollapsed();panel.openObjectCanvas(focus);if(focus!=null)focus.setCollapsed(collapsed);
+        panel.setCamera(camera.center_x(),camera.center_y(),camera.scale());
+    }
+
+    public void undoMcpModel(boolean redo) {
+        if(runModel!=null||animationModel!=null)throw new IllegalStateException("Stop the simulation before changing the model");
+        if(redo){if(!undoManager.canRedo())throw new IllegalStateException("Nothing to redo");undoManager.redo();}
+        else {if(!undoManager.canUndo())throw new IllegalStateException("Nothing to undo");undoManager.undo();}
+        refreshUndoRedoMenuState();
+    }
+
+    private void improveSpacingFromUi() {
+        if(runModel!=null||animationModel!=null){MessageHelper.showError(this,"Stop the simulation before improving spacing.");return;}
+        try {
+            var original=getPetriNetsPanel().getCanvasModel();original.setName(getNameNet());
+            String revision=ua.stetsenkoinna.graphpresentation.ai.ModelTools.revision(original);
+            var source=new GraphCanvasModel(original);var font=getPetriNetsPanel().getFont();
+            improveSpacingAction.setEnabled(false);
+            new javax.swing.SwingWorker<ua.stetsenkoinna.graphpresentation.layout.LayoutOptimizer.Result,Void>() {
+                @Override protected ua.stetsenkoinna.graphpresentation.layout.LayoutOptimizer.Result doInBackground() {return ua.stetsenkoinna.graphpresentation.layout.LayoutOptimizer.optimize(source,font);}
+                @Override protected void done() {
+                    try {
+                        var result=get();
+                        if(!revision.equals(ua.stetsenkoinna.graphpresentation.ai.ModelTools.revision(getPetriNetsPanel().getCanvasModel())))throw new IllegalStateException("The model changed while spacing was calculated. Try again.");
+                        applyMcpCanvas(result.canvas(),false);getPetriNetsPanel().fitDrawingToViewport();
+                        String message=Boolean.TRUE.equals(result.report().get("verified"))?"Spacing improved. No readability issues were found.":"Spacing adjusted. Some labels or arrows still need attention.\n"+result.report().get("diagnostics");
+                        var text=new javax.swing.JTextArea(message,8,64);text.setLineWrap(true);text.setWrapStyleWord(true);text.setEditable(false);
+                        javax.swing.JOptionPane.showMessageDialog(PetriNetsFrame.this,new javax.swing.JScrollPane(text),"Improve spacing",javax.swing.JOptionPane.INFORMATION_MESSAGE);
+                    } catch(Exception failure){MessageHelper.showException(PetriNetsFrame.this,"Could not improve spacing",failure);}
+                    finally { improveSpacingAction.setEnabled(true); }
+                }
+            }.execute();
+        } catch(Exception failure){MessageHelper.showException(this,"Could not improve spacing",failure);}
+    }
 
     public TrainingDataExporter getTrainingDataExporter() { return trainingDataExporter; }
     public ua.stetsenkoinna.graphpresentation.ai.DesktopMcpServer getMcpServer() { return mcpServer; }
@@ -2681,6 +2732,7 @@ public class PetriNetsFrame extends SimulationFrame {
             resetWorkspaceForNewDocument();
             getPetriNetsPanel().setCanvasModel(canvas);
             netNameTextField.setText(model.getName());
+            getPetriNetsPanel().fitDrawingToViewport();
             trainingDataExporter.workspace().adopt(bundle);
             return null;
         });

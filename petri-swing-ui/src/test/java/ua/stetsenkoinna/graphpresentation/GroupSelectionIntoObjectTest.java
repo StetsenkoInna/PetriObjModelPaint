@@ -295,8 +295,8 @@ public class GroupSelectionIntoObjectTest {
         panel.openObjectCanvas(frame);
 
         Rectangle visible = pane.getViewport().getViewRect();
-        assertTrue("the viewport must have moved to the object: " + visible + " vs " + frame.getBounds(),
-                visible.contains(frame.getBounds().x, frame.getBounds().y));
+        assertTrue("the camera must show the object: " + panel.getVisibleWorldBounds() + " vs " + frame.getBounds(),
+                panel.getVisibleWorldBounds().contains(frame.getBounds().x, frame.getBounds().y));
         assertTrue("and the net is painted inside what is on screen",
                 inkPixelsIn(panel, visible) > 0);
     }

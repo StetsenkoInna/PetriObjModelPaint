@@ -22,8 +22,16 @@ import java.util.List;
  * @param memberObjects indices of its member objects, in stamping order
  * @param templateMethod the net library method the shared net came from, or {@code null}
  */
-public record PetriObjectGroupRef(String name, List<Integer> memberObjects, String templateMethod)
+public record PetriObjectGroupRef(String name, List<Integer> memberObjects, String templateMethod, String modelId,
+                                  List<String> templateArguments)
         implements Serializable {
+    public PetriObjectGroupRef(String name, List<Integer> memberObjects, String templateMethod) {
+        this(name, memberObjects, templateMethod, ModelIdentity.create("g_"), List.of());
+    }
+
+    public PetriObjectGroupRef(String name, List<Integer> memberObjects, String templateMethod, String modelId) {
+        this(name, memberObjects, templateMethod, modelId, List.of());
+    }
 
     /**
      * @param name the group's name
@@ -32,5 +40,8 @@ public record PetriObjectGroupRef(String name, List<Integer> memberObjects, Stri
      */
     public PetriObjectGroupRef {
         memberObjects = List.copyOf(memberObjects);
+        modelId = modelId == null || modelId.isBlank()
+                ? ModelIdentity.create("g_") : ModelIdentity.requireValid(modelId);
+        templateArguments = templateArguments == null ? List.of() : List.copyOf(templateArguments);
     }
 }

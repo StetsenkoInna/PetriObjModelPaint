@@ -129,29 +129,20 @@ public class CanvasObjectFrameTest {
     }
 
     @Test
-    public void draggingAFrameIntoTheCanvasEdgeMovesElementsByTheClampedDeltaNotTheRawOne() throws Exception {
-        // The reported bug: moveTo() clamps a negative target to 0, but the delta applied to
-        // the elements used to be measured from the raw, unclamped target — so dragging a
-        // frame into the top or left edge kept moving its elements by the full amount while the
-        // frame itself stopped dead at the edge, drifting them away from it a little further
-        // with every such drag. The delta must come from where the frame actually ended up.
+    public void draggingAFrameAcrossTheOriginMovesItsMembersByTheSameDelta() throws Exception {
         PetriNetsPanel panel = panelWithFramedNet();
         GraphObjectFrame frame = panel.getCanvasModel().getFrames().getFirst();
-        // Start away from the edge, so the clamp about to happen is a real one, not a no-op.
         moveFrameMethod().invoke(panel, frame, 100, 100);
         GraphPetriPlace place = panel.getGraphNet().getGraphPetriPlaceList().getFirst();
         double atOneHundredX = place.getGraphElementCenter().getX();
         double atOneHundredY = place.getGraphElementCenter().getY();
 
-        // Requests (-50,-50); moveTo clamps the frame to (0,0) — an actual delta of -100, not
-        // the -150 the raw, unclamped target would suggest.
         moveFrameMethod().invoke(panel, frame, -50, -50);
 
-        assertEquals("moveTo clamps the frame itself to the canvas", 0, frame.getBounds().x);
-        assertEquals(0, frame.getBounds().y);
-        assertEquals("moved by the frame's actual, clamped delta (-100), not the raw one (-150)",
-                atOneHundredX - 100, place.getGraphElementCenter().getX(), 0.001);
-        assertEquals(atOneHundredY - 100, place.getGraphElementCenter().getY(), 0.001);
+        assertEquals(-50, frame.getBounds().x);
+        assertEquals(-50, frame.getBounds().y);
+        assertEquals(atOneHundredX - 150, place.getGraphElementCenter().getX(), 0.001);
+        assertEquals(atOneHundredY - 150, place.getGraphElementCenter().getY(), 0.001);
     }
 
     @Test

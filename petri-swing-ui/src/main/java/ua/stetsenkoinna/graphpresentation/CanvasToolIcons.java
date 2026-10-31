@@ -26,6 +26,20 @@ public final class CanvasToolIcons {
     private CanvasToolIcons() {
     }
 
+    public static Icon spacing(int size) {
+        return new Icon() {
+            @Override public int getIconWidth() { return size; }
+            @Override public int getIconHeight() { return size; }
+            @Override public void paintIcon(Component component, Graphics graphics, int x, int y) {
+                Graphics2D g=prepare(graphics);g.setColor(component.getForeground());
+                double unit=size/24.0;g.translate(x,y);g.scale(unit,unit);g.setStroke(new java.awt.BasicStroke(1.4f));
+                for(int a:new int[]{2,17})for(int b:new int[]{2,17})g.drawRoundRect(a,b,5,5,1,1);
+                g.drawLine(8,12,16,12);g.drawLine(8,12,10,10);g.drawLine(8,12,10,14);g.drawLine(16,12,14,10);g.drawLine(16,12,14,14);
+                g.drawLine(12,8,12,16);g.drawLine(12,8,10,10);g.drawLine(12,8,14,10);g.drawLine(12,16,10,14);g.drawLine(12,16,14,14);g.dispose();
+            }
+        };
+    }
+
     /**
      * Right-pointing triangle — start an animation.
      *

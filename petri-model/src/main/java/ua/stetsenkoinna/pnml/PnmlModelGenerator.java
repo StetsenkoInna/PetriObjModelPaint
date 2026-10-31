@@ -161,6 +161,8 @@ public class PnmlModelGenerator {
         Element objectElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_PETRI_OBJECT);
         objectElement.setAttribute(PnmlConstants.ATTR_INDEX, String.valueOf(index));
         objectElement.setAttribute(PnmlConstants.ATTR_NAME, object.getName());
+        objectElement.setAttribute("modelId", object.getModelId());
+        objectElement.setAttribute("contentVisible", Boolean.toString(object.isContentVisible()));
         objectElement.setAttribute(PnmlConstants.ATTR_PRIORITY, String.valueOf(object.getPriority()));
         objectElement.setAttribute(PnmlConstants.ATTR_X, String.valueOf(object.getPosition().x));
         objectElement.setAttribute(PnmlConstants.ATTR_Y, String.valueOf(object.getPosition().y));
@@ -467,6 +469,11 @@ public class PnmlModelGenerator {
         for (PetriObjLink link : model.getLinks()) {
             Element linkElement = document.createElementNS(PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_LINK);
             linkElement.setAttribute(PnmlConstants.ATTR_LINK_TYPE, linkTypeName(link));
+            var boundaryOffset = model.getLinkBoundaryStubOffset(link);
+            if (boundaryOffset != null) {
+                linkElement.setAttribute("boundaryStubX", Double.toString(boundaryOffset.x));
+                linkElement.setAttribute("boundaryStubY", Double.toString(boundaryOffset.y));
+            }
             linkElement.setAttribute(PnmlConstants.ATTR_SOURCE_OBJECT, String.valueOf(link.getSourceObject()));
             linkElement.setAttribute(PnmlConstants.ATTR_SOURCE_ELEMENT, String.valueOf(link.getSourceElement()));
             setElementId(linkElement, PnmlConstants.ATTR_SOURCE_ELEMENT_ID,
@@ -505,11 +512,17 @@ public class PnmlModelGenerator {
             Element groupElement = document.createElementNS(
                     PnmlConstants.PNML_NAMESPACE, PnmlConstants.ELEMENT_GROUP);
             groupElement.setAttribute(PnmlConstants.ATTR_NAME, group.name());
+            groupElement.setAttribute("modelId", group.modelId());
             groupElement.setAttribute(PnmlConstants.ATTR_MEMBERS, group.memberObjects().stream()
                     .map(String::valueOf)
                     .collect(java.util.stream.Collectors.joining(" ")));
             if (group.templateMethod() != null) {
                 groupElement.setAttribute(PnmlConstants.ATTR_TEMPLATE_METHOD, group.templateMethod());
+                for (String argument : group.templateArguments()) {
+                    Element value = document.createElementNS(PnmlConstants.PNML_NAMESPACE, "templateArgument");
+                    value.setTextContent(argument);
+                    groupElement.appendChild(value);
+                }
             }
             groupsElement.appendChild(groupElement);
         }

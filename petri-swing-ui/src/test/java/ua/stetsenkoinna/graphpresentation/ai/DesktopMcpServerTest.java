@@ -154,7 +154,8 @@ public class DesktopMcpServerTest {
         assertTrue(initialized.path("capabilities").has("resources"));
         assertTrue(initialized.path("capabilities").has("prompts"));
         JsonNode resources = rpc("resources/list", Map.of()).at("/result/resources");
-        assertEquals(8, resources.size());
+        assertEquals(9, resources.size());
+        assertTrue(resources.toString().contains("petri://desktop/model-api"));
         for (JsonNode resource : resources) {
             JsonNode contents = rpc("resources/read", Map.of("uri", resource.get("uri").asText())).at("/result/contents/0");
             assertEquals("text/markdown", contents.path("mimeType").asText());
@@ -169,13 +170,13 @@ public class DesktopMcpServerTest {
         assertTrue(text.contains("Two parallel machines"));
         for (JsonNode resource : resources) {
             String guide = rpc("resources/read", Map.of("uri", resource.get("uri").asText())).at("/result/contents/0/text").asText();
-            if (resource.get("uri").asText().startsWith("petri://skills/")) assertTrue(text.contains(guide));
+            if (resource.get("uri").asText().startsWith("petri://skills/") || resource.get("uri").asText().equals("petri://desktop/model-api")) assertTrue(text.contains(guide));
             else assertFalse(text.contains(guide));
         }
         String review = rpc("prompts/get", Map.of("name", "review_petri_model", "arguments", Map.of("input_path", "example.zip"))).at("/result/messages/0/content/text").asText();
         assertTrue(review.contains("example.zip")); assertTrue(review.contains("export_training_review"));
-        assertTrue(text.contains("inspect_ui"));
-        assertTrue(text.contains("ui_action"));
+        assertTrue(text.contains("get_model_capabilities"));
+        assertTrue(text.contains("connect_ports"));
         assertEquals(-32602, rpc("prompts/get", Map.of("name", "build_petri_model", "arguments", Map.of())).at("/error/code").asInt());
     }
 

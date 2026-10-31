@@ -38,6 +38,9 @@ public final class GraphObjectGroup implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String name;
+    private String modelId = ModelIdentity.create("g_");
+    public String getModelId() { if (modelId == null) modelId = ModelIdentity.create("g_"); return modelId; }
+    public void setModelId(String value) { modelId = ModelIdentity.requireValid(value); }
 
     /**
      * The members, in the order they were stamped.
