@@ -54,3 +54,8 @@ jobs:
           PY
           # A test JVM that crashed leaves no report at all; Maven's own errors still name it.
           grep -E '^\[ERROR\]' maven.log | grep -v -E '^\[ERROR\] *$|Help 1|re-run Maven|full stack trace|-rf :'             | head -n 8 | sed 's/^/::error title=Maven::/' || true
+          # Which test class was running when a JVM died, and why it died.
+          grep -E 'Running ua\.' maven.log | tail -n 2 | sed 's/^/::error title=Last started::/' || true
+          for crash in $(find . -name 'hs_err_pid*.log' -o -name '*.dumpstream' | head -n 3); do
+            echo "::error title=$crash::$(grep -m 12 -E 'SIG|Problematic|^#  |Exception|Error|at ' "$crash" | tr '\n' ' ' | cut -c1-900)"
+          done
