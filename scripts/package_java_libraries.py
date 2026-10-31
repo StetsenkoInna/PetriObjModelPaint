@@ -35,6 +35,23 @@ def source_jar(module: Path, destination: Path) -> None:
             archive.writestr(info, path.read_bytes())
 
 
+def module_version(root: Path, module: str) -> str:
+    version = ET.parse(root / module / "pom.xml").getroot().findtext("m:version", namespaces=NS)
+    if not version:
+        raise ValueError(f"{module} states no version of its own")
+    return version
+
+
+def released_modules(root: Path, release: str) -> dict[str, Path]:
+    """The libraries this release publishes: those raised to its version.
+
+    A library that did not change keeps an older version (see scripts/bump_version.py) and
+    stays published under it from the release that raised it. The parent pom is published
+    every time, because it pins each library's current version.
+    """
+    return {m: root / m / "pom.xml" for m in MODULES if module_version(root, m) == release}
+
+
 def package(root: Path, repository: Path, output: Path) -> str:
     pom = ET.parse(root / "pom.xml").getroot()
     group = pom.findtext("m:groupId", namespaces=NS)
@@ -43,7 +60,7 @@ def package(root: Path, repository: Path, output: Path) -> str:
         raise ValueError("Expected a release group and version")
     output.mkdir(parents=True, exist_ok=True)
     base = repository / group.replace(".", "/")
-    artifacts = {"petri-parent": root / "pom.xml", **{m: root / m / "pom.xml" for m in MODULES}}
+    artifacts = {"petri-parent": root / "pom.xml", **released_modules(root, version)}
     for name, pom_path in artifacts.items():
         target = base / name / version
         stem = f"{name}-{version}"

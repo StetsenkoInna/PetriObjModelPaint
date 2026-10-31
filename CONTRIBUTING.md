@@ -48,17 +48,24 @@ file you're editing rather than introducing a new style.
 
 ## Releasing
 
-The version is written in several places: the poms, the PNML tool version in
-`PnmlConstants`, the download links in both READMEs and the library docs. Never
-edit them by hand. Run the **Bump version** workflow with the new version; it
-updates every place with `scripts/bump_version.py`, runs the tests and opens
-a pull request. Add `docs/releases/<version>.md` to it, merge it, then publish
-a GitHub Release with a new tag `v<version>` on the merged commit.
+Every release raises the release version: the tag, `petri-parent` and the
+editor. The libraries (`petri-math`, `petri-api`, `petri-model`, `petri-server`)
+each keep their own version and are raised to the release version only when
+they changed since the previous release, so an unchanged library is not
+published again under a new number. Never edit the versions by hand.
 
-To bump locally, or to see whether everything agrees:
+Run the **Bump version** workflow with the new release version. It detects
+which libraries changed, updates every place a version is written with
+`scripts/bump_version.py`, runs the tests and opens a pull request. Add
+`docs/releases/<version>.md` to it, merge it, then publish a GitHub Release
+with a new tag `v<version>` on the merged commit. The release publishes the
+editor, the parent POM and only the libraries raised in it.
+
+To bump locally, preview the plan, or see whether everything agrees:
 
 ```bash
-python scripts/bump_version.py 2.6.0
+python scripts/bump_version.py 2.7.0 --dry-run
+python scripts/bump_version.py 2.7.0
 python scripts/bump_version.py --check
 ```
 

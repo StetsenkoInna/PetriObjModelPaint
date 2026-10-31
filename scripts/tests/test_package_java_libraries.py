@@ -19,3 +19,15 @@ class PublishedArtifactTests(unittest.TestCase):
             self.assertEqual(b"original", artifact.read_bytes())
             self.assertTrue(artifact.with_name("sample.jar.sha256").is_file())
             self.assertTrue(artifact.with_name("sample.jar.sha512").is_file())
+
+
+class ReleasedModulesTests(unittest.TestCase):
+    def test_only_libraries_raised_to_the_release_are_published(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for module, version in (("petri-math", "2.6.0"), ("petri-api", "2.7.0"), ("petri-model", "2.7.0")):
+                (root / module).mkdir()
+                (root / module / "pom.xml").write_text(
+                    '<project xmlns="http://maven.apache.org/POM/4.0.0"><parent><version>2.7.0</version></parent>'
+                    f'<artifactId>{module}</artifactId><version>{version}</version></project>', encoding="utf-8")
+            self.assertEqual(["petri-api", "petri-model"], sorted(libraries.released_modules(root, "2.7.0")))

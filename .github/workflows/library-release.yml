@@ -60,10 +60,13 @@ jobs:
           version = ET.parse('pom.xml').getroot().findtext('{http://maven.apache.org/POM/4.0.0}version')
           if os.environ.get('RELEASE_TAG'):
               assert os.environ['RELEASE_TAG'] == 'v' + version, 'Release tag and POM version differ'
-          target = Path('target/library-release') / f'petri-server-{version}.jar'
-          shutil.copy2('petri-server/target/petri-server.jar', target)
-          with (target.parent / 'SHA256SUMS.txt').open('a') as checksums:
-              checksums.write(hashlib.sha256(target.read_bytes()).hexdigest() + '  ' + target.name + '\n')
+          # The server ships only in the release that raised its version; see scripts/bump_version.py.
+          server = ET.parse('petri-server/pom.xml').getroot().findtext('{http://maven.apache.org/POM/4.0.0}version')
+          if server == version:
+              target = Path('target/library-release') / f'petri-server-{version}.jar'
+              shutil.copy2('petri-server/target/petri-server.jar', target)
+              with (target.parent / 'SHA256SUMS.txt').open('a') as checksums:
+                  checksums.write(hashlib.sha256(target.read_bytes()).hexdigest() + '  ' + target.name + '\n')
           PY
       - uses: actions/upload-artifact@v4
         with:
