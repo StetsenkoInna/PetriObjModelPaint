@@ -51,9 +51,9 @@ file you're editing rather than introducing a new style.
 The version is written in several places: the poms, the PNML tool version in
 `PnmlConstants`, the download links in both READMEs and the library docs. Never
 edit them by hand. Run the **Bump version** workflow with the new version; it
-updates every place with `scripts/bump_version.py`, runs the tests and only
-then commits and tags. Then write `docs/releases/<version>.md` and publish a
-GitHub Release from the tag.
+updates every place with `scripts/bump_version.py`, runs the tests and opens
+a pull request. Add `docs/releases/<version>.md` to it, merge it, then publish
+a GitHub Release with a new tag `v<version>` on the merged commit.
 
 To bump locally, or to see whether everything agrees:
 
