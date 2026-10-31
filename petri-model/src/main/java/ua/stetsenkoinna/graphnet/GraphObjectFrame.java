@@ -80,6 +80,12 @@ public class GraphObjectFrame implements Serializable, CanvasItem {
     private static final Font DETAIL_FONT = new Font(Font.SANS_SERIF, Font.PLAIN, 11);
 
     private String name;
+    private String modelId = ModelIdentity.create("o_");
+    public String getModelId() {
+        if (modelId == null) modelId = ModelIdentity.create("o_");
+        return modelId;
+    }
+    public void setModelId(String value) { modelId = ModelIdentity.requireValid(value); }
     private int priority;
     private Rectangle bounds;
     private boolean collapsed;
@@ -138,6 +144,7 @@ public class GraphObjectFrame implements Serializable, CanvasItem {
      *        a member with no entry is dropped rather than left dangling on the original
      */
     public GraphObjectFrame(GraphObjectFrame other, Map<GraphElement, GraphElement> oldToNew) {
+        this.modelId = other.getModelId();
         this.name = other.name;
         this.priority = other.priority;
         this.bounds = new Rectangle(other.bounds);
@@ -395,7 +402,7 @@ public class GraphObjectFrame implements Serializable, CanvasItem {
      * stayed at the drop point - frame and net permanently separated.
      */
     public void moveTo(int x, int y) {
-        Rectangle moved = new Rectangle(Math.max(0, x), Math.max(0, y), bounds.width, bounds.height);
+        Rectangle moved = new Rectangle(x, y, bounds.width, bounds.height);
         if (expandedBounds != null) {
             expandedBounds = new Rectangle(
                     expandedBounds.x + moved.x - bounds.x,

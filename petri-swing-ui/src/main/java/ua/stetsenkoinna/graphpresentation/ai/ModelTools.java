@@ -18,28 +18,63 @@ public final class ModelTools {
     private final PetriNetsFrame frame;
     public ModelTools(PetriNetsFrame frame) { this.frame = frame; }
 
-    private static final String DOCUMENT = """
-      {"type":"object","properties":{
-        "name":{"type":"string","minLength":1},
-        "places":{"type":"array","maxItems":2000,"items":{"type":"object","properties":{
-          "id":{"type":"string"},"name":{"type":"string"},"tokens":{"type":"integer","minimum":0},
-          "x":{"type":"number","minimum":0,"maximum":19000},"y":{"type":"number","minimum":0,"maximum":19000}
-        },"required":["id","tokens","x","y"],"additionalProperties":false}},
-        "transitions":{"type":"array","maxItems":2000,"items":{"type":"object","properties":{
-          "id":{"type":"string"},"name":{"type":"string"},"delay":{"type":"number","minimum":0},
-          "distribution":{"type":"string","enum":["deterministic","exp","unif","norm"]},
-          "deviation":{"type":"number","minimum":0},"priority":{"type":"integer","minimum":0},
-          "probability":{"type":"number","minimum":0,"maximum":1},
-          "x":{"type":"number","minimum":0,"maximum":19000},"y":{"type":"number","minimum":0,"maximum":19000}
-        },"required":["id","delay","x","y"],"additionalProperties":false}},
-        "arcs":{"type":"array","maxItems":8000,"items":{"type":"object","properties":{
-          "id":{"type":"string"},"source":{"type":"string"},"target":{"type":"string"},
-          "weight":{"type":"integer","minimum":1},"read":{"type":"boolean"}
-        },"required":["id","source","target"],"additionalProperties":false}}
-      },"required":["name","places","transitions","arcs"],"additionalProperties":false}
-      """;
+    @McpTool(name="get_model_capabilities", description="Read the direct modeling workflow and connection semantics before building a net. All valid modeling operations, including objects, nesting, groups, ports, symbols, templates, copy, layout, camera, simulation and PNML, use direct tools. Do not inspect or click UI controls to group, place or connect elements.")
+    public Object capabilities(JsonNode args) throws Exception {
+        return text(Map.of(
+                "workflow",List.of("get_model_capabilities","get_model","apply_model or edit_model","validate_model","simulate_model","optional optimize_model_layout and inspect its report","save_model"),
+                "model_fields",List.of("name","places","transitions","arcs","objects","links","groups"),
+                "objects","Create with objects[] or put_object; members are element IDs. parent defines nesting. No UI grouping is needed. IDs survive save/open and Undo.",
+                "ports","Ports are derived from object members, not drawn manually. get_model returns objectId:elementId and perimeter positions. Both a node ID and its valid object port address can be used in a link.",
+                "connections",Map.of("placeFusion","source place is the canonical marking; target is its local alias in another object. This shares one buffer/resource and does not transfer or duplicate tokens.","transitionToPlace","source transition delivers weight tokens to a place in another object. It is not a shared queue.","local_arcs","Ordinary and read arcs stay inside an object. To consume from an external shared queue, create a local place, fuse it to the queue, then draw the local input arc. A read arc tests availability, not zero."),
+                "editing_operations",List.of("put_place","put_transition","put_arc","put_object","put_group","connect_ports","disconnect_ports","move_object","replicate_object","set_owner","remove","rename_model"),
+                "parameters","Use *_parameter fields for symbolic values. Put a numeric/literal value to resolve that field. Shared place edits propagate to aliases. Resolve symbolic cross-object transfer weights before export/simulation.",
+                "layout","Coordinates are signed world coordinates. put_object changes its frame; move_object translates the subtree. optimize_model_layout changes geometry only, supports Undo and reports unresolved labels/arrows instead of claiming success.",
+                "ui_required_for_modeling",false,
+                "guide","petri://desktop/model-api"));
+    }
 
-    @McpTool(name="get_model", description="Read the whole canvas directly: stable model IDs, markings, timing, layout, object count and a revision token. include_pnml returns the full composed document including objects and links. Read before editing; UI inspection is unnecessary.", inputSchema="""
+    @McpTool(name="set_model_view", description="Navigate the canvas directly without UI gestures or changing the net: focus an object or root, set signed world camera coordinates and zoom, or fit the drawing. Object focus does not change its saved collapsed state.", inputSchema="""
+      {"type":"object","properties":{"object_id":{"type":"string"},"center_x":{"type":"number","minimum":-1000000000,"maximum":1000000000},"center_y":{"type":"number","minimum":-1000000000,"maximum":1000000000},"scale":{"type":"number","minimum":0.1,"maximum":5},"fit":{"type":"boolean"}},"additionalProperties":false}
+      """)
+    public Object view(JsonNode args) throws Exception {
+        return text(SwingCapture.call(() -> {
+            var panel=frame.getPetriNetsPanel();
+            if(args.has("object_id")) {
+                String id=args.get("object_id").asText();GraphObjectFrame focus=null;
+                if(!id.isBlank()&&!id.equals("root"))focus=current().getFrames().stream().filter(o -> o.getModelId().equals(id)).findFirst().orElseThrow(() -> new IllegalArgumentException("Unknown object: "+id));
+                boolean collapsed=focus!=null&&focus.isCollapsed();panel.openObjectCanvas(focus);if(focus!=null)focus.setCollapsed(collapsed);
+            }
+            if(args.path("fit").asBoolean())panel.fitDrawingToViewport();
+            else if(args.has("center_x")||args.has("center_y")||args.has("scale")) {
+                var camera=panel.getCamera();panel.setCamera(args.path("center_x").asDouble(camera.center_x()),args.path("center_y").asDouble(camera.center_y()),args.path("scale").asDouble(camera.scale()));
+            }
+            var camera=panel.getCamera();
+            return Map.of("center_x",camera.center_x(),"center_y",camera.center_y(),"scale",camera.scale(),"revision",revision(current()));
+        }));
+    }
+
+    @McpTool(name="undo_model", description="Undo or redo one direct model edit, layout change or existing canvas edit without clicking UI controls.", inputSchema="""
+      {"type":"object","properties":{"redo":{"type":"boolean"},"expected_revision":{"type":"string"}},"required":["expected_revision"],"additionalProperties":false}
+      """)
+    public Object undo(JsonNode args) throws Exception {
+        return text(SwingCapture.call(() -> {checkRevision(args);frame.undoMcpModel(args.path("redo").asBoolean());return describe(current());}));
+    }
+
+    @McpTool(name="optimize_model_layout", description="Improve spacing without rebuilding the net. Preserves node/arc IDs, topology, markings, parameters, objects, groups and port semantics. Uses rendered label extents, expands frames and moves colliding elements while retaining the existing arrangement where possible. Straight arrows are preserved; unresolved crossings/overlaps are reported with offending IDs. Only report.verified=true means all checks in verification_scope passed. apply=false previews diagnostics without editing. Apply is revision-guarded and undoable.", inputSchema="""
+      {"type":"object","properties":{"expected_revision":{"type":"string"},"minimum_gap":{"type":"integer","minimum":8,"maximum":300},"apply":{"type":"boolean"},"fit":{"type":"boolean"}},"required":["expected_revision"],"additionalProperties":false}
+      """)
+    public Object optimize(JsonNode args) throws Exception {
+        var source=SwingCapture.call(() -> {checkRevision(args);return new GraphCanvasModel(current());});
+        var font=SwingCapture.call(() -> frame.getPetriNetsPanel().getFont());
+        var optimized=ua.stetsenkoinna.graphpresentation.layout.LayoutOptimizer.optimize(source,font,new ua.stetsenkoinna.graphpresentation.layout.LayoutOptimizer.Options(args.path("minimum_gap").asInt(24)));
+        return text(SwingCapture.call(() -> {
+            checkRevision(args);boolean apply=args.path("apply").asBoolean(true);
+            if(apply){frame.applyMcpCanvas(optimized.canvas(),false);if(args.path("fit").asBoolean(true))frame.getPetriNetsPanel().fitDrawingToViewport();}
+            return Map.of("revision",revision(current()),"applied",apply,"report",optimized.report());
+        }));
+    }
+
+    @McpTool(name="get_model", description="Read the whole canvas directly: stable IDs, markings, timing, symbolic parameters, complete objects/groups/links, derived object ports and a revision token. include_pnml returns the full composed document including objects and links. Read before editing; UI inspection is unnecessary.", inputSchema="""
       {"type":"object","properties":{"include_pnml":{"type":"boolean"}},"additionalProperties":false}
       """)
     public Object get(JsonNode args) throws Exception {
@@ -51,7 +86,7 @@ public final class ModelTools {
         }));
     }
 
-    @McpTool(name="apply_model", description="Atomically build or replace a flat net from structured places, transitions and arcs, then repaint the canvas. expected_revision must match get_model; explicit replace_current=true is required for a nonempty document. Invalid batches leave the document unchanged. IDs must be unique XML NCNames. Coordinates are node centers; time values use the model clock. Use open_model with PNML for composed models. Undo restores the previous drawing.", inputSchema="{\"type\":\"object\",\"properties\":{\"expected_revision\":{\"type\":\"string\"},\"replace_current\":{\"type\":\"boolean\"},\"model\":" + DOCUMENT + "},\"required\":[\"expected_revision\",\"model\"],\"additionalProperties\":false}")
+    @McpTool(name="apply_model", description="Atomically build or replace the complete structured document: places, transitions, local arcs, objects, nesting, groups, symbolic parameters and explicit port links. Coordinates may be negative. Links are placeFusion (shared marking) or transitionToPlace (delivery). Ordinary/read arcs cannot cross objects. Read get_model first; expected_revision and explicit replacement protect existing work. No UI inspection or gestures are needed. Undo restores the prior document.", inputSchema=ModelSchemas.APPLY)
     public Object apply(JsonNode args) throws Exception {
         return text(SwingCapture.call(() -> {
             checkRevision(args);
@@ -62,47 +97,12 @@ public final class ModelTools {
         }));
     }
 
-    @McpTool(name="edit_model", description="Atomically edit a flat concrete net by stable ID. Operations put_place, put_transition and put_arc create or partially update an element; remove deletes an element and its incident arcs. Reads, checks and commits on the EDT; the whole batch rolls back on error. expected_revision from get_model is required. Preserves the document's Save path and supports Undo. For objects or symbolic parameters use get_model(include_pnml=true) and open_model.", inputSchema="""
-      {"type":"object","properties":{"expected_revision":{"type":"string"},"operations":{"type":"array","minItems":1,"maxItems":8000,"items":{"type":"object","properties":{
-        "op":{"type":"string","enum":["put_place","put_transition","put_arc","remove"]},"id":{"type":"string"},
-        "name":{"type":"string"},"tokens":{"type":"integer","minimum":0},"delay":{"type":"number","minimum":0},
-        "distribution":{"type":"string","enum":["deterministic","exp","unif","norm"]},"deviation":{"type":"number","minimum":0},
-        "priority":{"type":"integer","minimum":0},"probability":{"type":"number","minimum":0,"maximum":1},
-        "x":{"type":"number","minimum":0,"maximum":19000},"y":{"type":"number","minimum":0,"maximum":19000},
-        "source":{"type":"string"},"target":{"type":"string"},"weight":{"type":"integer","minimum":1},"read":{"type":"boolean"}
-      },"required":["op","id"],"additionalProperties":false}}},"required":["expected_revision","operations"],"additionalProperties":false}
-      """)
+    @McpTool(name="edit_model", description="Atomically edit the full document by ID, including composed objects and symbolic parameters. Supports put_place, put_transition, put_arc, put_object, put_group, connect_ports, disconnect_ports, move_object, replicate_object, remove and rename_model. A placeFusion source is the master marking; target is a local alias. Use a shared local input place plus an internal arc instead of cross-object consumption. Numeric values clear corresponding symbolic parameters. Object removal ungroups by default; cascade deletes its subtree. Replication copies internal links, with external links only when requested. No UI actions are required. IDs and Undo are preserved.", inputSchema=ModelSchemas.EDIT)
     public Object edit(JsonNode args) throws Exception {
         return text(SwingCapture.call(() -> {
             checkRevision(args);
-            var description=describe(current());
-            if (!"flat".equals(description.get("structured_editing"))) throw new IllegalArgumentException("Use PNML for composed or parameterized models; structured editing would lose metadata");
-            com.fasterxml.jackson.databind.node.ObjectNode document=DesktopMcpServer.JSON.valueToTree(description.get("model"));
-            for (var operation:args.get("operations")) {
-                String id=operation.get("id").asText(), op=operation.get("op").asText();
-                if (op.equals("remove")) {
-                    if (operation.size()!=2) throw new IllegalArgumentException("remove accepts only op and id");
-                    boolean found=false;
-                    for (String key:List.of("places","transitions","arcs")) {
-                        var array=(com.fasterxml.jackson.databind.node.ArrayNode)document.get(key);
-                        for (int i=array.size()-1;i>=0;i--) if (id.equals(array.get(i).path("id").asText())) { array.remove(i); found=true; }
-                    }
-                    if (!found) throw new IllegalArgumentException("Unknown element: " + id);
-                    var arcs=(com.fasterxml.jackson.databind.node.ArrayNode)document.get("arcs");
-                    for (int i=arcs.size()-1;i>=0;i--) if (id.equals(arcs.get(i).path("source").asText()) || id.equals(arcs.get(i).path("target").asText())) arcs.remove(i);
-                } else {
-                    String key=switch(op) { case "put_place" -> "places"; case "put_transition" -> "transitions"; case "put_arc" -> "arcs"; default -> throw new IllegalArgumentException("Unknown operation"); };
-                    var array=(com.fasterxml.jackson.databind.node.ArrayNode)document.get(key);
-                    com.fasterxml.jackson.databind.node.ObjectNode node=null;
-                    for (var existing:array) if (id.equals(existing.path("id").asText())) node=(com.fasterxml.jackson.databind.node.ObjectNode)existing;
-                    if (node==null) { node=DesktopMcpServer.JSON.createObjectNode(); array.add(node); }
-                    var fields=operation.fields();
-                    while(fields.hasNext()) { var field=fields.next(); if (!field.getKey().equals("op")) node.set(field.getKey(),field.getValue()); }
-                }
-            }
-            McpToolRegistry.validate(document,DesktopMcpServer.JSON.readTree(DOCUMENT));
-            var candidate=build(document);
-            frame.applyMcpCanvas(candidate,false);
+            var document=ModelEdits.apply(ModelDocument.read(current()),args.get("operations"));
+            frame.applyMcpCanvas(ModelDocument.build(document),false);
             return describe(current());
         }));
     }
@@ -175,73 +175,28 @@ public final class ModelTools {
     }
 
     GraphCanvasModel current() { var canvas = frame.getPetriNetsPanel().getCanvasModel(); canvas.setName(frame.getNameNet()); return canvas; }
-    private void checkRevision(JsonNode args) throws Exception {
+    void checkRevision(JsonNode args) throws Exception {
         if (args.has("expected_revision") && !revision(current()).equals(args.get("expected_revision").asText())) throw new IllegalArgumentException("Revision conflict; call get_model and retry with its revision");
     }
     private void requireReplacement(JsonNode args) {
         var c = current();
         if ((!c.getNet().getGraphPetriPlaceList().isEmpty() || !c.getNet().getGraphPetriTransitionList().isEmpty() || !c.getFrames().isEmpty()) && !args.path("replace_current").asBoolean()) throw new IllegalArgumentException("Nonempty document; set replace_current=true explicitly");
     }
-    static String revision(GraphCanvasModel canvas) throws Exception {
+    public static String revision(GraphCanvasModel canvas) throws Exception {
         var bytes = new ByteArrayOutputStream();
         try (var out = new ObjectOutputStream(bytes)) { out.writeObject(canvas); }
         return TrainingBundleWorkspace.hash(bytes.toByteArray());
     }
     static String xml(GraphCanvasModel canvas) throws Exception { return new PnmlModelGenerator().generateXml(canvas.toObjModel()); }
     static Map<String,Object> describe(GraphCanvasModel canvas) throws Exception {
-        var document = new LinkedHashMap<String,Object>();
-        document.put("name", canvas.getName());
-        document.put("places", canvas.getNet().getGraphPetriPlaceList().stream().map(p -> Map.of("id", p.getPetriPlace().getId(), "name", p.getName(), "tokens", p.getPetriPlace().getMark(), "x", p.getGraphElementCenter().getX(), "y", p.getGraphElementCenter().getY())).toList());
-        document.put("transitions", canvas.getNet().getGraphPetriTransitionList().stream().map(t -> {
-            var p=t.getPetriTransition();
-            return Map.of("id", p.getId(), "name", p.getName(), "delay", p.getParameter(), "distribution", Objects.requireNonNullElse(p.getDistribution(), "deterministic"), "deviation", p.getParamDeviation(), "priority", p.getPriority(), "probability", p.getProbability(), "x", t.getGraphElementCenter().getX(), "y", t.getGraphElementCenter().getY());
-        }).toList());
-        var arcs = new ArrayList<Map<String,Object>>();
-        for (var a:canvas.getNet().getGraphArcInList()) arcs.add(Map.of("id",a.getArcIn().getId(),"source",id(a.getBeginElement()),"target",id(a.getEndElement()),"weight",a.getQuantity(),"read",a.getArcIn().getIsInf()));
-        for (var a:canvas.getNet().getGraphArcOutList()) arcs.add(Map.of("id",a.getArcOut().getId(),"source",id(a.getBeginElement()),"target",id(a.getEndElement()),"weight",a.getQuantity(),"read",false));
-        document.put("arcs",arcs);
-        boolean parameters = canvas.getNet().getGraphPetriPlaceList().stream().anyMatch(p -> p.getPetriPlace().markIsParam())
-                || canvas.getNet().getGraphPetriTransitionList().stream().anyMatch(t -> t.getPetriTransition().parametrIsParam() || t.getPetriTransition().distributionIsParam() || t.getPetriTransition().priorityIsParam() || t.getPetriTransition().probabilityIsParam())
-                || canvas.getNet().getGraphArcInList().stream().anyMatch(a -> a.getArcIn().kIsParam() || a.getArcIn().infIsParam())
-                || canvas.getNet().getGraphArcOutList().stream().anyMatch(a -> a.getArcOut().kIsParam());
-        return new LinkedHashMap<>(Map.of("revision",revision(canvas),"model",document,"object_count",canvas.getFrames().size(),"structured_editing",canvas.getFrames().isEmpty() && !parameters ? "flat" : "use_pnml"));
+        var result=new LinkedHashMap<String,Object>();
+        result.put("model",ModelDocument.read(canvas));result.put("revision",revision(canvas));
+        result.put("ports",ModelDocument.ports(canvas));result.put("object_count",canvas.getFrames().size());
+        result.put("structured_editing","complete");
+        return result;
     }
-    private static String id(GraphElement n) { return n instanceof GraphPetriPlace p ? p.getPetriPlace().getId() : ((GraphPetriTransition)n).getPetriTransition().getId(); }
-    static GraphCanvasModel build(JsonNode document) throws Exception {
-        var net=new GraphPetriNet(); var nodes=new LinkedHashMap<String,GraphElement>(); var ids=new HashSet<String>(); int ui=0;
-        for (var n:document.get("places")) {
-            String id=unique(n,ids); var p=new PetriP(id,n.path("name").asText(id),n.get("tokens").asInt()); p.setNumber(net.getGraphPetriPlaceList().size());
-            var graph=new GraphPetriPlace(p,ui++); position(graph,n); net.getGraphPetriPlaceList().add(graph); nodes.put(id,graph);
-        }
-        for (var n:document.get("transitions")) {
-            String id=unique(n,ids); var p=new PetriT(id,n.path("name").asText(id),n.get("delay").asDouble()); p.setNumber(net.getGraphPetriTransitionList().size());
-            String distribution=n.path("distribution").asText("deterministic");
-            p.setDistribution(distribution.equals("deterministic") ? null : distribution,p.getParameter()); p.setParamDeviation(n.path("deviation").asDouble(0));
-            p.setPriority(n.path("priority").asInt(0)); p.setProbability(n.path("probability").asDouble(1));
-            var graph=new GraphPetriTransition(p,ui++); position(graph,n); net.getGraphPetriTransitionList().add(graph); nodes.put(id,graph);
-        }
-        for (var n:document.get("arcs")) {
-            String id=unique(n,ids); var source=nodes.get(n.get("source").asText()); var target=nodes.get(n.get("target").asText()); int weight=n.path("weight").asInt(1);
-            if (source instanceof GraphPetriPlace p && target instanceof GraphPetriTransition t) {
-                var a=new ArcIn(id,p.getNumber(),t.getNumber(),weight); a.setInf(n.path("read").asBoolean()); a.setNameP(p.getName()); a.setNameT(t.getName());
-                var g=new GraphArcIn(a); wire(g,p,t); net.getGraphArcInList().add(g);
-            } else if (source instanceof GraphPetriTransition t && target instanceof GraphPetriPlace p && !n.path("read").asBoolean()) {
-                var a=new ArcOut(id,t.getNumber(),p.getNumber(),weight); a.setNameP(p.getName()); a.setNameT(t.getName());
-                var g=new GraphArcOut(a); wire(g,t,p); net.getGraphArcOutList().add(g);
-            } else throw new IllegalArgumentException("Invalid endpoints or read-arc direction: " + id);
-        }
-        var canvas=new GraphCanvasModel(document.get("name").asText(),net);
-        // Export/parse through the actual application contract before publishing the batch.
-        if (!net.getGraphPetriTransitionList().isEmpty()) xml(new GraphCanvasModel(canvas));
-        return canvas;
-    }
-    private static String unique(JsonNode n,Set<String> ids) {
-        String id=n.get("id").asText();
-        if (!id.matches("[A-Za-z_][A-Za-z0-9_.-]*") || !ids.add(id)) throw new IllegalArgumentException("Invalid or duplicate XML ID: " + id);
-        return id;
-    }
-    private static void position(GraphElement n,JsonNode v) { n.setNewCoordinates(new Point2D.Double(v.get("x").asDouble(),v.get("y").asDouble())); }
-    private static void wire(GraphArc a,GraphElement s,GraphElement t) { a.settingNewArc(s); a.finishSettingNewArc(t); a.updateCoordinates(); }
+    static GraphCanvasModel build(JsonNode document) throws Exception { return ModelDocument.build(document); }
+    private static String id(GraphElement node) { return ModelDocument.id(node); }
     private static List<String> sourceTransitions(GraphCanvasModel c) {
         return c.getNet().getGraphPetriTransitionList().stream().filter(t -> c.getNet().getGraphArcInList().stream().noneMatch(a -> a.getEndElement()==t && !a.getArcIn().getIsInf())).map(t -> "No consuming input: " + id(t)).toList();
     }

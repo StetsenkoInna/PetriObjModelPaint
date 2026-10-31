@@ -79,58 +79,34 @@ public class GraphPetriNet implements Cloneable, Serializable {
      *        new instance copied from it
      */
     public GraphPetriNet(GraphPetriNet graphPetriNet, Map<GraphElement, GraphElement> oldToNew) {
-        graphPetriPlaceList = new ArrayList<>();
-        graphPetriTransitionList = new ArrayList<>();
-        graphArcInList = new ArrayList<>();
-        graphArcOutList = new ArrayList<>();
+        // A transaction snapshot preserves identities and all state. The public duplicate
+        // methods below deliberately create new identities, so they cannot serve as snapshots.
+        GraphPetriNet copy = snapshotCopy(graphPetriNet);
+        graphPetriPlaceList = copy.graphPetriPlaceList;
+        graphPetriTransitionList = copy.graphPetriTransitionList;
+        graphArcInList = copy.graphArcInList;
+        graphArcOutList = copy.graphArcOutList;
+        pNet = copy.pNet;
+        for (int i=0; i<graphPetriPlaceList.size(); i++) oldToNew.put(graphPetriNet.graphPetriPlaceList.get(i), graphPetriPlaceList.get(i));
+        for (int i=0; i<graphPetriTransitionList.size(); i++) oldToNew.put(graphPetriNet.graphPetriTransitionList.get(i), graphPetriTransitionList.get(i));
+    }
 
-        // Copy the PetriNet if it exists
-        if (graphPetriNet.pNet != null) {
-            try {
-                pNet = graphPetriNet.pNet.clone();
-            } catch (CloneNotSupportedException e) {
-                // This should not happen since PetriNet implements Cloneable correctly
-                throw new RuntimeException("Failed to clone PetriNet", e);
+    private static GraphPetriNet snapshotCopy(GraphPetriNet source) {
+        try {
+            var bytes = new java.io.ByteArrayOutputStream();
+            try (var output = new java.io.ObjectOutputStream(bytes)) { output.writeObject(source); }
+            // The bytes were produced in this method, never supplied by a file or client.
+            try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+                return (GraphPetriNet) input.readObject();
             }
-        } else {
-            pNet = null;
+        } catch (java.io.IOException | ClassNotFoundException failure) {
+            throw new IllegalStateException("Cannot copy the graph model", failure);
         }
-
-        List<GraphElement> elementsToCopy = new ArrayList<>();
-        elementsToCopy.addAll(graphPetriNet.graphPetriPlaceList);
-        elementsToCopy.addAll(graphPetriNet.graphPetriTransitionList);
-
-        // Use the current method instead of deprecated one
-        GraphNetFragment fragment = bulkCopyNoPasteElements(elementsToCopy, graphPetriNet.graphArcInList, graphPetriNet.graphArcOutList);
-
-        // Add copied elements to this net's lists
-        for (GraphElement element : fragment.elements) {
-            if (element instanceof GraphPetriPlace) {
-                graphPetriPlaceList.add((GraphPetriPlace) element);
-            } else if (element instanceof GraphPetriTransition) {
-                graphPetriTransitionList.add((GraphPetriTransition) element);
-            }
-        }
-        graphArcInList.addAll(fragment.inArcs);
-        graphArcOutList.addAll(fragment.outArcs);
-        oldToNew.putAll(fragment.oldToNew);
     }
 
     @Override
     public GraphPetriNet clone() throws CloneNotSupportedException {
-        super.clone();
-        ArrayList<GraphPetriPlace> copyGraphPlaceList = new ArrayList<>(graphPetriPlaceList);
-        ArrayList<GraphPetriTransition> copyGraphTransitionList = new ArrayList<>(graphPetriTransitionList);
-        ArrayList<GraphArcIn> copyGraphArcIn = new ArrayList<>(graphArcInList);
-        ArrayList<GraphArcOut> copyGraphArcOut = new ArrayList<>(graphArcOutList);
-
-        PetriNet copyNet = pNet.clone();
-
-        return new GraphPetriNet(copyNet,
-                copyGraphPlaceList,
-                copyGraphTransitionList,
-                copyGraphArcIn,
-                copyGraphArcOut);
+        return new GraphPetriNet(this);
     }
     
     public boolean hasParameters() { // added by Katya 08.12.2016
@@ -372,29 +348,10 @@ public class GraphPetriNet implements Cloneable, Serializable {
      * Makes a copy of an element and adds it into this graph net
      */
     public GraphElement copyElement(GraphElement element) {
-        if (element instanceof GraphPetriPlace) {
-            GraphPetriPlace newPlace = new GraphPetriPlace(
-                    new PetriP(((GraphPetriPlace) element).getPetriPlace()),
-                    GraphElementIdGenerator.next()
-            );
-
-            newPlace.setNewCoordinates(element.getGraphElementCenter());
-            graphPetriPlaceList.add(newPlace);
-            return newPlace;
-        }
-
-        if (element instanceof GraphPetriTransition) {
-            GraphPetriTransition newTransition = new GraphPetriTransition(
-                    new PetriT(((GraphPetriTransition) element).getPetriTransition()),
-                    GraphElementIdGenerator.next()
-            );
-
-            newTransition.setNewCoordinates(element.getGraphElementCenter());
-            graphPetriTransitionList.add(newTransition);
-            return newTransition;
-        }
-
-        return null;
+        GraphElement copy = copyElementNoPaste(element);
+        if (copy instanceof GraphPetriPlace place) graphPetriPlaceList.add(place);
+        if (copy instanceof GraphPetriTransition transition) graphPetriTransitionList.add(transition);
+        return copy;
     }
     
     /**
@@ -407,6 +364,9 @@ public class GraphPetriNet implements Cloneable, Serializable {
                     GraphElementIdGenerator.next()
             );
             newPlace.setNewCoordinates(element.getGraphElementCenter());
+            newPlace.setColor(element.getColor()); newPlace.setLineWidth(element.getLineWidth());
+            var source = ((GraphPetriPlace) element).getPetriPlace();
+            newPlace.getPetriPlace().setMarkParam(source.markIsParam() ? source.getMarkParamName() : null);
             return newPlace;
         }
 
@@ -416,6 +376,13 @@ public class GraphPetriNet implements Cloneable, Serializable {
                     GraphElementIdGenerator.next()
             );
             newTransition.setNewCoordinates(element.getGraphElementCenter());
+            newTransition.setColor(element.getColor()); newTransition.setLineWidth(element.getLineWidth());
+            var source = ((GraphPetriTransition) element).getPetriTransition();
+            var copy = newTransition.getPetriTransition();
+            copy.setParameterParam(source.parametrIsParam() ? source.getParameterParamName() : null);
+            copy.setDistributionParam(source.distributionIsParam() ? source.getDistributionParamName() : null);
+            copy.setPriorityParam(source.priorityIsParam() ? source.getPriorityParamName() : null);
+            copy.setProbabilityParam(source.probabilityIsParam() ? source.getProbabilityParamName() : null);
             return newTransition;
         }
         return null;
@@ -493,6 +460,10 @@ public class GraphPetriNet implements Cloneable, Serializable {
 
                     if (position != null) {
                         GraphArcIn arcIn = new GraphArcIn(new ArcIn(arc.getArcIn()));
+                        arcIn.getArcIn().setKParam(arc.getArcIn().kIsParam() ? arc.getArcIn().getKParamName() : null);
+                        arcIn.getArcIn().setInfParam(arc.getArcIn().infIsParam() ? arc.getArcIn().getInfParamName() : null);
+                        if (arc.getBoundaryStubOffset() != null) arcIn.setBoundaryStubOffset(
+                                new java.awt.geom.Point2D.Double(arc.getBoundaryStubOffset().x, arc.getBoundaryStubOffset().y));
                         arcIn.setEndElement(transitionsCopies.get(transition));
                         arcIn.settingNewArc(position);
                         arcIn.setPetriElements();
@@ -509,6 +480,9 @@ public class GraphPetriNet implements Cloneable, Serializable {
 
                     if (position != null) {
                         GraphArcOut arcOut = new GraphArcOut(new ArcOut(arc.getArcOut()));
+                        arcOut.getArcOut().setKParam(arc.getArcOut().kIsParam() ? arc.getArcOut().getKParamName() : null);
+                        if (arc.getBoundaryStubOffset() != null) arcOut.setBoundaryStubOffset(
+                                new java.awt.geom.Point2D.Double(arc.getBoundaryStubOffset().x, arc.getBoundaryStubOffset().y));
                         arcOut.settingNewArc(transitionsCopies.get(transition));
                         arcOut.setEndElement(position);
                         arcOut.setPetriElements();

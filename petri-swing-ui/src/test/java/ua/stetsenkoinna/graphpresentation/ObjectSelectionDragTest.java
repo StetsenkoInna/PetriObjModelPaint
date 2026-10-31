@@ -103,7 +103,9 @@ public class ObjectSelectionDragTest {
     }
 
     private static MouseEvent event(PetriNetsPanel panel, int id, int x, int y) {
-        return new MouseEvent(panel, id, System.currentTimeMillis(), 0, x, y, 1, false,
+        Point2D pixel = panel.toPanel(new Point2D.Double(x, y));
+        return new MouseEvent(panel, id, System.currentTimeMillis(), 0,
+                (int) Math.round(pixel.getX()), (int) Math.round(pixel.getY()), 1, false,
                 MouseEvent.BUTTON1);
     }
 
@@ -219,7 +221,7 @@ public class ObjectSelectionDragTest {
     }
 
     @Test
-    public void aSelectionStoppedByTheCanvasEdgeStaysRigid() {
+    public void aSelectionCanCrossTheOriginAndStayRigid() {
         PetriNetsPanel panel = panelHoldingSomething();
         panel.addCanvasModel(twoLinkedObjects());
         GraphCanvasModel canvas = panel.getCanvasModel();
@@ -229,16 +231,15 @@ public class ObjectSelectionDragTest {
         Point2D memberBefore = leftMember.getGraphElementCenter();
 
         panel.selectAll();
-        // Far past the origin: the left object has 100 to give in each direction, the right one
-        // has 600 horizontally, so the whole selection may only move by the tighter of the two.
+        // Crossing the origin does not constrain any member of the selection.
         panel.moveSelectionBy(-400, -400);
 
-        assertEquals(0, left.getBounds().x);
-        assertEquals(0, left.getBounds().y);
-        assertEquals("the objects kept the distance between them", 500, right.getBounds().x);
-        assertEquals(0, right.getBounds().y);
-        assertEquals(memberBefore.getX() - 100, leftMember.getGraphElementCenter().getX(), 0.001);
-        assertEquals(memberBefore.getY() - 100, leftMember.getGraphElementCenter().getY(), 0.001);
+        assertEquals(-300, left.getBounds().x);
+        assertEquals(-300, left.getBounds().y);
+        assertEquals("the objects kept the distance between them", 200, right.getBounds().x);
+        assertEquals(-300, right.getBounds().y);
+        assertEquals(memberBefore.getX() - 400, leftMember.getGraphElementCenter().getX(), 0.001);
+        assertEquals(memberBefore.getY() - 400, leftMember.getGraphElementCenter().getY(), 0.001);
     }
 
     @Test

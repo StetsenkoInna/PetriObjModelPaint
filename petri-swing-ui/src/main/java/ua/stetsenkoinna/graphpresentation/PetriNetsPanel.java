@@ -61,6 +61,7 @@ import ua.stetsenkoinna.graphnet.PortAnchor;
 import ua.stetsenkoinna.graphnet.GraphPetriPlace;
 import ua.stetsenkoinna.graphnet.GraphPetriTransition;
 import ua.stetsenkoinna.graphpresentation.input.CanvasNavigation;
+import ua.stetsenkoinna.graphpresentation.input.CanvasCamera;
 import ua.stetsenkoinna.graphpresentation.input.CursorImages;
 import ua.stetsenkoinna.graphpresentation.input.InputShortcuts;
 import ua.stetsenkoinna.graphnet.GraphArc;
@@ -135,6 +136,17 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private final CanvasSelection selection = new CanvasSelection();
 
     private double scale = 1.0;
+    private final CanvasCamera camera = new CanvasCamera();
+    private boolean cameraInitialized;
+    private JViewport observedViewport;
+    private boolean rebasingViewport;
+    private final javax.swing.event.ChangeListener viewportRebaser = event -> {
+        if (cameraInitialized && !rebasingViewport && event.getSource() == viewport()) {
+            JViewport view = (JViewport) event.getSource();
+            moveViewport(view, view.getViewPosition());
+        }
+    };
+    private static final int BACKING_SIZE = 20000;
     private boolean leftMouseButtonPressed = false;
 
     private List<GraphElement> copiedElements;
@@ -617,6 +629,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         Map<GraphObjectFrame, GraphObjectFrame> copies = new LinkedHashMap<>();
         for (GraphObjectFrame original : canvasModel.subtreeOf(originalRoot)) {
             GraphObjectFrame copy = new GraphObjectFrame(original, oldToNew);
+            copy.setModelId("o_" + java.util.UUID.randomUUID().toString().replace("-", ""));
             copy.moveBy(dx, dy);
             copy.setName(uniqueObjectName(original == originalRoot ? rootName : original.getName()));
             copies.put(original, copy);
@@ -724,11 +737,52 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     }
 
     @Override
-    public void paintComponent(Graphics g) {
+    public void addNotify() {
+        super.addNotify();
+        SwingUtilities.invokeLater(this::initializeCamera);
+    }
 
+    private void initializeCamera() {
+        JViewport view = viewport();
+        if (cameraInitialized || view == null || !isDisplayable()
+                || view.getExtentSize().width < 1 || view.getExtentSize().height < 1) return;
+        setCamera(0, 0, 1);
+        if (!graphNet.getGraphPetriPlaceList().isEmpty()
+                || !graphNet.getGraphPetriTransitionList().isEmpty()) fitDrawingToViewport();
+    }
+
+    private void paintOrigin(Graphics2D graphics) {
+        if (!cameraInitialized) return;
+        Color previous = graphics.getColor();
+        Stroke previousStroke = graphics.getStroke();
+        Color guide = CanvasPalette.current().get(CanvasColor.GUIDE);
+        graphics.setColor(new Color(guide.getRed(), guide.getGreen(), guide.getBlue(), 100));
+        graphics.setStroke(new BasicStroke((float) (1 / scale)));
+        double reach = 7 / scale;
+        graphics.draw(new Line2D.Double(-reach, 0, reach, 0));
+        graphics.draw(new Line2D.Double(0, -reach, 0, reach));
+        graphics.drawString("0, 0", (float) (10 / scale), (float) (-8 / scale));
+        graphics.setStroke(previousStroke);
+        graphics.setColor(previous);
+    }
+
+    @Override
+    public void paintComponent(Graphics g) {
         super.paintComponent(g);
-        Graphics2D g2 = (Graphics2D) g;
-        g2.scale(scale, scale);
+        Graphics2D g2 = (Graphics2D) g.create();
+        try {
+            Point2D origin = camera.getOrigin();
+            g2.translate(origin.getX(), origin.getY());
+            g2.scale(scale, scale);
+            paintOrigin(g2);
+            paintModel(g2);
+        } finally {
+            g2.dispose();
+        }
+    }
+
+    /** Paints model coordinates directly, independently of the viewport camera. */
+    public void paintModel(Graphics2D g2) {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                 RenderingHints.VALUE_ANTIALIAS_ON);
         // Focus is not taken here. It used to be, on every single paint, which made the canvas
@@ -752,9 +806,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
         // Expanded frames go under the drawing, collapsed ones over it: covering the net is
         // exactly what collapsing an object means on a shared canvas.
-        paintObjectGroups(g2);
         paintObjectFrames(g2, false);
-        graphNet.paintGraphPetriNet(g2, g, hiddenElements());
+        paintObjectGroups(g2);
+        graphNet.paintGraphPetriNet(g2, g2, hiddenElements());
         // Built once for this paint and used by both fusion passes below: which elements the
         // selection carries is a walk over every selected object's subtree, and asking that
         // per shared place per repaint would be the same walk over and over.
@@ -922,8 +976,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * them to draw them - and hiding the thing the user is working on to say it is one of many
      * is a poor trade. A band round them says the same and hides nothing.
      *
-     * <p>Painted before the frames themselves, so it reads as ground the objects stand on rather
-     * than a box drawn over them.
+     * <p>Painted over expanded frame backgrounds so the group title stays visible beside them.
      */
     private void paintObjectGroups(Graphics2D g2) {
         for (GraphObjectGroup group : canvasModel.getGroups()) {
@@ -934,6 +987,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
             Stroke previousStroke = g2.getStroke();
             Color previousColor = g2.getColor();
+            java.awt.Font previousFont = g2.getFont();
             // Heavier and darker than a guide line. The band says several objects are one
             // thing, which has to survive being read across a whole canvas; drawn as faintly as
             // a snapping guide it was there and nobody saw it.
@@ -953,6 +1007,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                     band.x + 6, band.y - 4);
             g2.setStroke(previousStroke);
             g2.setColor(previousColor);
+            g2.setFont(previousFont);
         }
     }
 
@@ -1654,7 +1709,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (graphNet == null) {
             return null;
         }
-        Point2D point = new Point2D.Double(ev.getX() / scale, ev.getY() / scale);
+        Point2D point = toWorld(ev.getPoint());
         if (find(point) != null) {
             return null;
         }
@@ -1774,11 +1829,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 // zoom itself does not move.
                 Point pointerInView = SwingUtilities.convertPoint(
                         PetriNetsPanel.this, e.getPoint(), viewport);
-                Point target = CanvasNavigation.zoomAbout(
-                        viewport.getViewPosition(), pointerInView, scale, newScale,
-                        maxViewX(viewport), maxViewY(viewport));
+                Point2D anchor = toWorld(e.getPoint());
                 scale = newScale;
-                viewport.setViewPosition(target);
+                Point2D anchored = toPanel(anchor);
+                moveViewport(viewport, new Point((int) Math.round(anchored.getX() - pointerInView.x),
+                        (int) Math.round(anchored.getY() - pointerInView.y)));
             } else {
                 scale = newScale;
             }
@@ -1807,9 +1862,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 scrollRemainderY -= step;
                 position.y += step;
             }
-            position.x = Math.max(0, Math.min(position.x, maxViewX(viewport)));
-            position.y = Math.max(0, Math.min(position.y, maxViewY(viewport)));
-            viewport.setViewPosition(position);
+            moveViewport(viewport, position);
         }
     }
 
@@ -1936,22 +1989,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         // it right along with whatever the drag was actually meant to move.
         List<GraphObjectFrame> movedFrames = framesOnThisCanvas(selection.allFrames());
 
-        // One clamp for the whole selection, decided before anything moves. GraphObjectFrame
-        // keeps a frame on the canvas by refusing to take it past the origin, and that refusal
-        // used to be applied per frame in the middle of the drag: a selection dragged towards
-        // the top-left corner stopped whichever object reached the edge first while the rest
-        // kept travelling, so the objects sheared apart from one another - and any element
-        // selected alongside them, which is not clamped at all, slid straight out of its own
-        // frame and was then read as having been dropped into a different Petri-object.
-        // Measuring how much room the tightest frame has left and moving everything by that
-        // keeps the selection rigid, which is the one thing a multi-drag must not break.
-        int clampedDx = dx;
-        int clampedDy = dy;
-        for (GraphObjectFrame frame : movedFrames) {
-            clampedDx = Math.max(clampedDx, -frame.getBounds().x);
-            clampedDy = Math.max(clampedDy, -frame.getBounds().y);
-        }
-        if (clampedDx == 0 && clampedDy == 0) {
+        // The world has no top-left edge. Keep the same delta for every selected item.
+        if (dx == 0 && dy == 0) {
             return;
         }
 
@@ -1959,10 +1998,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         // its own nested frames and members, which only GraphCanvasModel can find - so it still
         // goes through moveFrame, which now performs that cascade with the same moveBy underneath.
         for (GraphElement element : selection.elements()) {
-            element.moveBy(clampedDx, clampedDy);
+            element.moveBy(dx, dy);
         }
         for (GraphObjectFrame frame : movedFrames) {
-            moveFrame(frame, frame.getBounds().x + clampedDx, frame.getBounds().y + clampedDy);
+            moveFrame(frame, frame.getBounds().x + dx, frame.getBounds().y + dy);
         }
         canvasModel.syncFusions();
         updateArcCoordinates();
@@ -2952,8 +2991,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         Rectangle padded = new Rectangle(inner);
         padded.grow(FRAME_MARGIN, FRAME_MARGIN);
         padded.height += GraphObjectFrame.HEADER_HEIGHT;
-        // Clamped at the canvas origin the same way boundsAround clamps its fit.
-        padded.y = Math.max(0, padded.y - GraphObjectFrame.HEADER_HEIGHT);
+        padded.y -= GraphObjectFrame.HEADER_HEIGHT;
         return padded;
     }
 
@@ -3031,7 +3069,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (name == null || name.isBlank()) {
             return;
         }
-        Rectangle bounds = new Rectangle(Math.max(0, at.x - 180), Math.max(0, at.y - 120), 360, 240);
+        Rectangle bounds = new Rectangle(at.x - 180, at.y - 120, 360, 240);
         GraphObjectFrame frame = new GraphObjectFrame(name.trim(), bounds);
         canvasModel.nest(frame, focusedFrame);
         // Nothing claims this frame yet - it is put down empty, to be drawn into - so whatever
@@ -3134,7 +3172,81 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         return scale;
     }
 
-    private Point reviewPoint(MouseEvent event) { return new Point((int) (event.getX() / scale), (int) (event.getY() / scale)); }
+    /** Model point under a Swing panel pixel, also valid for negative model positions. */
+    public Point2D.Double toWorld(Point2D panelPoint) { return camera.toWorld(panelPoint, scale); }
+
+    /** Swing panel pixel for a model point. The viewport position is not included. */
+    public Point2D.Double toPanel(Point2D worldPoint) { return camera.toPanel(worldPoint, scale); }
+
+    private Point worldPoint(Point2D panelPoint) {
+        Point2D world = toWorld(panelPoint);
+        return new Point((int) Math.round(world.getX()), (int) Math.round(world.getY()));
+    }
+
+    public record CameraState(double center_x, double center_y, double scale) { }
+
+    public CameraState getCamera() {
+        Rectangle visible = getVisibleRect();
+        Point2D center = toWorld(new Point2D.Double(visible.getCenterX(), visible.getCenterY()));
+        return new CameraState(center.getX(), center.getY(), scale);
+    }
+
+    public java.awt.geom.Rectangle2D.Double getVisibleWorldBounds() {
+        Rectangle visible = getVisibleRect();
+        Point2D topLeft = toWorld(new Point2D.Double(visible.x, visible.y));
+        return new java.awt.geom.Rectangle2D.Double(topLeft.getX(), topLeft.getY(),
+                visible.width / scale, visible.height / scale);
+    }
+
+    /** Positions a world coordinate at the viewport center without moving model elements. */
+    public void setCamera(double centerX, double centerY, double zoom) {
+        if (!Double.isFinite(centerX) || !Double.isFinite(centerY) || !Double.isFinite(zoom)
+                || zoom < CanvasNavigation.MIN_SCALE || zoom > CanvasNavigation.MAX_SCALE)
+            throw new IllegalArgumentException("Camera coordinates must be finite and zoom must be between 0.1 and 5");
+        scale = zoom;
+        cameraInitialized = true;
+        JViewport view = viewport();
+        if (view == null) {
+            camera.center(centerX, centerY, getWidth() / 2.0, getHeight() / 2.0, scale);
+        } else {
+            int x = Math.max(0, (BACKING_SIZE - view.getExtentSize().width) / 2);
+            int y = Math.max(0, (BACKING_SIZE - view.getExtentSize().height) / 2);
+            camera.center(centerX, centerY, x + view.getExtentSize().width / 2.0,
+                    y + view.getExtentSize().height / 2.0, scale);
+            view.setViewPosition(new Point(x, y));
+        }
+        observeViewport(view);
+        repaint();
+    }
+
+    public void panCameraBy(double worldDx, double worldDy) {
+        CameraState current = getCamera();
+        setCamera(current.center_x() + worldDx, current.center_y() + worldDy, scale);
+    }
+
+    private void observeViewport(JViewport view) {
+        if (observedViewport == view) return;
+        if (observedViewport != null) observedViewport.removeChangeListener(viewportRebaser);
+        observedViewport = view;
+        if (view != null) view.addChangeListener(viewportRebaser);
+    }
+
+    private void moveViewport(JViewport view, Point requested) {
+        if (rebasingViewport) return;
+        rebasingViewport = true;
+        try {
+            Point backing = CanvasCamera.backingPosition(requested, maxViewX(view), maxViewY(view));
+            int dx = backing.x - requested.x, dy = backing.y - requested.y;
+            camera.rebase(dx, dy);
+            if (panViewport == view && panViewportOrigin != null) panViewportOrigin.translate(dx, dy);
+            view.setViewPosition(backing);
+            repaint();
+        } finally {
+            rebasingViewport = false;
+        }
+    }
+
+    private Point reviewPoint(MouseEvent event) { return worldPoint(event.getPoint()); }
 
     private void reviewPressed(MouseEvent event) {
         requestFocusInWindow();
@@ -3207,11 +3319,12 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         nodes.addAll(graphNet.getGraphPetriPlaceList()); nodes.addAll(graphNet.getGraphPetriTransitionList());
         for (GraphElement node : nodes) if (isDrawnOnThisCanvas(node) && node.getBounds() != null) extent = extent == null ? new Rectangle(node.getBounds()) : extent.union(node.getBounds());
         for (GraphObjectFrame frame : canvasModel.getFrames()) if (isFrameDrawnOnThisCanvas(frame) || frame == focusedFrame) extent = extent == null ? new Rectangle(frame.getBounds()) : extent.union(frame.getBounds());
-        if (extent == null) return;
+        if (extent == null) { setCamera(0, 0, scale); return; }
         extent.grow(80, 80);
-        scale = Math.max(0.05, Math.min(4, Math.min((view.getWidth() - 20.0) / Math.max(1, extent.width), (view.getHeight() - 20.0) / Math.max(1, extent.height))));
-        view.setViewPosition(new Point(Math.max(0, (int) (extent.x * scale)), Math.max(0, (int) (extent.y * scale))));
-        repaint();
+        double zoom = CanvasNavigation.clampScale(Math.min(4,
+                Math.min((view.getWidth() - 20.0) / Math.max(1, extent.width),
+                        (view.getHeight() - 20.0) / Math.max(1, extent.height))));
+        setCamera(extent.getCenterX(), extent.getCenterY(), zoom);
     }
 
     /**
@@ -3666,7 +3779,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
             Rectangle target = new Rectangle(frame.getBounds());
             target.grow(SCROLL_TO_MARGIN, SCROLL_TO_MARGIN);
-            scrollRectToVisible(target);
+            setCamera(target.getCenterX(), target.getCenterY(), scale);
         }
         repaint();
     }
@@ -3795,8 +3908,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             maxY = Math.max(maxY, (int) centre.getY() + border);
         }
         return new Rectangle(
-                Math.max(0, minX - BOUNDS_PADDING),
-                Math.max(0, minY - BOUNDS_PADDING - GraphObjectFrame.HEADER_HEIGHT),
+                minX - BOUNDS_PADDING,
+                minY - BOUNDS_PADDING - GraphObjectFrame.HEADER_HEIGHT,
                 maxX - minX + BOUNDS_PADDING * 2,
                 maxY - minY + BOUNDS_PADDING * 2 + GraphObjectFrame.HEADER_HEIGHT);
     }
@@ -3847,8 +3960,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             int cy = (int) centre.getY();
             Rectangle extent = new Rectangle(cx - border, cy - border, border * 2, border * 2);
             Point push = shiftToClearMargin(extent, frame.getBounds(), BOUNDS_PADDING);
-            int dx = Math.max(0, cx + push.x) - cx;
-            int dy = Math.max(0, cy + push.y) - cy;
+            int dx = push.x;
+            int dy = push.y;
             if (dx == 0 && dy == 0) {
                 continue;
             }
@@ -3921,7 +4034,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
             dragCompleted = false;
-            Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+            Point scaledCurrentMousePoint = worldPoint(ev.getPoint());
             if (maybeShowContextMenu(ev, scaledCurrentMousePoint)) {
                 contextMenuShown = true;
                 return;
@@ -4303,7 +4416,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 return;
             }
 
-            Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+            Point scaledCurrentMousePoint = worldPoint(ev.getPoint());
 
             // Whatever this click selects, it replaces the clicked shared place - the click
             // below re-selects it when it lands on the drawn line again.
@@ -4419,7 +4532,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         }
 
         private void handleRelease(MouseEvent ev) {
-            Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+            Point scaledCurrentMousePoint = worldPoint(ev.getPoint());
 
             // Whatever this release ends, the next gesture starts from its own press: a
             // stale drag origin surviving here made the very next body-drag teleport the
@@ -5323,7 +5436,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (tool == CanvasTool.DELETE) {
                 if (leftMouseButtonPressed && startDragMouseLocation != null) {
                     currentDragMouseLocation =
-                            new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+                            worldPoint(ev.getPoint());
                     // So the click trailing this drag is not read as a click on nothing.
                     dragCompleted = true;
                     repaint();
@@ -5345,12 +5458,10 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (layoutBeforeDrag == null) {
                 layoutBeforeDrag = new CanvasLayoutSnapshot(canvasModel);
             }
-            Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+            Point scaledCurrentMousePoint = worldPoint(ev.getPoint());
 
             if (draggedGroup != null) {
-                // By the step just taken rather than from where the drag began: moveFrame
-                // clamps a frame to the canvas, so a member stopped at an edge would otherwise
-                // keep receiving the whole accumulated delta and shoot away once it was free.
+                // Apply each pointer step to every member, preserving their relative positions.
                 int dx = scaledCurrentMousePoint.x - groupDragPoint.x;
                 int dy = scaledCurrentMousePoint.y - groupDragPoint.y;
                 groupDragPoint = scaledCurrentMousePoint;
@@ -5466,7 +5577,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (tool == CanvasTool.PLACE_LOADED_NET) {
                 // The one tool that does care where the pointer is without a button held: the
                 // outline has to follow it, so this cannot take the early return below.
-                placementPoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+                placementPoint = worldPoint(ev.getPoint());
                 repaint();
                 return;
             }
@@ -5478,7 +5589,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 // the pointer — port hovering is a Select-tool affordance only.
                 return;
             }
-            Point scaledCurrentMousePoint = new Point((int) (ev.getX() / scale), (int) (ev.getY() / scale));
+            Point scaledCurrentMousePoint = worldPoint(ev.getPoint());
             FramePort hovered = portOnCanvasAt(scaledCurrentMousePoint);
             if (hovered != hoveredPort) {
                 hoveredPort = hovered;
@@ -6187,9 +6298,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         if (panViewport == null || panDragOrigin == null) {
             return;
         }
-        panViewport.setViewPosition(CanvasNavigation.panTo(
-                panViewportOrigin, panDragOrigin, pointInViewport(ev),
-                maxViewX(panViewport), maxViewY(panViewport)));
+        Point pointer = pointInViewport(ev);
+        moveViewport(panViewport, new Point(panViewportOrigin.x - (pointer.x - panDragOrigin.x),
+                panViewportOrigin.y - (pointer.y - panDragOrigin.y)));
     }
 
     private void endPan() {
@@ -6214,6 +6325,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         selection.clear();
         focusedFrame = null;
         canvasStack.reset();
+        if (cameraInitialized) setCamera(0, 0, 1);
         repaint();
     }
 
@@ -6649,12 +6761,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * object's net always stays inside it - its elements are fixed relative to the frame, only
      * repositioned individually on the object's own canvas.
      *
-     * <p>The delta applied to the elements is measured from the frame's own bounds after
-     * {@link GraphObjectFrame#moveTo} runs, not before it: {@code moveTo} clamps its target to
-     * stay on the canvas, so measuring the delta from the raw, unclamped target (as this used
-     * to) let the elements keep moving by the full amount while the frame itself stopped dead
-     * at the edge — they drifted away from it a little further with every such drag. Moving the
-     * frame first and reading back where it actually ended up removes that mismatch outright.
+     * <p>The same delta moves the frame, its members and nested objects in every quadrant.
      *
      * <p>Everything the delta then applies to - the nested frames and the members, two different
      * types with nothing in common until now - moves through the one {@link CanvasItem#moveBy},
@@ -6752,7 +6859,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private void initComponents() {
 
         setBackground(new java.awt.Color(229, 229, 229));
-        setPreferredSize(new java.awt.Dimension(20000, 20000));
+        setPreferredSize(new java.awt.Dimension(BACKING_SIZE, BACKING_SIZE));
         setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
     }// </editor-fold>//GEN-END:initComponents
     // Variables declaration - do not modify//GEN-BEGIN:variables

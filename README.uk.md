@@ -23,9 +23,9 @@
 
 > [!TIP]
 > **Просто хочете скористатися застосунком?** Завантажте готовий редактор без збірки з джерел:
-> [Windows](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.7.0/petri-swing-ui-2.7.0-windows.zip) ·
-> [Linux](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.7.0/petri-swing-ui-2.7.0-linux.zip) ·
-> [macOS](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.7.0/petri-swing-ui-2.7.0-macos.zip)
+> [Windows](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.0/petri-swing-ui-2.8.0-windows.zip) ·
+> [Linux](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.0/petri-swing-ui-2.8.0-linux.zip) ·
+> [macOS](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.0/petri-swing-ui-2.8.0-macos.zip)
 > (або перегляньте сторінку [останнього релізу](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/latest)
 > для інших версій). Розпакуйте і запустіть лаунчер усередині (`.bat` / `.sh` / `.command`): він
 > перевіряє наявність Java 23+ і підкаже, звідки її завантажити, якщо її немає.
@@ -47,7 +47,7 @@
 
 ## Бібліотеки для власних проєктів
 
-Починаючи з v2.4.0, релізи містять [petri-math](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-math-2.6.0.jar), [petri-api](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-api-2.6.0.jar) та [petri-model](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-model-2.6.0.jar) для використання без редактора. Налаштування Maven, вимоги та приклади наведено в [інструкції підключення](docs/java-libraries.md).
+Починаючи з v2.4.0, релізи містять [petri-math](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-math-2.6.0.jar), [petri-api](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-api-2.6.0.jar) та [petri-model](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.0/petri-model-2.8.0.jar) для використання без редактора. Налаштування Maven, вимоги та приклади наведено в [інструкції підключення](docs/java-libraries.md).
 
 ---
 

@@ -81,6 +81,12 @@ public class GraphPlaceFusion implements Serializable {
         copyMarking(master, joined);
     }
 
+    /** Applies the canonical source directly, independent of the order of a link chain. */
+    public void syncMarkingFrom(GraphPetriPlace source) {
+        if (master != source) copyMarking(source, master);
+        if (joined != source) copyMarking(source, joined);
+    }
+
     /**
      * Takes the given half's marking as the shared one, mirroring it onto the other half -
      * what an edit through either half's properties dialog means.

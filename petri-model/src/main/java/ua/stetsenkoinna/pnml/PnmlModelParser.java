@@ -166,7 +166,45 @@ public class PnmlModelParser {
             }
         }
         model.getGroups().addAll(readGroups(netElement, model.getObjectCount(), warnings));
+        readLinkGeometry(netElement, references, model);
+        validateModelIdentities(model);
         return model;
+    }
+
+    private static void validateModelIdentities(GraphPetriObjModel model) {
+        Set<String> identities = new HashSet<>();
+        for (GraphPetriObject object : model.getObjects()) {
+            if (!identities.add(object.getModelId())) {
+                throw new IllegalArgumentException("Duplicate object identifier: " + object.getModelId());
+            }
+        }
+        for (var group : model.getGroups()) {
+            if (!identities.add(group.modelId())) {
+                throw new IllegalArgumentException("Duplicate object/group identifier: " + group.modelId());
+            }
+        }
+    }
+
+    private void readLinkGeometry(Element netElement, ReferenceNodeIndex references, GraphPetriObjModel model) throws Exception {
+        for (Element block : XmlHelper.toolSpecificBlocks(netElement)) {
+            Element links = XmlHelper.firstDirectChild(block, PnmlConstants.ELEMENT_PETRI_OBJECT_LINKS);
+            if (links == null) continue;
+            for (Element element : XmlHelper.directChildren(links, PnmlConstants.ELEMENT_LINK)) {
+                if (!element.hasAttribute("boundaryStubX") && !element.hasAttribute("boundaryStubY")) continue;
+                PetriObjLink declared = readLink(element, references, new ArrayList<>());
+                if (declared == null) continue;
+                var matching = model.getLinks().stream().filter(link -> endpointKey(link).equals(endpointKey(declared))).findFirst();
+                if (matching.isEmpty()) continue;
+                try {
+                    double x = Double.parseDouble(element.getAttribute("boundaryStubX"));
+                    double y = Double.parseDouble(element.getAttribute("boundaryStubY"));
+                    if (!Double.isFinite(x) || !Double.isFinite(y)) throw new NumberFormatException();
+                    model.setLinkBoundaryStubOffset(matching.get(), new java.awt.geom.Point2D.Double(x, y));
+                } catch (NumberFormatException invalid) {
+                    warnings.add("Ignored invalid boundary stub offset on a Petri-object link");
+                }
+            }
+        }
     }
 
     /**
@@ -217,7 +255,9 @@ public class PnmlModelParser {
                         ? element.getAttribute(PnmlConstants.ATTR_TEMPLATE_METHOD)
                         : null;
                 groups.add(new ua.stetsenkoinna.graphnet.PetriObjectGroupRef(
-                        name, members, template));
+                        name, members, template, element.getAttribute("modelId"),
+                        XmlHelper.directChildren(element, "templateArgument").stream()
+                                .map(Element::getTextContent).toList()));
             }
         }
         return groups;
@@ -449,6 +489,8 @@ public class PnmlModelParser {
         object.setAbsoluteLayout(ownDocument);
 
         if (objectElement != null) {
+            if (!objectElement.getAttribute("modelId").isBlank()) object.setModelId(objectElement.getAttribute("modelId"));
+            object.setContentVisible(!"false".equals(objectElement.getAttribute("contentVisible")));
             String description = "Petri-object '" + name + "'";
             object.setPriority(XmlHelper.parseIntSafe(
                     objectElement.getAttribute(PnmlConstants.ATTR_PRIORITY), 0,

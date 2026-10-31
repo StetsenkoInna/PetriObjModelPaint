@@ -97,7 +97,9 @@ public class PnsDropHandler implements DropTargetListener {
             @SuppressWarnings("unchecked")
             List<File> droppedFiles = (List<File>) transferable.getTransferData(DataFlavor.javaFileListFlavor);
 
-            Point dropLocation = dtde.getLocation();
+            var worldDrop = panel.toWorld(SwingUtilities.convertPoint(
+                    dtde.getDropTargetContext().getComponent(), dtde.getLocation(), panel));
+            Point dropLocation = new Point((int) Math.round(worldDrop.x), (int) Math.round(worldDrop.y));
             boolean atLeastOneSuccess = false;
 
             for (File file : droppedFiles) {

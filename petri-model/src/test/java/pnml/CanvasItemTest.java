@@ -99,16 +99,14 @@ public class CanvasItemTest {
     }
 
     @Test
-    public void aFrameNeverMovesPastTheCanvasEdge() {
-        // GraphObjectFrame.moveTo clamps to (0,0); moveBy delegates to it rather than bypassing
-        // that clamp, the same way the panel's own drag handling already relied on.
+    public void aFrameCanMoveAcrossTheOriginInEitherDirection() {
         GraphObjectFrame frame = new GraphObjectFrame("O", new Rectangle(10, 10, 200, 100));
         CanvasItem item = frame;
 
         item.moveBy(-100, -100);
 
-        assertEquals(0, frame.getBounds().x);
-        assertEquals(0, frame.getBounds().y);
+        assertEquals(-90, frame.getBounds().x);
+        assertEquals(-90, frame.getBounds().y);
     }
 
     @Test

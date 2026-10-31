@@ -772,6 +772,10 @@ public final class ScreenshotHarness {
     }
 
     private static void postMouseEvent(Component target, int id, java.awt.Point point, int clickCount) {
+        if (target instanceof PetriNetsPanel panel) {
+            var pixel = panel.toPanel(point);
+            point = new java.awt.Point((int) Math.round(pixel.getX()), (int) Math.round(pixel.getY()));
+        }
         MouseEvent event = new MouseEvent(
                 target, id, System.currentTimeMillis(), InputEvent.BUTTON1_DOWN_MASK,
                 point.x, point.y, clickCount, false, MouseEvent.BUTTON1);

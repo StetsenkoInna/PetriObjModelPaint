@@ -14,6 +14,7 @@ final class ModelingSkills {
     private static final String ROOT = "/petri-modeling-skills/";
     private static final String URI_PREFIX = "petri://skills/";
     private static final String REVIEW_URI = "petri://desktop/training-review";
+    private static final String MODEL_URI = "petri://desktop/model-api";
     private record Guide(String id, String name, String description, String text) { }
     private Map<String, Guide> guides;
 
@@ -23,12 +24,14 @@ final class ModelingSkills {
         guides.values().forEach(guide -> result.add(Map.of("uri", URI_PREFIX + guide.id(),
                 "name", guide.name(), "description", guide.description(), "mimeType", "text/markdown")));
         result.add(Map.of("uri", REVIEW_URI, "name", "Desktop training bundle review", "description", "Use the desktop review tools and revision targets", "mimeType", "text/markdown"));
+        result.add(Map.of("uri", MODEL_URI,"name","Direct desktop model API","description","Build objects, connect ports, edit parameters and control geometry through direct MCP operations","mimeType","text/markdown"));
         return result;
     }
 
     synchronized Map<String, Object> read(String uri) {
         load();
         if (REVIEW_URI.equals(uri)) return Map.of("contents", List.of(Map.of("uri", uri, "mimeType", "text/markdown", "text", readText("/ua/stetsenkoinna/graphpresentation/ai/training-review.md"))));
+        if (MODEL_URI.equals(uri)) return Map.of("contents",List.of(Map.of("uri",uri,"mimeType","text/markdown","text",readText("/ua/stetsenkoinna/graphpresentation/ai/swing-modeling.md"))));
         if (!uri.startsWith(URI_PREFIX)) throw new IllegalArgumentException("Unknown skill resource");
         Guide guide = guides.get(uri.substring(URI_PREFIX.length()));
         if (guide == null) throw new IllegalArgumentException("Unknown skill resource");
@@ -37,7 +40,7 @@ final class ModelingSkills {
 
     List<Map<String, Object>> prompts() {
         return List.of(Map.of("name", "build_petri_model",
-                "description", "Plan and build a Petri model using the shared modeling skills and this editor's controls.",
+                "description", "Plan and build a complete Petri-object model with the direct model API and shared modeling semantics.",
                 "arguments", List.of(Map.of("name", "description", "description", "System to model or change requested", "required", true))),
                 Map.of("name", "review_petri_model", "description", "Review an existing training ZIP and append findings to its exact revision.",
                         "arguments", List.of(Map.of("name", "input_path", "description", "Local training ZIP to review", "required", true))));
@@ -58,8 +61,8 @@ final class ModelingSkills {
         }
         load();
         StringBuilder text = new StringBuilder("Modeling request:\n").append(arguments.get("description").asText()).append("\n\n");
+        text.append(readText("/ua/stetsenkoinna/graphpresentation/ai/swing-modeling.md")).append("\n\n");
         guides.values().forEach(guide -> text.append(guide.text()).append("\n\n"));
-        text.append(readText("/ua/stetsenkoinna/graphpresentation/ai/swing-modeling.md"));
         return Map.of("description", "Build a Petri model in the running Swing editor", "messages", List.of(
                 Map.of("role", "user", "content", Map.of("type", "text", "text", text.toString()))));
     }

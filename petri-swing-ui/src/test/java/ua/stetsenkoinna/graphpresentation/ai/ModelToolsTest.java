@@ -113,7 +113,7 @@ public class ModelToolsTest {
             }
         }
     }
-    @Test public void composedPnmlRetainsObjectsAndRejectsLossyStructuredEditing() throws Exception {
+    @Test public void composedPnmlRetainsObjectsDuringStructuredEditing() throws Exception {
         var canvas=ModelTools.build(DesktopMcpServer.JSON.readTree(NET));
         var object=new ua.stetsenkoinna.graphnet.GraphObjectFrame("Machine",new java.awt.Rectangle(80,100,520,240));
         canvas.getFrames().add(object);
@@ -122,10 +122,11 @@ public class ModelToolsTest {
         String pnml=ModelTools.xml(canvas);
         var opened=call("open_model",Map.of("expected_revision",revision(),"pnml",pnml));
         assertEquals(1,opened.path("object_count").asInt());
-        assertEquals("use_pnml",opened.path("structured_editing").asText());
+        assertEquals("complete",opened.path("structured_editing").asText());
         String rev=revision();
-        assertThrows(Exception.class,() -> call("edit_model",Map.of("expected_revision",rev,"operations",java.util.List.of(Map.of("op","put_place","id","p1","tokens",7)))));
-        assertEquals(rev,revision());
+        call("edit_model",Map.of("expected_revision",rev,"operations",java.util.List.of(Map.of("op","put_place","id","p1","tokens",7))));
+        assertEquals(1,call("get_model",Map.of()).path("object_count").asInt());
+        assertNotEquals(rev,revision());
         Path target=folder.getRoot().toPath().resolve("composed.pnml");
         call("save_model",Map.of("path",target.toString()));
         var reloaded=call("open_model",Map.of("expected_revision",revision(),"path",target.toString(),"replace_current",true));

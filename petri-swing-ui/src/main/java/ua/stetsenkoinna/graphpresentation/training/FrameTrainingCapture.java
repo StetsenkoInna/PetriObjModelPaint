@@ -39,8 +39,13 @@ public final class FrameTrainingCapture {
         observations.put("network_image_scope", "Complete document and one expanded subtree per object, rendered on an independent copy. Geometry remains unverified.");
         observations.put("source_nodes", sourceNodes(panel));
         Map<String, Object> viewport = new LinkedHashMap<>();
-        viewport.put("coordinate_system", "Swing logical pixels; canvas model positions are scaled by zoom");
+        viewport.put("coordinate_system", "Swing logical pixels; panel = camera origin + model * zoom");
         viewport.put("zoom", panel.getScale());
+        var origin = panel.toPanel(new java.awt.geom.Point2D.Double(0, 0));
+        viewport.put("camera_origin", Map.of("x", origin.getX(), "y", origin.getY()));
+        var world = panel.getVisibleWorldBounds();
+        viewport.put("visible_world_bounds", Map.of("x", world.x, "y", world.y,
+                "width", world.width, "height", world.height));
         viewport.put("visible_rect", rectangle(panel.getVisibleRect()));
         viewport.put("canvas_bounds_in_frame", rectangle(SwingUtilities.convertRectangle(panel,
                 new Rectangle(0, 0, panel.getWidth(), panel.getHeight()), frame)));

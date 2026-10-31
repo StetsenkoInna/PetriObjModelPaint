@@ -28,6 +28,30 @@ import java.util.Objects;
  * that point past it and drops the ones attached to it — see {@link #removeObject(int)}.
  */
 public class GraphPetriObjModel implements Serializable {
+    private static final long serialVersionUID = 7105282003172537249L;
+    private java.util.Map<String, java.awt.geom.Point2D.Double> linkBoundaryOffsets = new java.util.LinkedHashMap<>();
+
+    public java.awt.geom.Point2D.Double getLinkBoundaryStubOffset(PetriObjLink link) {
+        if (linkBoundaryOffsets == null) return null;
+        var value = linkBoundaryOffsets.get(linkGeometryKey(link));
+        return value == null ? null : new java.awt.geom.Point2D.Double(value.x, value.y);
+    }
+
+    public void setLinkBoundaryStubOffset(PetriObjLink link, java.awt.geom.Point2D.Double offset) {
+        if (linkBoundaryOffsets == null) linkBoundaryOffsets = new java.util.LinkedHashMap<>();
+        String key = linkGeometryKey(link);
+        if (offset == null) linkBoundaryOffsets.remove(key);
+        else linkBoundaryOffsets.put(key, new java.awt.geom.Point2D.Double(offset.x, offset.y));
+    }
+
+    private String linkGeometryKey(PetriObjLink link) {
+        GraphPetriObject source = getObject(link.getSourceObject()), target = getObject(link.getTargetObject());
+        String from = link.getType() == PetriObjLinkType.PLACE_FUSION
+                ? source.getGraphNet().getGraphPetriPlaceList().get(link.getSourceElement()).getPetriPlace().getId()
+                : source.getGraphNet().getGraphPetriTransitionList().get(link.getSourceElement()).getPetriTransition().getId();
+        String to = target.getGraphNet().getGraphPetriPlaceList().get(link.getTargetElement()).getPetriPlace().getId();
+        return link.getType() + ":" + source.getModelId() + ":" + from + ":" + target.getModelId() + ":" + to;
+    }
 
     private static final Logger log = LoggerFactory.getLogger(GraphPetriObjModel.class);
 
