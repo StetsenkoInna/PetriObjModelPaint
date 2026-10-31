@@ -1649,6 +1649,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     @Override
     public String getToolTipText(MouseEvent ev) {
+        // Between deletePetriNet() and the repaint that builds a fresh net there is none; the
+        // tooltip timer can still fire then, and a preview panel has no other guard against it.
+        if (graphNet == null) {
+            return null;
+        }
         Point2D point = new Point2D.Double(ev.getX() / scale, ev.getY() / scale);
         if (find(point) != null) {
             return null;
