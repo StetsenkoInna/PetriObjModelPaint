@@ -31,12 +31,16 @@ public class PetriObjPaintApp {
             // Before any window is built, so the first frame the user sees is already in the
             // right theme rather than repainting itself into it a moment later.
             ThemeManager.applySavedMode();
+            // Before any window is shown, so the very first ones - the first-run settings dialog
+            // and the welcome screen - carry the app's icon too.
+            AppIcon.install();
             SettingsDialog.showIfFirstRun(settings);
 
             // Built once and reused for the whole process: the undo manager and undo support
             // behind it are static, shared across every instance, so there must only ever be
             // one. Not shown yet - whichever startup path below applies decides when.
             PetriNetsFrame frame = new PetriNetsFrame();
+            frame.setIconImages(AppIcon.images());
             MessageHelper.setDefaultParent(frame);
 
             File autoReopenFile = resolveAutoReopenFile(settings, store);
