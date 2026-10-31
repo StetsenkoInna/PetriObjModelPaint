@@ -34,7 +34,7 @@ for the next manual start.
 
 ### Direct model API
 
-Agents can work with the model without mouse gestures or property dialogs:
+MCP clients can work with the model without mouse gestures or property dialogs:
 
 | Tool | Behavior |
 | --- | --- |
