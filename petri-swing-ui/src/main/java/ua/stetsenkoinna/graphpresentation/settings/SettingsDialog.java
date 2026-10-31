@@ -62,6 +62,7 @@ public class SettingsDialog extends JDialog {
     /** "Reopen the last project on startup" - takes effect only on confirm, no live preview. */
     private final JCheckBox reopenLastProjectCheckbox =
             new JCheckBox("Reopen the last project on startup");
+    private final JCheckBox checkUpdatesCheckbox = new JCheckBox("Check for updates when the application opens");
 
     /**
      * @param owner the window to centre on, or null on a first start, when there is not one yet
@@ -94,6 +95,7 @@ public class SettingsDialog extends JDialog {
 
         selectButtonFor(ThemeManager.currentMode());
         reopenLastProjectCheckbox.setSelected(settings.isReopenLastProjectOnStartup());
+        checkUpdatesCheckbox.setSelected(new ua.stetsenkoinna.updates.UpdatePreferences(settings).enabled());
         pack();
         setLocationRelativeTo(owner);
     }
@@ -203,6 +205,8 @@ public class SettingsDialog extends JDialog {
         section.add(fullWidthRow(reopenLastProjectCheckbox));
         section.add(fullWidthRow(
                 describe("When off, the Welcome screen opens instead so you can pick a project.")));
+        section.add(fullWidthRow(checkUpdatesCheckbox));
+        section.add(fullWidthRow(describe("Checks GitHub once at startup. Updates install only when you choose.")));
         return section;
     }
 
@@ -272,6 +276,7 @@ public class SettingsDialog extends JDialog {
         if (keepSelection) {
             settings.setThemeMode(selectedThemeMode());
             settings.setReopenLastProjectOnStartup(reopenLastProjectCheckbox.isSelected());
+            new ua.stetsenkoinna.updates.UpdatePreferences(settings).setEnabled(checkUpdatesCheckbox.isSelected());
         } else {
             ThemeManager.applyMode(modeOnEntry);
         }

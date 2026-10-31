@@ -15,7 +15,7 @@ a GUI dialog; this does not change its sampling policy.
 
 ## Maven
 
-After the library release workflow has completed for `v2.6.0`, add the public
+After the library release workflow has completed for `v2.7.0`, add the public
 repository and whichever module your application uses:
 
 ```xml
@@ -60,6 +60,6 @@ simulation backend is desired.
 
 Running the Build Java library distribution workflow manually with an empty
 `release_tag` builds review artifacts only. To repair a failed publication, set
-`release_tag` to an existing published tag, for example `v2.6.0`: the workflow
+`release_tag` to an existing published tag, for example `v2.7.0`: the workflow
 builds that tag and publishes its packages. Normal publication runs when a
 GitHub Release is published. The workflow does not create releases or tags.

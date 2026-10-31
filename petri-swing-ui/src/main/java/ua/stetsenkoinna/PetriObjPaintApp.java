@@ -21,6 +21,7 @@ import javax.swing.JFrame;
 public class PetriObjPaintApp {
 
     public static void main(String[] args) {
+        ua.stetsenkoinna.updates.UpdateController.cleanupPreviousInstaller(args);
         // Everything, including the look and feel, on the event dispatch thread: the first-run
         // dialog is a real window, and putting up a window from the main thread and then handing
         // the rest to the event queue is the kind of split that works until it does not.
@@ -43,7 +44,9 @@ public class PetriObjPaintApp {
             frame.setIconImages(AppIcon.images());
             MessageHelper.setDefaultParent(frame);
 
-            File autoReopenFile = resolveAutoReopenFile(settings, store);
+            String requestedFile = ua.stetsenkoinna.updates.UpdateController.argument(args, "--open");
+            File autoReopenFile = requestedFile != null && new File(requestedFile).isFile()
+                    ? new File(requestedFile) : resolveAutoReopenFile(settings, store);
             if (autoReopenFile != null) {
                 // Shown before loading, not after: if the file fails to parse, the error
                 // dialog MessageHelper puts up needs a visible parent to attach to.
@@ -73,6 +76,7 @@ public class PetriObjPaintApp {
                         true // exitAppIfDismissed - this is the startup call, nothing else has been shown yet
                 );
             }
+            ua.stetsenkoinna.updates.UpdateController.checkOnStartup(frame);
         });
     }
 

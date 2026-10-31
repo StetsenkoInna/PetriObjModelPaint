@@ -2610,6 +2610,28 @@ public class PetriNetsFrame extends SimulationFrame {
         return netNameTextField.getText();
     }
 
+    public record UpdateRestart(boolean proceed, java.nio.file.Path reopen) { }
+
+    /** Save is completed before handing control to the external update installer. */
+    public UpdateRestart prepareForUpdate() throws Exception {
+        if (runModel != null || animationModel != null) throw new IllegalStateException("Stop the simulation before installing the update.");
+        var canvas = getPetriNetsPanel().getCanvasModel();
+        if (canvas.getNet().getGraphPetriPlaceList().isEmpty() && canvas.getNet().getGraphPetriTransitionList().isEmpty() && canvas.getFrames().isEmpty()) return new UpdateRestart(true,null);
+        String[] options = {"Save and restart", "Restart without saving", "Cancel"};
+        int choice = javax.swing.JOptionPane.showOptionDialog(this,"Save the current model before restarting to install the update?",
+                "Restart to install update",javax.swing.JOptionPane.DEFAULT_OPTION,javax.swing.JOptionPane.QUESTION_MESSAGE,null,options,options[0]);
+        if (choice == 1) return new UpdateRestart(true,null);
+        if (choice != 0) return new UpdateRestart(false,null);
+        java.io.File file = currentPnmlFile;
+        if (file == null) {
+            file = chooseSaveAsFile();
+            if (file == null) return new UpdateRestart(false,null);
+            if (file.exists() && !MessageHelper.showConfirmation(this,"'" + file.getName() + "' already exists. Overwrite it?")) return new UpdateRestart(false,null);
+        }
+        writePnml(file);
+        return new UpdateRestart(true,file.toPath().toAbsolutePath());
+    }
+
     /** Called synchronously on the EDT by the direct MCP model service. */
     public void applyMcpCanvas(GraphCanvasModel canvas, boolean newDocument) {
         if (!javax.swing.SwingUtilities.isEventDispatchThread()) throw new IllegalStateException("EDT required");
