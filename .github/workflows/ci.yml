@@ -10,7 +10,13 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Windows, not Linux: the Swing tests drive real native file dialogs, and on Linux the
+    # GTK file dialog crashes the JVM (SIGSEGV in its filename filter) once JavaFX, which the
+    # statistics views use, runs in the same process. Windows also needs no virtual display.
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
@@ -23,22 +29,20 @@ jobs:
       # Every version site still agrees with the pom; see scripts/bump_version.py.
       - name: Scripts
         run: |
-          python3 -m unittest discover -s scripts/tests
-          python3 scripts/bump_version.py --check
+          python -m unittest discover -s scripts/tests
+          python scripts/bump_version.py --check
 
-      # The Swing tests build real windows, so they need a display even on a server.
       - name: Maven tests
         run: |
-          command -v xvfb-run >/dev/null || (sudo apt-get update && sudo apt-get install -y xvfb)
           set -o pipefail
-          xvfb-run -a mvn --batch-mode --no-transfer-progress --fail-at-end test 2>&1 | tee maven.log
+          mvn --batch-mode --no-transfer-progress --fail-at-end test 2>&1 | tee maven.log
 
       # Names each failed test, with its message and the top of its trace, as an annotation on
       # the pull request, so a failure can be read without opening (or signing in to) the log.
       - name: Report failed tests
         if: failure()
         run: |
-          python3 - <<'PY'
+          python - <<'PY'
           import glob
           import xml.etree.ElementTree as ET
           for report in glob.glob("**/target/surefire-reports/TEST-*.xml", recursive=True):
