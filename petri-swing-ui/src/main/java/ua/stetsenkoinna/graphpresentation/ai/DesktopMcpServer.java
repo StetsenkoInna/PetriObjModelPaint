@@ -217,7 +217,7 @@ public final class DesktopMcpServer implements AutoCloseable {
                     "serverInfo", Map.of("name", "PetriObjModelPaint Desktop", "version", "1.0"),
                     "instructions", "Control the running Swing editor. For model design read the shared resources at "
                             + "petri://skills/petri-modeling, petri://skills/petri-patterns and petri://skills/pnml-standard, "
-                            + "or use the build_petri_model prompt. For ZIP review use review_petri_model or read petri://desktop/training-review. Inspect UI before actions; use returned component IDs. "
+                            + "or use the build_petri_model prompt. Prefer get_model, apply_model, validate_model, simulate_model, open_model and save_model for direct model operations; they do not require UI inspection. For ZIP review use review_petri_model or read petri://desktop/training-review. For UI actions only, inspect UI first and use returned component IDs. "
                             + "Actions are queued on the UI thread; inspect again to observe completion and dialogs. "
                             + "Coordinates are relative to the chosen component. File choosers may be native OS windows.");
             case "ping" -> result = Map.of();

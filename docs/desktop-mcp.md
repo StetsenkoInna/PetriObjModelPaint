@@ -32,6 +32,54 @@ for the next manual start.
 
 ## Tools
 
+### Direct model API
+
+Agents can work with the model without mouse gestures or property dialogs:
+
+| Tool | Behavior |
+| --- | --- |
+| `get_model` | Stable model IDs, markings, timing, layout and revision; optional full PNML |
+| `apply_model` | Atomically build a complete flat net from JSON |
+| `edit_model` | Atomically create, partially update or remove elements by ID |
+| `validate_model` | Check a copy with the application's PNML and simulation builders |
+| `simulate_model` | Execute a fresh copy and return status, markings, statistics, trajectory and protocol |
+| `open_model` | Load PNML text or an absolute file path, including Petri-objects and links |
+| `save_model` | Write PNML directly, with explicit overwrite protection |
+
+Read `get_model` before changes. Pass its `revision` as `expected_revision` to
+`apply_model`, `edit_model` or `open_model`. A stale revision fails rather than
+overwriting another client's edit. Apply/open require `replace_current=true` when
+the canvas is nonempty. A batch is prepared before committing on the Swing EDT;
+an invalid batch leaves the drawing unchanged. Changes support Undo. Stop an
+interactive simulation before editing. Direct simulations leave canvas markings
+unchanged and have the existing four-second/10000-event execution limits.
+
+For example, `apply_model` accepts the following `model` (along with the revision):
+
+```json
+{"name":"Test","places":[{"id":"p1","tokens":1,"x":160,"y":220},
+ {"id":"p2","tokens":0,"x":520,"y":220}],
+ "transitions":[{"id":"t1","delay":2,"x":340,"y":220}],
+ "arcs":[{"id":"a1","source":"p1","target":"t1"},
+ {"id":"a2","source":"t1","target":"p2"}]}
+```
+
+Then `simulate_model` with `horizon: 10` observes p1=0 and p2=1 on the copy.
+Use `edit_model` with `operations: [{"op":"put_place","id":"p1","tokens":3}]`
+to change a marking. Puts create new elements or update supplied fields; a new
+node needs its coordinates and marking/delay. `remove` also removes incident arcs.
+IDs are unique XML NCNames and positions are node centers. Time values share the
+model clock; no unit conversion occurs. Distribution defaults to deterministic.
+For `unif`, deviation means half-range; for `norm`, standard deviation. `read: true`
+is an availability test on an input arc, not an inhibitor zero-test.
+
+Structured editing is deliberately limited to flat concrete nets. Use
+`get_model(include_pnml=true)` and `open_model` to preserve composed objects, links,
+templates and symbolic parameters. Validation reports engine compatibility, not
+RELAX NG conformance or proof that a model implements a user's task.
+
+### UI API
+
 `inspect_ui` reads application windows, controls, menus, current values and component IDs.
 `screenshot` captures a visible application window. `ui_action` operates controls,
 key bindings, file dialogs and canvas mouse gestures through existing Swing handlers.

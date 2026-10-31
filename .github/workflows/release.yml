@@ -1,11 +1,21 @@
 name: Release build
 
 on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing published release to rebuild (for example v2.6.0)'
+        required: true
+        type: string
   release:
     types: [published]
 
 permissions:
   contents: write
+
+concurrency:
+  group: desktop-release-${{ inputs.release_tag || github.event.release.tag_name }}
+  cancel-in-progress: false
 
 jobs:
   swing-ui:
@@ -31,11 +41,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
+          ref: ${{ inputs.release_tag || github.ref }}
+
+      - name: Check that a repair targets a published release
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = false
 
       - name: Determine version
         id: version
         shell: bash
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
+        run: echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
       # A release cut from a tag whose source was never bumped would ship a jar stamping the
       # old version into every PNML file and a README linking the previous release. Run the
@@ -87,4 +108,20 @@ jobs:
       - name: Attach to release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.release_tag || github.event.release.tag_name }}
           files: petri-swing-ui-${{ steps.version.outputs.version }}-${{ matrix.asset-suffix }}.zip
+
+  checksums:
+    needs: swing-ui
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
+    steps:
+      - name: Publish desktop checksums after all platforms succeed
+        shell: bash
+        run: |
+          gh release download "$RELEASE_TAG" --pattern 'petri-swing-ui-*.zip'
+          sha256sum petri-swing-ui-*.zip > SHA256SUMS-desktop.txt
+          gh release upload "$RELEASE_TAG" SHA256SUMS-desktop.txt --clobber
