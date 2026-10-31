@@ -119,9 +119,14 @@ jobs:
       GH_REPO: ${{ github.repository }}
       RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
       - name: Publish desktop checksums after all platforms succeed
         shell: bash
         run: |
           gh release download "$RELEASE_TAG" --pattern 'petri-swing-ui-*.zip'
           sha256sum petri-swing-ui-*.zip > SHA256SUMS-desktop.txt
+          python3 scripts/desktop_update_manifest.py --version "${RELEASE_TAG#v}"
           gh release upload "$RELEASE_TAG" SHA256SUMS-desktop.txt --clobber
+          gh release upload "$RELEASE_TAG" desktop-update.json --clobber
