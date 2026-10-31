@@ -224,7 +224,7 @@ public class GraphPlaceFusion implements Serializable {
     /** Distance between the two rails of the tie, centre to centre. */
     private static final double RAIL_GAP = 5;
     /** Length of each arm of the tie's open arrowhead. */
-    private static final double ARROW_ARM = 12;
+    private static final double ARROW_ARM = 18;
     /** Angle between each arm of the arrowhead and the tie. */
     private static final double ARROW_ANGLE = Math.toRadians(30);
 
