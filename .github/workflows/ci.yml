@@ -30,7 +30,8 @@ jobs:
       - name: Maven tests
         run: |
           command -v xvfb-run >/dev/null || (sudo apt-get update && sudo apt-get install -y xvfb)
-          xvfb-run -a mvn --batch-mode --no-transfer-progress --fail-at-end test
+          set -o pipefail
+          xvfb-run -a mvn --batch-mode --no-transfer-progress --fail-at-end test 2>&1 | tee maven.log
 
       # Names each failed test, with its message and the top of its trace, as an annotation on
       # the pull request, so a failure can be read without opening (or signing in to) the log.
@@ -51,3 +52,5 @@ jobs:
                       print(f"::error title={case.get('classname')}.{case.get('name')}::"
                             f"{kind}: {message} %0A" + " %0A".join(trace))
           PY
+          # A test JVM that crashed leaves no report at all; Maven's own errors still name it.
+          grep -E '^\[ERROR\]' maven.log | grep -v -E '^\[ERROR\] *$|Help 1|re-run Maven|full stack trace|-rf :'             | head -n 8 | sed 's/^/::error title=Maven::/' || true
