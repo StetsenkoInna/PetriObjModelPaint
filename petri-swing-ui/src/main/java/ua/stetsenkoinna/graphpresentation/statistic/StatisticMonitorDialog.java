@@ -62,6 +62,8 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         );
         this.chartBuilderService = new LineChartBuilderService();
         chartBuilderService.createChart(jfxPanel, chartConfigDto);
+        // A line tool lets go after placing its line; the buttons have to follow.
+        chartBuilderService.setOnLineToolsReleased(() -> SwingUtilities.invokeLater(this::releaseLineToolButtons));
 
         // Last, so everything it colours already exists. addListener calls back straight away,
         // which is what paints this dialog in the current theme in the first place - there is no
@@ -77,6 +79,20 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
             themeListener = null;
         }
         super.dispose();
+    }
+
+    /**
+     * Un-presses the two line buttons after the chart has placed a line and switched the tools
+     * off. {@code setSelected} does not fire the action listener, so the DTO is not toggled a
+     * second time (which would arm the tool again); it is brought in line here instead, for the
+     * case where the dialog holds a different instance than the chart does.
+     */
+    private void releaseLineToolButtons() {
+        chartConfigDto.releaseLineTools();
+        for (JToggleButton button : List.of(drawVerticalLineBtn, drawHorizontalLineBtn)) {
+            button.setSelected(false);
+            button.setContentAreaFilled(false);
+        }
     }
 
     /**

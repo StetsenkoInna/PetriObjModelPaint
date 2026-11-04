@@ -59,7 +59,12 @@ public class LineChartBuilderService implements ChartBuilderService {
     private LineChart<Number, Number> lineChart;
     private AnchorPane rootPane;
     private final Queue<XYChart.Data<Number, Number>> pendingDataQueue;
+    private Runnable onLineToolsReleased = () -> { };
 
+    @Override
+    public void setOnLineToolsReleased(Runnable listener) {
+        this.onLineToolsReleased = listener == null ? () -> { } : listener;
+    }
 
     public LineChartBuilderService() {
         this.currentSeriesId = -1;
@@ -146,7 +151,7 @@ public class LineChartBuilderService implements ChartBuilderService {
                 if (chartConfigDto.getClearLineEnabled()) {
                     clearDrawingsOnClicked(xData, yData, xEvent, yEvent);
                 } else if (chartConfigDto.getDrawVerticalLineEnabled() || chartConfigDto.getDrawHorizontalLineEnabled()) {
-                    drawLinesOnClicked(xData, yData);
+                    placeLinesAt(xData, yData);
                 } else if (chartConfigDto.getCreateLabelEnabled()) {
                     createTextAnnotation(xEvent, yEvent);
                 }
@@ -210,6 +215,30 @@ public class LineChartBuilderService implements ChartBuilderService {
         line.setVisible(false);
         line.setMouseTransparent(true);
         return line;
+    }
+
+    /**
+     * One click of a line tool: place the line(s) the armed tools stand for, then switch them
+     * off. They used to stay armed, so a user who wanted a single line got another under every
+     * later click and had to notice the pressed button and release it by hand.
+     */
+    void placeLinesAt(double xData, double yData) {
+        drawLinesOnClicked(xData, yData);
+        releaseLineTools();
+    }
+
+    private void releaseLineTools() {
+        if (!chartConfigDto.releaseLineTools()) {
+            return;
+        }
+        // The dashed guide that follows the mouse belongs to an armed tool, so it goes too.
+        if (chartDrawing.getVerticalTooltipLine() != null) {
+            chartDrawing.getVerticalTooltipLine().setVisible(false);
+        }
+        if (chartDrawing.getHorizontalTooltipLine() != null) {
+            chartDrawing.getHorizontalTooltipLine().setVisible(false);
+        }
+        onLineToolsReleased.run();
     }
 
     private void drawLinesOnClicked(double xData, double yData) {

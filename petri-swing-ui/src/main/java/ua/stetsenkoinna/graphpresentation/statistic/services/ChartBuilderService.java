@@ -20,6 +20,14 @@ public interface ChartBuilderService {
     void appendData(XYChart.Data<Number, Number> data);
     void changeSeriesName(Integer seriesId, String name);
     void updateChartConfig(ChartConfigDto chartConfigDto);
+
+    /**
+     * Registers what to run once a click on the chart has placed a line and the line tools have
+     * been switched off again, so the toolbar can un-press their buttons. Called on the JavaFX
+     * thread; a listener that touches Swing has to hop to the event thread itself.
+     */
+    default void setOnLineToolsReleased(Runnable listener) {
+    }
     void exportChartAsImage(String directory);
     void exportChartAsTable(String directory);
     void autoSizeChart();
