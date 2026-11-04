@@ -8,6 +8,7 @@ import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import org.junit.Test;
 import ua.stetsenkoinna.graphpresentation.PetriNetsPanel;
+import ua.stetsenkoinna.graphpresentation.input.InputShortcuts;
 import static org.junit.Assert.*;
 
 public class TrainingRevisionCanvasTest {
@@ -25,7 +26,7 @@ public class TrainingRevisionCanvasTest {
                 canvas.dispatchEvent(new MouseEvent(canvas, MouseEvent.MOUSE_DRAGGED, 1, InputEvent.BUTTON1_DOWN_MASK, 450, 350, 0, false, MouseEvent.NOBUTTON));
                 canvas.dispatchEvent(new MouseEvent(canvas, MouseEvent.MOUSE_RELEASED, 2, 0, 450, 350, 1, false, MouseEvent.BUTTON1));
                 assertEquals(new Point(450, 350), scroll.getViewport().getViewPosition());
-                canvas.dispatchEvent(new MouseWheelEvent(canvas, MouseEvent.MOUSE_WHEEL, 3, InputEvent.CTRL_DOWN_MASK, 600, 450, 0, false, MouseWheelEvent.WHEEL_UNIT_SCROLL, 1, -1));
+                canvas.dispatchEvent(new MouseWheelEvent(canvas, MouseEvent.MOUSE_WHEEL, 3, InputShortcuts.menuMask(), 600, 450, 0, false, MouseWheelEvent.WHEEL_UNIT_SCROLL, 1, -1));
                 assertTrue(canvas.getScale() > 1); assertEquals(source, place.getGraphElementCenter());
                 assertTrue(canvas.getSelection().isEmpty());
             } finally { canvas.setArcFrame.dispose(); canvas.setPositionFrame.dispose(); canvas.setTransitionFrame.dispose(); }

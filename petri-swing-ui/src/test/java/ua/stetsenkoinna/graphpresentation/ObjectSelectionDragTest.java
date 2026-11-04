@@ -357,15 +357,16 @@ public class ObjectSelectionDragTest {
 
             javax.swing.InputMap keys =
                     panel.getInputMap(javax.swing.JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
-            int ctrl = java.awt.event.InputEvent.CTRL_DOWN_MASK;
+            // The shortcut modifier is Command on macOS and Control elsewhere.
+            int shortcut = ua.stetsenkoinna.graphpresentation.input.InputShortcuts.menuMask();
             assertEquals("selectAll", keys.get(javax.swing.KeyStroke.getKeyStroke(
-                    java.awt.event.KeyEvent.VK_A, ctrl)));
+                    java.awt.event.KeyEvent.VK_A, shortcut)));
             assertEquals("undoEdit", keys.get(javax.swing.KeyStroke.getKeyStroke(
-                    java.awt.event.KeyEvent.VK_Z, ctrl)));
+                    java.awt.event.KeyEvent.VK_Z, shortcut)));
             assertEquals("redoEdit", keys.get(javax.swing.KeyStroke.getKeyStroke(
-                    java.awt.event.KeyEvent.VK_Z, ctrl | java.awt.event.InputEvent.SHIFT_DOWN_MASK)));
-            assertEquals("redoEdit", keys.get(javax.swing.KeyStroke.getKeyStroke(
-                    java.awt.event.KeyEvent.VK_Y, ctrl)));
+                    java.awt.event.KeyEvent.VK_Z, shortcut | java.awt.event.InputEvent.SHIFT_DOWN_MASK)));
+            assertEquals(ua.stetsenkoinna.graphpresentation.input.InputShortcuts.bindsRedoToY() ? "redoEdit" : null,
+                    keys.get(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_Y, shortcut)));
         } finally {
             frame.dispose();
         }
