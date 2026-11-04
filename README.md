@@ -47,7 +47,7 @@ This is a multi-module Maven project:
 
 ## Reusable libraries
 
-From v2.4.0, releases include [petri-math](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-math-2.6.0.jar), [petri-api](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.1/petri-api-2.8.1.jar) and [petri-model](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.0/petri-model-2.8.0.jar) for use without the editor. See the [Java library integration guide](docs/java-libraries.md) for Maven setup, requirements and examples.
+From v2.4.0, releases include [petri-math](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-math-2.6.0.jar), [petri-api](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.1/petri-api-2.8.1.jar) and [petri-model](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.1/petri-model-2.8.1.jar) for use without the editor. See the [Java library integration guide](docs/java-libraries.md) for Maven setup, requirements and examples.
 
 ---
 

@@ -35,6 +35,12 @@ public class HelpMenu extends JMenu {
         super("Help");
         this.owner = owner;
 
+        JMenuItem about = new JMenuItem("About " + ua.stetsenkoinna.AppVersion.PRODUCT + "...");
+        about.addActionListener(e -> JOptionPane.showMessageDialog(owner, aboutText(),
+                "About " + ua.stetsenkoinna.AppVersion.PRODUCT, JOptionPane.INFORMATION_MESSAGE));
+        add(about);
+        addSeparator();
+
         JMenuItem license = new JMenuItem("License...");
         license.addActionListener(e -> {
             JDialog dialog = buildLicenseDialog();
@@ -49,6 +55,19 @@ public class HelpMenu extends JMenu {
         JMenuItem webApp = new JMenuItem("Web app on GitHub...");
         webApp.addActionListener(e -> openInBrowser(WEB_APP_URL));
         add(webApp);
+    }
+
+    /**
+     * What a bug report needs first: the release, and the Java and operating system it runs on.
+     * A build without a stamped version (an IDE run) says so instead of inventing a number.
+     */
+    static String aboutText() {
+        String version = ua.stetsenkoinna.AppVersion.current();
+        return ua.stetsenkoinna.AppVersion.PRODUCT + "\n"
+                + "Version: " + (version.isEmpty() ? "development build" : version) + "\n"
+                + "Java: " + System.getProperty("java.version") + " (" + System.getProperty("java.vendor") + ")\n"
+                + "System: " + System.getProperty("os.name") + " " + System.getProperty("os.version")
+                + " " + System.getProperty("os.arch");
     }
 
     /** Builds the dialog without showing it, so it can also be rendered off-screen in tests. */

@@ -214,7 +214,9 @@ public final class DesktopMcpServer implements AutoCloseable {
             case "initialize" -> result = Map.of(
                     "protocolVersion", "2025-03-26",
                     "capabilities", Map.of("tools", Map.of(), "resources", Map.of(), "prompts", Map.of()),
-                    "serverInfo", Map.of("name", "PetriObjModelPaint Desktop", "version", "1.0"),
+                    // The application's own release, so a client can tell which editor it drives.
+                    "serverInfo", Map.of("name", "PetriObjModelPaint Desktop", "version",
+                            ua.stetsenkoinna.AppVersion.current().isEmpty() ? "development" : ua.stetsenkoinna.AppVersion.current()),
                     "instructions", "Control the running Swing editor. For model design read the shared resources at "
                             + "petri://skills/petri-modeling, petri://skills/petri-patterns and petri://skills/pnml-standard, "
                             + "or use the build_petri_model prompt. Start with get_model_capabilities and get_model. Use the direct model API for all construction, including objects, nesting, groups, parameters, template insertion and port connections. Do not use UI gestures to group or connect model elements. Read petri://desktop/model-api. Ordinary arcs are local; use placeFusion for shared places and transitionToPlace for cross-object delivery. Geometry uses signed world coordinates. optimize_model_layout is optional and must report remaining issues honestly. For ZIP review use review_petri_model or read petri://desktop/training-review. For UI testing only, inspect UI first and use returned component IDs. "

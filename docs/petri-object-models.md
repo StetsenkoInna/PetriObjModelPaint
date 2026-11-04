@@ -69,6 +69,10 @@ picture. Every object action — creating, naming, linking, deleting — is reac
 - right-click an existing frame for **Duplicate Petri-object**, the quick way to a model of
   several alike objects
 
+Whatever these add gets names nothing else on the canvas uses: a second instance of the same
+library net gets `P1_2`, `T1_2` and an object called `Generator 2`, while a shared place keeps
+one name across the objects it joins. See [Names on the canvas](desktop-ui.md#names-on-the-canvas).
+
 **Handling frames.** Grab a frame by its header to move it — its net travels with it, so an
 object's elements always stay inside its frame — by its bottom-right corner to resize it, which
 does not move them; either way an element's own position only ever changes one at a time inside

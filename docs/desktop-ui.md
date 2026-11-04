@@ -142,6 +142,23 @@ both kinds — and as everywhere in this guide, `Ctrl` means `Command` on macOS.
 whatever objects are selected the same way they act on elements. The rubber band catches an
 object by its centre, exactly like a place. `Ctrl+Z` reaches object creation and removal too.
 
+### Names on the canvas
+
+Places, transitions and Petri-objects share one set of names, and nothing that lands on the
+canvas repeats a name already there. Pasting (`Ctrl+V`), duplicating (`Ctrl+D` or
+**Duplicate Petri-object**), **Replicate into a group...**, stamping a saved Petri-object
+from the toolbar, **Petri-object from net library...** and a net loaded from the Nets window
+all rename what they add, never what was already on the canvas. Elements continue an `_N`
+count (`P1` becomes `P1_2`, a copy of `Queue_2` becomes `Queue_3`), objects keep the spaced
+style (`Server`, `Server 2`). A new place or transition drawn with its tool takes the first
+free `P<n>` or `T<n>` on the canvas.
+
+A shared place is one place drawn in several objects, so it has one name. Joining two places
+gives the joined half the master's name (`Ctrl+Z` gives it its own name back), and renaming
+either half in its dialog renames the whole set. That name belongs to the pair: a copied pair
+gets a new name of its own, and nothing outside the pair may take it. Opening or importing a
+file keeps every name exactly as saved, and a name typed in a dialog is used as typed.
+
 ### Editing an object in place
 
 Once elements belong to a frame they are locked on the canvas above it. The object's own net is

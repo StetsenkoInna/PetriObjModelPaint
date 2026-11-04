@@ -31,6 +31,18 @@ public class ModelCatalogToolsTest {
         assertThrows(Exception.class,()->call("insert_model_fragment",Map.of("expected_revision",rev,"path",path.toString(),"prefix","second","x",0,"y",0)));
         assertEquals(before,call("get_model",Map.of()).path("model"));
     }
+    @Test public void insertedAndReplicatedInstancesNeverRepeatANameOnTheCanvas() throws Exception {
+        var first=call("insert_model_template",Map.of("expected_revision",revision(),"method","CreateNetSMOwithoutQueue","arguments",List.of("1","2","Machine"),"prefix","a","x",-700,"y",-400));
+        call("insert_model_template",Map.of("expected_revision",revision(),"method","CreateNetSMOwithoutQueue","arguments",List.of("1","2","Machine"),"prefix","b","x",700,"y",-400));
+        String objectId=first.path("inserted_objects").get(0).asText();
+        var model=call("edit_model",Map.of("expected_revision",revision(),"operations",List.of(Map.of("op","replicate_object","id",objectId,"prefix","r","count",2,"dx",1200)))).path("model");
+        assertEquals(4,model.path("objects").size());
+        var names=new HashMap<String,Integer>();
+        for(String key:List.of("places","transitions","objects"))for(var n:model.path(key))names.merge(n.path("name").asText(),1,Integer::sum);
+        names.forEach((name,count)->assertEquals("repeated name "+name,1,count.intValue()));
+        assertEquals("the first instance keeps the library's own names",
+                call("get_model",Map.of()).path("model").path("objects").get(0).path("name").asText(),"CreateNetSMOwithoutQueue");
+    }
     @Test public void capabilitiesAndNavigationDescribeDirectObjectWorkflow() throws Exception {
         var capabilities=call("get_model_capabilities",Map.of());assertFalse(capabilities.path("ui_required_for_modeling").asBoolean(true));
         assertTrue(capabilities.path("connections").path("placeFusion").asText().contains("marking"));

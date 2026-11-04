@@ -450,7 +450,7 @@ public class PetriNetsFrame extends SimulationFrame {
      * to be in place before the maximised state is set.
      */
     private void applyWindowGeometry() {
-        setTitle("PetriNetSim");
+        setTitle(ua.stetsenkoinna.AppVersion.label("PetriNetSim"));
         setLocation(50, 50);
         setSize(1000, 700);
         setExtendedState(JFrame.MAXIMIZED_BOTH);

@@ -47,6 +47,7 @@ import javax.swing.*;
 
 import ua.stetsenkoinna.config.ResourcePathConfig;
 import ua.stetsenkoinna.graphnet.CanvasItem;
+import ua.stetsenkoinna.graphnet.CanvasNames;
 import ua.stetsenkoinna.graphnet.FramePort;
 import ua.stetsenkoinna.graphnet.GraphArcFactory;
 import ua.stetsenkoinna.graphnet.GraphCanvasModel;
@@ -500,6 +501,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         // time and left their nets behind, the same shape of bug as putting one on the canvas.
         PetriNetsFrame.getUndoSupport().beginUpdate();
         GraphPetriNet.GraphNetFragment clonedFragment;
+        java.util.Set<GraphObjectFrame> framesBefore = framesNow();
         try {
             clonedFragment = graphNet.bulkCopyNoPasteElements(toClone);
             // The paste offset is applied here, once, rather than inside addNetFragment:
@@ -545,6 +547,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             }
 
             recreateFusionsAmongCopies(clonedFragment.oldToNew);
+            // Last, once the copies are on the canvas with their fusions: a pasted place never
+            // shares a name with anything already there, and fused copies share one new name.
+            CanvasNames.settle(canvasModel, clonedFragment.elements, framesAddedSince(framesBefore));
 
             copiedElements = new ArrayList<>(clonedFragment.elements);
             // The pasted objects, not the originals, are what another Ctrl+V should paste next -
@@ -2491,7 +2496,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 }
                 try {
                     GraphPlaceFusion made0 = canvasModel.joinPlaces(source, target);
-                    PetriNetsFrame.getUndoSupport().postEdit(new JoinPlacesEdit(this, made0));
+                    PetriNetsFrame.getUndoSupport().postEdit(new JoinPlacesEdit(this, made0,
+                            CanvasNames.shareName(canvasModel, made0.getMaster())));
                     made++;
                 } catch (IllegalArgumentException rejected) {
                     refused.add(member.getName() + ": " + rejected.getMessage());
@@ -2622,7 +2628,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private void askAndGroupIntoObject(List<GraphElement> chunk) {
         List<GraphObjectFrame> objects = selection.allFrames();
         String name = JOptionPane.showInputDialog(dialogOwner(), "Name of the Petri-object",
-                "Object " + (canvasModel.getFrames().size() + 1));
+                uniqueObjectName("Object " + (canvasModel.getFrames().size() + 1)));
         if (name == null || name.isBlank()) {
             return;
         }
@@ -2959,7 +2965,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private void askAndCreateObjectFromBand(Rectangle band) {
         String name = JOptionPane.showInputDialog(dialogOwner(), "Name of the Petri-object",
-                "Object " + (canvasModel.getFrames().size() + 1));
+                uniqueObjectName("Object " + (canvasModel.getFrames().size() + 1)));
         if (name == null || name.isBlank()) {
             return;
         }
@@ -3079,7 +3085,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      */
     private void addEmptyObjectFrame(Point at) {
         String name = JOptionPane.showInputDialog(dialogOwner(), "Name of the Petri-object",
-                "Object " + (canvasModel.getFrames().size() + 1));
+                uniqueObjectName("Object " + (canvasModel.getFrames().size() + 1)));
         if (name == null || name.isBlank()) {
             return;
         }
@@ -3101,7 +3107,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private void addObjectFromLibrary(Point at) {
         NetTemplateDialog dialog = new NetTemplateDialog(
                 dialogOwner(),
-                "Object " + (canvasModel.getFrames().size() + 1));
+                uniqueObjectName("Object " + (canvasModel.getFrames().size() + 1)));
         dialog.setVisible(true);
         if (dialog.getBuilt() == null) {
             return;
@@ -3379,7 +3385,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         // No Petri-object frame around it: a loaded net is a net, and boxing it up would
         // declare it one object of a model, which is a modelling decision the user makes
         // themselves afterwards by grouping what they want.
-        absorbNet(net);
+        List<GraphElement> placed = absorbNet(net);
+        CanvasNames.settle(canvasModel, placed, List.of());
         setTool(CanvasTool.SELECT, null);
         repaint();
     }
@@ -3472,6 +3479,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                 growToContain(focusedFrame, frame.getBounds());
                 frame.setCollapsed(true);
             }
+            // A saved or library net brings its own P1, T1...: stamped next to another copy, or
+            // to anything else using those names, it takes free ones, and so does the object.
+            CanvasNames.settle(canvasModel, members, List.of(frame));
             // Membership is settled now, so whatever is left standing too close to the frame is
             // genuinely a stranger to it, not one of the members just claimed above.
             creation.pushNeighborsClear();
@@ -3559,18 +3569,26 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      *         statistics formulas, where a duplicate would be ambiguous
      */
     private String uniqueObjectName(String base) {
-        boolean taken = canvasModel.getFrames().stream()
-                .anyMatch(frame -> base.equals(frame.getName()));
-        if (!taken) {
-            return base;
-        }
-        for (int suffix = 2; ; suffix++) {
-            String candidate = base + " " + suffix;
-            String attempt = candidate;
-            if (canvasModel.getFrames().stream().noneMatch(frame -> attempt.equals(frame.getName()))) {
-                return candidate;
+        // One namespace with places and transitions, see CanvasNames.
+        return CanvasNames.freeObjectName(canvasModel, base, null);
+    }
+
+    /** The frames on the canvas right now, by identity. */
+    private java.util.Set<GraphObjectFrame> framesNow() {
+        java.util.Set<GraphObjectFrame> frames = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        frames.addAll(canvasModel.getFrames());
+        return frames;
+    }
+
+    /** The frames an operation added, nested copies included, since {@code before} was taken. */
+    private List<GraphObjectFrame> framesAddedSince(java.util.Set<GraphObjectFrame> before) {
+        List<GraphObjectFrame> added = new ArrayList<>();
+        for (GraphObjectFrame frame : canvasModel.getFrames()) {
+            if (!before.contains(frame)) {
+                added.add(frame);
             }
         }
+        return added;
     }
 
     /**
@@ -3603,6 +3621,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         // One duplicate is one Ctrl+Z: the copied net and the frame around it are one edit, not
         // one each, so undoing cannot take the frame off and leave the copy behind.
         PetriNetsFrame.getUndoSupport().beginUpdate();
+        java.util.Set<GraphObjectFrame> framesBefore = framesNow();
         try {
             GraphPetriNet.GraphNetFragment copy = graphNet.bulkCopyNoPasteElements(inside);
             int dx = frame.getBounds().width + 40;
@@ -3616,6 +3635,9 @@ public class PetriNetsPanel extends javax.swing.JPanel {
 
             GraphObjectFrame duplicate = recreateFrameSubtree(frame, copy.oldToNew, name, dx, 0);
             recreateFusionsAmongCopies(copy.oldToNew);
+            // The copy's places and transitions, and any nested objects, get names of their own;
+            // a place shared inside the copied nest stays one name across its copies.
+            CanvasNames.settle(canvasModel, copy.elements, framesAddedSince(framesBefore));
             repaint();
             return duplicate;
         } finally {
@@ -4843,8 +4865,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
                             try {
                                 GraphPlaceFusion fusion =
                                         canvasModel.joinPlaces(beginPlace, targetPlace);
+                                // A shared place is one place: the joined half takes the
+                                // master's name, and the undo gives its own name back.
                                 PetriNetsFrame.getUndoSupport().postEdit(
-                                        new JoinPlacesEdit(PetriNetsPanel.this, fusion));
+                                        new JoinPlacesEdit(PetriNetsPanel.this, fusion,
+                                                CanvasNames.shareName(canvasModel, fusion.getMaster())));
                             } catch (IllegalArgumentException rejected) {
                                 reportRefusal(rejected.getMessage());
                             }
@@ -5323,7 +5348,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             if (sourceIsPlace && targetIsPlace) {
                 GraphPlaceFusion fusion =
                         canvasModel.joinPlaces((GraphPetriPlace) source, (GraphPetriPlace) target);
-                PetriNetsFrame.getUndoSupport().postEdit(new JoinPlacesEdit(this, fusion));
+                PetriNetsFrame.getUndoSupport().postEdit(new JoinPlacesEdit(this, fusion,
+                        CanvasNames.shareName(canvasModel, fusion.getMaster())));
             } else if (!sourceIsPlace && !targetIsPlace) {
                 throw new IllegalArgumentException(
                         "A transition cannot connect directly to another transition");
@@ -5386,6 +5412,8 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         for (GraphPlaceFusion fusion : canvasModel.fusionsOf(place)) {
             fusion.adoptMarkingFrom(place);
         }
+        // And one name: renaming either half renames the whole shared place.
+        CanvasNames.shareName(canvasModel, place);
     }
 
     /**
@@ -5860,9 +5888,11 @@ public class PetriNetsPanel extends javax.swing.JPanel {
      * @param scaledPoint where the new element is centred, in canvas coordinates
      */
     private void addElementAt(CanvasTool addTool, Point scaledPoint) {
+        // The first free P<n> / T<n> on this canvas, not a session counter: after opening a net
+        // that already has P1..P5, the counter handed out a second P1.
         GraphElement element = addTool == CanvasTool.ADD_PLACE
-                ? new GraphPetriPlace(new PetriP(GraphPetriPlace.setSimpleName(), 0), getIdElement())
-                : new GraphPetriTransition(new PetriT(GraphPetriTransition.setSimpleName(), 0.0), getIdElement());
+                ? new GraphPetriPlace(new PetriP(CanvasNames.nextDefault(canvasModel, "P"), 0), getIdElement())
+                : new GraphPetriTransition(new PetriT(CanvasNames.nextDefault(canvasModel, "T"), 0.0), getIdElement());
         element.setNewCoordinates(scaledPoint);
 
         // Drawn on an object's canvas means drawn into that object: the edit carries the owner so
