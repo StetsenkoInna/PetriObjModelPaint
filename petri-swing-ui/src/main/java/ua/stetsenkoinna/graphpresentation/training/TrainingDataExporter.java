@@ -81,10 +81,17 @@ public final class TrainingDataExporter {
         Map<String, Object> verification = new LinkedHashMap<>();
         verification.put("status", "unknown");
         verification.put("checks", List.of());
-        verification.put("simulation", null);
+        // A training export is the review export without the review, so it runs the same
+        // automatic attempts. A review export keeps them in its review record instead.
+        JsonNode simulation = review == null ? snapshotSimulation(snapshot.modelPnml()) : null;
+        verification.put("simulation", simulation);
         artifacts.add(json("verification.json", "No model acceptance or simulation success is inferred from an export", verification));
         missing.add(missing("verification.json.checks", "No structured correctness checks were recorded for this snapshot"));
-        missing.add(missing("verification.json.simulation", "This snapshot file does not certify simulation; exact-version execution evidence, when collected, is retained in history/reviews/*.json. Editor panels are raw observations only"));
+        if (simulation == null) {
+            missing.add(missing("verification.json.simulation", review != null
+                    ? "This snapshot file does not certify simulation; exact-version execution evidence is retained in history/reviews/*.json. Editor panels are raw observations only"
+                    : "The model has no places, so there was nothing to run"));
+        }
         if (!snapshot.observations().isEmpty()) {
             artifacts.add(json("editor-observations.json", "Raw editor controls, potentially stale output and viewport metadata; not verification results", TrainingMetadataRedactor.redact(snapshot.observations())));
         }
@@ -144,6 +151,32 @@ public final class TrainingDataExporter {
         } finally {
             Files.deleteIfExists(temporary);
         }
+    }
+
+    /**
+     * The `verification.json` simulation block: the review flow's own runner with its default
+     * horizons, run on the exact PNML that goes into the archive. Observed execution only, it
+     * never marks the model as correct. Shaped as parameters, results and provenance, which is
+     * what the shared bundle schema allows there.
+     */
+    private static JsonNode snapshotSimulation(String pnml) throws Exception {
+        if (!pnml.contains("<place")) return null;
+        byte[] bytes = pnml.getBytes(StandardCharsets.UTF_8);
+        SimulationPlan plan = SimulationPlan.defaults();
+        Map<String, Object> evidence = SimulationEvidence.automatic(bytes, plan);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> runs = (List<Map<String, Object>>) evidence.get("automatic_runs");
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("automatic_horizons", runs.stream().map(run -> run.get("horizon")).toList());
+        parameters.put("sampling_interval", plan.samplingInterval());
+        Map<String, Object> results = new LinkedHashMap<>();
+        results.put("automatic_runs", runs);
+        results.put("source_model_sha256", evidence.get("source_model_sha256"));
+        Map<String, Object> block = new LinkedHashMap<>();
+        block.put("parameters", parameters);
+        block.put("results", results);
+        block.put("provenance", "application: automatic attempts on this exact model, run by the same runner as the review export");
+        return TrainingMetadataRedactor.redact(block);
     }
 
     private TrainingSnapshot capture(boolean includeScreenshot) throws Exception {

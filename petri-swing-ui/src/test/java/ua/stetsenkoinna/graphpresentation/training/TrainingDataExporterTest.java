@@ -83,7 +83,7 @@ public class TrainingDataExporterTest {
         assertEquals(messages.getFirst().get("content"), JSON.readTree(lines[0]).path("content").asText());
         JsonNode verification = JSON.readTree(entries.get("verification.json"));
         assertEquals("unknown", verification.path("status").asText());
-        assertTrue(verification.get("simulation").isNull());
+        assertTrue(verification.get("simulation").isObject());
         assertEquals(0, verification.path("checks").size());
         var original = new PnmlModelParser().parseXml(pnml);
         var exported = new PnmlModelParser().parseXml(new String(entries.get("model.pnml"), StandardCharsets.UTF_8));
@@ -154,6 +154,68 @@ public class TrainingDataExporterTest {
         assertArrayEquals(pnml.getBytes(StandardCharsets.UTF_8), entries.get("model.pnml"));
         assertEquals("opaque_call_credential", arguments.get("mcp_token"));
         assertTrue(request.title().contains("opaque_title_credential"));
+    }
+
+    private JsonNode verificationOf(Path archive) throws Exception {
+        return JSON.readTree(unpack(archive).get("verification.json"));
+    }
+
+    @Test public void trainingExportRunsTheReviewFlowsAutomaticSimulationAttempts() throws Exception {
+        String pnml = model();
+        var request = new TrainingExportRequest("Queue", "Task", null, null, null, null, null, false);
+        JsonNode verification = verificationOf(exporter(pnml).export(folder.getRoot().toPath(), request).path());
+        JsonNode simulation = verification.path("simulation");
+        // Same three keys the shared bundle schema allows, nothing more.
+        assertEquals(List.of("parameters", "results", "provenance"),
+                java.util.stream.StreamSupport.stream(java.util.Spliterators.spliteratorUnknownSize(simulation.fieldNames(), 0), false).toList());
+        assertEquals(List.of(100.0, 1000.0, 10000.0),
+                java.util.stream.StreamSupport.stream(simulation.at("/parameters/automatic_horizons").spliterator(), false).map(JsonNode::asDouble).toList());
+        JsonNode runs = simulation.at("/results/automatic_runs");
+        assertEquals(3, runs.size());
+        String modelHash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(pnml.getBytes(StandardCharsets.UTF_8)));
+        assertEquals(modelHash, simulation.at("/results/source_model_sha256").asText());
+        for (JsonNode run : runs) {
+            assertEquals("automatic", run.path("source").asText());
+            assertEquals(modelHash, run.path("source_model_sha256").asText());
+            // What the engine did with this sample is its own business; the attempt is recorded either way.
+            assertTrue(List.of("completed", "limit_reached", "failed").contains(run.path("status").asText()));
+            assertTrue(run.at("/trajectory/columns").size() > 0);
+            assertTrue(run.at("/trajectory/samples").isArray());
+        }
+        // Observed execution is evidence, never a verdict on the model.
+        assertEquals("unknown", verification.path("status").asText());
+    }
+
+    @Test public void automaticAttemptsAreTheSameRunsTheReviewRecordUses() throws Exception {
+        String pnml = model();
+        var request = new TrainingExportRequest("Queue", "Task", null, null, null, null, null, false);
+        var simulation = verificationOf(exporter(pnml).export(folder.getRoot().toPath(), request).path()).path("simulation");
+        var direct = SimulationEvidence.automatic(pnml.getBytes(StandardCharsets.UTF_8), SimulationPlan.defaults());
+        @SuppressWarnings("unchecked")
+        var runs = (List<Map<String, Object>>) direct.get("automatic_runs");
+        for (int i = 0; i < runs.size(); i++) {
+            assertEquals(runs.get(i).get("status"), simulation.at("/results/automatic_runs/" + i + "/status").asText());
+            assertEquals(runs.get(i).get("horizon"), simulation.at("/results/automatic_runs/" + i + "/horizon").asDouble());
+        }
+    }
+
+    @Test public void aModelWithoutPlacesGetsNoSimulationAndSaysWhy() throws Exception {
+        var request = new TrainingExportRequest("Empty", "Task", null, null, null, null, null, false);
+        var archive = exporter("<pnml><net id=\"n\"/></pnml>").export(folder.getRoot().toPath(), request).path();
+        assertTrue(verificationOf(archive).get("simulation").isNull());
+        assertTrue(JSON.readTree(unpack(archive).get("manifest.json")).path("missing_data").toString().contains("verification.json.simulation"));
+    }
+
+    @Test public void aReviewExportKeepsItsRunsInTheReviewRecordNotTheRootVerification() throws Exception {
+        var workspace = new TrainingBundleWorkspace();
+        var reviewing = new TrainingDataExporter(flag -> new TrainingSnapshot(model(), Map.of(), null, null, List.of(), "none"), CLOCK, workspace, Map::of);
+        var review = new TrainingBundleWorkspace.Review("A", "human", "accepted", "Looks right", List.of());
+        var request = new TrainingExportRequest("Queue", "Task", null, null, null, null, null, false);
+        var entries = unpack(reviewing.export(folder.getRoot().toPath(), request, review).path());
+        assertTrue(JSON.readTree(entries.get("verification.json")).get("simulation").isNull());
+        var reviewFiles = entries.keySet().stream().filter(name -> name.startsWith("history/reviews/")).toList();
+        assertEquals(1, reviewFiles.size());
+        assertEquals(3, JSON.readTree(entries.get(reviewFiles.getFirst())).at("/simulation/automatic_runs").size());
     }
 
     @Test(expected = IllegalArgumentException.class)

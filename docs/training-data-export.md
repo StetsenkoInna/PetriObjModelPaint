@@ -24,7 +24,7 @@ replace the local profile. Nicknames and hashes do not authenticate a person.
 | `task.json` | Supplied task, clarifications, assumptions and acceptance criteria |
 | `conversation.jsonl` | Actual supplied messages; imported messages are retained |
 | `tool-calls.jsonl` | Observed MCP UI/training calls; image responses use hashes instead of duplicate image bytes |
-| `verification.json` | Unknown checks/simulation unless actual structured verification is recorded |
+| `verification.json` | Unknown status and checks. `simulation` holds the automatic attempts (horizons 100, 1000, 10000) run on the exported PNML, as `parameters`, `results` and `provenance`; observed execution only |
 | `network.png`, `model-geometry.json` | Complete document with every nested object expanded and visible, with matching unverified geometry |
 | `network-views.json` | View IDs, names, parent IDs, zero-based PNML object indices and image/geometry paths |
 | `networks/object-NNNN.png`, matching `-geometry.json` | Separate expanded subtree for each object at every depth, including empty objects |
@@ -106,6 +106,8 @@ The shared simulation controls provide play/pause, single event, step back,
 stop/reset, speed and nonanimated runs. The ordinary statistics monitor also works.
 Each window owns its model, simulation backup and results; runs do not edit the
 working document or saved evidence.
+
+A training export is a review export without the review, so it runs the same automatic attempts through the same runner. They land in `verification.json` under `simulation` (a review keeps them in its review record instead). A model without places gets no attempts and a missing-data note. The export dialog has no screenshot option: the overview and every object image, with parameter tables, are always included. `export_training_data` still accepts `include_screenshot` for a main-window QA image.
 
 Before saving a review, automatic simulation is enabled by default at horizons
 100, 1000 and 10000, each on a fresh copy of the exact reviewed PNML. The
