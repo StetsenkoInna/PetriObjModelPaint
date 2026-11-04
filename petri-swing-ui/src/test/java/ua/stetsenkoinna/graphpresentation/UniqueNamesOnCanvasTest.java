@@ -172,6 +172,21 @@ public class UniqueNamesOnCanvasTest {
     }
 
     @Test
+    public void duplicatingTheSameObjectTwiceDoesNotStackTheCopies() {
+        GraphObjectFrame original = objectAt("Server", 0);
+        GraphObjectFrame first = panel.duplicateObject(original, "Server copy");
+        GraphObjectFrame second = panel.duplicateObject(original, "Server copy");
+
+        assertTrue("the second copy goes to a free spot, not onto the first",
+                !first.getBounds().intersects(second.getBounds()));
+        assertTrue(!original.getBounds().intersects(second.getBounds()));
+        for (GraphElement element : panel.getCanvasModel().membersOfSubtree(second)) {
+            assertTrue(element.getName() + " sits inside its own copy",
+                    second.getBounds().contains(element.getGraphElementCenter()));
+        }
+    }
+
+    @Test
     public void pastedElementsTakeFreeNames() {
         GraphPetriPlace place = placeAt("Queue", 100, 100);
         GraphPetriTransition transition = transitionAt("Serve", 200, 100);

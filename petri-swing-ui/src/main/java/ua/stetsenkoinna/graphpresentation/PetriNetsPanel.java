@@ -3573,6 +3573,32 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         return CanvasNames.freeObjectName(canvasModel, base, null);
     }
 
+    /**
+     * How far right of {@code frame} its copy can land without covering another object. The
+     * copy used to go one frame width to the right every time, so duplicating the same object
+     * twice stacked the second copy exactly on the first: two objects in one spot, their labels
+     * printed over each other. Steps of one frame width are tried until the spot is clear.
+     */
+    private int freeOffsetToTheRightOf(GraphObjectFrame frame) {
+        Rectangle bounds = frame.getBounds();
+        int step = bounds.width + 40;
+        int dx = step;
+        for (int attempt = 0; attempt < 1000; attempt++, dx += step) {
+            Rectangle spot = new Rectangle(bounds.x + dx, bounds.y, bounds.width, bounds.height);
+            boolean clear = true;
+            for (GraphObjectFrame other : canvasModel.getFrames()) {
+                if (other.getBounds().intersects(spot)) {
+                    clear = false;
+                    break;
+                }
+            }
+            if (clear) {
+                return dx;
+            }
+        }
+        return dx;
+    }
+
     /** The frames on the canvas right now, by identity. */
     private java.util.Set<GraphObjectFrame> framesNow() {
         java.util.Set<GraphObjectFrame> frames = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
@@ -3624,7 +3650,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
         java.util.Set<GraphObjectFrame> framesBefore = framesNow();
         try {
             GraphPetriNet.GraphNetFragment copy = graphNet.bulkCopyNoPasteElements(inside);
-            int dx = frame.getBounds().width + 40;
+            int dx = freeOffsetToTheRightOf(frame);
             for (GraphElement element : copy.elements) {
                 element.moveBy(dx, 0);
             }
