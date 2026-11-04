@@ -8,7 +8,6 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -26,7 +25,6 @@ public final class TrainingDataDialog extends JDialog {
     private final JTextField title;
     private final JTextArea task = new JTextArea(5, 62);
     private final JComboBox<String> status = new JComboBox<>(new String[]{"unreviewed", "accepted", "rejected"});
-    private final JCheckBox screenshot = new JCheckBox("Include a main-window screenshot for QA");
     private final JButton save = new JButton("Export ZIP...");
     private final JButton cancel = new JButton("Cancel");
     private final TrainingExportRequest inherited;
@@ -57,9 +55,9 @@ public final class TrainingDataDialog extends JDialog {
         review.add(new JLabel("Human review status: "));
         review.add(status);
         form.add(review);
-        form.add(screenshot);
-        JTextArea note = new JTextArea("The bundle contains the complete model, expanded images of every object and preserved revision/review history. It is unreviewed by default. "
-                + "Exporting does not verify correctness. External conversations are included only when supplied through MCP.", 3, 62);
+        JTextArea note = new JTextArea("The bundle contains the complete model, expanded images of every object with their parameter tables, "
+                + "automatic simulation attempts (the same ones a review export runs) and preserved revision/review history. It is unreviewed by default. "
+                + "Exporting does not verify correctness. External conversations are included only when supplied through MCP.", 4, 62);
         note.setEditable(false);
         note.setLineWrap(true);
         note.setWrapStyleWord(true);
@@ -83,7 +81,7 @@ public final class TrainingDataDialog extends JDialog {
         TrainingExportRequest request;
         try {
             request = new TrainingExportRequest(title.getText(), task.getText(), inherited.clarifications(), inherited.assumptions(), inherited.acceptance(),
-                    (String) status.getSelectedItem(), inherited.conversation(), screenshot.isSelected());
+                    (String) status.getSelectedItem(), inherited.conversation(), false);
         } catch (IllegalArgumentException failure) {
             JOptionPane.showMessageDialog(this, failure.getMessage(), "Export training data", JOptionPane.ERROR_MESSAGE);
             return;
