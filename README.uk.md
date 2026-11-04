@@ -47,7 +47,7 @@
 
 ## Бібліотеки для власних проєктів
 
-Починаючи з v2.4.0, релізи містять [petri-math](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-math-2.6.0.jar), [petri-api](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.1/petri-api-2.8.1.jar) та [petri-model](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.0/petri-model-2.8.0.jar) для використання без редактора. Налаштування Maven, вимоги та приклади наведено в [інструкції підключення](docs/java-libraries.md).
+Починаючи з v2.4.0, релізи містять [petri-math](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.6.0/petri-math-2.6.0.jar), [petri-api](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.1/petri-api-2.8.1.jar) та [petri-model](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.1/petri-model-2.8.1.jar) для використання без редактора. Налаштування Maven, вимоги та приклади наведено в [інструкції підключення](docs/java-libraries.md).
 
 ---
 

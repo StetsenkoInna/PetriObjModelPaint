@@ -24,11 +24,7 @@ public final class UpdateController {
             @Override protected Optional<UpdateRelease> doInBackground() throws Exception {
                 jar = installedJar();
                 if (jar == null) return Optional.empty();
-                Properties build = new Properties();
-                try (var input = UpdateController.class.getResourceAsStream("/ua/stetsenkoinna/updates/build.properties")) {
-                    if (input == null) return Optional.empty(); build.load(input);
-                }
-                String version = build.getProperty("version","");
+                String version = ua.stetsenkoinna.AppVersion.current();
                 if (!version.matches("[0-9]+\\.[0-9]+\\.[0-9]+")) return Optional.empty();
                 return new UpdateClient().check(jar,version,UpdateRelease.platform(System.getProperty("os.name")),System.getProperty("os.arch"));
             }

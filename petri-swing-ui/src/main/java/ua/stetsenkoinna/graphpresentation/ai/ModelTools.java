@@ -101,8 +101,11 @@ public final class ModelTools {
     public Object edit(JsonNode args) throws Exception {
         return text(SwingCapture.call(() -> {
             checkRevision(args);
-            var document=ModelEdits.apply(ModelDocument.read(current()),args.get("operations"));
-            frame.applyMcpCanvas(ModelDocument.build(document),false);
+            var before=current();
+            var document=ModelEdits.apply(ModelDocument.read(before),args.get("operations"));
+            // New places, transitions and objects (put_*, replicate_object) never repeat a name
+            // already in use; a new alias joined to an existing shared place takes its name.
+            frame.applyMcpCanvas(ModelDocument.settleNewNames(before,ModelDocument.build(document)),false);
             return describe(current());
         }));
     }

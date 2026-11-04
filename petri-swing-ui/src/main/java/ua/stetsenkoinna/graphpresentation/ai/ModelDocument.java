@@ -14,6 +14,34 @@ import ua.stetsenkoinna.petriobj.*;
 final class ModelDocument {
     static final ObjectMapper JSON=DesktopMcpServer.JSON;
     private ModelDocument() { }
+
+    /**
+     * Gives every place, transition and object that {@code candidate} has and {@code before}
+     * did not a name nothing else uses, the way pasting or stamping on the canvas does (see
+     * {@link CanvasNames}). Newcomers are told apart by ID, which an edit never reuses. Places
+     * fused to a place that was already there take that shared place's name. Names already in
+     * the document are left as they are.
+     *
+     * @return {@code candidate}, renamed in place
+     */
+    static GraphCanvasModel settleNewNames(GraphCanvasModel before, GraphCanvasModel candidate) {
+        Set<String> oldNodes = new HashSet<>();
+        if (before.getNet() != null) {
+            for (var place : before.getNet().getGraphPetriPlaceList()) oldNodes.add(place.getPetriPlace().getId());
+            for (var transition : before.getNet().getGraphPetriTransitionList()) oldNodes.add(transition.getPetriTransition().getId());
+        }
+        Set<String> oldObjects = new HashSet<>();
+        for (var frame : before.getFrames()) oldObjects.add(frame.getModelId());
+        List<GraphElement> added = new ArrayList<>();
+        if (candidate.getNet() != null) {
+            for (var place : candidate.getNet().getGraphPetriPlaceList()) if (!oldNodes.contains(place.getPetriPlace().getId())) added.add(place);
+            for (var transition : candidate.getNet().getGraphPetriTransitionList()) if (!oldNodes.contains(transition.getPetriTransition().getId())) added.add(transition);
+        }
+        List<GraphObjectFrame> addedFrames = new ArrayList<>();
+        for (var frame : candidate.getFrames()) if (!oldObjects.contains(frame.getModelId())) addedFrames.add(frame);
+        CanvasNames.settle(candidate, added, addedFrames);
+        return candidate;
+    }
     static ObjectNode read(GraphCanvasModel canvas) {
         ObjectNode doc=JSON.createObjectNode();doc.put("name",canvas.getName());
         ArrayNode places=doc.putArray("places"),transitions=doc.putArray("transitions"),arcs=doc.putArray("arcs");

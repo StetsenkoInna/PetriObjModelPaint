@@ -46,8 +46,8 @@ public final class ModelCatalogTools {
             if(bounds==null)throw new IllegalArgumentException("Template has no nodes");bounds.grow(100,100);
             var object=new GraphObjectFrame(args.path("name").asText(method.isBlank()?"Module":method),bounds);object.setModelId("module");object.setTemplate(reference);fragment.getFrames().add(object);
             for(var node:graph.getGraphPetriPlaceList())fragment.claim(object,node);for(var node:graph.getGraphPetriTransitionList())fragment.claim(object,node);
-            var document=ModelDocument.read(model.current());var ids=ModelFragments.merge(document,ModelDocument.read(fragment),ModelEdits.required(args,"prefix"),args.get("x").asDouble(),args.get("y").asDouble());
-            frame.applyMcpCanvas(ModelDocument.build(document),false);var result=ModelTools.describe(model.current());result.put("inserted_objects",ids);return result;
+            var before=model.current();var document=ModelDocument.read(before);var ids=ModelFragments.merge(document,ModelDocument.read(fragment),ModelEdits.required(args,"prefix"),args.get("x").asDouble(),args.get("y").asDouble());
+            frame.applyMcpCanvas(ModelDocument.settleNewNames(before,ModelDocument.build(document)),false);var result=ModelTools.describe(model.current());result.put("inserted_objects",ids);return result;
         }));
     }
     @McpTool(name="export_model_fragment",description="Save selected object subtrees as a reusable composed PNML module, retaining internal fusions, special connections, parameters, nested objects and complete groups. Connections to objects outside the selection are omitted and counted in the response. The current Save path is unchanged.",inputSchema="""
@@ -71,8 +71,8 @@ public final class ModelCatalogTools {
         var parser=new PnmlModelParser();var imported=GraphCanvasModel.fromObjModel(parser.parseXml(Files.readString(path)));
         if(!parser.getWarnings().isEmpty()||!imported.getLoadWarnings().isEmpty())throw new IllegalArgumentException("Module needs import repairs");
         return ModelTools.text(SwingCapture.call(() -> {
-            model.checkRevision(args);var document=ModelDocument.read(model.current());var ids=ModelFragments.merge(document,ModelDocument.read(imported),ModelEdits.required(args,"prefix"),args.get("x").asDouble(),args.get("y").asDouble());
-            frame.applyMcpCanvas(ModelDocument.build(document),false);var result=ModelTools.describe(model.current());result.put("inserted_objects",ids);return result;
+            model.checkRevision(args);var before=model.current();var document=ModelDocument.read(before);var ids=ModelFragments.merge(document,ModelDocument.read(imported),ModelEdits.required(args,"prefix"),args.get("x").asDouble(),args.get("y").asDouble());
+            frame.applyMcpCanvas(ModelDocument.settleNewNames(before,ModelDocument.build(document)),false);var result=ModelTools.describe(model.current());result.put("inserted_objects",ids);return result;
         }));
     }
     private static Path absolute(JsonNode args){Path path=Path.of(args.get("path").asText());if(!path.isAbsolute())throw new IllegalArgumentException("Absolute path required");return path.normalize();}

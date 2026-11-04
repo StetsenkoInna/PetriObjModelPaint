@@ -17,7 +17,6 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
@@ -221,13 +220,9 @@ public final class TrainingDataExporter {
         return result;
     }
 
-    private static String appVersion() throws Exception {
-        Properties properties = new Properties();
-        try (InputStream input = TrainingDataExporter.class.getResourceAsStream("/ua/stetsenkoinna/graphpresentation/training/build.properties")) {
-            if (input != null) properties.load(input);
-        }
-        String version = properties.getProperty("app.version", "unknown");
-        return version.startsWith("${") ? "unknown" : version;
+    private static String appVersion() {
+        String version = ua.stetsenkoinna.AppVersion.current();
+        return version.isEmpty() ? "unknown" : version;
     }
 
     private static String slug(String title) {

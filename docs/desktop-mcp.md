@@ -154,6 +154,14 @@ to each copied local alias. `group_id` creates a replication group; use
 `include_original: true` to include the source root in that group. Existing
 group membership rules still apply.
 
+Names follow the canvas rule. Places, transitions and objects that `edit_model`
+(`put_*`, `replicate_object`), `insert_model_template` or `insert_model_fragment`
+add never repeat a name already in the document: a taken element name continues
+an `_N` count and a taken object name gets a space and a number. A new alias
+joined to an existing shared place takes that place's name. Names already in the
+document are never changed, and `apply_model` and `open_model` keep every name
+as supplied. Read the returned `model` for the names actually used.
+
 #### Symbolic values and reusable modules
 
 Symbolic fields are `tokens_parameter` on places; `delay_parameter`,

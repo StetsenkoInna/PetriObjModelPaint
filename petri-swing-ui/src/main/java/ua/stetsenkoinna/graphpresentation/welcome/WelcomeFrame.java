@@ -73,7 +73,7 @@ public class WelcomeFrame extends JFrame {
     private WelcomeFrame(AppSettings settings, RecentProjectsStore store,
             Predicate<File> onOpenProject, BooleanSupplier onCreateNew, Runnable onDismiss,
             boolean exitAppIfDismissed) {
-        super("PetriObjModelPaint - Welcome");
+        super(ua.stetsenkoinna.AppVersion.label(ua.stetsenkoinna.AppVersion.PRODUCT) + " - Welcome");
         this.settings = settings;
         this.store = store;
         this.onOpenProject = onOpenProject;
@@ -173,9 +173,23 @@ public class WelcomeFrame extends JFrame {
         JPanel header = new JPanel(new BorderLayout());
         header.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
 
-        JLabel title = new JLabel("PetriObjModelPaint");
+        JLabel title = new JLabel(ua.stetsenkoinna.AppVersion.PRODUCT);
         title.setFont(title.getFont().deriveFont(java.awt.Font.BOLD, 18f));
-        header.add(title, BorderLayout.WEST);
+        JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        titleRow.setOpaque(false);
+        titleRow.add(title);
+        String version = ua.stetsenkoinna.AppVersion.current();
+        if (!version.isEmpty()) {
+            // Next to the name, smaller and quieter, so a screenshot of the start screen
+            // already says which release it came from.
+            JLabel versionLabel = new JLabel("v" + version);
+            versionLabel.setName("appVersion");
+            versionLabel.setFont(versionLabel.getFont().deriveFont(12f));
+            versionLabel.setForeground(javax.swing.UIManager.getColor("Label.disabledForeground"));
+            versionLabel.setBorder(BorderFactory.createEmptyBorder(5, 8, 0, 0));
+            titleRow.add(versionLabel);
+        }
+        header.add(titleRow, BorderLayout.WEST);
 
         JPanel sortPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         sortPanel.add(fullWidthRow(new JLabel("Sort by")));

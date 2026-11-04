@@ -14,6 +14,13 @@ public final class UpdateDialog extends JDialog {
         content.setBorder(BorderFactory.createEmptyBorder(18,18,18,18));
         JPanel lines = new JPanel(); lines.setLayout(new BoxLayout(lines,BoxLayout.Y_AXIS));
         addLine(lines,"PetriObjModelPaint " + release.version() + " is available.");
+        String installed = ua.stetsenkoinna.AppVersion.current();
+        if (!installed.isEmpty()) {
+            // The same number twice means a rebuilt release of the version already installed.
+            addLine(lines, installed.equals(release.version())
+                    ? "This is a new build of the installed version " + installed + "."
+                    : "Installed version: " + installed + ".");
+        }
         lines.add(Box.createVerticalStrut(8));
         addLine(lines,"Install the update and restart, or continue using this version.");
         addLine(lines,"Your preferences and saved models will be kept.");
