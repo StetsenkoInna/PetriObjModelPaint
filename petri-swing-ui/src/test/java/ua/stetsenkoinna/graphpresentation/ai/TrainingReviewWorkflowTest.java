@@ -479,6 +479,9 @@ public class TrainingReviewWorkflowTest {
         }
     }
 
+    private static final java.util.Set<String> EXPORT_FOLDER_TITLES =
+            java.util.Set.of("Export training data to folder", "Save reviewed training ZIP");
+
     private void installFormTimer(JDialog dialog) {
         JTextField reviewer = find(dialog, JTextField.class, "Reviewer name");
         if (reviewer != null) reviewer.setText("GUI reviewer");
@@ -497,7 +500,10 @@ public class TrainingReviewWorkflowTest {
         boolean[] clicked = {false};
         Timer timer = new Timer(80, null);
         timer.addActionListener(event -> {
-            for (Window window : Window.getWindows()) if (window.isShowing()) {
+            for (Window window : Window.getWindows()) {
+                // macOS asks for the folder through the native dialog, other platforms through JFileChooser.
+                if (window instanceof FileDialog nativeChooser && nativeChooser.isVisible() && EXPORT_FOLDER_TITLES.contains(nativeChooser.getTitle())) { FileDialogs.selectFile(nativeChooser, folder.getRoot()); continue; }
+                if (!window.isShowing()) continue;
                 JFileChooser chooser = find(window, JFileChooser.class, null);
                 if (chooser != null) { chooser.setSelectedFile(folder.getRoot()); chooser.approveSelection(); }
                 JOptionPane message = find(window, JOptionPane.class, null);

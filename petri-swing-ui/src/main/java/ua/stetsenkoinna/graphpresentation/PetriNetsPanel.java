@@ -140,9 +140,23 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     private boolean cameraInitialized;
     private JViewport observedViewport;
     private boolean rebasingViewport;
+    // Extent the camera was last centered for. When the viewport is resized (the window being
+    // maximized after the camera was first placed, as macOS does asynchronously at startup), the
+    // world point that was in the middle stays in the middle instead of drifting up and left.
+    private java.awt.Dimension cameraExtent;
     private final javax.swing.event.ChangeListener viewportRebaser = event -> {
         if (cameraInitialized && !rebasingViewport && event.getSource() == viewport()) {
             JViewport view = (JViewport) event.getSource();
+            java.awt.Dimension extent = view.getExtentSize();
+            if (cameraExtent != null && !cameraExtent.equals(extent) && this.panViewport == null
+                    && extent.width > 0 && extent.height > 0) {
+                Point position = view.getViewPosition();
+                Point2D center = toWorld(new Point2D.Double(position.x + cameraExtent.width / 2.0,
+                        position.y + cameraExtent.height / 2.0));
+                setCamera(center.getX(), center.getY(), scale);
+                return;
+            }
+            cameraExtent = extent;
             moveViewport(view, view.getViewPosition());
         }
     };
@@ -3186,16 +3200,27 @@ public class PetriNetsPanel extends javax.swing.JPanel {
     public record CameraState(double center_x, double center_y, double scale) { }
 
     public CameraState getCamera() {
-        Rectangle visible = getVisibleRect();
+        Rectangle visible = cameraRect();
         Point2D center = toWorld(new Point2D.Double(visible.getCenterX(), visible.getCenterY()));
         return new CameraState(center.getX(), center.getY(), scale);
     }
 
     public java.awt.geom.Rectangle2D.Double getVisibleWorldBounds() {
-        Rectangle visible = getVisibleRect();
+        Rectangle visible = cameraRect();
         Point2D topLeft = toWorld(new Point2D.Double(visible.x, visible.y));
         return new java.awt.geom.Rectangle2D.Double(topLeft.getX(), topLeft.getY(),
                 visible.width / scale, visible.height / scale);
+    }
+
+    /**
+     * The panel area the camera describes: the viewport's own view rectangle, the same one
+     * {@link #setCamera} centers against. {@code getVisibleRect()} is also clipped by every
+     * ancestor, so while a window is being resized and not yet laid out again it can be a few
+     * pixels narrower than the viewport and report a center the camera was never set to.
+     */
+    private Rectangle cameraRect() {
+        JViewport view = viewport();
+        return view == null ? getVisibleRect() : view.getViewRect();
     }
 
     /** Positions a world coordinate at the viewport center without moving model elements. */
@@ -3213,6 +3238,7 @@ public class PetriNetsPanel extends javax.swing.JPanel {
             int y = Math.max(0, (BACKING_SIZE - view.getExtentSize().height) / 2);
             camera.center(centerX, centerY, x + view.getExtentSize().width / 2.0,
                     y + view.getExtentSize().height / 2.0, scale);
+            cameraExtent = view.getExtentSize();
             view.setViewPosition(new Point(x, y));
         }
         observeViewport(view);

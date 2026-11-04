@@ -128,6 +128,44 @@ public class InfiniteCanvasTest {
         });
     }
 
+    @Test public void originStaysCenteredWhenTheWindowGrowsAfterTheCameraWasPlaced() throws Exception {
+        SwingCapture.call(() -> {
+            var panel = new PetriNetsPanel(null, true);
+            try {
+                // macOS maximizes the window after the canvas has already centered the origin.
+                var view = viewport(panel); panel.setCamera(0, 0, 1);
+                view.setSize(1440, 860); view.doLayout();
+                assertEquals(0, panel.getCamera().center_x(), 0.001);
+                assertEquals(0, panel.getCamera().center_y(), 0.001);
+                Point position = view.getViewPosition();
+                Point2D origin = panel.toPanel(new Point2D.Double(0, 0));
+                assertEquals(position.x + 720, origin.getX(), 0.001);
+                assertEquals(position.y + 430, origin.getY(), 0.001);
+                view.setSize(700, 500); view.doLayout();
+                panel.setCamera(-300, 200, 0.5);
+                view.setSize(900, 640); view.doLayout();
+                assertEquals(-300, panel.getCamera().center_x(), 0.001);
+                assertEquals(200, panel.getCamera().center_y(), 0.001);
+            } finally { close(panel); }
+            return null;
+        });
+    }
+
+    @Test public void cameraReadsBackWhereItWasSetWhileAnAncestorClipsTheViewport() throws Exception {
+        SwingCapture.call(() -> {
+            var panel = new PetriNetsPanel(null, true);
+            try {
+                var view = viewport(panel);
+                // A window resized but not yet laid out again: its content is narrower than the viewport.
+                var parent = new javax.swing.JPanel(null); parent.setSize(391, 300); parent.add(view);
+                panel.setCamera(-10000, -20000, 0.5);
+                assertEquals(-10000, panel.getCamera().center_x(), 0.001);
+                assertEquals(-20000, panel.getCamera().center_y(), 0.001);
+            } finally { close(panel); }
+            return null;
+        });
+    }
+
     @Test public void reviewSelectionAndFitWorkInNegativeQuadrants() throws Exception {
         SwingCapture.call(() -> {
             var panel = new PetriNetsPanel(null, PetriNetsPanel.Mode.REVIEW);
