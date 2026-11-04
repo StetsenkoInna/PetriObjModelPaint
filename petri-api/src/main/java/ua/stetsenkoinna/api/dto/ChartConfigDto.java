@@ -42,6 +42,21 @@ public class ChartConfigDto {
     public void toggleDrawVerticalLineEnabled() { isDrawVerticalLineEnabled = !isDrawVerticalLineEnabled; }
     public void setDrawVerticalLineEnabled(Boolean drawVerticalLineEnabled) { isDrawVerticalLineEnabled = drawVerticalLineEnabled; }
 
+    /**
+     * Turns both line tools off. A click that has placed a line calls this: each tool places the
+     * one line it was picked for and then lets go, as the other pick-and-place tools do, instead
+     * of staying armed and adding another line under every later click.
+     *
+     * @return whether either tool was on, so the caller can tell if anything changed
+     */
+    public boolean releaseLineTools() {
+        boolean wasOn = Boolean.TRUE.equals(isDrawVerticalLineEnabled)
+                || Boolean.TRUE.equals(isDrawHorizontalLineEnabled);
+        isDrawVerticalLineEnabled = false;
+        isDrawHorizontalLineEnabled = false;
+        return wasOn;
+    }
+
     public Boolean getDragAndZoomEnabled() { return isDragEnabled; }
     public void toggleDragAndZoomEnabled() { isDragEnabled = !isDragEnabled; }
     public Boolean getDragEnabled() { return isDragEnabled; }
