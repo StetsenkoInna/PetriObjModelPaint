@@ -994,6 +994,9 @@ public class PetriNetsFrame extends SimulationFrame {
         buttonBar.add(button);
 
         JPanel wrapper = new JPanel(new java.awt.BorderLayout());
+        // Keep the log action inside the same frame as its text.
+        wrapper.setBorder(scrollPane.getBorder());
+        scrollPane.setBorder(null);
         wrapper.add(buttonBar, java.awt.BorderLayout.NORTH);
         wrapper.add(scrollPane, java.awt.BorderLayout.CENTER);
         return wrapper;
