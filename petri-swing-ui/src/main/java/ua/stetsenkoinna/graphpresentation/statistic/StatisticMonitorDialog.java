@@ -108,7 +108,7 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
             chartBuilderService.applyTheme();
         }
         for (JToggleButton toolButton : List.of(dragChartBtn, drawVerticalLineBtn,
-                drawHorizontalLineBtn, clearDrawLineBtn, createLabelBtn)) {
+                drawHorizontalLineBtn, createLabelBtn)) {
             if (toolButton.isSelected()) {
                 toolButton.setBackground(palette.getActiveControl());
             }
@@ -273,26 +273,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
             chartBuilderService.updateChartConfig(chartConfigDto);
         });
 
-        clearDrawLineBtn = new JToggleButton();
-        clearDrawLineBtn.setPreferredSize(new Dimension(100, 40));
-        clearDrawLineBtn.setHorizontalAlignment(SwingConstants.CENTER);
-        clearDrawLineBtn.setVerticalAlignment(SwingConstants.CENTER);
-        clearDrawLineBtn.setContentAreaFilled(false);
-        clearDrawLineBtn.setToolTipText("Clear chart drawings");
-        clearDrawLineBtn.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        clearDrawLineBtn.setIcon(new javax.swing.ImageIcon(Objects.requireNonNull(ResourcePathConfig.getResource(getClass(), ResourcePathConfig.getIconPath(ResourcePathConfig.ERASER_ICON)))));
-        clearDrawLineBtn.addActionListener(e -> {
-            if (clearDrawLineBtn.isSelected()) {
-                clearDrawLineBtn.setContentAreaFilled(true);
-                clearDrawLineBtn.setBackground(ThemeManager.palette().getActiveControl());
-                clearDrawLineBtn.transferFocus();
-            } else {
-                clearDrawLineBtn.setContentAreaFilled(false);
-            }
-            chartConfigDto.toggleClearLineEnabled();
-            chartBuilderService.updateChartConfig(chartConfigDto);
-        });
-
         createLabelBtn = new JToggleButton();
         createLabelBtn.setPreferredSize(new Dimension(100, 40));
         createLabelBtn.setHorizontalAlignment(SwingConstants.CENTER);
@@ -356,7 +336,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         chartToolsBar.add(drawVerticalLineBtn);
         chartToolsBar.add(drawHorizontalLineBtn);
         chartToolsBar.add(createLabelBtn);
-        chartToolsBar.add(clearDrawLineBtn);
         chartToolsBar.add(getHorizontalSeparator());
         chartToolsBar.add(chartDownloadBtn);
         chartToolsBar.add(exportCsvBtn);
@@ -498,7 +477,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         chartDownloadBtn.setEnabled(false);
         chartSettingsBtn.setEnabled(false);
         exportCsvBtn.setEnabled(false);
-        clearDrawLineBtn.setEnabled(false);
         if (isFormulaValid) {
             chartBuilderService.createSeries(formulaInputField.getText());
         }
@@ -519,7 +497,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
         chartDownloadBtn.setEnabled(true);
         chartSettingsBtn.setEnabled(true);
         exportCsvBtn.setEnabled(true);
-        clearDrawLineBtn.setEnabled(true);
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -536,7 +513,6 @@ public class StatisticMonitorDialog extends javax.swing.JDialog implements Stati
     private javax.swing.JToggleButton dragChartBtn;
     private javax.swing.JToggleButton drawVerticalLineBtn;
     private javax.swing.JToggleButton drawHorizontalLineBtn;
-    private javax.swing.JToggleButton clearDrawLineBtn;
     private javax.swing.JSplitPane contentLayout;
     private javax.swing.JPanel formulaActionsGroup;
     private javax.swing.JPanel formulaBarPanel;
