@@ -37,6 +37,14 @@ body:
     validations:
       required: true
   - type: input
+    id: version
+    attributes:
+      label: PetriObjModelPaint version
+      description: Help > About shows it; filled in automatically when you report from the app.
+      placeholder: "2.8.1"
+    validations:
+      required: false
+  - type: input
     id: java-version
     attributes:
       label: Java version

@@ -1,0 +1,19 @@
+name: Feedback
+description: A question, an impression, or anything that is neither a bug nor a feature idea
+labels: [feedback]
+body:
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Your feedback
+      description: What worked, what got in the way, what was unclear.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Filled in automatically when you open this form from Help in the app.
+      placeholder: "2.8.1, Java 23, Windows 11"
+    validations:
+      required: false

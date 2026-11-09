@@ -41,6 +41,11 @@ public class HelpMenu extends JMenu {
         add(about);
         addSeparator();
 
+        addIssueItem("Report a bug (GitHub)...", GitHubIssueLink.Kind.BUG);
+        addIssueItem("Suggest an improvement (GitHub)...", GitHubIssueLink.Kind.FEATURE);
+        addIssueItem("Send feedback (GitHub)...", GitHubIssueLink.Kind.FEEDBACK);
+        addSeparator();
+
         JMenuItem license = new JMenuItem("License...");
         license.addActionListener(e -> {
             JDialog dialog = buildLicenseDialog();
@@ -68,6 +73,16 @@ public class HelpMenu extends JMenu {
                 + "Java: " + System.getProperty("java.version") + " (" + System.getProperty("java.vendor") + ")\n"
                 + "System: " + System.getProperty("os.name") + " " + System.getProperty("os.version")
                 + " " + System.getProperty("os.arch");
+    }
+
+    /**
+     * The "(GitHub)" in the label says where the report ends up: in the browser, under the
+     * reporter's own account. It leaves room for an in-app channel later without renaming.
+     */
+    private void addIssueItem(String label, GitHubIssueLink.Kind kind) {
+        JMenuItem item = new JMenuItem(label);
+        item.addActionListener(e -> openInBrowser(GitHubIssueLink.forKind(kind)));
+        add(item);
     }
 
     /** Builds the dialog without showing it, so it can also be rendered off-screen in tests. */
