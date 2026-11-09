@@ -23,9 +23,9 @@
 
 > [!TIP]
 > **Просто хочете скористатися застосунком?** Завантажте готовий редактор без збірки з джерел:
-> [Windows](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.1/petri-swing-ui-2.8.1-windows.zip) ·
-> [Linux](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.1/petri-swing-ui-2.8.1-linux.zip) ·
-> [macOS](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.1/petri-swing-ui-2.8.1-macos.zip)
+> [Windows](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.2/petri-swing-ui-2.8.2-windows.zip) ·
+> [Linux](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.2/petri-swing-ui-2.8.2-linux.zip) ·
+> [macOS](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/download/v2.8.2/petri-swing-ui-2.8.2-macos.zip)
 > (або перегляньте сторінку [останнього релізу](https://github.com/StetsenkoInna/PetriObjModelPaint/releases/latest)
 > для інших версій). Розпакуйте і запустіть лаунчер усередині (`.bat` / `.sh` / `.command`): він
 > перевіряє наявність Java 23+ і підкаже, звідки її завантажити, якщо її немає.
